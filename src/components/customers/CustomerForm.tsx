@@ -42,7 +42,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const [addressInput, setAddressInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null);
-  const suggestionsQuery = getGeocodeSuggestions(addressInput, setIsSearching);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
 
   useEffect(() => {
     if (customer) {
@@ -67,6 +67,20 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       });
     }
   }, [customer, reset]);
+
+  useEffect(() => {
+    let active = true;
+    if (addressInput && addressInput.length >= 3) {
+      setIsSearching(true);
+      getGeocodeSuggestions(addressInput, setIsSearching).then((results) => {
+        if (active) setSuggestions(results || []);
+      });
+    } else {
+      setSuggestions([]);
+      setIsSearching(false);
+    }
+    return () => { active = false; };
+  }, [addressInput]);
 
   const handleFormSubmit = (data: any) => {
     // Group address fields under 'address'
@@ -248,9 +262,9 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                       placeholder="Start typing address..."
                     />
                     {isSearching && <div className="text-xs text-gray-500 mt-1">Searching...</div>}
-                    {suggestionsQuery.data && suggestionsQuery.data.length > 0 && !selectedSuggestion && (
+                    {suggestions.length > 0 && !selectedSuggestion && (
                       <ul className="border border-gray-200 rounded bg-white mt-1 max-h-48 overflow-y-auto z-10 relative">
-                        {suggestionsQuery.data.map((s, idx) => (
+                        {suggestions.map((s, idx) => (
                           <li
                             key={idx}
                             className="px-3 py-2 cursor-pointer hover:bg-blue-50"
