@@ -21,15 +21,18 @@ export async function getGeocodeSuggestions(query, setIsSearching) {
     return response?.data?.features?.map((feature) => {
       // Parse address components
       const context = feature.context || [];
-      const getContext = (id) => context.find((c) => c.id.startsWith(id))?.text || '';
+      const getContext = (id) => context.find((c) => c.id.startsWith(id)) || {};
+      // Extract 2-letter country code
+      let countryCode = getContext('country').short_code || '';
+      countryCode = countryCode ? countryCode.toUpperCase() : '';
       return {
         display_name: feature.place_name,
         address_line1: feature.text || '',
         address_line2: '',
-        city: getContext('place'),
-        state: getContext('region'),
-        postal_code: getContext('postcode'),
-        country: getContext('country'),
+        city: getContext('place').text || '',
+        state: getContext('region').text || '',
+        postal_code: getContext('postcode').text || '',
+        country: countryCode,
         lat: feature.geometry.coordinates[1],
         lng: feature.geometry.coordinates[0],
       };
