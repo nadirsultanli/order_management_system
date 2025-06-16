@@ -61,8 +61,32 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     }
   }, [customer, reset]);
 
-  const handleFormSubmit = (data: CreateCustomerData) => {
-    onSubmit(data);
+  const handleFormSubmit = (data: any) => {
+    // Group address fields under 'address'
+    const {
+      address_label, line1, line2, city, state, postal_code, country,
+      delivery_window_start, delivery_window_end, is_primary, instructions,
+      ...customerFields
+    } = data;
+
+    const address = {
+      label: address_label,
+      line1,
+      line2,
+      city,
+      state,
+      postal_code,
+      country,
+      delivery_window_start,
+      delivery_window_end,
+      is_primary,
+      instructions,
+    };
+
+    onSubmit({
+      ...customerFields,
+      address,
+    });
   };
 
   if (!isOpen) return null;
