@@ -4,6 +4,7 @@ import { X, Loader2 } from 'lucide-react';
 import { Customer, CreateCustomerData } from '../../types/customer';
 import { getGeocodeSuggestions } from '../../utils/geocoding';
 import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -91,57 +92,50 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   }, [addressInput]);
 
   useEffect(() => {
-    if (mapContainer.current && latitude && longitude) {
+    if (!map && mapContainer.current && latitude && longitude) {
       mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
-      let newMap = map;
-      if (!map) {
-        newMap = new mapboxgl.Map({
-          container: mapContainer.current,
-          style: 'mapbox://styles/mapbox/streets-v11',
-          center: [longitude, latitude],
-          zoom: 14,
-        });
-        newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        setMap(newMap);
-        newMap.on('load', () => {
-          if (marker) marker.remove();
-          const newMarker = new mapboxgl.Marker({ anchor: 'center', draggable: isPinDraggable })
-            .setLngLat([longitude, latitude])
-            .addTo(newMap);
-          setMarker(newMarker);
-          newMap.setCenter([longitude, latitude]);
-          newMap.setZoom(14);
-          newMap.resize();
-          // Update lat/lng in form if marker is dragged
-          newMarker.on('dragend', () => {
-            const lngLat = newMarker.getLngLat();
-            setValue('latitude', lngLat.lat);
-            setValue('longitude', lngLat.lng);
-          });
-        });
-      } else {
-        newMap.setCenter([longitude, latitude]);
-        newMap.setZoom(14);
-        if (marker) marker.remove();
-        const newMarker = new mapboxgl.Marker({ anchor: 'center', draggable: isPinDraggable })
-          .setLngLat([longitude, latitude])
-          .addTo(newMap);
-        setMarker(newMarker);
+      const newMap = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [longitude, latitude],
+        zoom: 14,
+      });
+      newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      setMap(newMap);
+
+      const newMarker = new mapboxgl.Marker({ anchor: 'center', draggable: isPinDraggable })
+        .setLngLat([longitude, latitude])
+        .addTo(newMap);
+      setMarker(newMarker);
+
+      newMarker.on('dragend', () => {
+        const lngLat = newMarker.getLngLat();
+        setValue('latitude', lngLat.lat);
+        setValue('longitude', lngLat.lng);
+      });
+
+      newMap.on('load', () => {
         newMap.resize();
-        newMarker.on('dragend', () => {
-          const lngLat = newMarker.getLngLat();
-          setValue('latitude', lngLat.lat);
-          setValue('longitude', lngLat.lng);
-        });
-      }
+      });
     }
-    // Clean up map and marker on unmount
+  }, [mapContainer, latitude, longitude]);
+
+  useEffect(() => {
+    if (map && marker && latitude && longitude) {
+      marker.setLngLat([longitude, latitude]);
+      marker.setDraggable(isPinDraggable);
+      map.setCenter([longitude, latitude]);
+      map.setZoom(14);
+      map.resize();
+    }
+  }, [latitude, longitude, isPinDraggable, map, marker]);
+
+  useEffect(() => {
     return () => {
-      if (map) map.remove();
       if (marker) marker.remove();
+      if (map) map.remove();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [latitude, longitude, isPinDraggable]);
+  }, []);
 
   const handleFormSubmit = (data: any) => {
     // Group address fields under 'address'
