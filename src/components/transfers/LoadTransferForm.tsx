@@ -1,22 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { createLoadTransfer, getAvailableTrucks, TransferLine } from '../../lib/transfers';
+import { getCustomerOrders, Order } from '../../lib/orders';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 
 interface LoadTransferFormProps {
   onSuccess?: () => void;
+  customerId?: string;
 }
 
-export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess }) => {
+export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess, customerId }) => {
   const [trucks, setTrucks] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<string>('');
   const [lines, setLines] = useState<TransferLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   useEffect(() => {
     loadTrucks();
-  }, []);
+    if (customerId) {
+      loadCustomerOrders();
+    }
+  }, [customerId]);
+
+  const loadCustomerOrders = async () => {
+    if (!customerId) return;
+    setLoadingOrders(true);
+    try {
+      const orders = await getCustomerOrders(customerId);
+      setCustomerOrders(orders);
+    } catch (err) {
+      console.error('Failed to load customer orders:', err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
 
   const loadTrucks = async () => {
     try {
@@ -75,6 +95,52 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
               <h3 className="text-sm font-medium text-red-800">{error}</h3>
             </div>
           </div>
+        </div>
+      )}
+
+      {customerId && (
+        <div className="bg-white shadow rounded-lg p-4">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Orders</h3>
+          {loadingOrders ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            </div>
+          ) : customerOrders.length > 0 ? (
+            <div className="space-y-4">
+              {customerOrders.map((order) => (
+                <div key={order.id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-medium">Order #{order.id}</p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(order.order_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      order.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                      order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">Products:</p>
+                    <ul className="mt-1 space-y-1">
+                      {order.order_lines.map((line) => (
+                        <li key={line.id} className="text-sm">
+                          {line.product.name} - {line.quantity} units
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-4">No orders found for this customer</p>
+          )}
         </div>
       )}
 
