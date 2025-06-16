@@ -48,6 +48,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
   const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
+  const [isPinDraggable, setIsPinDraggable] = useState(false);
   const latitude = watch('latitude');
   const longitude = watch('longitude');
 
@@ -102,26 +103,45 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
         });
         newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
         setMap(newMap);
+        newMap.on('load', () => {
+          if (marker) marker.remove();
+          const newMarker = new mapboxgl.Marker({ anchor: 'center', draggable: isPinDraggable })
+            .setLngLat([longitude, latitude])
+            .addTo(newMap);
+          setMarker(newMarker);
+          newMap.setCenter([longitude, latitude]);
+          newMap.setZoom(14);
+          newMap.resize();
+          // Update lat/lng in form if marker is dragged
+          newMarker.on('dragend', () => {
+            const lngLat = newMarker.getLngLat();
+            setValue('latitude', lngLat.lat);
+            setValue('longitude', lngLat.lng);
+          });
+        });
       } else {
         newMap.setCenter([longitude, latitude]);
         newMap.setZoom(14);
+        if (marker) marker.remove();
+        const newMarker = new mapboxgl.Marker({ anchor: 'center', draggable: isPinDraggable })
+          .setLngLat([longitude, latitude])
+          .addTo(newMap);
+        setMarker(newMarker);
+        newMap.resize();
+        newMarker.on('dragend', () => {
+          const lngLat = newMarker.getLngLat();
+          setValue('latitude', lngLat.lat);
+          setValue('longitude', lngLat.lng);
+        });
       }
-      // Remove old marker
-      if (marker) {
-        marker.remove();
-      }
-      // Add new marker at the center
-      const newMarker = new mapboxgl.Marker({ anchor: 'center' })
-        .setLngLat([longitude, latitude])
-        .addTo(newMap);
-      setMarker(newMarker);
     }
     // Clean up map and marker on unmount
     return () => {
       if (map) map.remove();
       if (marker) marker.remove();
     };
-  }, [latitude, longitude]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latitude, longitude, isPinDraggable]);
 
   const handleFormSubmit = (data: any) => {
     // Group address fields under 'address'
@@ -337,7 +357,26 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                 {/* Under the address input, show the map if lat/lng are set */}
                 {latitude && longitude && (
                   <div className="mt-4">
-                    <div ref={mapContainer} style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden' }} />
+                    <div ref={mapContainer} style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden', position: 'relative' }} />
+                    <div className="flex justify-end mt-2">
+                      {!isPinDraggable ? (
+                        <button
+                          type="button"
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                          onClick={() => setIsPinDraggable(true)}
+                        >
+                          Adjust Pin
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                          onClick={() => setIsPinDraggable(false)}
+                        >
+                          Save Pin Location
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
