@@ -182,9 +182,11 @@ export const useStockAvailability = (productIds: string[]) => {
           product_id,
           qty_full,
           qty_reserved,
-          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name)
+          warehouse:warehouse_id(id, name)
         `)
         .in('product_id', validProductIds);
+
+      console.log('Raw inventory data:', data);
 
       if (error) {
         console.error('Stock availability error:', error);
@@ -199,6 +201,7 @@ export const useStockAvailability = (productIds: string[]) => {
       }> = {};
       
       data.forEach(item => {
+        console.log('Processing inventory item:', item);
         if (!productInventory[item.product_id]) {
           productInventory[item.product_id] = {
             total_full: 0,
@@ -218,9 +221,17 @@ export const useStockAvailability = (productIds: string[]) => {
         }
       });
 
+      console.log('Processed product inventory:', productInventory);
+
       const availability: StockAvailability[] = validProductIds.map(productId => {
         const inventory = productInventory[productId] || { total_full: 0, total_reserved: 0, warehouses: [] };
         const available = Math.max(0, inventory.total_full - inventory.total_reserved);
+        
+        console.log(`Product ${productId} availability:`, {
+          total_full: inventory.total_full,
+          total_reserved: inventory.total_reserved,
+          available
+        });
         
         return {
           product_id: productId,
@@ -229,6 +240,8 @@ export const useStockAvailability = (productIds: string[]) => {
           warehouse_name: inventory.warehouses[0]?.name,
         };
       });
+
+      console.log('Final availability array:', availability);
 
       return availability;
     },

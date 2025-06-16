@@ -163,10 +163,12 @@ export const CreateOrderPage: React.FC = () => {
 
   const getStockInfo = (productId: string) => {
     const stock = stockAvailability.find(s => s.product_id === productId);
+    console.log('Stock info for product', productId, ':', stock);
     return stock ? stock.available_quantity : 0;
   };
 
   const getStockStatusClass = (available: number) => {
+    console.log('Stock status for quantity', available);
     if (available === 0) return "text-red-600";
     if (available <= 10) return "text-yellow-600";
     return "text-green-600";
