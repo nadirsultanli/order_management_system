@@ -47,6 +47,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
+  const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
   const latitude = watch('latitude');
   const longitude = watch('longitude');
 
@@ -90,32 +91,35 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
   useEffect(() => {
     if (mapContainer.current && latitude && longitude) {
+      mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
+      let newMap = map;
       if (!map) {
-        mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
-        const newMap = new mapboxgl.Map({
+        newMap = new mapboxgl.Map({
           container: mapContainer.current,
           style: 'mapbox://styles/mapbox/streets-v11',
           center: [longitude, latitude],
           zoom: 14,
         });
         newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
-        new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(newMap);
         setMap(newMap);
       } else {
-        map.setCenter([longitude, latitude]);
-        map.setZoom(14);
-        // Remove old markers
-        map.eachLayer((layer) => {
-          if (layer.id.startsWith('marker')) {
-            map.removeLayer(layer.id);
-          }
-        });
-        new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(map);
+        newMap.setCenter([longitude, latitude]);
+        newMap.setZoom(14);
       }
+      // Remove old marker
+      if (marker) {
+        marker.remove();
+      }
+      // Add new marker at the center
+      const newMarker = new mapboxgl.Marker({ anchor: 'center' })
+        .setLngLat([longitude, latitude])
+        .addTo(newMap);
+      setMarker(newMarker);
     }
-    // Clean up map on unmount
+    // Clean up map and marker on unmount
     return () => {
       if (map) map.remove();
+      if (marker) marker.remove();
     };
   }, [latitude, longitude]);
 
