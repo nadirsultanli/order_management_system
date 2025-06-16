@@ -9,7 +9,8 @@ import {
   Settings,
   X,
   BarChart3,
-  DollarSign
+  DollarSign,
+  Truck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Inventory', href: '/inventory', icon: BarChart3 },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
+  { name: 'Transfers', href: '/transfers', icon: Truck },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
