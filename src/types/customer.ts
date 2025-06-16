@@ -34,6 +34,10 @@ export interface CreateCustomerAddressInput {
   instructions?: string;
 }
 
+/**
+ * When creating a customer, the address property is used for atomic creation of both customer and address via a transaction (RPC).
+ * Address fields are NOT inserted into the customers table directly.
+ */
 export interface CreateCustomerData {
   external_id?: string;
   name: string;

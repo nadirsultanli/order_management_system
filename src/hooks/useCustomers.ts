@@ -144,27 +144,9 @@ export const useCreateCustomer = () => {
 
   return useMutation({
     mutationFn: async (customerData: CreateCustomerData) => {
-      console.log('Creating customer:', customerData);
-      // 1. Create the customer (without address fields)
+      console.log('Creating customer with address (atomic RPC):', customerData);
       const { address, ...customerFields } = customerData;
-      const { data: customer, error: customerError } = await supabase
-        .from('customers')
-        .insert([
-          {
-            ...customerFields,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ])
-        .select()
-        .single();
-
-      if (customerError) {
-        console.error('Create customer error:', customerError);
-        throw new Error(customerError.message);
-      }
-
-      // 2. Geocode the address
+      // Geocode address
       let latitude: number | undefined = undefined;
       let longitude: number | undefined = undefined;
       try {
@@ -176,42 +158,38 @@ export const useCreateCustomer = () => {
       } catch (err) {
         console.warn('Geocoding failed, proceeding without coordinates', err);
       }
-
-      // 3. Create the address as the primary address, linked to the new customer
-      const addressData: CreateAddressData = {
-        customer_id: customer.id,
-        label: address.label,
-        line1: address.line1,
-        line2: address.line2,
-        city: address.city,
-        state: address.state,
-        postal_code: address.postal_code,
-        country: address.country,
-        latitude,
-        longitude,
-        delivery_window_start: address.delivery_window_start,
-        delivery_window_end: address.delivery_window_end,
-        is_primary: true,
-        instructions: address.instructions,
-      };
-      const { data: createdAddress, error: addressError } = await supabase
-        .from('addresses')
-        .insert([addressData])
-        .select()
-        .single();
-      if (addressError) {
-        console.error('Create address error:', addressError);
-        throw new Error(addressError.message);
+      // Call the RPC
+      const { data, error } = await supabase.rpc('create_customer_with_address', {
+        p_name: customerFields.name,
+        p_external_id: customerFields.external_id,
+        p_tax_id: customerFields.tax_id,
+        p_phone: customerFields.phone,
+        p_email: customerFields.email,
+        p_account_status: customerFields.account_status,
+        p_credit_terms_days: customerFields.credit_terms_days,
+        p_label: address.label,
+        p_line1: address.line1,
+        p_line2: address.line2,
+        p_city: address.city,
+        p_state: address.state,
+        p_postal_code: address.postal_code,
+        p_country: address.country,
+        p_latitude: latitude,
+        p_longitude: longitude,
+        p_delivery_window_start: address.delivery_window_start,
+        p_delivery_window_end: address.delivery_window_end,
+        p_is_primary: true,
+        p_instructions: address.instructions,
+      });
+      if (error) {
+        console.error('Create customer+address RPC error:', error);
+        throw new Error(error.message);
       }
-
-      // 4. Return the customer with the primary address attached if possible
-      return {
-        ...customer,
-        primary_address: createdAddress,
-      };
+      // Return the IDs (you can fetch the full customer/address if needed)
+      return data?.[0];
     },
     onSuccess: (data) => {
-      console.log('Customer created successfully:', data);
+      console.log('Customer and address created successfully (atomic RPC):', data);
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       toast.success('Customer and primary address created successfully');
     },
