@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2 } from 'lucide-react';
 import { Customer, CreateCustomerData } from '../../types/customer';
 import { getGeocodeSuggestions } from '../../utils/geocoding';
+import mapboxgl from 'mapbox-gl';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     reset,
     formState: { errors },
     setValue,
+    watch,
   } = useForm<CreateCustomerData>({
     defaultValues: {
       name: '',
@@ -43,6 +45,10 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const [map, setMap] = useState<mapboxgl.Map | null>(null);
+  const latitude = watch('latitude');
+  const longitude = watch('longitude');
 
   useEffect(() => {
     if (customer) {
@@ -81,6 +87,37 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     }
     return () => { active = false; };
   }, [addressInput]);
+
+  useEffect(() => {
+    if (mapContainer.current && latitude && longitude) {
+      if (!map) {
+        mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
+        const newMap = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [longitude, latitude],
+          zoom: 14,
+        });
+        newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(newMap);
+        setMap(newMap);
+      } else {
+        map.setCenter([longitude, latitude]);
+        map.setZoom(14);
+        // Remove old markers
+        map.eachLayer((layer) => {
+          if (layer.id.startsWith('marker')) {
+            map.removeLayer(layer.id);
+          }
+        });
+        new mapboxgl.Marker().setLngLat([longitude, latitude]).addTo(map);
+      }
+    }
+    // Clean up map on unmount
+    return () => {
+      if (map) map.remove();
+    };
+  }, [latitude, longitude]);
 
   const handleFormSubmit = (data: any) => {
     // Group address fields under 'address'
@@ -292,6 +329,13 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Under the address input, show the map if lat/lng are set */}
+                {latitude && longitude && (
+                  <div className="mt-4">
+                    <div ref={mapContainer} style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden' }} />
+                  </div>
+                )}
               </div>
             </div>
 

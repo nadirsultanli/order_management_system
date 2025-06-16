@@ -21,7 +21,6 @@ import { CreateOrderPage } from './pages/CreateOrderPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrderSchedulePage } from './pages/OrderSchedulePage';
 import { OrderReportsPage } from './pages/OrderReportsPage';
-import { SettingsPage } from './pages/SettingsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +61,6 @@ function App() {
               <Route path="orders/schedule" element={<OrderSchedulePage />} />
               <Route path="orders/reports" element={<OrderReportsPage />} />
               <Route path="orders/:id" element={<OrderDetailPage />} />
-              <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>
         </Router>
