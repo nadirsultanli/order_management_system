@@ -1,6 +1,10 @@
 import axios from 'axios';
 
 export async function getGeocodeSuggestions(query, setIsSearching) {
+  if (!query || query.trim().length < 3) {
+    setIsSearching(false);
+    return [];
+  }
   setIsSearching(true);
   try {
     const response = await axios.get(
