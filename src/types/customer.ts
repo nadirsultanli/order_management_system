@@ -20,6 +20,20 @@ export interface Customer {
   };
 }
 
+export interface CreateCustomerAddressInput {
+  label?: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state?: string;
+  postal_code?: string;
+  country: string;
+  delivery_window_start?: string;
+  delivery_window_end?: string;
+  is_primary?: boolean;
+  instructions?: string;
+}
+
 export interface CreateCustomerData {
   external_id?: string;
   name: string;
@@ -28,6 +42,7 @@ export interface CreateCustomerData {
   email?: string;
   account_status: 'active' | 'credit_hold' | 'closed';
   credit_terms_days: number;
+  address: CreateCustomerAddressInput;
 }
 
 export interface UpdateCustomerData extends Partial<CreateCustomerData> {

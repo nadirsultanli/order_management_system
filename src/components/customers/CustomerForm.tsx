@@ -198,6 +198,65 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                     )}
                   </div>
                 </div>
+
+                {/* Address Information Section */}
+                <div className="pt-4 border-t border-gray-200 mt-4">
+                  <h4 className="text-md font-semibold text-gray-900 mb-2">Address Information</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="address_label" className="block text-sm font-medium text-gray-700">Address Label</label>
+                      <input type="text" id="address_label" {...register('address_label')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label htmlFor="line1" className="block text-sm font-medium text-gray-700">Address Line 1 *</label>
+                      <input type="text" id="line1" {...register('line1', { required: 'Address Line 1 is required' })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      {errors.line1 && (<p className="mt-1 text-sm text-red-600">{errors.line1.message}</p>)}
+                    </div>
+                    <div>
+                      <label htmlFor="line2" className="block text-sm font-medium text-gray-700">Address Line 2</label>
+                      <input type="text" id="line2" {...register('line2')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="city" className="block text-sm font-medium text-gray-700">City *</label>
+                        <input type="text" id="city" {...register('city', { required: 'City is required' })} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        {errors.city && (<p className="mt-1 text-sm text-red-600">{errors.city.message}</p>)}
+                      </div>
+                      <div>
+                        <label htmlFor="state" className="block text-sm font-medium text-gray-700">State/Province</label>
+                        <input type="text" id="state" {...register('state')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700">Postal Code</label>
+                        <input type="text" id="postal_code" {...register('postal_code')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label htmlFor="country" className="block text-sm font-medium text-gray-700">Country</label>
+                        <input type="text" id="country" {...register('country')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="delivery_window_start" className="block text-sm font-medium text-gray-700">Delivery Window Start</label>
+                        <input type="time" id="delivery_window_start" {...register('delivery_window_start')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                      <div>
+                        <label htmlFor="delivery_window_end" className="block text-sm font-medium text-gray-700">Delivery Window End</label>
+                        <input type="time" id="delivery_window_end" {...register('delivery_window_end')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">Special Instructions</label>
+                      <textarea id="instructions" {...register('instructions')} className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <div className="flex items-center">
+                      <input type="checkbox" id="is_primary" {...register('is_primary')} className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" defaultChecked />
+                      <label htmlFor="is_primary" className="ml-2 block text-sm text-gray-700">Set as primary address</label>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
