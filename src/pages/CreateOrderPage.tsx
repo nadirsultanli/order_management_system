@@ -41,8 +41,12 @@ export const CreateOrderPage: React.FC = () => {
   const priceLists = priceListsData?.priceLists || [];
   const defaultPriceList = priceLists.find(pl => pl.is_default);
   
-  const productIds = orderLines.map(line => line.product_id);
-  const { data: stockAvailability = [] } = useStockAvailability(productIds);
+  // Get all active product IDs for stock availability check
+  const activeProductIds = products
+    .filter(p => p.status === 'active')
+    .map(p => p.id);
+  
+  const { data: stockAvailability = [] } = useStockAvailability(activeProductIds);
   const { data: priceListItems = [] } = usePriceListItems(defaultPriceList?.id || '');
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
