@@ -1,5 +1,14 @@
 import { supabase } from './supabase';
 
+export interface TruckInventoryItem {
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  qty_full: number;
+  qty_empty: number;
+  updated_at: string;
+}
+
 export interface TransferLine {
   product_id: string;
   qty_full: number;
@@ -29,6 +38,16 @@ export interface TransferData {
   warehouse_id: string;
   lines: TransferLine[];
 }
+
+export const getTruckInventory = async (truckId: string): Promise<TruckInventoryItem[]> => {
+  const { data, error } = await supabase
+    .rpc('get_truck_inventory', {
+      p_truck_id: truckId
+    });
+
+  if (error) throw error;
+  return data || [];
+};
 
 export const createLoadTransfer = async (data: TransferData) => {
   const { data: result, error } = await supabase
@@ -73,20 +92,6 @@ export const getTransfers = async (type?: 'load' | 'return') => {
   }
 
   const { data, error } = await query;
-  if (error) throw error;
-  return data;
-};
-
-export const getTruckInventory = async (truckId: string) => {
-  const { data, error } = await supabase
-    .from('inventory_balance')
-    .select(`
-      *,
-      warehouse:warehouse_id(name),
-      product:product_id(name, sku)
-    `)
-    .eq('warehouse_id', truckId);
-
   if (error) throw error;
   return data;
 };
