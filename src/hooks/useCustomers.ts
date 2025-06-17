@@ -25,7 +25,15 @@ export const useCustomers = (filters: CustomerFilters = {}) => {
             city,
             state,
             postal_code,
-            country
+            country,
+            label,
+            latitude,
+            longitude,
+            delivery_window_start,
+            delivery_window_end,
+            is_primary,
+            instructions,
+            created_at
           )
         `, { count: 'exact' })
         .eq('addresses.is_primary', true)
