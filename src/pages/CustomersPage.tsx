@@ -41,9 +41,26 @@ export const CustomersPage: React.FC = () => {
     navigate(`/customers/${customer.id}`);
   };
 
-  const handleDeleteCustomer = (customer: Customer) => {
-    console.log('Deleting customer:', customer);
-    setDeletingCustomer(customer);
+  const handleDeleteCustomer = async (customer: Customer) => {
+    if (window.confirm('Are you sure you want to delete this customer?')) {
+      try {
+        await deleteCustomer(customer.id);
+        setDeletingCustomer(null);
+      } catch (error) {
+        console.error('Error deleting customer:', error);
+        alert('Failed to delete customer. Please try again.');
+      }
+    }
+  };
+
+  const handleStatusChange = async (customer: Customer, newStatus: 'active' | 'credit_hold' | 'closed') => {
+    try {
+      await updateCustomer(customer.id, { account_status: newStatus });
+      setDeletingCustomer(null);
+    } catch (error) {
+      console.error('Error updating customer status:', error);
+      alert('Failed to update customer status. Please try again.');
+    }
   };
 
   const handleFormSubmit = async (data: CreateCustomerData) => {
@@ -118,6 +135,7 @@ export const CustomersPage: React.FC = () => {
         loading={isLoading}
         onView={handleViewCustomer}
         onDelete={handleDeleteCustomer}
+        onStatusChange={handleStatusChange}
       />
 
       {data && data.totalPages > 1 && (

@@ -16,9 +16,10 @@ interface TruckDetails {
 interface TruckTableProps {
   trucks: TruckDetails[];
   loading?: boolean;
+  onStatusChange: (truck: TruckDetails, newStatus: boolean) => void;
 }
 
-export const TruckTable: React.FC<TruckTableProps> = ({ trucks, loading }) => {
+export const TruckTable: React.FC<TruckTableProps> = ({ trucks, loading, onStatusChange }) => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-32">
@@ -125,11 +126,14 @@ export const TruckTable: React.FC<TruckTableProps> = ({ trucks, loading }) => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    truck.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {truck.active ? 'Active' : 'Inactive'}
-                  </span>
+                  <select
+                    value={truck.active ? 'active' : 'inactive'}
+                    onChange={(e) => onStatusChange(truck, e.target.value === 'active')}
+                    className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <Link

@@ -74,6 +74,24 @@ export const TrucksPage: React.FC = () => {
     }
   };
 
+  const handleStatusChange = async (truck: TruckWithInventory, newStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('truck')
+        .update({ active: newStatus })
+        .eq('id', truck.id);
+
+      if (error) throw error;
+
+      setTrucks(trucks.map(t => 
+        t.id === truck.id ? { ...t, active: newStatus } : t
+      ));
+    } catch (err: any) {
+      console.error('Error updating truck status:', err);
+      alert('Failed to update truck status. Please try again.');
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -102,7 +120,11 @@ export const TrucksPage: React.FC = () => {
         </div>
       )}
 
-      <TruckTable trucks={trucks} loading={loading} />
+      <TruckTable 
+        trucks={trucks} 
+        loading={loading} 
+        onStatusChange={handleStatusChange}
+      />
     </div>
   );
 }; 

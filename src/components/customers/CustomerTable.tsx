@@ -9,6 +9,7 @@ interface CustomerTableProps {
   loading?: boolean;
   onView: (customer: Customer) => void;
   onDelete: (customer: Customer) => void;
+  onStatusChange: (customer: Customer, newStatus: 'active' | 'credit_hold' | 'closed') => void;
 }
 
 export const CustomerTable: React.FC<CustomerTableProps> = ({
@@ -16,6 +17,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
   loading = false,
   onView,
   onDelete,
+  onStatusChange,
 }) => {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -142,7 +144,15 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <StatusBadge status={customer.account_status} />
+                  <select
+                    value={customer.account_status}
+                    onChange={(e) => onStatusChange(customer, e.target.value as 'active' | 'credit_hold' | 'closed')}
+                    className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="active">Active</option>
+                    <option value="credit_hold">Credit Hold</option>
+                    <option value="closed">Closed</option>
+                  </select>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {customer.credit_terms_days} days
