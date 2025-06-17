@@ -85,7 +85,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           product_name: product.name,
           product_sku: product.sku,
           unit_of_measure: product.unit_of_measure,
-          quantity: 0
+          quantity: ''
         });
       }
       setLines(newLines);
@@ -231,9 +231,10 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
                     value={line.quantity}
                     onChange={(e) => {
                       const newLines = [...lines];
-                      newLines[index].quantity = parseInt(e.target.value) || 0;
+                      newLines[index].quantity = e.target.value === '' ? '' : parseInt(e.target.value);
                       setLines(newLines);
                     }}
+                    placeholder="Quantity"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
