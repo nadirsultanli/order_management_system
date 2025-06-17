@@ -25,7 +25,7 @@ export const useTrucks = () => {
     queryFn: async () => {
       // Get all trucks
       const { data: trucksData, error: trucksError } = await supabase
-        .from('trucks')
+        .from('truck')
         .select('*')
         .order('fleet_number');
 
@@ -66,7 +66,7 @@ export const useTrucks = () => {
   const createTruck = useMutation({
     mutationFn: async (data: Omit<Truck, 'id' | 'created_at' | 'updated_at'>) => {
       const { data: newTruck, error } = await supabase
-        .from('trucks')
+        .from('truck')
         .insert([data])
         .select()
         .single();
@@ -88,7 +88,7 @@ export const useTrucks = () => {
       data: Partial<Omit<Truck, 'id' | 'created_at' | 'updated_at'>>;
     }) => {
       const { data: updatedTruck, error } = await supabase
-        .from('trucks')
+        .from('truck')
         .update(data)
         .eq('id', id)
         .select()
@@ -104,7 +104,7 @@ export const useTrucks = () => {
 
   const deleteTruck = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('trucks').delete().eq('id', id);
+      const { error } = await supabase.from('truck').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -56,7 +56,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       if (initialData?.id) {
         // Update existing truck
         const { data: updatedTruck, error } = await supabase
-          .from('trucks')
+          .from('truck')
           .update(data)
           .eq('id', initialData.id)
           .select()
@@ -67,7 +67,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       } else {
         // Create new truck
         const { data: newTruck, error } = await supabase
-          .from('trucks')
+          .from('truck')
           .insert([data])
           .select()
           .single();

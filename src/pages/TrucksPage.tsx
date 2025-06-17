@@ -31,7 +31,7 @@ export const TrucksPage: React.FC = () => {
 
       // Get all trucks
       const { data: trucksData, error: trucksError } = await supabase
-        .from('trucks')
+        .from('truck')
         .select('*')
         .order('fleet_number');
 

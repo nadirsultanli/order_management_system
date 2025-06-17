@@ -36,7 +36,7 @@ export const TruckDetailPage: React.FC = () => {
 
       // Get truck details
       const { data: truckData, error: truckError } = await supabase
-        .from('trucks')
+        .from('truck')
         .select('*')
         .eq('id', id)
         .single();
