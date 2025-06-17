@@ -1,44 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { createLoadTransfer, getAvailableTrucks, TransferLine } from '../../lib/transfers';
-import { getCustomerOrders, Order } from '../../lib/orders';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { Search, Truck, Package, Plus, X } from 'lucide-react';
+import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
+import { useWarehouses } from '../../hooks/useWarehouses';
 
 interface LoadTransferFormProps {
   onSuccess?: () => void;
-  customerId?: string;
 }
 
-export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess, customerId }) => {
+export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess }) => {
   const [trucks, setTrucks] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<string>('');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
   const [lines, setLines] = useState<TransferLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const { data: warehouses = [] } = useWarehouses();
 
   useEffect(() => {
     loadTrucks();
-    if (customerId) {
-      loadCustomerOrders();
-    }
-  }, [customerId]);
-
-  const loadCustomerOrders = async () => {
-    if (!customerId) return;
-    setLoadingOrders(true);
-    try {
-      const orders = await getCustomerOrders(customerId);
-      setCustomerOrders(orders);
-    } catch (err) {
-      console.error('Failed to load customer orders:', err);
-    } finally {
-      setLoadingOrders(false);
-    }
-  };
+  }, []);
 
   const loadTrucks = async () => {
     try {
@@ -51,8 +34,8 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess, c
   };
 
   const handleSubmit = async () => {
-    if (!selectedTruck || lines.length === 0) {
-      setError('Please select a truck and add at least one product');
+    if (!selectedTruck || !selectedWarehouse || lines.length === 0) {
+      setError('Please select a truck, warehouse, and add at least one product');
       return;
     }
 
@@ -60,11 +43,12 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess, c
     setError(null);
 
     try {
-      await createLoadTransfer(selectedTruck, lines);
+      await createLoadTransfer(selectedTruck, selectedWarehouse, lines);
       setShowConfirm(false);
       if (onSuccess) onSuccess();
       // Reset form
       setSelectedTruck('');
+      setSelectedWarehouse('');
       setLines([]);
     } catch (err) {
       setError('Failed to create transfer');
@@ -105,121 +89,100 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess, c
         </div>
       )}
 
-      {customerId && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Customer Orders</h3>
-          {loadingOrders ? (
-            <div className="text-center py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            </div>
-          ) : customerOrders.length > 0 ? (
-            <div className="space-y-4">
-              {customerOrders.map((order) => (
-                <div key={order.id} className="border rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium">Order #{order.id}</p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(order.order_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                      order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-blue-100 text-blue-800'
-                    }`}>
-                      {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">Products:</p>
-                    <ul className="mt-1 space-y-1">
-                      {order.order_lines.map((line) => (
-                        <li key={line.id} className="text-sm">
-                          {line.product.name} - {line.quantity} units
-                        </li>
-                      ))}
-                    </ul>
+      <div className="bg-white shadow rounded-lg p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Truck Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Truck
+            </label>
+            <div className="relative">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by fleet number or license plate..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              {searchTerm && (
+                <div className="absolute z-10 mt-1 w-full rounded-md bg-white shadow-lg">
+                  <div className="max-h-60 overflow-auto">
+                    {filteredTrucks.length === 0 ? (
+                      <div className="px-4 py-2 text-sm text-gray-500">No trucks found</div>
+                    ) : (
+                      filteredTrucks.map((truck) => (
+                        <div
+                          key={truck.id}
+                          onClick={() => {
+                            setSelectedTruck(truck.id);
+                            setSearchTerm('');
+                          }}
+                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer"
+                        >
+                          <div className="font-medium text-gray-900">
+                            <Truck className="inline h-4 w-4 mr-1" />
+                            {truck.fleet_number}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            License: {truck.license_plate}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">No orders found for this customer</p>
-          )}
-        </div>
-      )}
-
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Truck
-          </label>
-          <div className="relative">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search by fleet number or license plate..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            {searchTerm && (
-              <div className="absolute z-10 mt-1 w-full rounded-md bg-white shadow-lg">
-                <div className="max-h-60 overflow-auto">
-                  {filteredTrucks.length === 0 ? (
-                    <div className="px-4 py-2 text-sm text-gray-500">No trucks found</div>
-                  ) : (
-                    filteredTrucks.map((truck) => (
-                      <div
-                        key={truck.id}
-                        onClick={() => {
-                          setSelectedTruck(truck.id);
-                          setSearchTerm('');
-                        }}
-                        className="px-4 py-2 hover:bg-blue-50 cursor-pointer"
-                      >
-                        <div className="font-medium text-gray-900">
-                          <Truck className="inline h-4 w-4 mr-1" />
-                          {truck.fleet_number}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          License: {truck.license_plate}
-                        </div>
-                      </div>
-                    ))
-                  )}
+            {selectedTruck && (
+              <div className="mt-2 p-3 bg-blue-50 rounded-md">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      <Truck className="inline h-4 w-4 mr-1" />
+                      {trucks.find(t => t.id === selectedTruck)?.fleet_number}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      License: {trucks.find(t => t.id === selectedTruck)?.license_plate}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedTruck('')}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             )}
           </div>
-          {selectedTruck && (
-            <div className="mt-2 p-3 bg-blue-50 rounded-md">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-medium text-gray-900">
-                    <Truck className="inline h-4 w-4 mr-1" />
-                    {trucks.find(t => t.id === selectedTruck)?.fleet_number}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    License: {trucks.find(t => t.id === selectedTruck)?.license_plate}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedTruck('')}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+
+          {/* Warehouse Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Source Warehouse
+            </label>
+            <div className="relative">
+              <select
+                value={selectedWarehouse}
+                onChange={(e) => setSelectedWarehouse(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select a warehouse...</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                  </option>
+                ))}
+              </select>
+              <Warehouse className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             </div>
-          )}
+          </div>
         </div>
 
-        <div>
+        <div className="mt-6">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium text-gray-900">Transfer Lines</h3>
             <button
@@ -271,7 +234,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess, c
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          disabled={loading || !selectedTruck || lines.length === 0}
+          disabled={loading || !selectedTruck || !selectedWarehouse || lines.length === 0}
           className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Create Transfer
@@ -283,7 +246,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess, c
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
         title="Confirm Transfer"
-        message="Are you sure you want to create this transfer? This will move inventory from the depot to the truck."
+        message="Are you sure you want to create this transfer? This will move inventory from the warehouse to the truck."
         confirmText="Create Transfer"
         type="info"
         loading={loading}
