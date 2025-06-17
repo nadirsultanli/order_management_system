@@ -158,3 +158,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
+export const getAddressSummary = (address?: Address): string => {
+  if (
+    !address ||
+    !address.line1 ||
+    !address.city ||
+    !address.country ||
+    !address.postal_code
+  ) {
+    return 'Address incomplete';
+  }
+  return formatAddress(address);
+};
