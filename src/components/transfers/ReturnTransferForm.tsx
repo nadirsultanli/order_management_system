@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createReturnTransfer, getAvailableTrucks, TransferLine } from '../../lib/transfers';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
-import { useWarehouses } from '../../hooks/useWarehouses';
+import { useWarehouseOptions } from '../../hooks/useWarehouses';
 
 interface ReturnTransferFormProps {
   onSuccess?: () => void;
@@ -17,7 +17,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: warehouses = [] } = useWarehouses();
+  const { data: warehouses = [] } = useWarehouseOptions();
 
   useEffect(() => {
     loadTrucks();
