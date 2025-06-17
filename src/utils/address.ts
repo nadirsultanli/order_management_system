@@ -86,7 +86,5 @@ export const geocodeAddress = async (address: Partial<Address>): Promise<{ latit
 
 export const getAddressSummary = (address?: Address): string => {
   if (!address) return 'No address';
-  
-  const parts = [address.city, address.state].filter(Boolean);
-  return parts.join(', ') || 'Address incomplete';
+  return formatAddress(address) || 'Address incomplete';
 };
