@@ -54,9 +54,19 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       }
 
       // Validate quantities
-      const invalidLines = lines.filter(line => !line.qty_full || line.qty_full <= 0);
+      const invalidLines = lines.filter(line => 
+        (!line.qty_full || line.qty_full < 0) && (!line.qty_empty || line.qty_empty < 0)
+      );
       if (invalidLines.length > 0) {
         throw new Error('Please enter valid quantities for all products');
+      }
+
+      // Validate at least one quantity is positive
+      const emptyLines = lines.filter(line => 
+        (line.qty_full || 0) === 0 && (line.qty_empty || 0) === 0
+      );
+      if (emptyLines.length > 0) {
+        throw new Error('Each line must have at least one full or empty cylinder');
       }
 
       // Prepare the data
@@ -65,7 +75,8 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         warehouse_id: selectedWarehouse,
         lines: lines.map(line => ({
           product_id: line.product_id,
-          qty_full: line.qty_full
+          qty_full: line.qty_full || 0,
+          qty_empty: line.qty_empty || 0
         }))
       };
 
@@ -115,7 +126,8 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           product_name: product.name,
           product_sku: product.sku,
           unit_of_measure: product.unit_of_measure,
-          qty_full: ''
+          qty_full: '',
+          qty_empty: ''
         });
       }
       setLines(newLines);
@@ -254,19 +266,37 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
                   <div className="font-medium text-gray-900">{line.product_name}</div>
                   <div className="text-sm text-gray-500">SKU: {line.product_sku}</div>
                 </div>
-                <div className="w-32">
-                  <input
-                    type="number"
-                    min="0"
-                    value={line.qty_full}
-                    onChange={(e) => {
-                      const newLines = [...lines];
-                      newLines[index].qty_full = e.target.value === '' ? '' : parseInt(e.target.value);
-                      setLines(newLines);
-                    }}
-                    placeholder="Quantity"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
+                <div className="flex space-x-4">
+                  <div className="w-32">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Cylinders</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={line.qty_full}
+                      onChange={(e) => {
+                        const newLines = [...lines];
+                        newLines[index].qty_full = e.target.value === '' ? '' : parseInt(e.target.value);
+                        setLines(newLines);
+                      }}
+                      placeholder="Quantity"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Empty Cylinders</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={line.qty_empty}
+                      onChange={(e) => {
+                        const newLines = [...lines];
+                        newLines[index].qty_empty = e.target.value === '' ? '' : parseInt(e.target.value);
+                        setLines(newLines);
+                      }}
+                      placeholder="Quantity"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
                 </div>
                 <button
                   type="button"

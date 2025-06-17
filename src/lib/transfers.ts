@@ -11,7 +11,11 @@ export interface TruckInventoryItem {
 
 export interface TransferLine {
   product_id: string;
+  product_name?: string;
+  product_sku?: string;
+  unit_of_measure?: string;
   qty_full: number;
+  qty_empty: number;
 }
 
 export interface Transfer {
