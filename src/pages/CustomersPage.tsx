@@ -63,9 +63,7 @@ export const CustomersPage: React.FC = () => {
 
       if (error) throw error;
 
-      setCustomers(customers.map(c => 
-        c.id === customer.id ? { ...c, account_status: newStatus } : c
-      ));
+      refetch();
     } catch (error) {
       console.error('Error updating customer status:', error);
       alert('Failed to update customer status. Please try again.');
