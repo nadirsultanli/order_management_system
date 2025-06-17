@@ -63,7 +63,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
           .from('truck')
           .update(data)
           .eq('id', initialData.id)
-          .select()
+          .select('*')
           .single();
 
         if (error) {
@@ -78,7 +78,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
         const { data: newTruck, error } = await supabase
           .from('truck')
           .insert([data])
-          .select()
+          .select('*')
           .single();
 
         if (error) {
@@ -89,16 +89,21 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
         result = newTruck;
       }
 
+      if (!result) {
+        throw new Error('No response received from server');
+      }
+
+      console.log('Operation successful, result:', result);
+      
       if (onSuccess) {
         onSuccess();
-      } else if (result) {
-        navigate(`/trucks/${result.id}`);
       } else {
-        throw new Error('No result returned from the server');
+        console.log('Navigating to:', `/trucks/${result.id}`);
+        navigate(`/trucks/${result.id}`);
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to save truck');
       console.error('Form submission error:', err);
+      setError(err.message || 'Failed to save truck');
     } finally {
       setLoading(false);
     }

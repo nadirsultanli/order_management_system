@@ -166,41 +166,36 @@ export const TruckDetailPage: React.FC = () => {
 
         <div className="px-6 py-5 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Truck Information</h3>
-            <dl className="grid grid-cols-1 gap-4">
+            <h2 className="text-xl font-semibold mb-4">Truck Information</h2>
+            <div className="space-y-4">
               <div>
-                <dt className="text-sm font-medium text-gray-500">License Plate</dt>
-                <dd className="mt-1 text-sm text-gray-900">{truck.license_plate}</dd>
+                <h3 className="text-sm font-medium text-gray-500">License Plate</h3>
+                <p className="mt-1">{truck.license_plate}</p>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Driver</dt>
-                <dd className="mt-1 text-sm text-gray-900">{truck.driver_name || 'Unassigned'}</dd>
+                <h3 className="text-sm font-medium text-gray-500">Driver</h3>
+                <p className="mt-1">{truck.driver_name || 'Not assigned'}</p>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Capacity</dt>
-                <dd className="mt-1 text-sm text-gray-900">{truck.capacity_cyl} cylinders</dd>
+                <h3 className="text-sm font-medium text-gray-500">Capacity</h3>
+                <p className="mt-1">{truck.capacity_cyl} cylinders</p>
               </div>
-            </dl>
+            </div>
           </div>
 
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Current Load</h3>
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-gray-500">
-                  {totalCylinders} / {truck.capacity_cyl} cylinders
-                </span>
-                {isOverloaded && (
-                  <span className="text-xs font-medium text-red-600">Overloaded</span>
-                )}
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+            <h2 className="text-xl font-semibold mb-4">Current Load</h2>
+            <div className="space-y-4">
+              <p className="text-lg font-medium">
+                {totalCylinders} / {truck.capacity_cyl} cylinders
+              </p>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
-                  className={`h-2 rounded-full ${
-                    isOverloaded ? 'bg-red-500' : 'bg-blue-500'
-                  }`}
-                  style={{ width: `${Math.min(capacityPercentage, 100)}%` }}
-                />
+                  className="bg-blue-600 h-2.5 rounded-full"
+                  style={{
+                    width: `${(totalCylinders / (truck.capacity_cyl || 1)) * 100}%`
+                  }}
+                ></div>
               </div>
             </div>
 
