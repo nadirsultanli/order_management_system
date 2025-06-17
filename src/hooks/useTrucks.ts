@@ -6,7 +6,7 @@ export interface Truck {
   id: string;
   fleet_number: string;
   license_plate: string;
-  capacity_cyl: number;
+  capacity_cylinders: number;
   driver_name: string | null;
   active: boolean;
   created_at: string;

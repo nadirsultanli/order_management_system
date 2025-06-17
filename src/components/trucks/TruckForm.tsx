@@ -8,7 +8,7 @@ interface TruckFormProps {
     id: string;
     fleet_number: string;
     license_plate: string;
-    capacity_cyl: number;
+    capacity_cylinders: number;
     driver_name: string | null;
     active: boolean;
   };
@@ -22,7 +22,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
   const [formData, setFormData] = useState({
     fleet_number: initialData?.fleet_number || '',
     license_plate: initialData?.license_plate || '',
-    capacity_cyl: initialData?.capacity_cyl || 0,
+    capacity_cylinders: initialData?.capacity_cylinders || 0,
     driver_name: initialData?.driver_name || '',
     active: initialData?.active ?? true
   });
@@ -40,14 +40,14 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       if (!formData.license_plate) {
         throw new Error('License plate is required');
       }
-      if (!formData.capacity_cyl || formData.capacity_cyl <= 0) {
+      if (!formData.capacity_cylinders || formData.capacity_cylinders <= 0) {
         throw new Error('Capacity must be greater than 0');
       }
 
       const data = {
         fleet_number: formData.fleet_number,
         license_plate: formData.license_plate,
-        capacity_cyl: formData.capacity_cyl,
+        capacity_cylinders: formData.capacity_cylinders,
         driver_name: formData.driver_name || null,
         active: formData.active
       };
@@ -62,7 +62,10 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Update error:', error);
+          throw new Error(error.message || 'Failed to update truck');
+        }
         result = updatedTruck;
       } else {
         // Create new truck
@@ -72,18 +75,23 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert error:', error);
+          throw new Error(error.message || 'Failed to create truck');
+        }
         result = newTruck;
       }
 
       if (onSuccess) {
         onSuccess();
-      } else {
+      } else if (result) {
         navigate(`/trucks/${result.id}`);
+      } else {
+        throw new Error('No result returned from the server');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to save truck');
-      console.error(err);
+      console.error('Form submission error:', err);
     } finally {
       setLoading(false);
     }
@@ -141,15 +149,15 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
           </div>
 
           <div>
-            <label htmlFor="capacity_cyl" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="capacity_cylinders" className="block text-sm font-medium text-gray-700">
               Capacity (Cylinders)
             </label>
             <input
               type="number"
-              id="capacity_cyl"
+              id="capacity_cylinders"
               min="1"
-              value={formData.capacity_cyl}
-              onChange={(e) => setFormData({ ...formData, capacity_cyl: parseInt(e.target.value) || 0 })}
+              value={formData.capacity_cylinders}
+              onChange={(e) => setFormData({ ...formData, capacity_cylinders: parseInt(e.target.value) || 0 })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               required
             />
