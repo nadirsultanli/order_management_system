@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Clock, FileText, Star, Edit, Trash2, Navigation } from 'lucide-react';
 import { Address } from '../../types/address';
 import { formatAddress, formatDeliveryWindow } from '../../utils/address';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface AddressCardProps {
   address: Address;
@@ -16,10 +18,45 @@ export const AddressCard: React.FC<AddressCardProps> = ({
   onDelete,
   onSetPrimary,
 }) => {
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const [map, setMap] = useState<mapboxgl.Map | null>(null);
+  const [marker, setMarker] = useState<mapboxgl.Marker | null>(null);
+
   const deliveryWindow = formatDeliveryWindow(
     address.delivery_window_start,
     address.delivery_window_end
   );
+
+  useEffect(() => {
+    if (!map && mapContainer.current && address.latitude && address.longitude) {
+      mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
+      const newMap = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [address.longitude, address.latitude],
+        zoom: 14,
+        interactive: false,
+      });
+
+      const newMarker = new mapboxgl.Marker()
+        .setLngLat([address.longitude, address.latitude])
+        .addTo(newMap);
+
+      setMap(newMap);
+      setMarker(newMarker);
+
+      newMap.on('load', () => {
+        newMap.resize();
+      });
+    }
+  }, [mapContainer, address.latitude, address.longitude]);
+
+  useEffect(() => {
+    return () => {
+      if (marker) marker.remove();
+      if (map) map.remove();
+    };
+  }, []);
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -76,6 +113,12 @@ export const AddressCard: React.FC<AddressCardProps> = ({
           <div className="flex items-start space-x-2 text-sm text-gray-600">
             <FileText className="h-4 w-4 mt-0.5" />
             <p className="line-clamp-2">{address.instructions}</p>
+          </div>
+        )}
+
+        {address.latitude && address.longitude && (
+          <div className="mt-3 h-32 rounded-md overflow-hidden border border-gray-200">
+            <div ref={mapContainer} className="w-full h-full" />
           </div>
         )}
 
