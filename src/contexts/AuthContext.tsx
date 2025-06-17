@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { User, AdminUser, AuthState } from '../types';
+import type { Address } from './address';
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
