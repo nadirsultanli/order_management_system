@@ -13,7 +13,6 @@ export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<FilterType>({ page: 1 });
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
 
   const { data, isLoading, error, refetch } = useCustomers(filters);
@@ -29,19 +28,11 @@ export const CustomersPage: React.FC = () => {
       isLoading,
       error,
       isFormOpen,
-      editingCustomer,
     });
-  }, [filters, data, isLoading, error, isFormOpen, editingCustomer]);
+  }, [filters, data, isLoading, error, isFormOpen]);
 
   const handleAddCustomer = () => {
     console.log('Adding new customer');
-    setEditingCustomer(null);
-    setIsFormOpen(true);
-  };
-
-  const handleEditCustomer = (customer: Customer) => {
-    console.log('Editing customer:', customer);
-    setEditingCustomer(customer);
     setIsFormOpen(true);
   };
 
@@ -58,13 +49,8 @@ export const CustomersPage: React.FC = () => {
   const handleFormSubmit = async (data: CreateCustomerData) => {
     console.log('Form submit:', data);
     try {
-      if (editingCustomer) {
-        await updateCustomer.mutateAsync({ id: editingCustomer.id, ...data });
-      } else {
-        await createCustomer.mutateAsync(data);
-      }
+      await createCustomer.mutateAsync(data);
       setIsFormOpen(false);
-      setEditingCustomer(null);
     } catch (error) {
       console.error('Form submit error:', error);
       // Error handling is done in the hooks
@@ -131,7 +117,6 @@ export const CustomersPage: React.FC = () => {
         customers={data?.customers || []}
         loading={isLoading}
         onView={handleViewCustomer}
-        onEdit={handleEditCustomer}
         onDelete={handleDeleteCustomer}
       />
 
@@ -149,12 +134,11 @@ export const CustomersPage: React.FC = () => {
         onClose={() => {
           console.log('Closing form');
           setIsFormOpen(false);
-          setEditingCustomer(null);
         }}
         onSubmit={handleFormSubmit}
-        customer={editingCustomer || undefined}
-        loading={createCustomer.isPending || updateCustomer.isPending}
-        title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+        customer={undefined}
+        loading={createCustomer.isPending}
+        title="Add New Customer"
       />
 
       <ConfirmDialog

@@ -8,7 +8,6 @@ interface CustomerTableProps {
   customers: Customer[];
   loading?: boolean;
   onView: (customer: Customer) => void;
-  onEdit: (customer: Customer) => void;
   onDelete: (customer: Customer) => void;
 }
 
@@ -16,7 +15,6 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
   customers,
   loading = false,
   onView,
-  onEdit,
   onDelete,
 }) => {
   const formatDate = (dateString: string) => {
@@ -157,14 +155,7 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                     <button
                       onClick={() => onView(customer)}
                       className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                      title="View customer"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => onEdit(customer)}
-                      className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
-                      title="Edit customer"
+                      title="View/Edit customer"
                     >
                       <Edit className="h-4 w-4" />
                     </button>
