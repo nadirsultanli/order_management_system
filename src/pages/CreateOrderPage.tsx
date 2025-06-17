@@ -28,6 +28,7 @@ export const CreateOrderPage: React.FC = () => {
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
   const [orderLines, setOrderLines] = useState<OrderLineItem[]>([]);
   const [notes, setNotes] = useState('');
+  const [taxPercent, setTaxPercent] = useState(0);
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
@@ -39,20 +40,22 @@ export const CreateOrderPage: React.FC = () => {
   const customers = customersData?.customers || [];
   const products = productsData?.products || [];
   const priceLists = priceListsData?.priceLists || [];
-  const defaultPriceList = priceLists.find(pl => pl.is_default);
+  const defaultPriceList = priceLists.find((pl: any) => pl.is_default);
   
   // Get all active product IDs for stock availability check
   const activeProductIds = products
-    .filter(p => p.status === 'active')
-    .map(p => p.id);
+    .filter((p: any) => p.status === 'active')
+    .map((p: any) => p.id);
   
   const { data: stockAvailability = [] } = useStockAvailability(activeProductIds);
   const { data: priceListItems = [] } = usePriceListItems(defaultPriceList?.id || '');
 
-  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
-  const selectedAddress = addresses.find(a => a.id === selectedAddressId);
+  const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
+  const selectedAddress = addresses.find((a: any) => a.id === selectedAddressId);
 
-  const orderTotal = orderLines.reduce((total, line) => total + line.subtotal, 0);
+  const orderTotal = orderLines.reduce((total: number, line: OrderLineItem) => total + line.subtotal, 0);
+  const taxAmount = orderTotal * (taxPercent / 100);
+  const grandTotal = orderTotal + taxAmount;
 
   const handleCustomerChange = (customerId: string) => {
     setSelectedCustomerId(customerId);
@@ -62,7 +65,7 @@ export const CreateOrderPage: React.FC = () => {
   // Auto-select primary address when customer is selected
   useEffect(() => {
     if (selectedCustomerId && addresses.length > 0 && !selectedAddressId) {
-      const primaryAddress = addresses.find(a => a.is_primary);
+      const primaryAddress = addresses.find((a: any) => a.is_primary);
       if (primaryAddress) {
         setSelectedAddressId(primaryAddress.id);
       }
@@ -70,21 +73,21 @@ export const CreateOrderPage: React.FC = () => {
   }, [selectedCustomerId, addresses, selectedAddressId]);
 
   const getProductPrice = (productId: string): number => {
-    const priceItem = priceListItems.find(item => item.product_id === productId);
+    const priceItem = priceListItems.find((item: any) => item.product_id === productId);
     return priceItem?.unit_price || 0;
   };
 
   const handleAddProduct = (productId: string) => {
-    const product = products.find(p => p.id === productId);
+    const product = products.find((p: any) => p.id === productId);
     if (!product) return;
 
-    const existingLine = orderLines.find(line => line.product_id === productId);
+    const existingLine = orderLines.find((line: OrderLineItem) => line.product_id === productId);
     const unitPrice = getProductPrice(productId);
     
     if (existingLine) {
       // Increase quantity
-      setOrderLines(lines => 
-        lines.map(line => 
+      setOrderLines((lines: OrderLineItem[]) => 
+        lines.map((line: OrderLineItem) => 
           line.product_id === productId 
             ? { ...line, quantity: line.quantity + 1, subtotal: (line.quantity + 1) * line.unit_price }
             : line
@@ -100,7 +103,7 @@ export const CreateOrderPage: React.FC = () => {
         unit_price: unitPrice,
         subtotal: unitPrice,
       };
-      setOrderLines(lines => [...lines, newLine]);
+      setOrderLines((lines: OrderLineItem[]) => [...lines, newLine]);
     }
   };
 
@@ -110,8 +113,8 @@ export const CreateOrderPage: React.FC = () => {
       return;
     }
 
-    setOrderLines(lines => 
-      lines.map(line => 
+    setOrderLines((lines: OrderLineItem[]) => 
+      lines.map((line: OrderLineItem) => 
         line.product_id === productId 
           ? { ...line, quantity, subtotal: quantity * line.unit_price }
           : line
@@ -120,7 +123,7 @@ export const CreateOrderPage: React.FC = () => {
   };
 
   const handleRemoveProduct = (productId: string) => {
-    setOrderLines(lines => lines.filter(line => line.product_id !== productId));
+    setOrderLines((lines: OrderLineItem[]) => lines.filter((line: OrderLineItem) => line.product_id !== productId));
   };
 
   const handleCreateOrder = async () => {
@@ -162,7 +165,7 @@ export const CreateOrderPage: React.FC = () => {
   const canCreateOrder = canProceedToStep2 && orderLines.length > 0;
 
   const getStockInfo = (productId: string) => {
-    const stock = stockAvailability.find(s => s.product_id === productId);
+    const stock = stockAvailability.find((s: any) => s.product_id === productId);
     console.log('Stock info for product', productId, ':', stock);
     return stock ? stock.available_quantity : 0;
   };
@@ -456,10 +459,33 @@ export const CreateOrderPage: React.FC = () => {
                     })}
                     
                     <div className="border-t pt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-medium text-gray-900">Total:</span>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-lg font-medium text-gray-900">Subtotal:</span>
                         <span className="text-xl font-bold text-gray-900">
                           {formatCurrency(orderTotal)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-sm font-medium text-gray-700">Tax (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={taxPercent}
+                          onChange={e => setTaxPercent(Number(e.target.value))}
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right"
+                        />
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-lg font-medium text-gray-900">Tax:</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          {formatCurrency(taxAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-semibold text-gray-900">Total:</span>
+                        <span className="text-xl font-bold text-green-700">
+                          {formatCurrency(grandTotal)}
                         </span>
                       </div>
                     </div>
@@ -522,6 +548,17 @@ export const CreateOrderPage: React.FC = () => {
                       <div className="text-gray-900">{notes}</div>
                     </div>
                   )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Tax (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={taxPercent}
+                      onChange={e => setTaxPercent(Number(e.target.value))}
+                      className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -543,9 +580,21 @@ export const CreateOrderPage: React.FC = () => {
                     </div>
                   ))}
                   <div className="flex justify-between items-center pt-3 border-t border-gray-300">
-                    <span className="text-lg font-medium text-gray-900">Total:</span>
+                    <span className="text-lg font-medium text-gray-900">Subtotal:</span>
                     <span className="text-xl font-bold text-gray-900">
                       {formatCurrency(orderTotal)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-medium text-gray-900">Tax:</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {formatCurrency(taxAmount)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold text-gray-900">Total:</span>
+                    <span className="text-xl font-bold text-green-700">
+                      {formatCurrency(grandTotal)}
                     </span>
                   </div>
                 </div>

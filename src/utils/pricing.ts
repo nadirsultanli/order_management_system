@@ -1,28 +1,17 @@
 import { CurrencyOption } from '../types/pricing';
 
 export const getCurrencyOptions = (): CurrencyOption[] => [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'KES', name: 'Kenyan Shilling', symbol: 'KSh' },
-  { code: 'NGN', name: 'Nigerian Naira', symbol: '₦' },
-  { code: 'ZAR', name: 'South African Rand', symbol: 'R' },
-  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+  { code: 'KES', name: 'Kenyan Shilling', symbol: 'Ksh' },
 ];
 
-export const formatCurrency = (amount: number, currencyCode: string = 'USD'): string => {
-  const currency = getCurrencyOptions().find(c => c.code === currencyCode);
-  const symbol = currency?.symbol || currencyCode;
-  
-  // Format number with commas and 2 decimal places
-  const formattedAmount = amount.toLocaleString('en-US', {
+export const formatCurrency = (amount: number, currencyCode: string = 'KES'): string => {
+  // Always use Ksh
+  const symbol = 'Ksh';
+  const formattedAmount = amount.toLocaleString('en-KE', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  
-  return `${symbol}${formattedAmount}`;
+  return `${symbol} ${formattedAmount}`;
 };
 
 export const calculateFinalPrice = (unitPrice: number, surchargePercent?: number): number => {

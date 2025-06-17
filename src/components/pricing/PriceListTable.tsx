@@ -129,7 +129,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 font-mono">
-                      {priceList.currency_code}
+                      {formatCurrency(priceList.currency_code)}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
