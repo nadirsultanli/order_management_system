@@ -16,6 +16,7 @@ export const CustomerDetailPage: React.FC = () => {
 
   const { data: customer, isLoading, error } = useCustomer(id!);
   const updateCustomer = useUpdateCustomer();
+  const { data: recentOrders, isLoading: isLoadingOrders } = useCustomerOrders(customer?.id || '', 5);
 
   const handleEditSubmit = async (data: CreateCustomerData) => {
     if (customer) {
@@ -239,8 +240,8 @@ export const CustomerDetailPage: React.FC = () => {
 
       {/* Recent Orders */}
       <CustomerRecentOrders
-        orders={useCustomerOrders(customer.id, 5).data || []}
-        loading={useCustomerOrders(customer.id, 5).isLoading}
+        orders={recentOrders || []}
+        loading={isLoadingOrders}
       />
 
       {/* Edit Form Modal */}
