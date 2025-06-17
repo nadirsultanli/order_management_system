@@ -9,7 +9,7 @@ interface TruckDetails {
   id: string;
   fleet_number: string;
   license_plate: string;
-  capacity_cyl: number;
+  capacity_cylinders: number;
   driver_name: string | null;
   active: boolean;
   inventory: TruckInventoryItem[];
@@ -125,7 +125,7 @@ export const TruckDetailPage: React.FC = () => {
     (sum, item) => sum + (item.qty_full || 0) + (item.qty_empty || 0),
     0
   );
-  const capacityPercentage = (totalCylinders / truck.capacity_cyl) * 100;
+  const capacityPercentage = (totalCylinders / truck.capacity_cylinders) * 100;
   const isOverloaded = capacityPercentage > 100;
 
   return (
@@ -178,7 +178,7 @@ export const TruckDetailPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Capacity</h3>
-                <p className="mt-1">{truck.capacity_cyl} cylinders</p>
+                <p className="mt-1">{truck.capacity_cylinders} cylinders</p>
               </div>
             </div>
           </div>
@@ -187,13 +187,13 @@ export const TruckDetailPage: React.FC = () => {
             <h2 className="text-xl font-semibold mb-4">Current Load</h2>
             <div className="space-y-4">
               <p className="text-lg font-medium">
-                {totalCylinders} / {truck.capacity_cyl} cylinders
+                {totalCylinders} / {truck.capacity_cylinders} cylinders
               </p>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
                   className="bg-blue-600 h-2.5 rounded-full"
                   style={{
-                    width: `${(totalCylinders / (truck.capacity_cyl || 1)) * 100}%`
+                    width: `${(totalCylinders / (truck.capacity_cylinders || 1)) * 100}%`
                   }}
                 ></div>
               </div>
