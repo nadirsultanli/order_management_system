@@ -54,7 +54,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       }
 
       // Validate quantities
-      const invalidLines = lines.filter(line => !line.quantity || line.quantity <= 0);
+      const invalidLines = lines.filter(line => !line.qty_full || line.qty_full <= 0);
       if (invalidLines.length > 0) {
         throw new Error('Please enter valid quantities for all products');
       }
@@ -65,7 +65,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         warehouse_id: selectedWarehouse,
         lines: lines.map(line => ({
           product_id: line.product_id,
-          quantity: line.quantity
+          qty_full: line.qty_full
         }))
       };
 
@@ -115,7 +115,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           product_name: product.name,
           product_sku: product.sku,
           unit_of_measure: product.unit_of_measure,
-          quantity: ''
+          qty_full: ''
         });
       }
       setLines(newLines);
@@ -258,10 +258,10 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
                   <input
                     type="number"
                     min="0"
-                    value={line.quantity}
+                    value={line.qty_full}
                     onChange={(e) => {
                       const newLines = [...lines];
-                      newLines[index].quantity = e.target.value === '' ? '' : parseInt(e.target.value);
+                      newLines[index].qty_full = e.target.value === '' ? '' : parseInt(e.target.value);
                       setLines(newLines);
                     }}
                     placeholder="Quantity"
