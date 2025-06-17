@@ -6,12 +6,10 @@ import {
   Package, 
   Warehouse, 
   ShoppingCart, 
-  Settings,
   X,
   BarChart3,
   DollarSign,
   Truck,
-  CalendarDays,
   ArrowLeftRight
 } from 'lucide-react';
 
@@ -29,14 +27,7 @@ const navigation = [
   { name: 'Trucks', href: '/trucks', icon: Truck },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
-  { name: 'Settings', href: '/settings', icon: Settings }
-];
-
-const orderSubNav = [
-  { name: 'All Orders', to: '/orders' },
-  { name: 'Schedule', to: '/orders/schedule', icon: CalendarDays },
-  { name: 'Reports', to: '/orders/reports', icon: BarChart3 },
-  { name: 'Transfers', to: '/transfers', icon: ArrowLeftRight }
+  { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight }
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
@@ -93,32 +84,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <span>{item.name}</span>
             </NavLink>
           ))}
-
-          <div className="py-3">
-            <div className="space-y-1">
-              {orderSubNav.map((item) => (
-                <NavLink
-                  key={item.name}
-                  to={item.to}
-                  className={({ isActive }) =>
-                    `group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                      isActive
-                        ? 'bg-gray-900 text-white'
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                    }`
-                  }
-                >
-                  {item.icon && (
-                    <item.icon
-                      className="mr-3 h-6 w-6 flex-shrink-0"
-                      aria-hidden="true"
-                    />
-                  )}
-                  {item.name}
-                </NavLink>
-              ))}
-            </div>
-          </div>
         </nav>
       </aside>
     </>
