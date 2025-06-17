@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Mail, Phone, Calendar, CreditCard, Building2 } from 'lucide-react';
 import { useCustomer, useUpdateCustomer } from '../hooks/useCustomers';
+import { useCustomerOrders } from '../hooks/useCustomerOrders';
 import { CustomerForm } from '../components/customers/CustomerForm';
 import { AddressList } from '../components/addresses/AddressList';
+import { CustomerRecentOrders } from '../components/orders/CustomerRecentOrders';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Customer, CreateCustomerData } from '../types/customer';
 
@@ -234,6 +236,12 @@ export const CustomerDetailPage: React.FC = () => {
 
       {/* Delivery Addresses */}
       <AddressList customerId={customer.id} />
+
+      {/* Recent Orders */}
+      <CustomerRecentOrders
+        orders={useCustomerOrders(customer.id, 5).data || []}
+        loading={useCustomerOrders(customer.id, 5).isLoading}
+      />
 
       {/* Edit Form Modal */}
       <CustomerForm

@@ -77,12 +77,19 @@ export const calculateOrderTotal = (lines: { quantity: number; unit_price: numbe
   return lines.reduce((total, line) => total + (line.quantity * line.unit_price), 0);
 };
 
-export const formatCurrency = (amount: number): string => {
+export const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+};
+
+export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'KES',
-    currencyDisplay: 'symbol',
-  }).format(amount).replace('KES', 'KSh');
+    currency: 'USD',
+  }).format(amount);
 };
 
 export const isOrderEditable = (status: OrderStatus): boolean => {
