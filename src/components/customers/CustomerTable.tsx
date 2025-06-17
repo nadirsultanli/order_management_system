@@ -77,9 +77,6 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                 Contact
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Primary Address
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -124,23 +121,6 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                     {!customer.email && !customer.phone && (
                       <span className="text-gray-400">No contact info</span>
                     )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    <div className="text-sm text-gray-900">
-                      {customer.primary_address ? (
-                        <button
-                          onClick={() => onView(customer)}
-                          className="text-blue-600 hover:text-blue-800 hover:underline"
-                        >
-                          {getAddressSummary(customer.primary_address)}
-                        </button>
-                      ) : (
-                        <span className="text-gray-400">No address</span>
-                      )}
-                    </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
