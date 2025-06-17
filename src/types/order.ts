@@ -6,6 +6,8 @@ export interface Order {
   scheduled_date?: string;
   status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
   total_amount?: number;
+  tax_percent?: number;
+  tax_amount?: number;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -63,6 +65,8 @@ export interface CreateOrderData {
   scheduled_date?: string;
   status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
   notes?: string;
+  tax_percent?: number;
+  tax_amount?: number;
 }
 
 export interface UpdateOrderData extends Partial<CreateOrderData> {

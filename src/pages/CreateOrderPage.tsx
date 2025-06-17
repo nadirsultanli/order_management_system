@@ -139,6 +139,8 @@ export const CreateOrderPage: React.FC = () => {
         order_date: orderDate,
         status: 'draft',
         notes,
+        tax_percent: taxPercent,
+        tax_amount: taxAmount,
       };
 
       const order = await createOrder.mutateAsync(orderData);

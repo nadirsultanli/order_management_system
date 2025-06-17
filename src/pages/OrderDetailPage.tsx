@@ -364,14 +364,16 @@ export const OrderDetailPage: React.FC = () => {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Tax:</span>
-                <span className="font-medium text-gray-900">$0.00</span>
+                <span className="text-gray-600">Tax{order.tax_percent != null ? ` (${order.tax_percent}%)` : ''}:</span>
+                <span className="font-medium text-gray-900">
+                  {formatCurrency(order.tax_amount != null ? order.tax_amount : 0)}
+                </span>
               </div>
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-gray-900">Total:</span>
                   <span className="text-lg font-bold text-gray-900">
-                    {formatCurrency(order.total_amount || 0)}
+                    {formatCurrency((order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0) + (order.tax_amount != null ? order.tax_amount : 0))}
                   </span>
                 </div>
               </div>
