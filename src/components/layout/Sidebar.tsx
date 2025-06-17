@@ -10,7 +10,9 @@ import {
   X,
   BarChart3,
   DollarSign,
-  Truck
+  Truck,
+  CalendarDays,
+  ArrowLeftRight
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -24,9 +26,17 @@ const navigation = [
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { name: 'Inventory', href: '/inventory', icon: BarChart3 },
+  { name: 'Trucks', href: '/trucks', icon: Truck },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
-  { name: 'Transfers', href: '/transfers', icon: Truck },
+  { name: 'Settings', href: '/settings', icon: Settings }
+];
+
+const orderSubNav = [
+  { name: 'All Orders', to: '/orders' },
+  { name: 'Schedule', to: '/orders/schedule', icon: CalendarDays },
+  { name: 'Reports', to: '/orders/reports', icon: BarChart3 },
+  { name: 'Transfers', to: '/transfers', icon: ArrowLeftRight }
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
@@ -83,6 +93,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <span>{item.name}</span>
             </NavLink>
           ))}
+
+          <div className="py-3">
+            <div className="space-y-1">
+              {orderSubNav.map((item) => (
+                <NavLink
+                  key={item.name}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
+                      isActive
+                        ? 'bg-gray-900 text-white'
+                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                    }`
+                  }
+                >
+                  {item.icon && (
+                    <item.icon
+                      className="mr-3 h-6 w-6 flex-shrink-0"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {item.name}
+                </NavLink>
+              ))}
+            </div>
+          </div>
         </nav>
       </aside>
     </>

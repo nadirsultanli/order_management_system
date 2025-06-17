@@ -22,6 +22,9 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrderSchedulePage } from './pages/OrderSchedulePage';
 import { OrderReportsPage } from './pages/OrderReportsPage';
 import { TransfersPage } from './pages/TransfersPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { TrucksPage } from './pages/TrucksPage';
+import { TruckDetailPage } from './pages/TruckDetailPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +66,12 @@ function App() {
               <Route path="orders/reports" element={<OrderReportsPage />} />
               <Route path="orders/:id" element={<OrderDetailPage />} />
               <Route path="transfers" element={<TransfersPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="trucks">
+                <Route index element={<TrucksPage />} />
+                <Route path="new" element={<TruckDetailPage />} />
+                <Route path=":id" element={<TruckDetailPage />} />
+              </Route>
             </Route>
           </Routes>
         </Router>
