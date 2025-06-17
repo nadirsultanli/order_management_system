@@ -1,40 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { LoadTransferForm } from '../components/transfers/LoadTransferForm';
 import { ReturnTransferForm } from '../components/transfers/ReturnTransferForm';
-import { supabase } from '../lib/supabase';
-
-interface Customer {
-  id: string;
-  name: string;
-  address: string;
-}
+import { CustomerSelector } from '../components/customers/CustomerSelector';
+import { useCustomers } from '../hooks/useCustomers';
+import { Customer } from '../types/customer';
 
 export const TransfersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'load' | 'return'>('load');
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadCustomers();
-  }, []);
-
-  const loadCustomers = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, name, address')
-        .order('name');
-
-      if (error) throw error;
-      setCustomers(data || []);
-    } catch (err) {
-      console.error('Failed to load customers:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: customersData } = useCustomers({ limit: 1000 });
+  const customers = customersData?.customers || [];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -76,22 +51,16 @@ export const TransfersPage: React.FC = () => {
         <div className="mt-8">
           {activeTab === 'load' && (
             <div className="mb-6">
-              <label htmlFor="customer" className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Select Customer
               </label>
-              <select
-                id="customer"
+              <CustomerSelector
                 value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              >
-                <option value="">Select a customer</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name} - {customer.address}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedCustomerId}
+                customers={customers}
+                placeholder="Search customer by name, ID, or tax ID..."
+                className="w-full"
+              />
             </div>
           )}
 
