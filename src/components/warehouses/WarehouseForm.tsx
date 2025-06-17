@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { X, Loader2, MapPin } from 'lucide-react';
 import { Warehouse, CreateWarehouseData } from '../../types/warehouse';
 import { getCountryOptions } from '../../utils/address';
+import { AddressForm } from '../addresses/AddressForm';
 
 interface WarehouseFormProps {
   isOpen: boolean;
@@ -22,6 +23,8 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
   title,
 }) => {
   const [includeAddress, setIncludeAddress] = useState(false);
+  const [addressModalOpen, setAddressModalOpen] = useState(false);
+  const [addressData, setAddressData] = useState<any>(warehouse?.address || null);
 
   const {
     register,
@@ -93,15 +96,8 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
     const submitData = {
       name: data.name,
       capacity_cylinders: data.capacity_cylinders,
+      address: addressData || undefined,
     };
-
-    if (includeAddress && data.address) {
-      // Only include address if all required fields are filled
-      if (data.address.line1 && data.address.city) {
-        (submitData as any).address = data.address;
-      }
-    }
-
     onSubmit(submitData);
   };
 
@@ -173,7 +169,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                   </div>
                 </div>
 
-                {/* Location Section */}
+                {/* Location Section - Use AddressForm */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-sm font-medium text-gray-900">Location</h4>
@@ -192,101 +188,31 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                   </div>
 
                   {includeAddress && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="sm:col-span-2">
-                        <label htmlFor="address.line1" className="block text-sm font-medium text-gray-700">
-                          Address Line 1 *
-                        </label>
-                        <input
-                          type="text"
-                          {...register('address.line1', { 
-                            required: includeAddress ? 'Address line 1 is required' : false 
-                          })}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          placeholder="123 Industrial Way"
-                        />
-                        {errors.address?.line1 && (
-                          <p className="mt-1 text-sm text-red-600">{errors.address.line1.message}</p>
-                        )}
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label htmlFor="address.line2" className="block text-sm font-medium text-gray-700">
-                          Address Line 2
-                        </label>
-                        <input
-                          type="text"
-                          {...register('address.line2')}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          placeholder="Building B, Unit 5"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="address.city" className="block text-sm font-medium text-gray-700">
-                          City *
-                        </label>
-                        <input
-                          type="text"
-                          {...register('address.city', { 
-                            required: includeAddress ? 'City is required' : false 
-                          })}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        {errors.address?.city && (
-                          <p className="mt-1 text-sm text-red-600">{errors.address.city.message}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label htmlFor="address.state" className="block text-sm font-medium text-gray-700">
-                          State/Province
-                        </label>
-                        <input
-                          type="text"
-                          {...register('address.state')}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="address.postal_code" className="block text-sm font-medium text-gray-700">
-                          Postal Code
-                        </label>
-                        <input
-                          type="text"
-                          {...register('address.postal_code')}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label htmlFor="address.country" className="block text-sm font-medium text-gray-700">
-                          Country
-                        </label>
-                        <select
-                          {...register('address.country')}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          {countryOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label htmlFor="address.instructions" className="block text-sm font-medium text-gray-700">
-                          Access Instructions
-                        </label>
-                        <textarea
-                          rows={3}
-                          {...register('address.instructions')}
-                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          placeholder="Gate codes, special access requirements, loading dock information..."
-                        />
-                      </div>
+                    <div>
+                      <button
+                        type="button"
+                        className="mb-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+                        onClick={() => setAddressModalOpen(true)}
+                      >
+                        {addressData ? 'Edit Address' : 'Add Address'}
+                      </button>
+                      {addressData && (
+                        <div className="text-xs text-gray-700 mb-2">
+                          {addressData.line1}, {addressData.city}, {addressData.country} {addressData.postal_code}
+                        </div>
+                      )}
+                      <AddressForm
+                        isOpen={addressModalOpen}
+                        onClose={() => setAddressModalOpen(false)}
+                        onSubmit={(data) => {
+                          setAddressData(data);
+                          setAddressModalOpen(false);
+                        }}
+                        address={addressData}
+                        customerId={warehouse?.id || ''}
+                        title="Warehouse Address"
+                        loading={loading}
+                      />
                     </div>
                   )}
                 </div>
