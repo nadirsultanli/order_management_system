@@ -36,26 +36,56 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
     }
   };
 
-  const handleSubmit = async () => {
-    if (!selectedTruck || !selectedWarehouse || lines.length === 0) {
-      setError('Please select a truck, warehouse, and add at least one product');
-      return;
-    }
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      await createReturnTransfer(selectedTruck, selectedWarehouse, lines);
-      setShowConfirm(false);
-      if (onSuccess) onSuccess();
+      // Validate inputs
+      if (!selectedTruck) {
+        throw new Error('Please select a truck');
+      }
+      if (!selectedWarehouse) {
+        throw new Error('Please select a warehouse');
+      }
+      if (lines.length === 0) {
+        throw new Error('Please add at least one product');
+      }
+
+      // Validate quantities
+      const invalidLines = lines.filter(line => !line.quantity || line.quantity <= 0);
+      if (invalidLines.length > 0) {
+        throw new Error('Please enter valid quantities for all products');
+      }
+
+      // Prepare the data
+      const transferData = {
+        truck_id: selectedTruck,
+        warehouse_id: selectedWarehouse,
+        lines: lines.map(line => ({
+          product_id: line.product_id,
+          quantity: line.quantity
+        }))
+      };
+
+      console.log('Creating transfer with data:', transferData);
+
+      const transferId = await createReturnTransfer(transferData);
+      console.log('Transfer created successfully:', transferId);
+
       // Reset form
       setSelectedTruck('');
       setSelectedWarehouse('');
       setLines([]);
-    } catch (err) {
-      setError('Failed to create transfer');
-      console.error(err);
+      setShowConfirm(false);
+
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (err: any) {
+      console.error('Transfer creation error:', err);
+      setError(err.message || 'Failed to create transfer');
     } finally {
       setLoading(false);
     }

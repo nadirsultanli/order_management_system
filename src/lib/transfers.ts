@@ -24,25 +24,34 @@ export interface TransferLine {
   created_at: string;
 }
 
-export const createLoadTransfer = async (truckId: string, lines: TransferLine[]) => {
-  const { data, error } = await supabase
+export interface TransferData {
+  truck_id: string;
+  warehouse_id: string;
+  lines: TransferLine[];
+}
+
+export const createLoadTransfer = async (data: TransferData) => {
+  const { data: result, error } = await supabase
     .rpc('create_load_transfer', {
-      p_truck_id: truckId,
-      p_lines: lines
+      p_truck_id: data.truck_id,
+      p_warehouse_id: data.warehouse_id,
+      p_lines: data.lines
     });
 
   if (error) throw error;
-  return data;
+  return result;
 };
 
-export const createReturnTransfer = async (truckId: string) => {
-  const { data, error } = await supabase
+export const createReturnTransfer = async (data: TransferData) => {
+  const { data: result, error } = await supabase
     .rpc('create_return_transfer', {
-      p_truck_id: truckId
+      p_truck_id: data.truck_id,
+      p_warehouse_id: data.warehouse_id,
+      p_lines: data.lines
     });
 
   if (error) throw error;
-  return data;
+  return result;
 };
 
 export const getTransfers = async (type?: 'load' | 'return') => {
