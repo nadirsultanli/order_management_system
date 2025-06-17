@@ -22,13 +22,14 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
   const [formData, setFormData] = useState({
     fleet_number: initialData?.fleet_number || '',
     license_plate: initialData?.license_plate || '',
-    capacity_cylinders: initialData?.capacity_cylinders || 0,
+    capacity_cylinders: initialData?.capacity_cylinders || '',
     driver_name: initialData?.driver_name || '',
     active: initialData?.active ?? true
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent double submission
     setLoading(true);
     setError(null);
 
@@ -40,14 +41,16 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       if (!formData.license_plate) {
         throw new Error('License plate is required');
       }
-      if (!formData.capacity_cylinders || formData.capacity_cylinders <= 0) {
-        throw new Error('Capacity must be greater than 0');
+      
+      const capacityNumber = parseInt(String(formData.capacity_cylinders));
+      if (isNaN(capacityNumber) || capacityNumber <= 0) {
+        throw new Error('Capacity must be a valid number greater than 0');
       }
 
       const data = {
         fleet_number: formData.fleet_number,
         license_plate: formData.license_plate,
-        capacity_cylinders: formData.capacity_cylinders,
+        capacity_cylinders: capacityNumber,
         driver_name: formData.driver_name || null,
         active: formData.active
       };
@@ -55,6 +58,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       let result;
       if (initialData?.id) {
         // Update existing truck
+        console.log('Updating truck with data:', data);
         const { data: updatedTruck, error } = await supabase
           .from('truck')
           .update(data)
@@ -66,9 +70,11 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
           console.error('Update error:', error);
           throw new Error(error.message || 'Failed to update truck');
         }
+        console.log('Update response:', updatedTruck);
         result = updatedTruck;
       } else {
         // Create new truck
+        console.log('Creating new truck with data:', data);
         const { data: newTruck, error } = await supabase
           .from('truck')
           .insert([data])
@@ -79,6 +85,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
           console.error('Insert error:', error);
           throw new Error(error.message || 'Failed to create truck');
         }
+        console.log('Insert response:', newTruck);
         result = newTruck;
       }
 
@@ -156,8 +163,15 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
               type="number"
               id="capacity_cylinders"
               min="1"
-              value={formData.capacity_cylinders}
-              onChange={(e) => setFormData({ ...formData, capacity_cylinders: parseInt(e.target.value) || 0 })}
+              placeholder="Enter capacity"
+              value={formData.capacity_cylinders || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                setFormData(prev => ({
+                  ...prev,
+                  capacity_cylinders: value === '' ? '' : parseInt(value)
+                }));
+              }}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               required
             />
