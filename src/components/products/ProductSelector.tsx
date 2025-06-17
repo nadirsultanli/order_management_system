@@ -14,12 +14,8 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
   onSelect,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: products = [] } = useProducts({ search: searchTerm });
-
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const { data: productsData } = useProducts({ search: searchTerm, limit: 1000 });
+  const products = productsData?.products || [];
 
   if (!isOpen) return null;
 
@@ -50,14 +46,14 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {filteredProducts.length === 0 ? (
+          {products.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No products found</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {filteredProducts.map((product) => (
+              {products.map((product) => (
                 <button
                   key={product.id}
                   onClick={() => {
