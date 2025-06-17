@@ -8,6 +8,7 @@ import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { CustomerForm } from '../components/customers/CustomerForm';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Customer, CustomerFilters as FilterType, CreateCustomerData } from '../types/customer';
+import { supabase } from '../lib/supabase';
 
 export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
@@ -55,8 +56,16 @@ export const CustomersPage: React.FC = () => {
 
   const handleStatusChange = async (customer: Customer, newStatus: 'active' | 'credit_hold' | 'closed') => {
     try {
-      await updateCustomer(customer.id, { account_status: newStatus });
-      setDeletingCustomer(null);
+      const { error } = await supabase
+        .from('customers')
+        .update({ account_status: newStatus })
+        .eq('id', customer.id);
+
+      if (error) throw error;
+
+      setCustomers(customers.map(c => 
+        c.id === customer.id ? { ...c, account_status: newStatus } : c
+      ));
     } catch (error) {
       console.error('Error updating customer status:', error);
       alert('Failed to update customer status. Please try again.');

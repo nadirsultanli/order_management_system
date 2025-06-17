@@ -129,7 +129,11 @@ export const TruckTable: React.FC<TruckTableProps> = ({ trucks, loading, onStatu
                   <select
                     value={truck.active ? 'active' : 'inactive'}
                     onChange={(e) => onStatusChange(truck, e.target.value === 'active')}
-                    className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      truck.active 
+                        ? 'bg-green-50 text-green-700 border-green-200' 
+                        : 'bg-red-50 text-red-700 border-red-200'
+                    }`}
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>

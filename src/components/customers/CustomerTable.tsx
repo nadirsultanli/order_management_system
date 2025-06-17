@@ -147,7 +147,13 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   <select
                     value={customer.account_status}
                     onChange={(e) => onStatusChange(customer, e.target.value as 'active' | 'credit_hold' | 'closed')}
-                    className="block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className={`block w-full pl-3 pr-10 py-2 text-sm border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 ${
+                      customer.account_status === 'active' 
+                        ? 'bg-green-50 text-green-700 border-green-200' 
+                        : customer.account_status === 'credit_hold'
+                        ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                    }`}
                   >
                     <option value="active">Active</option>
                     <option value="credit_hold">Credit Hold</option>
