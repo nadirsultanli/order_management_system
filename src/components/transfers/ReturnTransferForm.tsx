@@ -3,6 +3,7 @@ import { createReturnTransfer, getAvailableTrucks, TransferLine } from '../../li
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
+import { ProductSelector } from '../products/ProductSelector';
 
 interface ReturnTransferFormProps {
   onSuccess?: () => void;
@@ -18,6 +19,8 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { data: warehouses = [] } = useWarehouseOptions();
+  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
 
   useEffect(() => {
     loadTrucks();
@@ -58,18 +61,37 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
     }
   };
 
-  const addLine = () => {
-    setLines([...lines, { product_id: '', qty_full: 0 }]);
+  const handleAddLine = () => {
+    setSelectedLineIndex(lines.length);
+    setShowProductSelector(true);
   };
 
-  const updateLine = (index: number, field: keyof TransferLine, value: string | number) => {
-    const newLines = [...lines];
-    newLines[index] = { ...newLines[index], [field]: value };
-    setLines(newLines);
-  };
-
-  const removeLine = (index: number) => {
-    setLines(lines.filter((_, i) => i !== index));
+  const handleProductSelect = (product: { id: string; name: string; sku: string; unit_of_measure: string }) => {
+    if (selectedLineIndex !== null) {
+      const newLines = [...lines];
+      if (selectedLineIndex < lines.length) {
+        // Update existing line
+        newLines[selectedLineIndex] = {
+          ...newLines[selectedLineIndex],
+          product_id: product.id,
+          product_name: product.name,
+          product_sku: product.sku,
+          unit_of_measure: product.unit_of_measure
+        };
+      } else {
+        // Add new line
+        newLines.push({
+          product_id: product.id,
+          product_name: product.name,
+          product_sku: product.sku,
+          unit_of_measure: product.unit_of_measure,
+          quantity: 0
+        });
+      }
+      setLines(newLines);
+    }
+    setShowProductSelector(false);
+    setSelectedLineIndex(null);
   };
 
   const filteredTrucks = trucks.filter(truck =>
@@ -183,15 +205,15 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         </div>
 
         <div className="mt-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-900">Transfer Lines</h3>
             <button
               type="button"
-              onClick={addLine}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={handleAddLine}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Product
+              <Plus className="h-4 w-4" />
+              <span>Add Product</span>
             </button>
           </div>
 
@@ -199,30 +221,32 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
             {lines.map((line, index) => (
               <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
                 <div className="flex-1">
-                  <input
-                    type="text"
-                    value={line.product_id}
-                    onChange={(e) => updateLine(index, 'product_id', e.target.value)}
-                    placeholder="Product ID"
-                    className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
+                  <div className="font-medium text-gray-900">{line.product_name}</div>
+                  <div className="text-sm text-gray-500">SKU: {line.product_sku}</div>
                 </div>
                 <div className="w-32">
                   <input
                     type="number"
-                    value={line.qty_full}
-                    onChange={(e) => updateLine(index, 'qty_full', parseInt(e.target.value))}
-                    placeholder="Quantity"
                     min="0"
-                    className="block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    value={line.quantity}
+                    onChange={(e) => {
+                      const newLines = [...lines];
+                      newLines[index].quantity = parseInt(e.target.value) || 0;
+                      setLines(newLines);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <button
                   type="button"
-                  onClick={() => removeLine(index)}
-                  className="inline-flex items-center p-2 border border-transparent rounded-full text-red-600 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  onClick={() => {
+                    const newLines = [...lines];
+                    newLines.splice(index, 1);
+                    setLines(newLines);
+                  }}
+                  className="text-red-600 hover:text-red-800"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             ))}
@@ -250,6 +274,15 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         confirmText="Create Transfer"
         type="info"
         loading={loading}
+      />
+
+      <ProductSelector
+        isOpen={showProductSelector}
+        onClose={() => {
+          setShowProductSelector(false);
+          setSelectedLineIndex(null);
+        }}
+        onSelect={handleProductSelect}
       />
     </div>
   );
