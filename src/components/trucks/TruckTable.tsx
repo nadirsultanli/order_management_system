@@ -7,7 +7,7 @@ interface TruckDetails {
   id: string;
   fleet_number: string;
   license_plate: string;
-  capacity_cyl: number;
+  capacity_cylinders: number;
   driver_name: string | null;
   active: boolean;
   inventory?: TruckInventoryItem[];
@@ -76,7 +76,7 @@ export const TruckTable: React.FC<TruckTableProps> = ({ trucks, loading }) => {
               (sum, item) => sum + (item.qty_full || 0) + (item.qty_empty || 0),
               0
             );
-            const capacityPercentage = (totalCylinders / truck.capacity_cyl) * 100;
+            const capacityPercentage = (totalCylinders / truck.capacity_cylinders) * 100;
             const isOverloaded = capacityPercentage > 100;
 
             return (
@@ -100,14 +100,14 @@ export const TruckTable: React.FC<TruckTableProps> = ({ trucks, loading }) => {
                   <div className="text-sm text-gray-900">{truck.driver_name || 'Unassigned'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                  <div className="text-sm text-gray-900">{truck.capacity_cyl} cylinders</div>
+                  <div className="text-sm text-gray-900">{truck.capacity_cylinders}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center justify-center">
                     <div className="w-48">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-medium text-gray-500">
-                          {totalCylinders} / {truck.capacity_cyl}
+                          {totalCylinders} / {truck.capacity_cylinders}
                         </span>
                         {isOverloaded && (
                           <AlertCircle className="h-4 w-4 text-red-500" title="Overloaded" />

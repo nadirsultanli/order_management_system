@@ -25,6 +25,7 @@ import { TransfersPage } from './pages/TransfersPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TrucksPage } from './pages/TrucksPage';
 import { TruckDetailPage } from './pages/TruckDetailPage';
+import CreateTruckPage from './pages/CreateTruckPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,7 +70,7 @@ function App() {
               <Route path="settings" element={<SettingsPage />} />
               <Route path="trucks">
                 <Route index element={<TrucksPage />} />
-                <Route path="new" element={<TruckDetailPage />} />
+                <Route path="new" element={<CreateTruckPage />} />
                 <Route path=":id" element={<TruckDetailPage />} />
               </Route>
             </Route>
