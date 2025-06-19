@@ -26,6 +26,7 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
     handleSubmit,
     reset,
     formState: { errors },
+    watch,
   } = useForm<OrderStatusChange>({
     defaultValues: {
       order_id: order.id,
@@ -34,6 +35,8 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
       scheduled_date: '',
     },
   });
+
+  const watchedScheduledDate = watch('scheduled_date');
 
   useEffect(() => {
     reset({
@@ -59,8 +62,12 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
       const validation = validateOrderForConfirmation(order);
       errors.push(...validation.errors);
     } else if (newStatus === 'scheduled') {
-      const validation = validateOrderForScheduling(order);
-      errors.push(...validation.errors);
+      if (!watchedScheduledDate) {
+        errors.push('Scheduled date is required');
+      }
+      if (!order.delivery_address) {
+        errors.push('Delivery address is required');
+      }
     }
 
     return errors;
