@@ -77,6 +77,17 @@ export const calculateOrderTotal = (lines: { quantity: number; unit_price: numbe
   return lines.reduce((total, line) => total + (line.quantity * line.unit_price), 0);
 };
 
+export const calculateOrderTotalWithTax = (
+  lines: { quantity: number; unit_price: number; subtotal?: number }[], 
+  taxPercent: number = 0
+): { subtotal: number; taxAmount: number; grandTotal: number } => {
+  const subtotal = lines.reduce((total, line) => total + (line.subtotal || line.quantity * line.unit_price), 0);
+  const taxAmount = subtotal * (taxPercent / 100);
+  const grandTotal = subtotal + taxAmount;
+  
+  return { subtotal, taxAmount, grandTotal };
+};
+
 export const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',

@@ -141,6 +141,7 @@ export const CreateOrderPage: React.FC = () => {
         notes,
         tax_percent: taxPercent,
         tax_amount: taxAmount,
+        total_amount: grandTotal,
       };
 
       const order = await createOrder.mutateAsync(orderData);

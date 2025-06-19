@@ -4,6 +4,7 @@ import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock } f
 import { useOrder, useChangeOrderStatus } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
+import { OrderEditModal } from '../components/orders/OrderEditModal';
 import { formatOrderId, formatCurrency, getOrderStatusInfo, getNextPossibleStatuses } from '../utils/order';
 import { Order, OrderStatusChange } from '../types/order';
 
@@ -12,6 +13,7 @@ export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const { data: order, isLoading, error } = useOrder(id!);
   const changeOrderStatus = useChangeOrderStatus();
@@ -141,7 +143,7 @@ export const OrderDetailPage: React.FC = () => {
           </button>
           {['draft', 'confirmed'].includes(order.status) && (
             <button
-              onClick={() => navigate(`/orders/${order.id}/edit`)}
+              onClick={() => setShowEditModal(true)}
               className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
             >
               <Edit className="h-4 w-4" />
@@ -411,27 +413,32 @@ export const OrderDetailPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             
-            <div className="space-y-2">
+            <div className="space-y-3">
+              {['draft', 'confirmed'].includes(order.status) && (
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Edit className="h-4 w-4" />
+                  <span>Edit Order</span>
+                </button>
+              )}
+              
               <button
-                onClick={() => navigate(`/customers/${order.customer_id}`)}
-                className="w-full text-left px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                onClick={() => handleChangeStatus(getNextPossibleStatuses(order.status)[0])}
+                disabled={getNextPossibleStatuses(order.status).length === 0}
+                className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                View Customer Profile
+                <Clock className="h-4 w-4" />
+                <span>Change Status</span>
               </button>
+              
               <button
-                onClick={() => window.print()}
-                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                onClick={() => setShowTimeline(!showTimeline)}
+                className="w-full flex items-center justify-center space-x-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
               >
-                Print Order
-              </button>
-              <button
-                onClick={() => {
-                  // TODO: Implement duplicate order functionality
-                  console.log('Duplicate order');
-                }}
-                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
-              >
-                Duplicate Order
+                <Clock className="h-4 w-4" />
+                <span>{showTimeline ? 'Hide' : 'Show'} Timeline</span>
               </button>
             </div>
           </div>
@@ -447,6 +454,15 @@ export const OrderDetailPage: React.FC = () => {
           order={statusChangeOrder.order}
           newStatus={statusChangeOrder.newStatus}
           loading={changeOrderStatus.isPending}
+        />
+      )}
+
+      {/* Order Edit Modal */}
+      {showEditModal && (
+        <OrderEditModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          order={order}
         />
       )}
     </div>

@@ -67,6 +67,7 @@ export interface CreateOrderData {
   notes?: string;
   tax_percent?: number;
   tax_amount?: number;
+  total_amount?: number;
 }
 
 export interface UpdateOrderData extends Partial<CreateOrderData> {

@@ -342,6 +342,11 @@ export const useUpdateOrder = () => {
         throw new Error(error.message);
       }
 
+      // Update total amount if tax-related fields were changed
+      if (updateData.tax_percent !== undefined || updateData.tax_amount !== undefined) {
+        await updateOrderTotal(id);
+      }
+
       return data as Order;
     },
     onSuccess: (data) => {
@@ -607,18 +612,57 @@ const updateOrderTotal = async (orderId: string) => {
     return;
   }
 
+  // Get order lines subtotal
+  const { data: lines } = await supabase
+    .from('order_lines')
+    .select('subtotal')
+    .eq('order_id', orderId);
+
+  // Get order tax information
+  const { data: order } = await supabase
+    .from('orders')
+    .select('tax_amount')
+    .eq('id', orderId)
+    .single();
+
+  if (lines) {
+    const subtotal = lines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+    const taxAmount = order?.tax_amount || 0;
+    const grandTotal = subtotal + taxAmount;
+    
+    await supabase
+      .from('orders')
+      .update({ 
+        total_amount: grandTotal,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+  }
+};
+
+// Helper function to update tax and recalculate total
+export const updateOrderTax = async (orderId: string, taxPercent: number) => {
+  if (!orderId || orderId === 'null' || orderId === 'undefined') {
+    return;
+  }
+
+  // Get order lines subtotal
   const { data: lines } = await supabase
     .from('order_lines')
     .select('subtotal')
     .eq('order_id', orderId);
 
   if (lines) {
-    const total = lines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+    const subtotal = lines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+    const taxAmount = subtotal * (taxPercent / 100);
+    const grandTotal = subtotal + taxAmount;
     
     await supabase
       .from('orders')
       .update({ 
-        total_amount: total,
+        tax_percent: taxPercent,
+        tax_amount: taxAmount,
+        total_amount: grandTotal,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId);
