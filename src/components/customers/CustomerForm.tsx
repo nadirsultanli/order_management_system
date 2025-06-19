@@ -63,7 +63,31 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
         email: customer.email || '',
         account_status: customer.account_status,
         credit_terms_days: customer.credit_terms_days,
+        address_label: customer.primary_address?.label || '',
+        line1: customer.primary_address?.line1 || '',
+        line2: customer.primary_address?.line2 || '',
+        city: customer.primary_address?.city || '',
+        state: customer.primary_address?.state || '',
+        postal_code: customer.primary_address?.postal_code || '',
+        country: customer.primary_address?.country || 'US',
+        delivery_window_start: customer.primary_address?.delivery_window_start || '',
+        delivery_window_end: customer.primary_address?.delivery_window_end || '',
+        is_primary: customer.primary_address?.is_primary || true,
+        instructions: customer.primary_address?.instructions || '',
+        latitude: customer.primary_address?.latitude,
+        longitude: customer.primary_address?.longitude,
       });
+      
+      if (customer.primary_address) {
+        const addressParts = [
+          customer.primary_address.line1,
+          customer.primary_address.line2,
+          customer.primary_address.city,
+          customer.primary_address.state,
+          customer.primary_address.postal_code,
+        ].filter(Boolean);
+        setAddressInput(addressParts.join(', '));
+      }
     } else {
       reset({
         name: '',
@@ -73,7 +97,21 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
         email: '',
         account_status: 'active',
         credit_terms_days: 30,
+        address_label: '',
+        line1: '',
+        line2: '',
+        city: '',
+        state: '',
+        postal_code: '',
+        country: 'US',
+        delivery_window_start: '',
+        delivery_window_end: '',
+        is_primary: true,
+        instructions: '',
+        latitude: undefined,
+        longitude: undefined,
       });
+      setAddressInput('');
     }
   }, [customer, reset]);
 
@@ -142,6 +180,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     const {
       address_label, line1, line2, city, state, postal_code, country,
       delivery_window_start, delivery_window_end, is_primary, instructions,
+      latitude, longitude,
       ...customerFields
     } = data;
 
@@ -157,6 +196,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       delivery_window_end,
       is_primary,
       instructions,
+      latitude,
+      longitude,
     };
 
     onSubmit({

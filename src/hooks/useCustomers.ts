@@ -128,10 +128,31 @@ export const useCustomer = (id: string) => {
         throw new Error('Invalid customer ID');
       }
       
+      // Fetch customer with primary address including latitude/longitude
       const { data, error } = await supabase
         .from('customers')
-        .select('*')
+        .select(`
+          *,
+          primary_address:addresses!inner(
+            id,
+            line1,
+            line2,
+            city,
+            state,
+            postal_code,
+            country,
+            label,
+            latitude,
+            longitude,
+            delivery_window_start,
+            delivery_window_end,
+            is_primary,
+            instructions,
+            created_at
+          )
+        `)
         .eq('id', id)
+        .eq('addresses.is_primary', true)
         .single();
 
       console.log('Customer fetch result:', { data, error });
@@ -154,18 +175,23 @@ export const useCreateCustomer = () => {
     mutationFn: async (customerData: CreateCustomerData) => {
       console.log('Creating customer with address (atomic RPC):', customerData);
       const { address, ...customerFields } = customerData;
-      // Geocode address
-      let latitude: number | undefined = undefined;
-      let longitude: number | undefined = undefined;
-      try {
-        const geo = await geocodeAddress(address);
-        if (geo) {
-          latitude = geo.latitude;
-          longitude = geo.longitude;
+      
+      // Use provided latitude/longitude if available, otherwise geocode
+      let latitude: number | undefined = address.latitude;
+      let longitude: number | undefined = address.longitude;
+      
+      if (!latitude || !longitude) {
+        try {
+          const geo = await geocodeAddress(address);
+          if (geo) {
+            latitude = geo.latitude;
+            longitude = geo.longitude;
+          }
+        } catch (err) {
+          console.warn('Geocoding failed, proceeding without coordinates', err);
         }
-      } catch (err) {
-        console.warn('Geocoding failed, proceeding without coordinates', err);
       }
+      
       // Call the RPC
       const { data, error } = await supabase.rpc('create_customer_with_address', {
         p_name: customerFields.name,
@@ -212,14 +238,15 @@ export const useUpdateCustomer = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updateData }: UpdateCustomerData) => {
+    mutationFn: async ({ id, address, ...updateData }: UpdateCustomerData) => {
       console.log('Updating customer:', id, updateData);
       
       if (!id || id === 'null' || id === 'undefined') {
         throw new Error('Invalid customer ID');
       }
       
-      const { data, error } = await supabase
+      // Update customer fields
+      const { data: customerData, error: customerError } = await supabase
         .from('customers')
         .update({ 
           ...updateData, 
@@ -229,14 +256,57 @@ export const useUpdateCustomer = () => {
         .select()
         .single();
 
-      console.log('Update customer result:', { data, error });
+      console.log('Update customer result:', { customerData, customerError });
 
-      if (error) {
-        console.error('Update customer error:', error);
-        throw new Error(error.message);
+      if (customerError) {
+        console.error('Update customer error:', customerError);
+        throw new Error(customerError.message);
       }
 
-      return data as Customer;
+      // Update address if provided
+      if (address) {
+        console.log('Updating address:', address);
+        
+        // Get the primary address ID for this customer
+        const { data: addressData, error: addressFetchError } = await supabase
+          .from('addresses')
+          .select('id')
+          .eq('customer_id', id)
+          .eq('is_primary', true)
+          .single();
+
+        if (addressFetchError) {
+          console.error('Error fetching primary address:', addressFetchError);
+          throw new Error('Failed to find primary address for customer');
+        }
+
+        // Update the address with the new data including latitude/longitude
+        const { error: addressUpdateError } = await supabase
+          .from('addresses')
+          .update({
+            label: address.label,
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            state: address.state,
+            postal_code: address.postal_code,
+            country: address.country,
+            latitude: address.latitude,
+            longitude: address.longitude,
+            delivery_window_start: address.delivery_window_start,
+            delivery_window_end: address.delivery_window_end,
+            is_primary: address.is_primary,
+            instructions: address.instructions,
+          })
+          .eq('id', addressData.id);
+
+        if (addressUpdateError) {
+          console.error('Update address error:', addressUpdateError);
+          throw new Error(addressUpdateError.message);
+        }
+      }
+
+      return customerData as Customer;
     },
     onSuccess: (data) => {
       console.log('Customer updated successfully:', data);

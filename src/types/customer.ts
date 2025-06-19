@@ -17,6 +17,14 @@ export interface Customer {
     state?: string;
     postal_code?: string;
     country: string;
+    label?: string;
+    latitude?: number;
+    longitude?: number;
+    delivery_window_start?: string;
+    delivery_window_end?: string;
+    is_primary: boolean;
+    instructions?: string;
+    created_at: string;
   };
 }
 
@@ -28,6 +36,8 @@ export interface CreateCustomerAddressInput {
   state?: string;
   postal_code?: string;
   country: string;
+  latitude?: number;
+  longitude?: number;
   delivery_window_start?: string;
   delivery_window_end?: string;
   is_primary?: boolean;
