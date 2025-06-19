@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock } from 'lucide-react';
-import { useOrder, useChangeOrderStatus } from '../hooks/useOrders';
+import { useOrder, useChangeOrderStatus, fixOrderTotal } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { OrderEditModal } from '../components/orders/OrderEditModal';
 import { formatOrderId, formatCurrency, getOrderStatusInfo, getNextPossibleStatuses } from '../utils/order';
 import { Order, OrderStatusChange } from '../types/order';
+import { toast } from 'react-hot-toast';
 
 export const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -439,6 +440,24 @@ export const OrderDetailPage: React.FC = () => {
               >
                 <Clock className="h-4 w-4" />
                 <span>{showTimeline ? 'Hide' : 'Show'} Timeline</span>
+              </button>
+              
+              <button
+                onClick={async () => {
+                  try {
+                    await fixOrderTotal(order.id);
+                    toast.success('Order total fixed successfully');
+                    // Refresh the order data
+                    window.location.reload();
+                  } catch (error) {
+                    console.error('Error fixing order total:', error);
+                    toast.error('Failed to fix order total');
+                  }
+                }}
+                className="w-full flex items-center justify-center space-x-2 bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors"
+              >
+                <DollarSign className="h-4 w-4" />
+                <span>Fix Total</span>
               </button>
             </div>
           </div>

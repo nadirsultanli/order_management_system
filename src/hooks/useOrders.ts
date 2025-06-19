@@ -502,9 +502,18 @@ export const useCreateOrderLine = () => {
       
       const { skipTotalUpdate, ...insertData } = lineData;
       
+      // Calculate subtotal
+      const subtotal = insertData.quantity * insertData.unit_price;
+      const orderLineData = {
+        ...insertData,
+        subtotal: subtotal
+      };
+      
+      console.log('Creating order line with subtotal:', orderLineData);
+      
       const { data, error } = await supabase
         .from('order_lines')
-        .insert([insertData])
+        .insert([orderLineData])
         .select(`
           *,
           product:products(id, sku, name, unit_of_measure)
@@ -618,10 +627,10 @@ const updateOrderTotal = async (orderId: string) => {
     return;
   }
 
-  // Get order lines subtotal
+  // Get order lines with quantity and unit_price
   const { data: lines } = await supabase
     .from('order_lines')
-    .select('subtotal')
+    .select('quantity, unit_price, subtotal')
     .eq('order_id', orderId);
 
   // Get order tax information
@@ -632,9 +641,14 @@ const updateOrderTotal = async (orderId: string) => {
     .single();
 
   if (lines) {
-    const subtotal = lines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+    const subtotal = lines.reduce((sum, line) => {
+      const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
+      return sum + lineSubtotal;
+    }, 0);
     const taxAmount = order?.tax_amount || 0;
     const grandTotal = subtotal + taxAmount;
+    
+    console.log('Updating order total:', { orderId, subtotal, taxAmount, grandTotal });
     
     await supabase
       .from('orders')
@@ -652,14 +666,17 @@ export const updateOrderTax = async (orderId: string, taxPercent: number) => {
     return;
   }
 
-  // Get order lines subtotal
+  // Get order lines with quantity and unit_price
   const { data: lines } = await supabase
     .from('order_lines')
-    .select('subtotal')
+    .select('quantity, unit_price, subtotal')
     .eq('order_id', orderId);
 
   if (lines) {
-    const subtotal = lines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
+    const subtotal = lines.reduce((sum, line) => {
+      const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
+      return sum + lineSubtotal;
+    }, 0);
     const taxAmount = subtotal * (taxPercent / 100);
     const grandTotal = subtotal + taxAmount;
     
@@ -674,5 +691,52 @@ export const updateOrderTax = async (orderId: string, taxPercent: number) => {
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId);
+  }
+};
+
+// Helper function to manually fix order totals (for existing orders)
+export const fixOrderTotal = async (orderId: string) => {
+  if (!orderId || orderId === 'null' || orderId === 'undefined') {
+    return;
+  }
+
+  console.log('Fixing order total for order:', orderId);
+
+  // Get order lines with quantity and unit_price
+  const { data: lines } = await supabase
+    .from('order_lines')
+    .select('quantity, unit_price, subtotal')
+    .eq('order_id', orderId);
+
+  // Get order tax information
+  const { data: order } = await supabase
+    .from('orders')
+    .select('tax_percent, tax_amount')
+    .eq('id', orderId)
+    .single();
+
+  if (lines && order) {
+    // Calculate subtotal from order lines
+    const subtotal = lines.reduce((sum, line) => {
+      const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
+      return sum + lineSubtotal;
+    }, 0);
+
+    // Recalculate tax amount if tax_percent exists
+    const taxAmount = order.tax_percent ? (subtotal * order.tax_percent / 100) : (order.tax_amount || 0);
+    const grandTotal = subtotal + taxAmount;
+    
+    console.log('Fixing order total:', { orderId, subtotal, taxAmount, grandTotal, taxPercent: order.tax_percent });
+    
+    await supabase
+      .from('orders')
+      .update({ 
+        tax_amount: taxAmount,
+        total_amount: grandTotal,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId);
+
+    return { subtotal, taxAmount, grandTotal };
   }
 };
