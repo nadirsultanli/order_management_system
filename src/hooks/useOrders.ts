@@ -255,7 +255,8 @@ export const useCreateOrder = () => {
 
   return useMutation({
     mutationFn: async (orderData: CreateOrderData) => {
-      console.log('Creating order:', orderData);
+      console.log('Creating order with data:', orderData);
+      console.log('Total amount being sent:', orderData.total_amount);
       
       // Validate required IDs
       if (!orderData.customer_id || orderData.customer_id === 'null' || orderData.customer_id === 'undefined') {
@@ -281,6 +282,7 @@ export const useCreateOrder = () => {
         .single();
 
       console.log('Create order result:', { data, error });
+      console.log('Order created with total_amount:', data?.total_amount);
 
       if (error) {
         console.error('Create order error:', error);
@@ -487,7 +489,7 @@ export const useCreateOrderLine = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (lineData: CreateOrderLineData) => {
+    mutationFn: async (lineData: CreateOrderLineData & { skipTotalUpdate?: boolean }) => {
       console.log('Creating order line:', lineData);
       
       if (!lineData.order_id || lineData.order_id === 'null' || lineData.order_id === 'undefined') {
@@ -498,9 +500,11 @@ export const useCreateOrderLine = () => {
         throw new Error('Invalid product ID');
       }
       
+      const { skipTotalUpdate, ...insertData } = lineData;
+      
       const { data, error } = await supabase
         .from('order_lines')
-        .insert([lineData])
+        .insert([insertData])
         .select(`
           *,
           product:products(id, sku, name, unit_of_measure)
@@ -511,8 +515,10 @@ export const useCreateOrderLine = () => {
         throw new Error(error.message);
       }
 
-      // Update order total
-      await updateOrderTotal(lineData.order_id);
+      // Update order total only if not skipped
+      if (!skipTotalUpdate) {
+        await updateOrderTotal(lineData.order_id);
+      }
 
       return data as OrderLine;
     },
@@ -656,6 +662,8 @@ export const updateOrderTax = async (orderId: string, taxPercent: number) => {
     const subtotal = lines.reduce((sum, line) => sum + (line.subtotal || 0), 0);
     const taxAmount = subtotal * (taxPercent / 100);
     const grandTotal = subtotal + taxAmount;
+    
+    console.log('Updating order tax:', { orderId, taxPercent, subtotal, taxAmount, grandTotal });
     
     await supabase
       .from('orders')

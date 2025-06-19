@@ -10,6 +10,7 @@ import { usePriceLists, usePriceListItems } from '../hooks/usePricing';
 import { CreateOrderData, CreateOrderLineData } from '../types/order';
 import { formatCurrency } from '../utils/order';
 import { formatAddressForSelect } from '../utils/address';
+import { updateOrderTax } from '../hooks/useOrders';
 
 interface OrderLineItem {
   product_id: string;
@@ -154,8 +155,11 @@ export const CreateOrderPage: React.FC = () => {
           quantity: line.quantity,
           unit_price: line.unit_price,
         };
-        await createOrderLine.mutateAsync(lineData);
+        await createOrderLine.mutateAsync({ ...lineData, skipTotalUpdate: true });
       }
+
+      // Manually update the total amount to ensure it's correct
+      await updateOrderTax(order.id, taxPercent);
 
       // Navigate to the created order
       navigate(`/orders/${order.id}`);

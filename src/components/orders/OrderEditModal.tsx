@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { useUpdateOrder } from '../../hooks/useOrders';
+import { updateOrderTax } from '../../hooks/useOrders';
 import { Order } from '../../types/order';
 import { formatCurrency } from '../../utils/order';
+import { toast } from 'react-hot-toast';
 
 interface OrderEditModalProps {
   isOpen: boolean;
@@ -116,6 +118,21 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await updateOrderTax(order.id, taxPercent);
+                  toast.success('Total amount recalculated');
+                } catch (error) {
+                  console.error('Error recalculating total:', error);
+                  toast.error('Failed to recalculate total');
+                }
+              }}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              Recalculate Total
+            </button>
             <button
               type="button"
               onClick={onClose}
