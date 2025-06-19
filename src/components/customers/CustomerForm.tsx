@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { X, Loader2 } from 'lucide-react';
 import { Customer, CreateCustomerData } from '../../types/customer';
 import { getGeocodeSuggestions } from '../../utils/geocoding';
+import { validateDeliveryWindow } from '../../utils/address';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -52,6 +53,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const [isPinDraggable, setIsPinDraggable] = useState(false);
   const latitude = watch('latitude');
   const longitude = watch('longitude');
+  const deliveryStart = watch('delivery_window_start');
+  const deliveryEnd = watch('delivery_window_end');
 
   useEffect(() => {
     if (customer) {
@@ -176,6 +179,13 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   }, []);
 
   const handleFormSubmit = (data: any) => {
+    // Validate delivery window
+    if (data.delivery_window_start && data.delivery_window_end) {
+      if (!validateDeliveryWindow(data.delivery_window_start, data.delivery_window_end)) {
+        return;
+      }
+    }
+
     // Group address fields under 'address'
     const {
       address_label, line1, line2, city, state, postal_code, country,
@@ -192,8 +202,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       state,
       postal_code,
       country,
-      delivery_window_start,
-      delivery_window_end,
+      delivery_window_start: delivery_window_start || undefined,
+      delivery_window_end: delivery_window_end || undefined,
       is_primary,
       instructions,
       latitude,
@@ -414,6 +424,55 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                     </div>
                   </div>
                 )}
+
+                {/* Delivery Preferences Section */}
+                <div className="pt-4 border-t border-gray-200 mt-4">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4">Delivery Preferences</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="delivery_window_start" className="block text-sm font-medium text-gray-700">
+                        Delivery Window Start
+                      </label>
+                      <input
+                        type="time"
+                        id="delivery_window_start"
+                        {...register('delivery_window_start')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="delivery_window_end" className="block text-sm font-medium text-gray-700">
+                        Delivery Window End
+                      </label>
+                      <input
+                        type="time"
+                        id="delivery_window_end"
+                        {...register('delivery_window_end')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      {deliveryStart && deliveryEnd && !validateDeliveryWindow(deliveryStart, deliveryEnd) && (
+                        <p className="mt-1 text-sm text-red-600">End time must be after start time</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Instructions Section */}
+                <div className="pt-4 border-t border-gray-200 mt-4">
+                  <div>
+                    <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
+                      Delivery Instructions
+                    </label>
+                    <textarea
+                      id="instructions"
+                      rows={3}
+                      {...register('instructions')}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Gate codes, special access requirements, loading dock information..."
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
