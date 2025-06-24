@@ -15,7 +15,7 @@ export const useOrders = (filters: OrderFilters = {}) => {
         .from('orders')
         .select(`
           *,
-          customer:customers(id, name, email, phone),
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
           order_lines(
             id,
@@ -100,7 +100,7 @@ export const useOrder = (id: string) => {
         .from('orders')
         .select(`
           *,
-          customer:customers(id, name, email, phone),
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
           order_lines(
             id,
@@ -276,7 +276,7 @@ export const useCreateOrder = () => {
         }])
         .select(`
           *,
-          customer:customers(id, name, email, phone),
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions)
         `)
         .single();
@@ -324,7 +324,7 @@ export const useUpdateOrder = () => {
         .eq('id', id)
         .select(`
           *,
-          customer:customers(id, name, email, phone),
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
           order_lines(
             id,
@@ -453,7 +453,7 @@ export const useChangeOrderStatus = () => {
         .eq('id', statusChange.order_id)
         .select(`
           *,
-          customer:customers(id, name, email, phone),
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
           order_lines(
             id,
