@@ -25,7 +25,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
   loading = false,
   title,
 }) => {
-  const [includeAddress, setIncludeAddress] = useState(false);
+  const [includeAddress, setIncludeAddress] = useState(true);
   const [addressInput, setAddressInput] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null);
@@ -106,7 +106,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
           : ''
       );
     } else {
-      setIncludeAddress(false);
+      setIncludeAddress(true);
       reset({
         name: '',
         capacity_cylinders: undefined,
@@ -255,18 +255,6 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-sm font-medium text-gray-900">Location</h4>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="include_address"
-                        checked={includeAddress}
-                        onChange={(e) => setIncludeAddress(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="include_address" className="ml-2 block text-sm text-gray-900">
-                        Add physical address
-                      </label>
-                    </div>
                   </div>
                   {includeAddress && (
                     <div className="p-4 bg-gray-50 rounded-lg">
