@@ -44,13 +44,44 @@ export interface TransferData {
 }
 
 export const getTruckInventory = async (truckId: string): Promise<TruckInventoryItem[]> => {
-  const { data, error } = await supabase
-    .rpc('get_truck_inventory', {
-      p_truck_id: truckId
-    });
+  // Attempt to use the dedicated RPC first (recommended for performance)
+  const { data, error, status } = await supabase.rpc('get_truck_inventory', {
+    p_truck_id: truckId,
+  });
 
-  if (error) throw error;
-  return data || [];
+  // If the RPC exists and succeeds, return its data immediately
+  if (!error) {
+    return (data as TruckInventoryItem[]) || [];
+  }
+
+  // If the RPC is not available (Supabase returns 404) fall back to querying the
+  // materialised `truck_inventory` view / table so the UI still works.
+  if (status === 404) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from('truck_inventory')
+      .select(
+        `product_id,
+         qty_full,
+         qty_empty,
+         updated_at,
+         product:product_id(name, sku)`
+      )
+      .eq('truck_id', truckId);
+
+    if (fallbackError) throw fallbackError;
+
+    return (fallbackData || []).map((item: any) => ({
+      product_id: item.product_id,
+      product_name: item.product?.name,
+      product_sku: item.product?.sku,
+      qty_full: item.qty_full,
+      qty_empty: item.qty_empty,
+      updated_at: item.updated_at,
+    })) as TruckInventoryItem[];
+  }
+
+  // For other errors, bubble them up so they are visible during development
+  throw error;
 };
 
 export const createLoadTransfer = async (data: TransferData) => {
