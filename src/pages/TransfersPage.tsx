@@ -32,7 +32,7 @@ export const TransfersPage: React.FC = () => {
         <TabsContent value="load">
           <Card>
             <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Load Truck from Warehouse</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4">Load Truck</h2>
               <LoadTransferForm />
             </div>
           </Card>

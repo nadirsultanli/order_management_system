@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createLoadTransfer, getAvailableTrucks, TransferLine } from '../../lib/transfers';
+import { WarehouseInventory } from './WarehouseInventory';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
@@ -245,6 +246,14 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
             </div>
           </div>
         </div>
+
+        {/* Warehouse Inventory Display */}
+        {selectedWarehouse && (
+          <div className="mt-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Source Warehouse Inventory</h3>
+            <WarehouseInventory warehouseId={selectedWarehouse} />
+          </div>
+        )}
 
         <div className="mt-6">
           <div className="flex items-center justify-between mb-4">
