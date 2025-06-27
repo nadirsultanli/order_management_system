@@ -1,5 +1,5 @@
 import React from 'react';
-import { GenericFilters, FilterField } from '../ui/GenericFilters';
+import { Search, Filter } from 'lucide-react';
 import { CustomerFilters as FilterType } from '../../types/customer';
 
 interface CustomerFiltersProps {

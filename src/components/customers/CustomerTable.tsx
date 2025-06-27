@@ -3,7 +3,6 @@ import { Eye, Edit, Trash2, Loader2, Users, MapPin } from 'lucide-react';
 import { Customer } from '../../types/customer';
 import { StatusBadge } from '../ui/StatusBadge';
 import { getAddressSummary } from '../../utils/address';
-import { formatDate } from '../../utils/formatters';
 
 interface CustomerTableProps {
   customers: Customer[];
@@ -20,7 +19,13 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
   onDelete,
   onStatusChange,
 }) => {
-
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   console.log('CustomerTable render:', { customers, loading });
 

@@ -5,8 +5,7 @@ import { useOrder, useChangeOrderStatus } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { OrderEditModal } from '../components/orders/OrderEditModal';
-import { formatOrderId, getOrderStatusInfo, getNextPossibleStatuses } from '../utils/order';
-import { formatCurrency, formatDateTime, formatOrderStatus } from '../utils/formatters';
+import { formatOrderId, formatCurrency, getOrderStatusInfo, getNextPossibleStatuses } from '../utils/order';
 import { Order, OrderStatusChange } from '../types/order';
 
 export const OrderDetailPage: React.FC = () => {
@@ -34,7 +33,15 @@ export const OrderDetailPage: React.FC = () => {
     }
   };
 
-
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   if (isLoading) {
     return (
@@ -171,7 +178,7 @@ export const OrderDetailPage: React.FC = () => {
                   Order {formatOrderId(order.id)}
                 </h2>
                 <p className="text-gray-600">
-                  Created on {formatDateTime(order.created_at)}
+                  Created on {formatDate(order.created_at)}
                 </p>
               </div>
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${statusInfo.color}`}>
