@@ -97,8 +97,14 @@ export const CreateOrderPage: React.FC = () => {
 
     const existingLine = orderLines.find((line: OrderLineItem) => line.product_id === productId);
     const unitPrice = getProductPrice(productId);
+    const stockAvailable = getStockInfo(productId);
     
     if (existingLine) {
+      // Check if we can increase quantity
+      if (existingLine.quantity >= stockAvailable) {
+        alert(`Cannot add more items. Only ${stockAvailable} units available in stock.`);
+        return;
+      }
       // Increase quantity
       setOrderLines((lines: OrderLineItem[]) => 
         lines.map((line: OrderLineItem) => 
@@ -124,6 +130,12 @@ export const CreateOrderPage: React.FC = () => {
   const handleUpdateQuantity = (productId: string, quantity: number) => {
     if (quantity <= 0) {
       handleRemoveProduct(productId);
+      return;
+    }
+
+    const stockAvailable = getStockInfo(productId);
+    if (quantity > stockAvailable) {
+      alert(`Cannot set quantity to ${quantity}. Only ${stockAvailable} units available in stock.`);
       return;
     }
 
@@ -385,8 +397,11 @@ export const CreateOrderPage: React.FC = () => {
                   {products.filter(p => p.status === 'active').map((product) => {
                     const stockAvailable = getStockInfo(product.id);
                     const unitPrice = getProductPrice(product.id);
-                    const isInOrder = orderLines.some(line => line.product_id === product.id);
+                    const orderLine = orderLines.find(line => line.product_id === product.id);
+                    const isInOrder = !!orderLine;
+                    const currentOrderQuantity = orderLine?.quantity || 0;
                     const stockStatusClass = getStockStatusClass(stockAvailable);
+                    const canAddMore = currentOrderQuantity < stockAvailable;
                     
                     return (
                       <div
@@ -400,7 +415,7 @@ export const CreateOrderPage: React.FC = () => {
                             <div className={`text-sm ${stockStatusClass}`}>
                               {stockAvailable === 0 
                                 ? "Out of stock" 
-                                : `Stock: ${stockAvailable} available`}
+                                : `Stock: ${stockAvailable} available${isInOrder ? ` (${currentOrderQuantity} in order)` : ''}`}
                             </div>
                             <div className={`text-sm font-medium ${unitPrice > 0 ? 'text-green-600' : 'text-red-600'}`}>
                               Price: {unitPrice > 0 ? formatCurrency(unitPrice) : `No price set${selectedPriceList ? ` in ${selectedPriceList.name}` : ''}`}
@@ -408,7 +423,7 @@ export const CreateOrderPage: React.FC = () => {
                           </div>
                           <button
                             onClick={() => handleAddProduct(product.id)}
-                            disabled={stockAvailable === 0 || unitPrice === 0}
+                            disabled={stockAvailable === 0 || unitPrice === 0 || !canAddMore}
                             className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Plus className="h-4 w-4" />
@@ -448,13 +463,13 @@ export const CreateOrderPage: React.FC = () => {
                               <input
                                 type="number"
                                 min="1"
-                                max={stockAvailable + line.quantity}
+                                max={stockAvailable}
                                 value={line.quantity}
                                 onChange={(e) => handleUpdateQuantity(line.product_id, parseInt(e.target.value) || 0)}
                                 className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                               />
                               <span className="text-xs text-gray-500">
-                                (max: {stockAvailable + line.quantity})
+                                (max: {stockAvailable})
                               </span>
                             </div>
                             <div className="text-right">
