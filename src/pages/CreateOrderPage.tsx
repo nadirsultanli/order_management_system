@@ -41,7 +41,20 @@ export const CreateOrderPage: React.FC = () => {
   const customers = customersData?.customers || [];
   const products = productsData?.products || [];
   const priceLists = priceListsData?.priceLists || [];
-  const defaultPriceList = priceLists.find((pl: any) => pl.is_default);
+  
+  // Get active price lists (not expired)
+  const today = new Date().toISOString().split('T')[0];
+  const activePriceLists = priceLists.filter((pl: any) => {
+    // Check if price list is active (not expired)
+    if (pl.end_date && pl.end_date < today) return false;
+    // Check if price list has started
+    if (pl.start_date && pl.start_date > today) return false;
+    return true;
+  });
+  
+  // Prefer default price list, but fallback to first active price list
+  const selectedPriceList = activePriceLists.find((pl: any) => pl.is_default) || 
+                           activePriceLists[0];
   
   // Get all active product IDs for stock availability check
   const activeProductIds = products
@@ -49,7 +62,7 @@ export const CreateOrderPage: React.FC = () => {
     .map((p: any) => p.id);
   
   const { data: stockAvailability = [] } = useStockAvailability(activeProductIds);
-  const { data: priceListItems = [] } = usePriceListItems(defaultPriceList?.id || '');
+  const { data: priceListItems = [] } = usePriceListItems(selectedPriceList?.id || '');
 
   const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
   const selectedAddress = addresses.find((a: any) => a.id === selectedAddressId);
@@ -352,12 +365,13 @@ export const CreateOrderPage: React.FC = () => {
         {/* Step 2: Add Products */}
         {step === 2 && (
           <div className="space-y-6">
-            {!defaultPriceList && (
+            {!selectedPriceList && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2">
                   <AlertTriangle className="h-5 w-5 text-yellow-600" />
                   <span className="text-sm text-yellow-800">
-                    No default price list found. Product prices may not be available.
+                    No active price list found. Product prices may not be available. 
+                    {priceLists.length > 0 ? `Found ${priceLists.length} price list(s) but none are currently active.` : 'No price lists exist yet.'}
                   </span>
                 </div>
               </div>
@@ -388,8 +402,8 @@ export const CreateOrderPage: React.FC = () => {
                                 ? "Out of stock" 
                                 : `Stock: ${stockAvailable} available`}
                             </div>
-                            <div className="text-sm font-medium text-green-600">
-                              Price: {unitPrice > 0 ? formatCurrency(unitPrice) : 'No price set'}
+                            <div className={`text-sm font-medium ${unitPrice > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              Price: {unitPrice > 0 ? formatCurrency(unitPrice) : `No price set${selectedPriceList ? ` in ${selectedPriceList.name}` : ''}`}
                             </div>
                           </div>
                           <button
