@@ -48,8 +48,14 @@ export const WarehouseDetailPage: React.FC = () => {
 
   // Initialize map when warehouse data is loaded
   useEffect(() => {
-    if (!warehouse?.address?.latitude || !warehouse?.address?.longitude || !mapContainer.current || map) {
+    if (!warehouse?.address?.latitude || !warehouse?.address?.longitude || !mapContainer.current) {
       return;
+    }
+
+    // Clean up existing map first
+    if (map) {
+      map.remove();
+      setMap(null);
     }
 
     const accessToken = (import.meta as any).env?.VITE_MAPBOX_API_KEY;
@@ -79,10 +85,11 @@ export const WarehouseDetailPage: React.FC = () => {
     setMap(newMap);
 
     return () => {
-      newMap.remove();
-      setMap(null);
+      if (newMap) {
+        newMap.remove();
+      }
     };
-  }, [warehouse?.address?.latitude, warehouse?.address?.longitude, map]);
+  }, [warehouse?.address?.latitude, warehouse?.address?.longitude, mapContainer.current]);
 
   if (isLoading) {
     return (
@@ -266,27 +273,61 @@ export const WarehouseDetailPage: React.FC = () => {
               <div className="flex justify-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
-            ) : inventory.length > 0 ? (
-              <div className="space-y-3">
-                {inventory.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="font-medium text-gray-900">{item.product?.name}</div>
-                      <div className="text-sm text-gray-500">SKU: {item.product?.sku}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.qty_full} full, {item.qty_empty} empty
-                      </div>
-                      {item.qty_reserved > 0 && (
-                        <div className="text-xs text-yellow-600">
-                          {item.qty_reserved} reserved
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                         ) : inventory.length > 0 ? (
+               <div className="space-y-3">
+                 {inventory.map((item) => (
+                   <div key={item.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                     <div className="flex items-center justify-between mb-3">
+                       <div>
+                         <div className="font-semibold text-gray-900">{item.product?.name}</div>
+                         <div className="text-sm text-gray-500">SKU: {item.product?.sku}</div>
+                       </div>
+                       <div className="flex items-center space-x-2">
+                         <Package className="h-4 w-4 text-gray-400" />
+                         <span className="text-sm font-medium text-gray-600">{item.product?.unit_of_measure}</span>
+                       </div>
+                     </div>
+                     
+                     <div className="grid grid-cols-3 gap-3">
+                       <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
+                         <div className="text-2xl font-bold text-green-700">{item.qty_full}</div>
+                         <div className="text-xs font-medium text-green-600 uppercase tracking-wide">Full</div>
+                       </div>
+                       
+                       <div className="bg-gray-100 rounded-lg p-3 text-center border border-gray-300">
+                         <div className="text-2xl font-bold text-gray-700">{item.qty_empty}</div>
+                         <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">Empty</div>
+                       </div>
+                       
+                       <div className={`rounded-lg p-3 text-center border ${
+                         item.qty_reserved > 0 
+                           ? 'bg-yellow-50 border-yellow-200' 
+                           : 'bg-blue-50 border-blue-200'
+                       }`}>
+                         <div className={`text-2xl font-bold ${
+                           item.qty_reserved > 0 ? 'text-yellow-700' : 'text-blue-700'
+                         }`}>
+                           {item.qty_reserved}
+                         </div>
+                         <div className={`text-xs font-medium uppercase tracking-wide ${
+                           item.qty_reserved > 0 ? 'text-yellow-600' : 'text-blue-600'
+                         }`}>
+                           Reserved
+                         </div>
+                       </div>
+                     </div>
+                     
+                     <div className="mt-3 pt-3 border-t border-gray-200">
+                       <div className="flex justify-between items-center text-sm">
+                         <span className="text-gray-500">Available:</span>
+                         <span className="font-semibold text-gray-900">
+                           {item.qty_full - item.qty_reserved} units
+                         </span>
+                       </div>
+                     </div>
+                   </div>
+                 ))}
+               </div>
             ) : (
               <div className="text-center py-4">
                 <Package className="h-8 w-8 text-gray-300 mx-auto mb-2" />

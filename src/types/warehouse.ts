@@ -13,6 +13,8 @@ export interface Warehouse {
     postal_code?: string;
     country: string;
     instructions?: string;
+    latitude?: number;
+    longitude?: number;
   };
 }
 
@@ -27,6 +29,8 @@ export interface CreateWarehouseData {
     postal_code?: string;
     country: string;
     instructions?: string;
+    latitude?: number;
+    longitude?: number;
   };
 }
 

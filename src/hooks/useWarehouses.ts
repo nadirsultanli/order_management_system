@@ -23,7 +23,9 @@ export const useWarehouses = (filters: WarehouseFilters = {}) => {
             state,
             postal_code,
             country,
-            instructions
+            instructions,
+            latitude,
+            longitude
           )
         `, { count: 'exact' })
         .order('created_at', { ascending: false });
@@ -80,7 +82,9 @@ export const useWarehouse = (id: string) => {
             state,
             postal_code,
             country,
-            instructions
+            instructions,
+            latitude,
+            longitude
           )
         `)
         .eq('id', id)
