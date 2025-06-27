@@ -10,6 +10,7 @@ import { usePriceLists, usePriceListItems } from '../hooks/usePricing';
 import { CreateOrderData, CreateOrderLineData } from '../types/order';
 import { formatCurrency } from '../utils/order';
 import { formatAddressForSelect } from '../utils/address';
+import { CustomerSelector } from '../components/customers/CustomerSelector';
 
 interface OrderLineItem {
   product_id: string;
@@ -241,18 +242,12 @@ export const CreateOrderPage: React.FC = () => {
                   <User className="inline h-4 w-4 mr-1" />
                   Select Customer *
                 </label>
-                <select
+                <CustomerSelector
                   value={selectedCustomerId}
-                  onChange={(e) => handleCustomerChange(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value="">Choose a customer...</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={handleCustomerChange}
+                  customers={customers}
+                  placeholder="Search for a customer..."
+                />
               </div>
 
               {/* Order Date */}
