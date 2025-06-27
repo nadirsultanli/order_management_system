@@ -1,17 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Warehouse, MapPin, Calendar, Package, Activity } from 'lucide-react';
 import { useWarehouse, useUpdateWarehouse } from '../hooks/useWarehouses';
+import { useWarehouseInventory } from '../hooks/useInventory';
 import { WarehouseForm } from '../components/warehouses/WarehouseForm';
 import { Warehouse as WarehouseType, CreateWarehouseData } from '../types/warehouse';
 import { formatAddress } from '../utils/address';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 export const WarehouseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
+  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const [map, setMap] = useState<mapboxgl.Map | null>(null);
 
   const { data: warehouse, isLoading, error } = useWarehouse(id!);
+  const { data: inventory = [], isLoading: inventoryLoading } = useWarehouseInventory(id!);
   const updateWarehouse = useUpdateWarehouse();
 
   const handleEditSubmit = async (data: CreateWarehouseData) => {
@@ -39,6 +45,44 @@ export const WarehouseDetailPage: React.FC = () => {
     if (!capacity) return 'Not specified';
     return capacity.toLocaleString() + ' cylinders';
   };
+
+  // Initialize map when warehouse data is loaded
+  useEffect(() => {
+    if (!warehouse?.address?.latitude || !warehouse?.address?.longitude || !mapContainer.current || map) {
+      return;
+    }
+
+    const accessToken = (import.meta as any).env?.VITE_MAPBOX_API_KEY;
+    if (!accessToken) {
+      console.warn('Mapbox access token not found');
+      return;
+    }
+
+    mapboxgl.accessToken = accessToken;
+    const newMap = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: [warehouse.address.longitude, warehouse.address.latitude],
+      zoom: 14,
+    });
+
+    newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    new mapboxgl.Marker({ anchor: 'center' })
+      .setLngLat([warehouse.address.longitude, warehouse.address.latitude])
+      .addTo(newMap);
+
+    newMap.on('load', () => {
+      newMap.resize();
+    });
+
+    setMap(newMap);
+
+    return () => {
+      newMap.remove();
+      setMap(null);
+    };
+  }, [warehouse?.address?.latitude, warehouse?.address?.longitude, map]);
 
   if (isLoading) {
     return (
@@ -167,6 +211,20 @@ export const WarehouseDetailPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Map */}
+                {warehouse.address.latitude && warehouse.address.longitude && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-2">
+                      Map Location
+                    </label>
+                    <div 
+                      ref={mapContainer}
+                      className="w-full h-64 rounded-lg border border-gray-300"
+                      style={{ minHeight: '256px' }}
+                    />
+                  </div>
+                )}
+
                 {warehouse.address.instructions && (
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">
@@ -201,25 +259,42 @@ export const WarehouseDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Placeholder sections for future features */}
+          {/* Current Inventory */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Inventory</h3>
-            <div className="text-center py-4">
-              <Package className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">
-                Inventory tracking will be available in a future update.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-            <div className="text-center py-4">
-              <Activity className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">
-                Activity tracking will be available in a future update.
-              </p>
-            </div>
+            {inventoryLoading ? (
+              <div className="flex justify-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : inventory.length > 0 ? (
+              <div className="space-y-3">
+                {inventory.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-medium text-gray-900">{item.product?.name}</div>
+                      <div className="text-sm text-gray-500">SKU: {item.product?.sku}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-900">
+                        {item.qty_full} full, {item.qty_empty} empty
+                      </div>
+                      {item.qty_reserved > 0 && (
+                        <div className="text-xs text-yellow-600">
+                          {item.qty_reserved} reserved
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <Package className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-gray-500 text-sm">
+                  This warehouse has no inventory yet.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
