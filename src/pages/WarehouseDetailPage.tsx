@@ -52,44 +52,64 @@ export const WarehouseDetailPage: React.FC = () => {
       return;
     }
 
-    // Clean up existing map first
-    if (map) {
-      map.remove();
-      setMap(null);
-    }
-
     const accessToken = (import.meta as any).env?.VITE_MAPBOX_API_KEY;
     if (!accessToken) {
       console.warn('Mapbox access token not found');
       return;
     }
 
-    mapboxgl.accessToken = accessToken;
-    const newMap = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [warehouse.address.longitude, warehouse.address.latitude],
-      zoom: 14,
-    });
+    // Clean up existing map first
+    if (map) {
+      try {
+        map.remove();
+      } catch (error) {
+        console.warn('Error removing existing map:', error);
+      }
+      setMap(null);
+    }
 
-    newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    try {
+      mapboxgl.accessToken = accessToken;
+      const newMap = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [warehouse.address.longitude, warehouse.address.latitude],
+        zoom: 14,
+      });
 
-    new mapboxgl.Marker({ anchor: 'center' })
-      .setLngLat([warehouse.address.longitude, warehouse.address.latitude])
-      .addTo(newMap);
+      newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    newMap.on('load', () => {
-      newMap.resize();
-    });
+      new mapboxgl.Marker({ anchor: 'center' })
+        .setLngLat([warehouse.address.longitude, warehouse.address.latitude])
+        .addTo(newMap);
 
-    setMap(newMap);
+      newMap.on('load', () => {
+        try {
+          newMap.resize();
+        } catch (error) {
+          console.warn('Error resizing map:', error);
+        }
+      });
 
+      setMap(newMap);
+    } catch (error) {
+      console.error('Error initializing map:', error);
+    }
+  }, [warehouse?.address?.latitude, warehouse?.address?.longitude]);
+
+  // Cleanup effect
+  useEffect(() => {
     return () => {
-      if (newMap) {
-        newMap.remove();
+      if (map) {
+        try {
+          map.remove();
+        } catch (error) {
+          console.warn('Error cleaning up map:', error);
+        }
+        setMap(null);
       }
     };
-  }, [warehouse?.address?.latitude, warehouse?.address?.longitude, mapContainer.current]);
+  }, [map]);
 
   if (isLoading) {
     return (
