@@ -1,7 +1,8 @@
 import React from 'react';
 import { Eye, Edit, Trash2, Loader2, Warehouse, MapPin } from 'lucide-react';
 import { Warehouse as WarehouseType } from '../../types/warehouse';
-import { formatAddress } from '../../utils/address';
+import { formatDate, formatCapacity } from '../../utils/formatters';
+import { getAddressSummary } from '../../utils/addressHelpers';
 
 interface WarehouseTableProps {
   warehouses: WarehouseType[];
@@ -18,25 +19,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
-  const formatCapacity = (capacity?: number) => {
-    if (!capacity) return '-';
-    return capacity.toLocaleString() + ' cylinders';
-  };
-
-  const getAddressSummary = (address?: WarehouseType['address']) => {
-    if (!address) return 'No address';
-    
-    const parts = [address.city, address.state].filter(Boolean);
-    return parts.join(', ') || 'Address incomplete';
-  };
 
   console.log('WarehouseTable render:', { warehouses, loading });
 

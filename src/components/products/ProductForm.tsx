@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Product, CreateProductData } from '../../types/product';
+import { validateField, productValidationSchema } from '../../utils/validation';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -78,23 +79,17 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   }, [watchedStatus]);
 
   const validateSKU = (sku: string) => {
-    const skuPattern = /^[A-Z0-9-]+$/;
-    if (!skuPattern.test(sku)) {
-      return 'SKU must contain only uppercase letters, numbers, and hyphens';
-    }
-    return true;
+    const error = validateField(sku, productValidationSchema.sku, 'SKU');
+    return error || true;
   };
 
   const validateWeight = (weight: number | undefined, fieldName: string) => {
-    if (weight !== undefined) {
-      if (weight <= 0) {
-        return `${fieldName} must be greater than 0`;
-      }
-      if (weight > 500) {
-        return `${fieldName} must be 500 kg or less`;
-      }
-    }
-    return true;
+    if (weight === undefined) return true;
+    const rule = fieldName.toLowerCase().includes('capacity') 
+      ? productValidationSchema.capacity_kg 
+      : productValidationSchema.tare_weight_kg;
+    const error = validateField(weight, rule, fieldName);
+    return error || true;
   };
 
   const handleFormSubmit = (data: CreateProductData) => {
