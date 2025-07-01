@@ -32,12 +32,12 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
       setError(null);
 
       let query = supabase
-        .from('multi_sku_transfers')
+        .from('transfers')
         .select(`
           *,
           source_warehouse:source_warehouse_id(name),
           destination_warehouse:destination_warehouse_id(name),
-          items:multi_sku_transfer_items(*)
+          items:transfer_lines(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -77,20 +77,16 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
 
       // Start a transaction for creating transfer and items
       const { data: transfer, error: transferError } = await supabase
-        .from('multi_sku_transfers')
+        .from('transfers')
         .insert([{
           source_warehouse_id: transferData.source_warehouse_id,
           destination_warehouse_id: transferData.destination_warehouse_id,
           transfer_date: transferData.transfer_date,
           status: 'draft',
           transfer_type: 'internal',
-          priority: transferData.priority || 'normal',
-          transfer_reference: transferData.transfer_reference,
-          reason: transferData.reason,
-          notes: transferData.notes,
-          total_items: transferData.items.length,
-          total_quantity: transferData.items.reduce((sum, item) => sum + item.quantity_to_transfer, 0),
-          created_by_user_id: 'current-user-id' // TODO: Get from auth context
+          qty_tagged: 0,
+          qty_untagged: transferData.items.reduce((sum, item) => sum + item.quantity_to_transfer, 0),
+          variance_flag: false
         }])
         .select()
         .single();
@@ -101,18 +97,12 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
       const transferItems = transferData.items.map(item => ({
         transfer_id: transfer.id,
         product_id: item.product_id,
-        product_sku: item.product_sku,
-        product_name: item.product_name,
-        variant_name: item.variant_name,
-        quantity_to_transfer: item.quantity_to_transfer,
-        unit_weight_kg: item.unit_weight_kg,
-        total_weight_kg: item.total_weight_kg,
-        unit_cost: item.unit_cost,
-        total_cost: item.total_cost
+        quantity_full: item.quantity_to_transfer,
+        quantity_empty: 0
       }));
 
       const { error: itemsError } = await supabase
-        .from('multi_sku_transfer_items')
+        .from('transfer_lines')
         .insert(transferItems);
 
       if (itemsError) throw itemsError;
@@ -149,23 +139,11 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
       }
 
       const { error } = await supabase
-        .from('multi_sku_transfers')
+        .from('transfers')
         .update(updateData)
         .eq('id', transferId);
 
       if (error) throw error;
-
-      // Create history record
-      await supabase
-        .from('transfer_history')
-        .insert([{
-          transfer_id: transferId,
-          action: 'updated',
-          action_date: new Date().toISOString(),
-          action_by_user_id: 'current-user-id',
-          notes,
-          new_status: newStatus
-        }]);
 
       await fetchTransfers();
     } catch (err: any) {
