@@ -123,11 +123,20 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   };
 
   const handleFormSubmit = (data: CreateAddressData) => {
-    // Validate delivery window
+    // Validate delivery window only if both times are provided
     if (data.delivery_window_start && data.delivery_window_end) {
       if (!validateDeliveryWindow(data.delivery_window_start, data.delivery_window_end)) {
+        alert('End time must be after start time');
         return;
       }
+    }
+    
+    // Clear partial time windows - either both or neither
+    if (data.delivery_window_start && !data.delivery_window_end) {
+      data.delivery_window_end = undefined;
+    }
+    if (data.delivery_window_end && !data.delivery_window_start) {
+      data.delivery_window_start = undefined;
     }
 
     onSubmit(data);
@@ -340,20 +349,189 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                   </div>
                 </div>
 
+                {/* Access & Security */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-4">Access & Security</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="access_code" className="block text-sm font-medium text-gray-700">
+                        Access Code
+                      </label>
+                      <input
+                        type="text"
+                        id="access_code"
+                        {...register('access_code')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Building access code"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="gate_code" className="block text-sm font-medium text-gray-700">
+                        Gate Code
+                      </label>
+                      <input
+                        type="text"
+                        id="gate_code"
+                        {...register('gate_code')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Gate or entrance code"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="building_type" className="block text-sm font-medium text-gray-700">
+                        Building Type
+                      </label>
+                      <select
+                        id="building_type"
+                        {...register('building_type')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">Select type...</option>
+                        <option value="residential">Residential</option>
+                        <option value="commercial">Commercial</option>
+                        <option value="industrial">Industrial</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label htmlFor="preferred_delivery_time" className="block text-sm font-medium text-gray-700">
+                        Preferred Time
+                      </label>
+                      <input
+                        type="time"
+                        id="preferred_delivery_time"
+                        {...register('preferred_delivery_time')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Preferred time within delivery window
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="security_requirements" className="block text-sm font-medium text-gray-700">
+                        Security Requirements
+                      </label>
+                      <textarea
+                        id="security_requirements"
+                        rows={2}
+                        {...register('security_requirements')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Security checkpoints, ID requirements, visitor procedures..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Information */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-4">On-Site Contact</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="contact_person" className="block text-sm font-medium text-gray-700">
+                        Contact Person
+                      </label>
+                      <input
+                        type="text"
+                        id="contact_person"
+                        {...register('contact_person')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="On-site contact name"
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="contact_phone" className="block text-sm font-medium text-gray-700">
+                        Contact Phone
+                      </label>
+                      <input
+                        type="tel"
+                        id="contact_phone"
+                        {...register('contact_phone')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Phone number for delivery"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logistics Information */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-4">Logistics & Access</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="parking_instructions" className="block text-sm font-medium text-gray-700">
+                        Parking Instructions
+                      </label>
+                      <textarea
+                        id="parking_instructions"
+                        rows={2}
+                        {...register('parking_instructions')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Where to park, parking restrictions, loading zones..."
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="loading_dock_info" className="block text-sm font-medium text-gray-700">
+                        Loading Dock Information
+                      </label>
+                      <textarea
+                        id="loading_dock_info"
+                        rows={2}
+                        {...register('loading_dock_info')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Loading dock location, height restrictions, equipment availability..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Delivery Instructions */}
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-4">Delivery Instructions</h4>
-                  <div>
-                    <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
-                      Special Instructions
-                    </label>
-                    <textarea
-                      id="instructions"
-                      rows={3}
-                      {...register('instructions')}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Gate codes, delivery notes, special handling instructions..."
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="delivery_notes" className="block text-sm font-medium text-gray-700">
+                        Delivery Notes
+                      </label>
+                      <textarea
+                        id="delivery_notes"
+                        rows={3}
+                        {...register('delivery_notes')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Specific delivery instructions, handling requirements..."
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="special_instructions" className="block text-sm font-medium text-gray-700">
+                        Special Instructions
+                      </label>
+                      <textarea
+                        id="special_instructions"
+                        rows={3}
+                        {...register('special_instructions')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="Special handling, fragile items, temperature requirements..."
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
+                        General Instructions
+                      </label>
+                      <textarea
+                        id="instructions"
+                        rows={2}
+                        {...register('instructions')}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="General delivery notes and instructions..."
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

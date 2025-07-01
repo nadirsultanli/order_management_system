@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface StatusBadgeProps {
-  status: 'active' | 'credit_hold' | 'closed';
+  status: 'active' | 'credit_hold' | 'closed' | string;
   className?: string;
   children?: React.ReactNode;
 }

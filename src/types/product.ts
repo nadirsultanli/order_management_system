@@ -9,7 +9,16 @@ export interface Product {
   valve_type?: string;
   status: 'active' | 'end_of_sale' | 'obsolete';
   barcode_uid?: string;
+  requires_tag: boolean;
   created_at: string;
+  // Product variant fields
+  variant_type: 'cylinder' | 'refillable' | 'disposable';
+  parent_product_id?: string; // null for parent products
+  variant_name?: string; // 'full', 'empty', etc.
+  is_variant: boolean; // true for variants, false for parents
+  // Derived fields for UI
+  parent_product?: Product; // populated when fetching variants
+  variants?: Product[]; // populated when fetching parent products
 }
 
 export interface CreateProductData {
@@ -22,6 +31,12 @@ export interface CreateProductData {
   valve_type?: string;
   status: 'active' | 'end_of_sale' | 'obsolete';
   barcode_uid?: string;
+  requires_tag: boolean;
+  // Product variant fields
+  variant_type: 'cylinder' | 'refillable' | 'disposable';
+  parent_product_id?: string;
+  variant_name?: string;
+  is_variant: boolean;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {
@@ -46,4 +61,41 @@ export interface ProductStats {
   obsolete: number;
   cylinders: number;
   kg_products: number;
+}
+
+// Product variant-specific interfaces
+export interface ProductVariant {
+  id: string;
+  parent_product_id: string;
+  variant_name: string;
+  sku: string;
+  name: string;
+  status: 'active' | 'end_of_sale' | 'obsolete';
+  created_at: string;
+}
+
+export interface CreateVariantData {
+  parent_product_id: string;
+  variant_name: string;
+  sku: string;
+  name: string;
+  description?: string;
+  status: 'active' | 'end_of_sale' | 'obsolete';
+  barcode_uid?: string;
+}
+
+export interface ProductWithVariants extends Product {
+  variants: Product[]; // Use full Product type for variants
+  total_stock?: number; // sum of all variant stock
+  available_stock?: number; // sum of available variant stock
+}
+
+// Inventory with variant support
+export interface VariantInventory {
+  product_id: string;
+  variant_name: string;
+  warehouse_id: string;
+  qty_full: number;
+  qty_empty: number;
+  qty_reserved: number;
 }

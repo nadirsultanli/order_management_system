@@ -149,10 +149,40 @@ export const validateOrderForScheduling = (order: any): { valid: boolean; errors
     errors.push('Scheduled date is required');
   }
 
-  if (!order.delivery_address) {
+  if (!order.delivery_address_id && !order.delivery_address) {
     errors.push('Delivery address is required');
   }
 
+  // Validate scheduled date is not in the past
+  if (order.scheduled_date) {
+    const scheduledDate = new Date(order.scheduled_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (scheduledDate < today) {
+      errors.push('Scheduled date cannot be in the past');
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
+};
+
+export const validateOrderDeliveryWindow = (order: any): { valid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  // Time window is completely optional for orders
+  if (order.delivery_address?.delivery_window_start && order.delivery_address?.delivery_window_end) {
+    const startTime = new Date(`1970-01-01T${order.delivery_address.delivery_window_start}`);
+    const endTime = new Date(`1970-01-01T${order.delivery_address.delivery_window_end}`);
+    
+    if (startTime >= endTime) {
+      errors.push('Delivery window end time must be after start time');
+    }
+  }
+  
   return {
     valid: errors.length === 0,
     errors,

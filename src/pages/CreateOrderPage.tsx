@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, ShoppingCart, User, MapPin, Calendar, Package, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ShoppingCart, User, MapPin, Calendar, Package, AlertTriangle, X, Check, Info, DollarSign } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
-import { useAddresses } from '../hooks/useAddresses';
+import { useAddresses, useCreateAddress } from '../hooks/useAddresses';
 import { useProducts } from '../hooks/useProducts';
 import { useCreateOrder, useCreateOrderLine } from '../hooks/useOrders';
 import { useStockAvailability } from '../hooks/useOrders';
 import { usePriceLists, usePriceListItems } from '../hooks/usePricing';
 import { CreateOrderData, CreateOrderLineData } from '../types/order';
+import { CreateAddressData } from '../types/address';
 import { formatCurrency } from '../utils/order';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
+import { AddressForm } from '../components/addresses/AddressForm';
 
 interface OrderLineItem {
   product_id: string;
@@ -30,6 +32,15 @@ export const CreateOrderPage: React.FC = () => {
   const [orderLines, setOrderLines] = useState<OrderLineItem[]>([]);
   const [notes, setNotes] = useState('');
   const [taxPercent, setTaxPercent] = useState(0);
+  
+  // Add state for inline address creation
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
+  
+  // Order type state
+  const [orderType, setOrderType] = useState<'delivery' | 'refill' | 'exchange' | 'pickup'>('delivery');
+  const [serviceType, setServiceType] = useState<'standard' | 'express' | 'scheduled'>('standard');
+  const [exchangeEmptyQty, setExchangeEmptyQty] = useState(0);
+  const [requiresPickup, setRequiresPickup] = useState(false);
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
@@ -37,6 +48,7 @@ export const CreateOrderPage: React.FC = () => {
   const { data: priceListsData } = usePriceLists({ limit: 1000 });
   const createOrder = useCreateOrder();
   const createOrderLine = useCreateOrderLine();
+  const createAddress = useCreateAddress();
 
   const customers = customersData?.customers || [];
   const products = productsData?.products || [];
@@ -168,6 +180,11 @@ export const CreateOrderPage: React.FC = () => {
         tax_percent: taxPercent,
         tax_amount: taxAmount,
         total_amount: grandTotal,
+        // Order type fields
+        order_type: orderType,
+        service_type: serviceType,
+        exchange_empty_qty: exchangeEmptyQty,
+        requires_pickup: requiresPickup,
       };
 
       const order = await createOrder.mutateAsync(orderData);
@@ -208,8 +225,17 @@ export const CreateOrderPage: React.FC = () => {
 
   const handleAddAddressForCustomer = () => {
     if (selectedCustomerId) {
-      // Navigate to customer detail page where they can add addresses
-      navigate(`/customers/${selectedCustomerId}`);
+      setIsAddressFormOpen(true);
+    }
+  };
+
+  const handleAddressSubmit = async (addressData: CreateAddressData) => {
+    try {
+      const newAddress = await createAddress.mutateAsync(addressData);
+      setSelectedAddressId(newAddress.id);
+      setIsAddressFormOpen(false);
+    } catch (error) {
+      // Error handling is done in the hook
     }
   };
 
@@ -403,31 +429,128 @@ export const CreateOrderPage: React.FC = () => {
                     const stockStatusClass = getStockStatusClass(stockAvailable);
                     const canAddMore = currentOrderQuantity < stockAvailable;
                     
+                    // Determine product availability and warning states
+                    const isOutOfStock = stockAvailable === 0;
+                    const hasNoPricing = unitPrice === 0;
+                    const isLowStock = stockAvailable > 0 && stockAvailable <= 5;
+                    const cannotAddProduct = isOutOfStock || hasNoPricing || !canAddMore;
+                    
                     return (
                       <div
                         key={product.id}
-                        className={`p-3 border rounded-lg ${isInOrder ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}`}
+                        className={`p-3 border rounded-lg transition-all ${
+                          isInOrder 
+                            ? 'bg-blue-50 border-blue-200' 
+                            : cannotAddProduct
+                              ? 'bg-gray-50 border-gray-200 opacity-75'
+                              : 'border-gray-200 hover:border-gray-300'
+                        }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900">{product.name}</div>
-                            <div className="text-sm text-gray-500">SKU: {product.sku}</div>
-                            <div className={`text-sm ${stockStatusClass}`}>
-                              {stockAvailable === 0 
-                                ? "Out of stock" 
-                                : `Stock: ${stockAvailable} available${isInOrder ? ` (${currentOrderQuantity} in order)` : ''}`}
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <div className="font-medium text-gray-900">{product.name}</div>
+                              {isInOrder && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  In Order
+                                </span>
+                              )}
                             </div>
-                            <div className={`text-sm font-medium ${unitPrice > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              Price: {unitPrice > 0 ? formatCurrency(unitPrice) : `No price set${selectedPriceList ? ` in ${selectedPriceList.name}` : ''}`}
+                            <div className="text-sm text-gray-500 mb-2">SKU: {product.sku}</div>
+                            
+                            {/* Stock Status with Enhanced Visual Indicators */}
+                            <div className="flex items-center space-x-2 mb-2">
+                              {isOutOfStock ? (
+                                <div className="flex items-center space-x-1 text-red-600">
+                                  <X className="h-4 w-4" />
+                                  <span className="text-sm font-medium">Out of Stock</span>
+                                </div>
+                              ) : isLowStock ? (
+                                <div className="flex items-center space-x-1 text-orange-600">
+                                  <AlertTriangle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">Low Stock: {stockAvailable} left</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-1 text-green-600">
+                                  <Check className="h-4 w-4" />
+                                  <span className="text-sm">
+                                    {stockAvailable} available{isInOrder ? ` (${currentOrderQuantity} in order)` : ''}
+                                  </span>
+                                </div>
+                              )}
                             </div>
+
+                            {/* Pricing Status with Enhanced Visual Indicators */}
+                            <div className="flex items-center space-x-2 mb-3">
+                              {hasNoPricing ? (
+                                <div className="flex items-center space-x-1 text-red-600">
+                                  <DollarSign className="h-4 w-4" />
+                                  <span className="text-sm font-medium">
+                                    No price set{selectedPriceList ? ` in ${selectedPriceList.name}` : ''}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-1 text-green-600">
+                                  <DollarSign className="h-4 w-4" />
+                                  <span className="text-sm font-medium">{formatCurrency(unitPrice)}</span>
+                                  {selectedPriceList && (
+                                    <span className="text-xs text-gray-500">({selectedPriceList.name})</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Warning Messages for Unavailable Products */}
+                            {cannotAddProduct && (
+                              <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+                                <div className="flex items-start space-x-2">
+                                  <Info className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                                  <div className="text-sm text-yellow-800">
+                                    {isOutOfStock && "This product is out of stock and cannot be added to orders."}
+                                    {hasNoPricing && !isOutOfStock && (
+                                      <>
+                                        No pricing configured for this product. 
+                                        <button
+                                          onClick={() => window.open(`/pricing`, '_blank')}
+                                          className="ml-1 text-blue-600 hover:text-blue-800 underline"
+                                        >
+                                          Set up pricing
+                                        </button>
+                                      </>
+                                    )}
+                                    {!canAddMore && !isOutOfStock && !hasNoPricing && 
+                                      `Maximum quantity (${stockAvailable}) already in order.`}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <button
-                            onClick={() => handleAddProduct(product.id)}
-                            disabled={stockAvailable === 0 || unitPrice === 0 || !canAddMore}
-                            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
+                          
+                          {/* Add Button with Enhanced States */}
+                          <div className="ml-4 flex-shrink-0">
+                            <button
+                              onClick={() => handleAddProduct(product.id)}
+                              disabled={cannotAddProduct}
+                              title={
+                                cannotAddProduct 
+                                  ? isOutOfStock 
+                                    ? "Out of stock" 
+                                    : hasNoPricing 
+                                      ? "No price set" 
+                                      : "Maximum quantity reached"
+                                  : "Add to order"
+                              }
+                              className={`
+                                flex items-center justify-center w-10 h-10 rounded-lg text-sm font-medium transition-all
+                                ${cannotAddProduct
+                                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
+                                }
+                              `}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -647,6 +770,16 @@ export const CreateOrderPage: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Inline Address Creation Modal */}
+      <AddressForm
+        isOpen={isAddressFormOpen}
+        onClose={() => setIsAddressFormOpen(false)}
+        onSubmit={handleAddressSubmit}
+        customerId={selectedCustomerId}
+        loading={createAddress.isPending}
+        title="Add New Address"
+        isFirstAddress={addresses.length === 0}
+      />
     </div>
   );
 };

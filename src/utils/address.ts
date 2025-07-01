@@ -1,4 +1,5 @@
 import { Address } from '../types/address';
+import { getCountryOptions } from './countries';
 
 export const formatAddress = (address: Address): string => {
   const parts = [
@@ -41,17 +42,8 @@ export const validateDeliveryWindow = (start?: string, end?: string): boolean =>
   return startTime < endTime;
 };
 
-export const getCountryOptions = () => [
-  { value: 'US', label: 'United States' },
-  { value: 'CA', label: 'Canada' },
-  { value: 'MX', label: 'Mexico' },
-  { value: 'GB', label: 'United Kingdom' },
-  { value: 'AU', label: 'Australia' },
-  { value: 'IN', label: 'India' },
-  { value: 'KE', label: 'Kenya' },
-  { value: 'NG', label: 'Nigeria' },
-  { value: 'ZA', label: 'South Africa' },
-];
+// Export the country options from the new countries utility
+export { getCountryOptions };
 
 // Simple geocoding using OpenStreetMap Nominatim (free alternative to Google Maps)
 export const geocodeAddress = async (address: Partial<Address>): Promise<{ latitude: number; longitude: number } | null> => {

@@ -11,12 +11,19 @@ export interface Order {
   notes?: string;
   created_at: string;
   updated_at: string;
+  // Order type fields
+  order_type: 'delivery' | 'refill' | 'exchange' | 'pickup';
+  service_type: 'standard' | 'express' | 'scheduled';
+  exchange_empty_qty: number; // for refill/exchange orders
+  requires_pickup: boolean; // if empty pickup needed
+  created_by_user_id?: string;
+  assigned_to_user_id?: string;
   customer?: {
     id: string;
     name: string;
     email?: string;
     phone?: string;
-    account_status: string;
+    account_status: 'active' | 'credit_hold' | 'closed';
     credit_terms_days: number;
   };
   delivery_address?: {
@@ -68,6 +75,13 @@ export interface CreateOrderData {
   tax_percent?: number;
   tax_amount?: number;
   total_amount?: number;
+  // Order type fields
+  order_type: 'delivery' | 'refill' | 'exchange' | 'pickup';
+  service_type: 'standard' | 'express' | 'scheduled';
+  exchange_empty_qty: number;
+  requires_pickup: boolean;
+  created_by_user_id?: string;
+  assigned_to_user_id?: string;
 }
 
 export interface UpdateOrderData extends Partial<CreateOrderData> {
