@@ -1,0 +1,659 @@
+openapi: 3.1.0
+info:
+  title: Order Management System API
+  description: Backend API for LPG Order Management System with multi-tenant support
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Development server
+  - url: https://api-staging.example.com/v1
+    description: Staging server
+  - url: https://api.example.com/v1
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      required: [message, code]
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+
+    Order:
+      type: object
+      required: [id, customer_id, status, total_amount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        customer_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled]
+        total_amount:
+          type: number
+          format: decimal
+        tax_amount:
+          type: number
+          format: decimal
+        delivery_date:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        tenant_id:
+          type: string
+          format: uuid
+
+    OrderCalculation:
+      type: object
+      required: [subtotal, tax_amount, total_amount]
+      properties:
+        subtotal:
+          type: number
+          format: decimal
+        tax_amount:
+          type: number
+          format: decimal
+        total_amount:
+          type: number
+          format: decimal
+        breakdown:
+          type: array
+          items:
+            type: object
+
+    InventoryItem:
+      type: object
+      required: [product_id, available_quantity, reserved_quantity]
+      properties:
+        product_id:
+          type: string
+          format: uuid
+        available_quantity:
+          type: number
+        reserved_quantity:
+          type: number
+        warehouse_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+
+    TransferValidation:
+      type: object
+      required: [is_valid, blocked_items]
+      properties:
+        is_valid:
+          type: boolean
+        blocked_items:
+          type: array
+          items:
+            type: string
+            format: uuid
+        warnings:
+          type: array
+          items:
+            type: string
+        estimated_cost:
+          type: number
+          format: decimal
+
+paths:
+  # ORDER MANAGEMENT ENDPOINTS
+  /orders:
+    get:
+      summary: List orders with analytics
+      description: Retrieve orders with optional filtering and analytics data
+      tags: [Orders]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled]
+        - name: customer_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: include_analytics
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  analytics:
+                    type: object
+                    nullable: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create new order
+      description: Create a new order with validation and inventory checks
+      tags: [Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, order_lines]
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+                order_lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: number
+                delivery_date:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /orders/{orderId}/calculate-total:
+    post:
+      summary: Calculate order total
+      description: Recalculate order totals including tax and discounts (idempotent)
+      tags: [Orders]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Order total calculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderCalculation'
+
+  /orders/{orderId}/status:
+    post:
+      summary: Update order status
+      description: Update order status with business logic and inventory side effects
+      tags: [Orders]
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_status]
+              properties:
+                new_status:
+                  type: string
+                  enum: [confirmed, scheduled, en_route, delivered, invoiced, cancelled]
+                reason:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '200':
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  # INVENTORY MANAGEMENT ENDPOINTS
+  /inventory:
+    get:
+      summary: Get inventory levels
+      description: Retrieve current inventory with filtering options
+      tags: [Inventory]
+      parameters:
+        - name: warehouse_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: product_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Inventory retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryItem'
+
+  /inventory/{inventoryId}/adjust:
+    post:
+      summary: Adjust inventory levels
+      description: Adjust stock levels with validation and audit trail
+      tags: [Inventory]
+      parameters:
+        - name: inventoryId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [adjustment_type, quantity]
+              properties:
+                adjustment_type:
+                  type: string
+                  enum: [increase, decrease, set]
+                quantity:
+                  type: number
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Inventory adjusted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItem'
+
+  /inventory/reserve:
+    post:
+      summary: Reserve inventory
+      description: Reserve inventory for orders (idempotent)
+      tags: [Inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reservations]
+              properties:
+                order_id:
+                  type: string
+                  format: uuid
+                reservations:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: number
+                      warehouse_id:
+                        type: string
+                        format: uuid
+      responses:
+        '200':
+          description: Inventory reserved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservation_id:
+                    type: string
+                    format: uuid
+                  reserved_items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InventoryItem'
+
+  # TRANSFER MANAGEMENT
+  /transfers/validate:
+    post:
+      summary: Validate transfer request
+      description: Validate multi-SKU transfer with business rules
+      tags: [Transfers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_warehouse_id, destination_warehouse_id, items]
+              properties:
+                source_warehouse_id:
+                  type: string
+                  format: uuid
+                destination_warehouse_id:
+                  type: string
+                  format: uuid
+                transfer_date:
+                  type: string
+                  format: date-time
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: number
+      responses:
+        '200':
+          description: Transfer validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferValidation'
+
+  /transfers/execute:
+    post:
+      summary: Execute transfer
+      description: Execute validated transfer with inventory updates (idempotent)
+      tags: [Transfers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [transfer_id]
+              properties:
+                transfer_id:
+                  type: string
+                  format: uuid
+                force_execute:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Transfer executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transfer_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [completed, failed, partial]
+
+  # PRICING MANAGEMENT
+  /pricing/calculate:
+    post:
+      summary: Calculate dynamic pricing
+      description: Calculate customer-specific pricing with tiers and discounts
+      tags: [Pricing]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, items]
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: number
+                pricing_date:
+                  type: string
+                  format: date-time
+      responses:
+        '200':
+          description: Pricing calculated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_amount:
+                    type: number
+                    format: decimal
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        product_id:
+                          type: string
+                          format: uuid
+                        unit_price:
+                          type: number
+                          format: decimal
+                        subtotal:
+                          type: number
+                          format: decimal
+
+  # ANALYTICS & DASHBOARD
+  /dashboard/stats:
+    get:
+      summary: Get dashboard statistics
+      description: Retrieve comprehensive business metrics for dashboard
+      tags: [Analytics]
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [today, week, month, quarter, year]
+            default: month
+      responses:
+        '200':
+          description: Dashboard stats retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: object
+                    properties:
+                      total_count:
+                        type: number
+                      total_revenue:
+                        type: number
+                        format: decimal
+                  inventory:
+                    type: object
+                    properties:
+                      total_products:
+                        type: number
+                      low_stock_alerts:
+                        type: number
+                  customers:
+                    type: object
+                    properties:
+                      total_count:
+                        type: number
+                      active_count:
+                        type: number
+
+  # CUSTOMER MANAGEMENT
+  /customers/{customerId}/orders:
+    get:
+      summary: Get customer order history
+      description: Retrieve complete order history for specific customer
+      tags: [Customers]
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: number
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: number
+            default: 0
+      responses:
+        '200':
+          description: Customer orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+                  total_count:
+                    type: number
+                  pagination:
+                    type: object
+
+  /customers/{customerId}/analytics:
+    get:
+      summary: Get customer analytics
+      description: Comprehensive customer analytics and behavior metrics
+      tags: [Customers]
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Customer analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lifetime_value:
+                    type: number
+                    format: decimal
+                  order_frequency:
+                    type: number
+                  average_order_value:
+                    type: number
+                    format: decimal
+                  last_order_date:
+                    type: string
+                    format: date-time
+
+# Global error responses
+responses:
+  UnauthorizedError:
+    description: Access token is missing or invalid
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  
+  ForbiddenError:
+    description: Insufficient permissions or tenant isolation violation
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+  
+  NotFoundError:
+    description: Resource not found
+    content:
+      application/json:
+        schema:
+          $ref: '#/components/schemas/Error'
+
+tags:
+  - name: Orders
+    description: Order management operations
+  - name: Inventory
+    description: Inventory and stock management
+  - name: Transfers
+    description: Inter-warehouse transfers
+  - name: Pricing
+    description: Pricing and calculation operations
+  - name: Analytics
+    description: Business analytics and reporting
+  - name: Customers
+    description: Customer management operations
