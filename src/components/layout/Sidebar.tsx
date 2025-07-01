@@ -10,7 +10,8 @@ import {
   BarChart3,
   DollarSign,
   Truck,
-  ArrowLeftRight
+  ArrowLeftRight,
+  TrendingUp
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { name: 'Inventory', href: '/inventory', icon: BarChart3 },
   { name: 'Trucks', href: '/trucks', icon: Truck },
+  { name: 'Fleet Capacity', href: '/trucks/capacity', icon: TrendingUp },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
   { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight }

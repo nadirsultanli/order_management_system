@@ -26,6 +26,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { TrucksPage } from './pages/TrucksPage';
 import { TruckDetailPage } from './pages/TruckDetailPage';
 import CreateTruckPage from './pages/CreateTruckPage';
+import { TruckCapacityDashboard } from './pages/TruckCapacityDashboard';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +72,7 @@ function App() {
               <Route path="trucks">
                 <Route index element={<TrucksPage />} />
                 <Route path="new" element={<CreateTruckPage />} />
+                <Route path="capacity" element={<TruckCapacityDashboard />} />
                 <Route path=":id" element={<TruckDetailPage />} />
               </Route>
             </Route>

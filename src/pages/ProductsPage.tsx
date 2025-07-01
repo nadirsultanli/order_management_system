@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Package2 } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '../hooks/useProducts';
 import { ProductTable } from '../components/products/ProductTable';
 import { ProductFilters } from '../components/products/ProductFilters';
 import { ProductForm } from '../components/products/ProductForm';
+import { ProductVariantForm } from '../components/products/ProductVariantForm';
 import { ProductStats } from '../components/products/ProductStats';
 import { BulkActions } from '../components/products/BulkActions';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
@@ -15,6 +16,7 @@ export const ProductsPage: React.FC = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<FilterType>({ page: 1 });
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isVariantFormOpen, setIsVariantFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -41,6 +43,11 @@ export const ProductsPage: React.FC = () => {
     console.log('Adding new product');
     setEditingProduct(null);
     setIsFormOpen(true);
+  };
+
+  const handleAddVariantProduct = () => {
+    console.log('Adding product with variants');
+    setIsVariantFormOpen(true);
   };
 
   const handleEditProduct = (product: Product) => {
@@ -148,6 +155,13 @@ export const ProductsPage: React.FC = () => {
             <span>Refresh</span>
           </button>
           <button
+            onClick={handleAddVariantProduct}
+            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Package2 className="h-4 w-4" />
+            <span>Create with Variants</span>
+          </button>
+          <button
             onClick={handleAddProduct}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
@@ -196,6 +210,15 @@ export const ProductsPage: React.FC = () => {
         product={editingProduct || undefined}
         loading={createProduct.isPending || updateProduct.isPending}
         title={editingProduct ? 'Edit Product' : 'Add New Product'}
+      />
+
+      <ProductVariantForm
+        isOpen={isVariantFormOpen}
+        onClose={() => setIsVariantFormOpen(false)}
+        onSuccess={() => {
+          setIsVariantFormOpen(false);
+          refetch();
+        }}
       />
 
       <ConfirmDialog

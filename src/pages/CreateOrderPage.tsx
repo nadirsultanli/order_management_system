@@ -13,6 +13,7 @@ import { formatCurrency } from '../utils/order';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
+import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 
 interface OrderLineItem {
   product_id: string;
@@ -286,6 +287,20 @@ export const CreateOrderPage: React.FC = () => {
         {/* Step 1: Customer & Delivery */}
         {step === 1 && (
           <div className="space-y-6">
+            {/* Order Type Selection */}
+            <div className="mb-6">
+              <OrderTypeSelector
+                selectedOrderType={orderType}
+                selectedServiceType={serviceType}
+                exchangeEmptyQty={exchangeEmptyQty}
+                requiresPickup={requiresPickup}
+                onOrderTypeChange={setOrderType}
+                onServiceTypeChange={setServiceType}
+                onExchangeEmptyQtyChange={setExchangeEmptyQty}
+                onRequiresPickupChange={setRequiresPickup}
+              />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Customer Selection */}
               <div>
