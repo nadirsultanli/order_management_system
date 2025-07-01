@@ -82,6 +82,31 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  const handleVariantFormSubmit = async (productData: CreateProductData, variants?: any[]) => {
+    console.log('Variant form submit:', productData, variants);
+    try {
+      // First create the parent product
+      const parentProduct = await createProduct.mutateAsync(productData);
+      
+      // If variants are provided, create them too
+      if (variants && variants.length > 0) {
+        for (const variant of variants) {
+          const variantProductData = {
+            ...variant,
+            parent_product_id: parentProduct.id,
+          };
+          await createProduct.mutateAsync(variantProductData);
+        }
+      }
+      
+      setIsVariantFormOpen(false);
+      refetch();
+    } catch (error) {
+      console.error('Variant form submit error:', error);
+      // Error handling is done in the hooks
+    }
+  };
+
   const handleConfirmDelete = async () => {
     if (deletingProduct) {
       console.log('Confirming mark as obsolete:', deletingProduct);
@@ -215,10 +240,9 @@ export const ProductsPage: React.FC = () => {
       <ProductVariantForm
         isOpen={isVariantFormOpen}
         onClose={() => setIsVariantFormOpen(false)}
-        onSuccess={() => {
-          setIsVariantFormOpen(false);
-          refetch();
-        }}
+        onSubmit={handleVariantFormSubmit}
+        loading={createProduct.isPending}
+        title="Create Product with Variants"
       />
 
       <ConfirmDialog

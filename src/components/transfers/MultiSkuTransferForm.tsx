@@ -52,7 +52,8 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
   const [currentStep, setCurrentStep] = useState<'setup' | 'products' | 'review'>('setup');
 
   // Hooks
-  const { warehouses } = useWarehouses();
+  const { data: warehousesData } = useWarehouses();
+  const warehouses = warehousesData?.warehouses || [];
   const { createTransfer, loading: creating } = useMultiSkuTransfers();
   const { 
     selectedItems,
@@ -68,7 +69,7 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
 
   // Generate transfer reference when warehouses are selected
   useEffect(() => {
-    if (formData.source_warehouse_id && formData.destination_warehouse_id && !formData.transfer_reference) {
+    if (formData.source_warehouse_id && formData.destination_warehouse_id && !formData.transfer_reference && warehouses.length > 0) {
       const sourceWarehouse = warehouses.find(w => w.id === formData.source_warehouse_id);
       const destWarehouse = warehouses.find(w => w.id === formData.destination_warehouse_id);
       
