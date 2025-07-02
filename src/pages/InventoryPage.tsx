@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Plus } from 'lucide-react';
-import { useInventory, useAdjustStock, useTransferStock, useCreateInventoryBalance } from '../hooks/useInventory';
+import { useInventoryNew, useAdjustStockNew, useTransferStockNew, useCreateInventoryNew } from '../hooks/useInventory';
 import { useProducts } from '../hooks/useProducts';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { InventoryTable } from '../components/inventory/InventoryTable';
@@ -17,12 +17,12 @@ export const InventoryPage: React.FC = () => {
   const [transferringInventory, setTransferringInventory] = useState<InventoryBalance | null>(null);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
 
-  const { data, isLoading, error, refetch } = useInventory(filters);
+  const { data, isLoading, error, refetch } = useInventoryNew(filters);
   const { data: productsData } = useProducts({ limit: 1000 });
   const { data: warehousesData } = useWarehouses({ limit: 1000 });
-  const adjustStock = useAdjustStock();
-  const transferStock = useTransferStock();
-  const createInventoryBalance = useCreateInventoryBalance();
+  const adjustStock = useAdjustStockNew();
+  const transferStock = useTransferStockNew();
+  const createInventoryBalance = useCreateInventoryNew();
 
   const products = productsData?.products || [];
   const warehouses = warehousesData?.warehouses || [];

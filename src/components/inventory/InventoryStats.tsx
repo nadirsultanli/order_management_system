@@ -1,9 +1,9 @@
 import React from 'react';
 import { Package, CheckCircle, Circle, Lock, AlertTriangle, TrendingUp } from 'lucide-react';
-import { useInventoryStats } from '../../hooks/useInventory';
+import { useInventoryStatsNew } from '../../hooks/useInventory';
 
 export const InventoryStats: React.FC = () => {
-  const { data: stats, isLoading } = useInventoryStats();
+  const { data: stats, isLoading } = useInventoryStatsNew();
 
   if (isLoading) {
     return (
