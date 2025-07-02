@@ -2,7 +2,7 @@ import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
 // Hook for listing customers
-export const useCustomersNew = (filters: {
+export const useCustomers = (filters: {
   search?: string;
   status?: string;
   page?: number;
@@ -40,7 +40,7 @@ export const useCustomerNew = (customerId: string) => {
 };
 
 // Hook for creating customers
-export const useCreateCustomerNew = () => {
+export const useCreateCustomer = () => {
   const utils = trpc.useContext();
   
   return trpc.customers.create.useMutation({
@@ -60,7 +60,7 @@ export const useCreateCustomerNew = () => {
 };
 
 // Hook for updating customers
-export const useUpdateCustomerNew = () => {
+export const useUpdateCustomer = () => {
   const utils = trpc.useContext();
   
   return trpc.customers.update.useMutation({
@@ -76,6 +76,26 @@ export const useUpdateCustomerNew = () => {
     onError: (error) => {
       console.error('Update customer error:', error);
       toast.error(error.message || 'Failed to update customer');
+    },
+  });
+};
+
+// Hook for deleting customers
+export const useDeleteCustomer = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.customers.delete.useMutation({
+    onSuccess: () => {
+      console.log('Customer deleted successfully');
+      
+      // Invalidate customers list to refetch
+      utils.customers.list.invalidate();
+      
+      toast.success('Customer deleted successfully');
+    },
+    onError: (error) => {
+      console.error('Delete customer error:', error);
+      toast.error(error.message || 'Failed to delete customer');
     },
   });
 };
