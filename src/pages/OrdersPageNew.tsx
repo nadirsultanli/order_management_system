@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Calendar, BarChart3 } from 'lucide-react';
-import { useOrdersNew, useUpdateOrderStatusNew } from '../hooks/useOrdersNew';
+import { useOrdersNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderTable } from '../components/orders/OrderTable';
 import { AdvancedOrderFilters } from '../components/orders/AdvancedOrderFilters';
 import { OrderStats } from '../components/orders/OrderStats';

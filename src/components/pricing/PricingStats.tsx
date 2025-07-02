@@ -1,9 +1,9 @@
 import React from 'react';
 import { DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Package } from 'lucide-react';
-import { usePricingStats } from '../../hooks/usePricing';
+import { usePricingStatsNew } from '../../hooks/usePricing';
 
 export const PricingStats: React.FC = () => {
-  const { data: stats, isLoading } = usePricingStats();
+  const { data: stats, isLoading } = usePricingStatsNew();
 
   if (isLoading) {
     return (
