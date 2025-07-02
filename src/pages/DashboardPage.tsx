@@ -1,37 +1,12 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart3, Users, Package, ShoppingCart, TrendingUp, Warehouse, AlertTriangle, Activity, RefreshCw } from 'lucide-react';
-import { useDashboardStats, useRecentActivity } from '../hooks/useDashboardStats';
+import { useDashboardStats } from '../hooks/useDashboardStats';
 
 export const DashboardPage: React.FC = () => {
   const { adminUser } = useAuth();
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
-  const { data: activities, isLoading: activitiesLoading } = useRecentActivity();
 
-  const formatTimeAgo = (timestamp: string) => {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffInMinutes = Math.floor((now.getTime() - time.getTime()) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
-  };
-
-  const getActivityColor = (color: string) => {
-    switch (color) {
-      case 'blue': return 'bg-blue-500';
-      case 'green': return 'bg-green-500';
-      case 'orange': return 'bg-orange-500';
-      case 'red': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
 
   const dashboardStats = [
     {
@@ -164,36 +139,10 @@ export const DashboardPage: React.FC = () => {
           <Activity className="h-5 w-5 text-gray-400" />
         </div>
         
-        {activitiesLoading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="animate-pulse flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                <div className="flex-1">
-                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-1"></div>
-                  <div className="h-3 bg-gray-300 rounded w-1/4"></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : activities && activities.length > 0 ? (
-          <div className="space-y-4">
-            {activities.slice(0, 6).map((activity) => (
-              <div key={activity.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className={`flex-shrink-0 w-2 h-2 rounded-full ${getActivityColor(activity.color)}`}></div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">{activity.message}</p>
-                  <p className="text-xs text-gray-500">{formatTimeAgo(activity.timestamp)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No recent activity to display</p>
-          </div>
-        )}
+        <div className="text-center py-8">
+          <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500">Recent activity tracking coming soon</p>
+        </div>
       </div>
     </div>
   );
