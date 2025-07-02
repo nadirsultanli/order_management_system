@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Calendar, BarChart3 } from 'lucide-react';
-import { useOrders, useChangeOrderStatus } from '../hooks/useOrders';
+import { useOrdersNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderTable } from '../components/orders/OrderTable';
 import { AdvancedOrderFilters } from '../components/orders/AdvancedOrderFilters';
 import { OrderStats } from '../components/orders/OrderStats';
@@ -16,8 +16,8 @@ export const OrdersPage: React.FC = () => {
   const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
-  const { data, isLoading, error, refetch } = useOrders(filters);
-  const changeOrderStatus = useChangeOrderStatus();
+  const { data, isLoading, error, refetch } = useOrdersNew(filters);
+  const changeOrderStatus = useUpdateOrderStatusNew();
 
   // Debug logging
   useEffect(() => {

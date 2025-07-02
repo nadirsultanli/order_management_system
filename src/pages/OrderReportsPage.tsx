@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BarChart3, Download, Calendar } from 'lucide-react';
-import { useOrders } from '../hooks/useOrders';
+import { useOrdersNew } from '../hooks/useOrders';
 import { OrderAnalytics } from '../components/orders/OrderAnalytics';
 import { OrderAnalytics as AnalyticsType } from '../types/order';
 
@@ -13,7 +13,7 @@ export const OrderReportsPage: React.FC = () => {
   });
 
   // Get all orders for analytics
-  const { data: ordersData } = useOrders({
+  const { data: ordersData } = useOrdersNew({
     order_date_from: dateRange.start,
     order_date_to: dateRange.end,
     limit: 10000, // Get all orders in range

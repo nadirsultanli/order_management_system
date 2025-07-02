@@ -1,10 +1,12 @@
 import React from 'react';
 import { ShoppingCart, CheckCircle, Calendar, Truck, Package, Receipt, XCircle, AlertTriangle, TrendingUp } from 'lucide-react';
-import { useOrderStats } from '../../hooks/useOrders';
+// import { useOrderStats } from '../../hooks/useOrders'; // Not available - disabled
 import { formatCurrency } from '../../utils/order';
 
 export const OrderStats: React.FC = () => {
-  const { data: stats, isLoading } = useOrderStats();
+  // const { data: stats, isLoading } = useOrderStats(); // Not available - using placeholder
+  const stats = null;
+  const isLoading = false;
 
   if (isLoading) {
     return (

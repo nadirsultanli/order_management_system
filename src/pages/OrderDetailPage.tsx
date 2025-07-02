@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock } from 'lucide-react';
-import { useOrder, useChangeOrderStatus } from '../hooks/useOrders';
+import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { OrderEditModal } from '../components/orders/OrderEditModal';
@@ -15,8 +15,8 @@ export const OrderDetailPage: React.FC = () => {
   const [showTimeline, setShowTimeline] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  const { data: order, isLoading, error } = useOrder(id!);
-  const changeOrderStatus = useChangeOrderStatus();
+  const { data: order, isLoading, error } = useOrderNew(id!);
+  const changeOrderStatus = useUpdateOrderStatusNew();
 
   const handleChangeStatus = (newStatus: string) => {
     if (order) {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, Truck, Package } from 'lucide-react';
-import { useOrders } from '../hooks/useOrders';
+import { useOrdersNew } from '../hooks/useOrders';
 import { DeliveryCalendar } from '../components/orders/DeliveryCalendar';
 import { Order } from '../types/order';
 
@@ -11,7 +11,7 @@ export const OrderSchedulePage: React.FC = () => {
   const [selectedOrders, setSelectedOrders] = useState<Order[]>([]);
 
   // Get orders with scheduled dates
-  const { data: ordersData } = useOrders({
+  const { data: ordersData } = useOrdersNew({
     status: 'scheduled',
     limit: 1000, // Get all scheduled orders
   });

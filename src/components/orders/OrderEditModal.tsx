@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
-import { useUpdateOrder } from '../../hooks/useOrders';
-import { updateOrderTax } from '../../hooks/useOrders';
+import { useUpdateOrderTaxNew } from '../../hooks/useOrders';
 import { Order } from '../../types/order';
 import { formatCurrency } from '../../utils/order';
 import { toast } from 'react-hot-toast';
@@ -19,7 +18,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 }) => {
   const [taxPercent, setTaxPercent] = useState(0);
   const [notes, setNotes] = useState('');
-  const updateOrder = useUpdateOrder();
+  const updateOrderTax = useUpdateOrderTaxNew();
 
   useEffect(() => {
     if (order) {
@@ -38,7 +37,7 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     e.preventDefault();
     
     try {
-      await updateOrder.mutateAsync({
+      await updateOrderTax.mutateAsync({
         id: order.id,
         tax_percent: taxPercent,
         tax_amount: taxAmount,

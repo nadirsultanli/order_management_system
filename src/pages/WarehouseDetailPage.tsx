@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Warehouse, MapPin, Calendar, Package, Activity } from 'lucide-react';
 import { useWarehouse, useUpdateWarehouse } from '../hooks/useWarehouses';
-import { useWarehouseInventory } from '../hooks/useInventory';
+import { useInventoryByWarehouseNew } from '../hooks/useInventory';
 import { WarehouseForm } from '../components/warehouses/WarehouseForm';
 import { Warehouse as WarehouseType, CreateWarehouseData } from '../types/warehouse';
 import { formatAddress } from '../utils/address';
@@ -17,7 +17,7 @@ export const WarehouseDetailPage: React.FC = () => {
   const [map, setMap] = useState<mapboxgl.Map | null>(null);
 
   const { data: warehouse, isLoading, error } = useWarehouse(id!);
-  const { data: inventory = [], isLoading: inventoryLoading } = useWarehouseInventory(id!);
+  const { data: inventory = [], isLoading: inventoryLoading } = useInventoryByWarehouseNew(id!);
   const updateWarehouse = useUpdateWarehouse();
 
   const handleEditSubmit = async (data: CreateWarehouseData) => {

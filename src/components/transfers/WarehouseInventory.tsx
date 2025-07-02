@@ -1,5 +1,5 @@
 import React from 'react';
-import { useWarehouseInventory } from '../../hooks/useInventory';
+import { useInventoryByWarehouseNew } from '../../hooks/useInventory';
 import { Package, Loader2 } from 'lucide-react';
 
 interface WarehouseInventoryProps {
@@ -7,7 +7,7 @@ interface WarehouseInventoryProps {
 }
 
 export const WarehouseInventory: React.FC<WarehouseInventoryProps> = ({ warehouseId }) => {
-  const { data: inventory = [], isLoading, error } = useWarehouseInventory(warehouseId);
+  const { data: inventory = [], isLoading, error } = useInventoryByWarehouseNew(warehouseId);
 
   if (!warehouseId) {
     return null;
