@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Mail, Phone, Calendar, CreditCard, Building2 } from 'lucide-react';
-import { useCustomer, useUpdateCustomer } from '../hooks/useCustomers';
+import { useCustomerNew, useUpdateCustomer } from '../hooks/useCustomers';
 import { useCustomerOrders } from '../hooks/useCustomerOrders';
 import { CustomerForm } from '../components/customers/CustomerForm';
 import { AddressList } from '../components/addresses/AddressList';
@@ -14,7 +14,7 @@ export const CustomerDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
 
-  const { data: customer, isLoading, error } = useCustomer(id!);
+  const { data: customer, isLoading, error } = useCustomerNew(id!);
   const updateCustomer = useUpdateCustomer();
   const { data: recentOrders, isLoading: isLoadingOrders } = useCustomerOrders(customer?.id || '', 5);
 
