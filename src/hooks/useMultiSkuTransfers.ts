@@ -199,12 +199,113 @@ export const useWarehouseStock = (warehouseId?: string) => {
   }, {
     enabled: !!warehouseId,
     retry: 1,
-    staleTime: 30000,
+    staleTime: 60000,
   });
 
   return {
-    stockInfo: stockData || [],
+    stockInfo: stockData?.stock || [],
     isLoading,
-    refetch,
+    refetch: () => refetch(),
+    fetchStockInfo: refetch,
+  };
+};
+
+// Missing hook that MultiSkuTransferForm expects - implementing form state management
+export const useTransferForm = () => {
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
+  const [warehouseStockData, setWarehouseStockData] = useState<any[]>([]);
+  const [validationResult, setValidationResult] = useState<any>({ is_valid: true, errors: [], warnings: [] });
+  const [transferSummary, setTransferSummary] = useState<any>(null);
+
+  const addItem = useCallback((product: any, quantity: number, stockInfo: any) => {
+    const newItem = {
+      product_id: product.id,
+      product_sku: product.sku,
+      product_name: product.name,
+      variant_name: product.variant_name,
+      quantity_to_transfer: quantity,
+      unit_weight_kg: product.weight_kg || 0,
+      total_weight_kg: (product.weight_kg || 0) * quantity,
+      unit_cost: stockInfo.unit_cost || 0,
+      total_cost: (stockInfo.unit_cost || 0) * quantity,
+      available_stock: stockInfo.available_quantity || 0,
+    };
+
+    setSelectedItems(prev => {
+      const existingIndex = prev.findIndex(item => 
+        item.product_id === product.id && item.variant_name === product.variant_name
+      );
+      
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = { ...updated[existingIndex], quantity_to_transfer: quantity };
+        return updated;
+      } else {
+        return [...prev, newItem];
+      }
+    });
+  }, []);
+
+  const removeItem = useCallback((productId: string, variantName?: string) => {
+    setSelectedItems(prev => prev.filter(item => 
+      !(item.product_id === productId && item.variant_name === variantName)
+    ));
+  }, []);
+
+  const validateTransfer = useCallback((sourceWarehouseId: string, destWarehouseId: string, transferDate: string) => {
+    // Basic validation - in a real implementation this would call the backend
+    const errors = [];
+    const warnings = [];
+
+    if (!sourceWarehouseId || !destWarehouseId) {
+      errors.push('Source and destination warehouses are required');
+    }
+
+    if (sourceWarehouseId === destWarehouseId) {
+      errors.push('Source and destination warehouses must be different');
+    }
+
+    if (selectedItems.length === 0) {
+      errors.push('At least one item must be selected for transfer');
+    }
+
+    // Check stock availability
+    selectedItems.forEach(item => {
+      if (item.quantity_to_transfer > item.available_stock) {
+        errors.push(`Insufficient stock for ${item.product_name}: requested ${item.quantity_to_transfer}, available ${item.available_stock}`);
+      }
+    });
+
+    const result = {
+      is_valid: errors.length === 0,
+      errors,
+      warnings
+    };
+
+    setValidationResult(result);
+    
+    // Generate summary if valid
+    if (result.is_valid) {
+      const summary = {
+        total_items: selectedItems.length,
+        total_quantity: selectedItems.reduce((sum, item) => sum + item.quantity_to_transfer, 0),
+        total_weight: selectedItems.reduce((sum, item) => sum + item.total_weight_kg, 0),
+        total_cost: selectedItems.reduce((sum, item) => sum + item.total_cost, 0),
+      };
+      setTransferSummary(summary);
+    }
+
+    return result;
+  }, [selectedItems]);
+
+  return {
+    selectedItems,
+    validationResult,
+    transferSummary,
+    warehouseStockData,
+    setWarehouseStockData,
+    addItem,
+    removeItem,
+    validateTransfer,
   };
 };
