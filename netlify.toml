@@ -6,6 +6,10 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# Environment variables for functions
+[functions.environment]
+  SUPABASE_URL = "https://trcrjinrdjgizqhjdgvc.supabase.co"
+
 # API routes to Netlify Functions
 [[redirects]]
   from = "/api/*"

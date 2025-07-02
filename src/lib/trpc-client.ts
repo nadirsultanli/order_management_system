@@ -7,7 +7,8 @@ export const trpc = createTRPCReact<AppRouter>();
 export const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001/api/v1/trpc',
+      url: import.meta.env.VITE_BACKEND_URL || 
+           (import.meta.env.PROD ? '/api/v1/trpc' : 'http://localhost:3001/api/v1/trpc'),
       headers: async () => {
         try {
           // Get auth token from localStorage (we'll implement proper auth later)
