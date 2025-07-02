@@ -13,7 +13,9 @@ export const createNetlifyHandler = (): Handler => {
       logger.info('Netlify function invoked:', {
         method: event.httpMethod,
         path: event.path,
-        url: event.rawUrl
+        url: event.rawUrl,
+        headers: event.headers,
+        body: event.body ? 'present' : 'absent'
       });
 
       // Health check endpoint
@@ -71,7 +73,10 @@ export const createNetlifyHandler = (): Handler => {
       }
 
       // Handle tRPC requests
+      logger.info('Checking tRPC path:', { path: event.path, includes_v1_trpc: event.path?.includes('/v1/trpc') });
+      
       if (event.path?.includes('/v1/trpc')) {
+        logger.info('Processing tRPC request');
         // Create a Request object from the Netlify event
         const url = new URL(event.rawUrl);
         const request = new Request(url.toString(), {
@@ -122,13 +127,19 @@ export const createNetlifyHandler = (): Handler => {
       }
 
       // Default response for unknown paths
+      logger.warn('Unknown path - returning 404:', { path: event.path, method: event.httpMethod });
       return {
         statusCode: 404,
         headers: { 
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
         },
-        body: JSON.stringify({ error: 'Not found' })
+        body: JSON.stringify({ 
+          error: 'Not found', 
+          path: event.path,
+          method: event.httpMethod,
+          message: 'This path is not handled by the Netlify function'
+        })
       };
 
     } catch (error) {
