@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2, Package, Search } from 'lucide-react';
 import { useProducts } from '../../hooks/useProducts';
-import { usePriceListItems } from '../../hooks/usePricing';
+import { usePriceListItemsNew } from '../../hooks/usePricing';
 import { PriceList } from '../../types/pricing';
 import { formatCurrency } from '../../utils/pricing';
 
@@ -34,7 +34,7 @@ export const AddProductsToPriceListModal: React.FC<AddProductsToPriceListModalPr
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: productsData } = useProducts({ limit: 1000 });
-  const { data: existingItems = [] } = usePriceListItems(priceList.id);
+  const { data: existingItems = [] } = usePriceListItemsNew(priceList.id);
 
   const allProducts = productsData?.products || [];
   const existingProductIds = existingItems.map(item => item.product_id);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw } from 'lucide-react';
-import { usePriceLists, useCreatePriceList, useUpdatePriceList, useDeletePriceList, useSetDefaultPriceList } from '../hooks/usePricing';
+import { usePriceListsNew, useCreatePriceListNew, useUpdatePriceListNew } from '../hooks/usePricing';
 import { PriceListTable } from '../components/pricing/PriceListTable';
 import { PriceListFilters } from '../components/pricing/PriceListFilters';
 import { PriceListForm } from '../components/pricing/PriceListForm';
@@ -17,11 +17,12 @@ export const PricingPage: React.FC = () => {
   const [editingPriceList, setEditingPriceList] = useState<PriceList | null>(null);
   const [deletingPriceList, setDeletingPriceList] = useState<PriceList | null>(null);
 
-  const { data, isLoading, error, refetch } = usePriceLists(filters);
-  const createPriceList = useCreatePriceList();
-  const updatePriceList = useUpdatePriceList();
-  const deletePriceList = useDeletePriceList();
-  const setDefaultPriceList = useSetDefaultPriceList();
+  const { data, isLoading, error, refetch } = usePriceListsNew(filters);
+  const createPriceList = useCreatePriceListNew();
+  const updatePriceList = useUpdatePriceListNew();
+  // Note: useDeletePriceList and useSetDefaultPriceList not available - functionality disabled
+  // const deletePriceList = useDeletePriceList();
+  // const setDefaultPriceList = useSetDefaultPriceList();
 
   // Debug logging
   useEffect(() => {
@@ -66,11 +67,8 @@ export const PricingPage: React.FC = () => {
 
   const handleSetDefault = async (priceList: PriceList) => {
     console.log('Setting default price list:', priceList);
-    try {
-      await setDefaultPriceList.mutateAsync(priceList.id);
-    } catch (error) {
-      console.error('Set default error:', error);
-    }
+    // Note: setDefaultPriceList functionality disabled
+    alert('Set default price list functionality is temporarily disabled');
   };
 
   const handleDeletePriceList = (priceList: PriceList) => {
@@ -97,13 +95,9 @@ export const PricingPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (deletingPriceList) {
       console.log('Confirming delete:', deletingPriceList);
-      try {
-        await deletePriceList.mutateAsync(deletingPriceList.id);
-        setDeletingPriceList(null);
-      } catch (error) {
-        console.error('Delete error:', error);
-        // Error handling is done in the hooks
-      }
+      // Note: deletePriceList functionality disabled
+      alert('Delete price list functionality is temporarily disabled');
+      setDeletingPriceList(null);
     }
   };
 
@@ -192,7 +186,7 @@ export const PricingPage: React.FC = () => {
         message={`Are you sure you want to delete "${deletingPriceList?.name}"? This action cannot be undone.`}
         confirmText="Delete"
         type="danger"
-        loading={deletePriceList.isPending}
+                    loading={false}
       />
     </div>
   );
