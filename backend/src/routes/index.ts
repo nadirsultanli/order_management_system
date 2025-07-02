@@ -1,4 +1,5 @@
 import { router } from '../lib/trpc';
+import { authRouter } from './auth';
 import { ordersRouter } from './orders';
 import { inventoryRouter } from './inventory';
 import { transfersRouter } from './transfers';
@@ -11,16 +12,17 @@ import { warehousesRouter } from './warehouses';
 import { productsRouter } from './products';
 
 export const appRouter = router({
-  orders: ordersRouter,
-  inventory: inventoryRouter,
-  transfers: transfersRouter,
-  pricing: pricingRouter,
-  customers: customersRouter,
-  analytics: analyticsRouter,
-  admin: adminRouter,
-  trucks: trucksRouter,
-  warehouses: warehousesRouter,
-  products: productsRouter,
+  auth: authRouter as any,
+  orders: ordersRouter as any,
+  inventory: inventoryRouter as any,
+  transfers: transfersRouter as any,
+  pricing: pricingRouter as any,
+  customers: customersRouter as any,
+  analytics: analyticsRouter as any,
+  admin: adminRouter as any,
+  trucks: trucksRouter as any,
+  warehouses: warehousesRouter as any,
+  products: productsRouter as any,
 });
 
 export type AppRouter = typeof appRouter;

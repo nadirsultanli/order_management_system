@@ -63,7 +63,7 @@ export const inventoryRouter = router({
           warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
           product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
         `, { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .order('updated_at', { ascending: false });
 
       // Apply warehouse filter
@@ -128,7 +128,7 @@ export const inventoryRouter = router({
           product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
         `)
         .eq('warehouse_id', input.warehouse_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -159,7 +159,7 @@ export const inventoryRouter = router({
           warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name)
         `)
         .eq('product_id', input.product_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -186,7 +186,7 @@ export const inventoryRouter = router({
       let query = ctx.supabase
         .from('inventory_balance')
         .select('qty_full, qty_empty, qty_reserved')
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (input.warehouse_id) {
         query = query.eq('warehouse_id', input.warehouse_id);
@@ -228,7 +228,7 @@ export const inventoryRouter = router({
         .from('inventory_balance')
         .select('*')
         .eq('id', input.inventory_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (fetchError || !currentInventory) {
@@ -267,7 +267,7 @@ export const inventoryRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', input.inventory_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select(`
           *,
           warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
@@ -310,7 +310,7 @@ export const inventoryRouter = router({
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
         .select('id')
-        .eq('tenant_id', user.tenant_id)
+        
         .in('id', [input.from_warehouse_id, input.to_warehouse_id]);
 
       if (warehouseError || warehouses.length !== 2) {
@@ -326,7 +326,7 @@ export const inventoryRouter = router({
         .select('*')
         .eq('warehouse_id', input.from_warehouse_id)
         .eq('product_id', input.product_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (sourceError) {
@@ -365,7 +365,7 @@ export const inventoryRouter = router({
         .select('*')
         .eq('warehouse_id', input.to_warehouse_id)
         .eq('product_id', input.product_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (destError && destError.code === 'PGRST116') {
@@ -375,7 +375,7 @@ export const inventoryRouter = router({
           .insert([{
             warehouse_id: input.to_warehouse_id,
             product_id: input.product_id,
-            tenant_id: user.tenant_id,
+            
             qty_full: 0,
             qty_empty: 0,
             qty_reserved: 0,
@@ -408,7 +408,7 @@ export const inventoryRouter = router({
         p_product_id: input.product_id,
         p_qty_full: input.qty_full,
         p_qty_empty: input.qty_empty,
-        p_tenant_id: user.tenant_id,
+        
       });
 
       if (transferError) {
@@ -424,7 +424,7 @@ export const inventoryRouter = router({
             updated_at: new Date().toISOString(),
           })
           .eq('id', sourceInventory.id)
-          .eq('tenant_id', user.tenant_id);
+          ;
 
         if (sourceUpdateError) {
           ctx.logger.error('Source inventory update error:', sourceUpdateError);
@@ -443,7 +443,7 @@ export const inventoryRouter = router({
             updated_at: new Date().toISOString(),
           })
           .eq('id', destInventory.id)
-          .eq('tenant_id', user.tenant_id);
+          ;
 
         if (destUpdateError) {
           ctx.logger.error('Destination inventory update error:', destUpdateError);
@@ -473,7 +473,7 @@ export const inventoryRouter = router({
         .from('warehouses')
         .select('id')
         .eq('id', input.warehouse_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (warehouseError || !warehouse) {
@@ -487,7 +487,7 @@ export const inventoryRouter = router({
         .from('products')
         .select('id')
         .eq('id', input.product_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (productError || !product) {
@@ -503,7 +503,7 @@ export const inventoryRouter = router({
         .select('id')
         .eq('warehouse_id', input.warehouse_id)
         .eq('product_id', input.product_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (existing) {
@@ -517,7 +517,7 @@ export const inventoryRouter = router({
         .from('inventory_balance')
         .insert([{
           ...input,
-          tenant_id: user.tenant_id,
+          
           updated_at: new Date().toISOString(),
         }])
         .select(`
@@ -555,7 +555,7 @@ export const inventoryRouter = router({
           .from('inventory_balance')
           .select('*')
           .eq('product_id', reservation.product_id)
-          .eq('tenant_id', user.tenant_id)
+          
           .gt('qty_full', 0); // Only consider records with stock
 
         if (reservation.warehouse_id) {
@@ -600,7 +600,7 @@ export const inventoryRouter = router({
               updated_at: new Date().toISOString(),
             })
             .eq('id', inventory.id)
-            .eq('tenant_id', user.tenant_id)
+            
             .eq('qty_reserved', inventory.qty_reserved) // Optimistic locking
             .select()
             .single();

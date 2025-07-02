@@ -81,7 +81,7 @@ export const productsRouter = router({
       let query = ctx.supabase
         .from('products')
         .select('*', { count: 'exact' })
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       // By default, hide obsolete products unless specifically requested
       if (!input.show_obsolete) {
@@ -141,7 +141,7 @@ export const productsRouter = router({
         .from('products')
         .select('*')
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (error) {
@@ -165,7 +165,7 @@ export const productsRouter = router({
       const { data, error } = await ctx.supabase
         .from('products')
         .select('status, unit_of_measure')
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (error) {
         ctx.logger.error('Error fetching product stats:', error);
@@ -201,7 +201,7 @@ export const productsRouter = router({
       const { data, error } = await ctx.supabase
         .from('products')
         .select('id, sku, name, variant_name, is_variant')
-        .eq('tenant_id', user.tenant_id)
+        
         .in('status', input.status)
         .order('name');
 
@@ -242,7 +242,7 @@ export const productsRouter = router({
         .from('products')
         .select('id')
         .eq('sku', input.sku)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (existingSku) {
@@ -258,7 +258,7 @@ export const productsRouter = router({
           .from('products')
           .select('id')
           .eq('id', input.parent_product_id)
-          .eq('tenant_id', user.tenant_id)
+          
           .single();
 
         if (parentError || !parentProduct) {
@@ -273,7 +273,7 @@ export const productsRouter = router({
         .from('products')
         .insert([{
           ...input,
-          tenant_id: user.tenant_id,
+          
           created_at: new Date().toISOString(),
         }])
         .select()
@@ -306,7 +306,7 @@ export const productsRouter = router({
           .from('products')
           .select('id')
           .eq('sku', updateData.sku)
-          .eq('tenant_id', user.tenant_id)
+          
           .neq('id', id)
           .single();
 
@@ -325,7 +325,7 @@ export const productsRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -371,7 +371,7 @@ export const productsRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -396,7 +396,7 @@ export const productsRouter = router({
         .from('products')
         .select('*')
         .eq('parent_product_id', input.parent_product_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .eq('is_variant', true)
         .order('variant_name');
 
@@ -424,7 +424,7 @@ export const productsRouter = router({
         .from('products')
         .select('id')
         .eq('sku', input.sku)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (existingSku) {
@@ -439,7 +439,7 @@ export const productsRouter = router({
         .from('products')
         .select('*')
         .eq('id', input.parent_product_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (parentError || !parentProduct) {
@@ -453,7 +453,7 @@ export const productsRouter = router({
         .from('products')
         .insert([{
           ...input,
-          tenant_id: user.tenant_id,
+          
           is_variant: true,
           unit_of_measure: parentProduct.unit_of_measure,
           variant_type: parentProduct.variant_type,
@@ -492,7 +492,7 @@ export const productsRouter = router({
           updated_at: new Date().toISOString(),
         })
         .in('id', input.product_ids)
-        .eq('tenant_id', user.tenant_id)
+        
         .select();
 
       if (error) {
@@ -525,7 +525,7 @@ export const productsRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -558,7 +558,7 @@ export const productsRouter = router({
         .from('products')
         .select('id, name')
         .eq('sku', input.sku)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (input.exclude_id) {
         skuQuery = skuQuery.neq('id', input.exclude_id);
@@ -574,7 +574,7 @@ export const productsRouter = router({
       const { data: similarNames } = await ctx.supabase
         .from('products')
         .select('name')
-        .eq('tenant_id', user.tenant_id)
+        
         .ilike('name', `%${input.name}%`)
         .neq('id', input.exclude_id || '');
 

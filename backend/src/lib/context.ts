@@ -7,7 +7,6 @@ import { logger } from './logger';
 export interface AuthenticatedUser {
   id: string;
   email: string;
-  tenant_id: string;
   role: string;
 }
 
@@ -30,24 +29,29 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
       if (error || !userData.user) {
         logger.warn('Invalid or expired token provided');
       } else {
-        // Extract tenant_id from user metadata or app_metadata
-        const tenantId = userData.user.app_metadata?.tenant_id || userData.user.user_metadata?.tenant_id;
-        
-        if (!tenantId) {
-          throw new Error('User does not have a tenant_id assigned');
+        // Check if user is admin
+        const { data: adminUser } = await supabaseAdmin
+          .from('admin_users')
+          .select('*')
+          .eq('email', userData.user.email!)
+          .eq('active', true)
+          .single();
+
+        if (!adminUser) {
+          logger.warn('User is not an active admin');
+          throw new Error('Access denied: Admin privileges required');
         }
 
         user = {
           id: userData.user.id,
           email: userData.user.email!,
-          tenant_id: tenantId,
-          role: userData.user.app_metadata?.role || 'user'
+          role: adminUser.role || 'admin'
         };
 
         // Create user-scoped Supabase client
         userSupabase = createUserSupabaseClient(token);
         
-        logger.info(`User authenticated: ${user.email} (tenant: ${user.tenant_id})`);
+        logger.info(`User authenticated: ${user.email} (role: ${user.role})`);
       }
     } catch (error) {
       logger.warn('Token verification failed:', error);

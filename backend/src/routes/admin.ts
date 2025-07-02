@@ -19,17 +19,17 @@ export const adminRouter = router({
       }
 
       try {
-        const results = await testRLSPolicies(ctx.supabase, ctx.user.tenant_id);
+        const results = await testRLSPolicies(ctx.supabase, ctx.user.id);
         
         ctx.logger.info('RLS policy test completed', {
-          tenant_id: ctx.user.tenant_id,
+          user_id: ctx.user.id,
           success: results.success,
           results: results.results
         });
 
         return results;
       } catch (error) {
-        ctx.logger.error('RLS policy test failed', { error, tenant_id: ctx.user.tenant_id });
+        ctx.logger.error('RLS policy test failed', { error, user_id: ctx.user.id });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to test RLS policies'
@@ -90,67 +90,38 @@ export const adminRouter = router({
       }
     }),
 
-  // Get tenant statistics (admin only)
-  getTenantStats: adminProcedure
+  // Get system statistics (admin only)
+  getSystemStats: adminProcedure
     .query(async ({ ctx }) => {
       try {
-        // Get counts per tenant for monitoring
+        // Get basic system counts
         const { data: customerStats, error: customerError } = await ctx.supabaseAdmin
           .from('customers')
-          .select('tenant_id')
-          .neq('tenant_id', null);
-
-        if (customerError) {
-          throw customerError;
-        }
+          .select('count', { count: 'exact', head: true });
 
         const { data: orderStats, error: orderError } = await ctx.supabaseAdmin
           .from('orders')
-          .select('tenant_id, status')
-          .neq('tenant_id', null);
+          .select('status', { count: 'exact' });
 
-        if (orderError) {
-          throw orderError;
+        if (customerError || orderError) {
+          throw customerError || orderError;
         }
 
-        // Aggregate by tenant
-        const tenantStats: Record<string, {
-          customers: number;
-          orders: number;
-          activeOrders: number;
-        }> = {};
-
-        customerStats?.forEach(record => {
-          if (!tenantStats[record.tenant_id]) {
-            tenantStats[record.tenant_id] = { customers: 0, orders: 0, activeOrders: 0 };
-          }
-          tenantStats[record.tenant_id].customers++;
-        });
-
-        orderStats?.forEach(record => {
-          if (!tenantStats[record.tenant_id]) {
-            tenantStats[record.tenant_id] = { customers: 0, orders: 0, activeOrders: 0 };
-          }
-          tenantStats[record.tenant_id].orders++;
-          if (['confirmed', 'scheduled', 'en_route'].includes(record.status)) {
-            tenantStats[record.tenant_id].activeOrders++;
-          }
-        });
-
-        ctx.logger.info('Retrieved tenant statistics', {
-          tenantCount: Object.keys(tenantStats).length
-        });
-
-        return {
-          totalTenants: Object.keys(tenantStats).length,
-          tenantStats
+        const stats = {
+          totalCustomers: (customerStats as any)?.count || 0,
+          totalOrders: orderStats?.length || 0,
+          activeOrders: orderStats?.filter((o: any) => ['confirmed', 'scheduled', 'en_route'].includes(o.status)).length || 0
         };
 
+        ctx.logger.info('Retrieved system statistics', stats);
+
+        return stats;
+
       } catch (error) {
-        ctx.logger.error('Failed to get tenant statistics', { error });
+        ctx.logger.error('Failed to get system statistics', { error });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to retrieve tenant statistics'
+          message: 'Failed to retrieve system statistics'
         });
       }
     }),
@@ -163,7 +134,7 @@ export const adminRouter = router({
         const checks = {
           database: false,
           rls: false,
-          tenantAccess: false
+          adminAccess: false
         };
 
         // Test database connection
@@ -179,14 +150,14 @@ export const adminRouter = router({
         // Test RLS policies
         if (ctx.user) {
           try {
-            const rlsTest = await testRLSPolicies(ctx.supabase, ctx.user.tenant_id);
+            const rlsTest = await testRLSPolicies(ctx.supabase, ctx.user.id);
             checks.rls = rlsTest.success;
           } catch {
             checks.rls = false;
           }
 
-          // Test tenant access
-          checks.tenantAccess = !!ctx.user.tenant_id;
+          // Test admin access
+          checks.adminAccess = !!ctx.user.id;
         }
 
         const isHealthy = Object.values(checks).every(check => check === true);

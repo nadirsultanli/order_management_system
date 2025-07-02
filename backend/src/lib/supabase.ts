@@ -32,18 +32,20 @@ export const createUserSupabaseClient = (accessToken: string) => {
 };
 
 // Test connection on startup
-supabaseAdmin
-  .from('customers')
-  .select('count', { count: 'exact', head: true })
-  .then(({ count, error }) => {
+(async () => {
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('customers')
+      .select('count', { count: 'exact', head: true });
+      
     if (error) {
       logger.error('❌ Supabase connection test failed:', error);
       process.exit(1);
     } else {
       logger.info(`✅ Supabase connected successfully. Customer count: ${count}`);
     }
-  })
-  .catch((error: any) => {
+  } catch (error) {
     logger.error('❌ Supabase connection test error:', error);
     process.exit(1);
-  });
+  }
+})();

@@ -110,7 +110,7 @@ export const customersRouter = router({
             created_at
           )
         `, { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .eq('addresses.is_primary', true)
         .order('created_at', { ascending: false });
 
@@ -145,7 +145,7 @@ export const customersRouter = router({
       let queryWithoutAddress = ctx.supabase
         .from('customers')
         .select('*', { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .order('created_at', { ascending: false });
 
       // Exclude customers that already have primary addresses
@@ -223,7 +223,7 @@ export const customersRouter = router({
           )
         `)
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .eq('addresses.is_primary', true)
         .single();
 
@@ -279,7 +279,7 @@ export const customersRouter = router({
       
       // Call the RPC for atomic customer + address creation
       const { data, error } = await ctx.supabase.rpc('create_customer_with_address', {
-        p_tenant_id: user.tenant_id,
+        
         p_name: customerFields.name,
         p_external_id: customerFields.external_id,
         p_tax_id: customerFields.tax_id,
@@ -334,7 +334,7 @@ export const customersRouter = router({
           updated_by: user.id,
         })
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -361,7 +361,7 @@ export const customersRouter = router({
           .from('addresses')
           .select('id')
           .eq('customer_id', id)
-          .eq('tenant_id', user.tenant_id)
+          
           .eq('is_primary', true)
           .single();
 
@@ -381,7 +381,7 @@ export const customersRouter = router({
             updated_at: new Date().toISOString(),
           })
           .eq('id', addressData.id)
-          .eq('tenant_id', user.tenant_id);
+          ;
 
         if (addressUpdateError) {
           ctx.logger.error('Update address error:', addressUpdateError);
@@ -410,7 +410,7 @@ export const customersRouter = router({
         .from('customers')
         .delete()
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (error) {
         ctx.logger.error('Delete customer error:', error);
@@ -442,7 +442,7 @@ export const customersRouter = router({
         .from('customers')
         .select('id')
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (customerError || !customer) {
@@ -468,7 +468,7 @@ export const customersRouter = router({
           )
         `, { count: 'exact' })
         .eq('customer_id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .order('created_at', { ascending: false });
 
       // Apply status filter
@@ -512,7 +512,7 @@ export const customersRouter = router({
         .from('customers')
         .select('id, name, created_at')
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (customerError || !customer) {
@@ -536,7 +536,7 @@ export const customersRouter = router({
         .from('orders')
         .select('status, total_amount, order_date')
         .eq('customer_id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .gte('order_date', startDate.toISOString());
 
       if (orderStatsError) {
@@ -561,7 +561,7 @@ export const customersRouter = router({
         .from('orders')
         .select('id, status, total_amount, order_date')
         .eq('customer_id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .order('order_date', { ascending: false })
         .limit(5);
 
@@ -613,7 +613,7 @@ export const customersRouter = router({
           .from('customers')
           .select('id')
           .eq('email', input.email)
-          .eq('tenant_id', user.tenant_id)
+          
           .single();
         
         if (existingByEmail) {
@@ -627,7 +627,7 @@ export const customersRouter = router({
           .from('customers')
           .select('id')
           .eq('external_id', input.external_id)
-          .eq('tenant_id', user.tenant_id)
+          
           .single();
         
         if (existingByExternalId) {
@@ -641,7 +641,7 @@ export const customersRouter = router({
           .from('customers')
           .select('id')
           .eq('tax_id', input.tax_id)
-          .eq('tenant_id', user.tenant_id)
+          
           .single();
         
         if (existingByTaxId) {
@@ -673,7 +673,7 @@ export const customersRouter = router({
         .from('customers')
         .select('id')
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (customerError || !customer) {
@@ -687,7 +687,7 @@ export const customersRouter = router({
         .from('addresses')
         .select('*')
         .eq('customer_id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true });
 
@@ -715,7 +715,7 @@ export const customersRouter = router({
         .from('customers')
         .select('id')
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (customerError || !customer) {
@@ -731,7 +731,7 @@ export const customersRouter = router({
           .from('addresses')
           .update({ is_primary: false })
           .eq('customer_id', input.customer_id)
-          .eq('tenant_id', user.tenant_id)
+          
           .eq('is_primary', true);
       }
 
@@ -741,10 +741,19 @@ export const customersRouter = router({
       
       if (!latitude || !longitude) {
         try {
-          const geocodeResult = await geocodeAddress(input);
-          if (geocodeResult) {
-            latitude = geocodeResult.latitude;
-            longitude = geocodeResult.longitude;
+          if (input.line1 && input.city && input.country) {
+            const geocodeResult = await geocodeAddress({
+              line1: input.line1,
+              line2: input.line2,
+              city: input.city,
+              state: input.state,
+              postal_code: input.postal_code,
+              country: input.country
+            });
+            if (geocodeResult) {
+              latitude = geocodeResult.latitude;
+              longitude = geocodeResult.longitude;
+            }
           }
         } catch (err) {
           ctx.logger.warn('Geocoding failed for new address:', err);
@@ -757,7 +766,7 @@ export const customersRouter = router({
           ...input,
           latitude,
           longitude,
-          tenant_id: user.tenant_id,
+          
           created_by: user.id,
         }])
         .select()
@@ -806,7 +815,7 @@ export const customersRouter = router({
         .from('addresses')
         .select('customer_id')
         .eq('id', address_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (addressError || !address) {
@@ -822,7 +831,7 @@ export const customersRouter = router({
           .from('addresses')
           .update({ is_primary: false })
           .eq('customer_id', customer_id)
-          .eq('tenant_id', user.tenant_id)
+          
           .eq('is_primary', true)
           .neq('id', address_id);
       }
@@ -834,7 +843,7 @@ export const customersRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', address_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -864,7 +873,7 @@ export const customersRouter = router({
         .from('addresses')
         .delete()
         .eq('id', input.address_id)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (error) {
         ctx.logger.error('Delete address error:', error);
@@ -895,7 +904,7 @@ export const customersRouter = router({
         .select('id, customer_id')
         .eq('id', input.address_id)
         .eq('customer_id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (addressError || !address) {
@@ -910,7 +919,7 @@ export const customersRouter = router({
         .from('addresses')
         .update({ is_primary: false })
         .eq('customer_id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .eq('is_primary', true);
 
       // Then set this address as primary
@@ -921,7 +930,7 @@ export const customersRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', input.address_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -953,7 +962,21 @@ export const customersRouter = router({
       ctx.logger.info('Geocoding address:', input);
       
       try {
-        const result = await geocodeAddress(input);
+        if (!input.line1 || !input.city || !input.country) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Address must include line1, city, and country'
+          });
+        }
+        
+        const result = await geocodeAddress({
+          line1: input.line1,
+          line2: input.line2,
+          city: input.city,
+          state: input.state,
+          postal_code: input.postal_code,
+          country: input.country
+        });
         
         if (!result) {
           throw new TRPCError({
@@ -1012,7 +1035,16 @@ export const customersRouter = router({
       // Try to geocode to validate address exists
       let geocodeResult = null;
       try {
-        geocodeResult = await geocodeAddress(input);
+        if (input.line1 && input.city && input.country) {
+          geocodeResult = await geocodeAddress({
+            line1: input.line1,
+            line2: input.line2,
+            city: input.city,
+            state: input.state,
+            postal_code: input.postal_code,
+            country: input.country
+          });
+        }
         if (!geocodeResult) {
           warnings.push('Address could not be verified through geocoding');
         }

@@ -160,7 +160,7 @@ export const transfersRouter = router({
             product:product_id(id, sku, name, unit_of_measure)
           )
         `, { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .order(input.sort_by, { ascending: input.sort_order === 'asc' });
 
       // Apply filters
@@ -246,7 +246,7 @@ export const transfersRouter = router({
           )
         `)
         .eq('id', input.transfer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (error) {
@@ -284,7 +284,7 @@ export const transfersRouter = router({
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
         .select('id, name, code')
-        .eq('tenant_id', user.tenant_id)
+        
         .in('id', [input.source_warehouse_id, input.destination_warehouse_id]);
 
       if (warehouseError || warehouses.length !== 2) {
@@ -300,7 +300,7 @@ export const transfersRouter = router({
           product:product_id(id, sku, name, capacity_kg, tare_weight_kg, is_variant, variant_name, variant_type)
         `)
         .eq('warehouse_id', input.source_warehouse_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .in('product_id', productIds);
 
       if (stockError) {
@@ -411,7 +411,7 @@ export const transfersRouter = router({
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
         .select('id, name, code')
-        .eq('tenant_id', user.tenant_id)
+        
         .in('id', [input.source_warehouse_id, input.destination_warehouse_id]);
 
       if (warehouseError || warehouses.length !== 2) {
@@ -427,7 +427,7 @@ export const transfersRouter = router({
           product:product_id(id, sku, name, capacity_kg, tare_weight_kg, is_variant, variant_name, variant_type)
         `)
         .eq('warehouse_id', input.source_warehouse_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .in('product_id', productIds);
 
       if (stockError) {
@@ -491,7 +491,7 @@ export const transfersRouter = router({
         total_quantity: summary.total_quantity,
         total_weight_kg: summary.total_weight_kg,
         total_cost: summary.total_cost,
-        tenant_id: user.tenant_id,
+        
         created_by_user_id: user.id,
         qty_tagged: 0,
         qty_untagged: summary.total_quantity,
@@ -518,7 +518,7 @@ export const transfersRouter = router({
         product_id: item.product_id,
         quantity_full: item.quantity_to_transfer,
         quantity_empty: 0,
-        tenant_id: user.tenant_id,
+        
       }));
 
       const { error: itemsError } = await ctx.supabase
@@ -553,7 +553,7 @@ export const transfersRouter = router({
           items:transfer_lines(product_id, quantity_full, quantity_empty)
         `)
         .eq('id', input.transfer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (transferError || !currentTransfer) {
@@ -593,7 +593,7 @@ export const transfersRouter = router({
                 p_product_id: item.product_id,
                 p_qty_full: item.quantity_full,
                 p_qty_empty: item.quantity_empty,
-                p_tenant_id: user.tenant_id,
+                
               });
             } catch (error) {
               ctx.logger.error('Stock transfer execution failed:', error);
@@ -628,7 +628,7 @@ export const transfersRouter = router({
         .from('transfers')
         .update(updateData)
         .eq('id', input.transfer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -677,7 +677,7 @@ export const transfersRouter = router({
           )
         `)
         .eq('warehouse_id', input.warehouse_id)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       // Apply filters
       if (input.has_stock) {
@@ -753,7 +753,7 @@ export const transfersRouter = router({
           )
         `)
         .eq('id', input.transfer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (error) {
@@ -833,7 +833,7 @@ export const transfersRouter = router({
       let query = ctx.supabase
         .from('products')
         .select('*')
-        .eq('tenant_id', user.tenant_id)
+        
         .eq('status', 'active')
         .order('name');
 

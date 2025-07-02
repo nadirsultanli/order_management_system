@@ -1,9 +1,11 @@
-import { supabase } from './supabase';
+// DEPRECATED: This file contains legacy functions that violate architecture separation.
+// All order operations should now use tRPC endpoints in backend/src/routes/orders.ts
+// Frontend should only use the tRPC client via useQuery/useMutation hooks.
 
 export interface Order {
   id: string;
   customer_id: string;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
   order_date: string;
   delivery_date: string;
   total_amount: number;
@@ -23,28 +25,8 @@ export interface Order {
   }[];
 }
 
-export const getCustomerOrders = async (customerId: string) => {
-  const { data, error } = await supabase
-    .from('orders')
-    .select(`
-      *,
-      customer:customer_id(
-        name,
-        address
-      ),
-      order_lines(
-        id,
-        product_id,
-        quantity,
-        product:product_id(
-          name,
-          sku
-        )
-      )
-    `)
-    .eq('customer_id', customerId)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data as Order[];
+// DEPRECATED: Use tRPC customers.getOrderHistory instead
+// Example: const { data } = trpc.customers.getOrderHistory.useQuery({ customer_id: customerId });
+export const getCustomerOrders = async (customerId: string): Promise<Order[]> => {
+  throw new Error('DEPRECATED: Use tRPC customers.getOrderHistory instead of direct Supabase calls');
 }; 

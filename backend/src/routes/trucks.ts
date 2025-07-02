@@ -110,7 +110,7 @@ export const trucksRouter = router({
       let query = ctx.supabase
         .from('truck')
         .select('*', { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .order('fleet_number');
 
       // Apply search filter
@@ -164,7 +164,7 @@ export const trucksRouter = router({
         .from('truck')
         .select('*')
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (truckError) {
@@ -241,7 +241,7 @@ export const trucksRouter = router({
       
       const truckData = {
         ...input,
-        tenant_id: user.tenant_id,
+        
         capacity_kg: input.capacity_kg || input.capacity_cylinders * 27,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -281,7 +281,7 @@ export const trucksRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -308,7 +308,7 @@ export const trucksRouter = router({
         .from('truck')
         .delete()
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (error) {
         ctx.logger.error('Error deleting truck:', error);
@@ -367,7 +367,7 @@ export const trucksRouter = router({
         .from('truck_allocations')
         .insert([{
           ...input,
-          tenant_id: user.tenant_id,
+          
           status: 'planned',
           created_at: new Date().toISOString(),
         }])
@@ -399,7 +399,7 @@ export const trucksRouter = router({
         .from('truck_allocations')
         .update(updateData)
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -460,7 +460,7 @@ export const trucksRouter = router({
         .from('truck_routes')
         .insert([{
           ...input,
-          tenant_id: user.tenant_id,
+          
           route_status: 'planned',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -496,7 +496,7 @@ export const trucksRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -520,7 +520,7 @@ export const trucksRouter = router({
       let query = ctx.supabase
         .from('truck_maintenance')
         .select('*')
-        .eq('tenant_id', user.tenant_id)
+        
         .order('scheduled_date', { ascending: false });
 
       if (input.truck_id) {
@@ -552,7 +552,7 @@ export const trucksRouter = router({
         .from('truck_maintenance')
         .insert([{
           ...input,
-          tenant_id: user.tenant_id,
+          
           status: 'scheduled',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -588,7 +588,7 @@ export const trucksRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 

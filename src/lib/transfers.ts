@@ -1,4 +1,6 @@
-import { supabase } from './supabase';
+// DEPRECATED: This file contains legacy functions that violate architecture separation.
+// All transfer operations should now use tRPC endpoints (when implemented in backend).
+// Frontend should only use the tRPC client via useQuery/useMutation hooks.
 
 export interface TruckInventoryItem {
   product_id: string;
@@ -28,118 +30,33 @@ export interface Transfer {
   created_at: string;
 }
 
-export interface TransferLine {
-  id: string;
-  transfer_id: string;
-  product_id: string;
-  quantity_full: number;
-  quantity_empty: number;
-  created_at: string;
-}
-
 export interface TransferData {
   truck_id: string;
   warehouse_id: string;
   lines: TransferLine[];
 }
 
+// DEPRECATED: Use tRPC inventory endpoints instead
 export const getTruckInventory = async (truckId: string): Promise<TruckInventoryItem[]> => {
-  // Attempt to use the dedicated RPC first (recommended for performance)
-  const { data, error, status } = await supabase.rpc('get_truck_inventory', {
-    p_truck_id: truckId,
-  });
-
-  // If the RPC exists and succeeds, return its data immediately
-  if (!error) {
-    return (data as TruckInventoryItem[]) || [];
-  }
-
-  // If the RPC is not available (Supabase returns 404) fall back to querying the
-  // materialised `truck_inventory` view / table so the UI still works.
-  if (status === 404) {
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from('truck_inventory')
-      .select(
-        `product_id,
-         qty_full,
-         qty_empty,
-         updated_at,
-         product:product_id(name, sku)`
-      )
-      .eq('truck_id', truckId);
-
-    if (fallbackError) throw fallbackError;
-
-    return (fallbackData || []).map((item: any) => ({
-      product_id: item.product_id,
-      product_name: item.product?.name,
-      product_sku: item.product?.sku,
-      qty_full: item.qty_full,
-      qty_empty: item.qty_empty,
-      updated_at: item.updated_at,
-    })) as TruckInventoryItem[];
-  }
-
-  // For other errors, bubble them up so they are visible during development
-  throw error;
+  throw new Error('DEPRECATED: Use tRPC inventory endpoints instead of direct Supabase calls');
 };
 
+// DEPRECATED: Use tRPC transfer endpoints instead
 export const createLoadTransfer = async (data: TransferData) => {
-  const { data: result, error } = await supabase
-    .rpc('create_load_transfer', {
-      p_truck_id: data.truck_id,
-      p_warehouse_id: data.warehouse_id,
-      p_lines: data.lines
-    });
-
-  if (error) throw error;
-  return result;
+  throw new Error('DEPRECATED: Use tRPC transfer endpoints instead of direct Supabase calls');
 };
 
+// DEPRECATED: Use tRPC transfer endpoints instead
 export const createReturnTransfer = async (data: TransferData) => {
-  const { data: result, error } = await supabase
-    .rpc('create_return_transfer', {
-      p_truck_id: data.truck_id,
-      p_warehouse_id: data.warehouse_id,
-      p_lines: data.lines
-    });
-
-  if (error) throw error;
-  return result;
+  throw new Error('DEPRECATED: Use tRPC transfer endpoints instead of direct Supabase calls');
 };
 
+// DEPRECATED: Use tRPC transfer endpoints instead
 export const getTransfers = async (type?: 'load' | 'return') => {
-  let query = supabase
-    .from('transfers')
-    .select(`
-      *,
-      source_warehouse:source_warehouse_id(name),
-      destination_warehouse:destination_warehouse_id(name),
-      transfer_lines(
-        *,
-        product:product_id(name, sku)
-      )
-    `)
-    .order('created_at', { ascending: false });
-
-  if (type) {
-    query = query.eq('transfer_type', type);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-  return data;
+  throw new Error('DEPRECATED: Use tRPC transfer endpoints instead of direct Supabase calls');
 };
 
+// DEPRECATED: Use tRPC truck/warehouse endpoints instead
 export const getAvailableTrucks = async () => {
-  const { data, error } = await supabase
-    .from('truck')
-    .select(`
-      *,
-      warehouse:warehouses!truck_id(name)
-    `)
-    .eq('active', true);
-
-  if (error) throw error;
-  return data;
+  throw new Error('DEPRECATED: Use tRPC truck/warehouse endpoints instead of direct Supabase calls');
 }; 

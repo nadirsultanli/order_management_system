@@ -33,7 +33,7 @@ export const analyticsRouter = router({
       const { data: orders, error: ordersError } = await ctx.supabase
         .from('orders')
         .select('status, total_amount, order_date, customer_id')
-        .eq('tenant_id', user.tenant_id)
+        
         .gte('order_date', startDate.toISOString());
 
       if (ordersError) {
@@ -48,7 +48,7 @@ export const analyticsRouter = router({
       const { data: customers, error: customersError } = await ctx.supabase
         .from('customers')
         .select('id, created_at')
-        .eq('tenant_id', user.tenant_id)
+        
         .gte('created_at', startDate.toISOString());
 
       if (customersError) {
@@ -111,7 +111,7 @@ export const analyticsRouter = router({
           status,
           customer:customers(id, name)
         `)
-        .eq('tenant_id', user.tenant_id)
+        
         .gte('order_date', startDate.toISOString())
         .order('order_date', { ascending: true });
 
@@ -152,8 +152,8 @@ export const analyticsRouter = router({
       const chartData = Object.entries(revenueData)
         .map(([date, data]) => ({
           date,
-          revenue: data.revenue,
-          orders: data.orders,
+          revenue: (data as any).revenue,
+          orders: (data as any).orders,
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
@@ -201,7 +201,7 @@ export const analyticsRouter = router({
       const { data: orders, error } = await ctx.supabase
         .from('orders')
         .select(selectClause)
-        .eq('tenant_id', user.tenant_id)
+        
         .gte('order_date', startDate.toISOString())
         .order('order_date', { ascending: false });
 
@@ -306,7 +306,7 @@ export const analyticsRouter = router({
         const { data: newCustomers, error } = await ctx.supabase
           .from('customers')
           .select('id, name, created_at, email')
-          .eq('tenant_id', user.tenant_id)
+          
           .gte('created_at', startDate.toISOString())
           .order('created_at', { ascending: false });
 
@@ -344,7 +344,7 @@ export const analyticsRouter = router({
             total_amount,
             customer:customers(id, name, email)
           `)
-          .eq('tenant_id', user.tenant_id)
+          
           .gte('order_date', startDate.toISOString());
 
         if (error) {
@@ -393,13 +393,13 @@ export const analyticsRouter = router({
         const { data: currentOrders, error: currentError } = await ctx.supabase
           .from('orders')
           .select('customer_id, customer:customers(id, name, email)')
-          .eq('tenant_id', user.tenant_id)
+          
           .gte('order_date', startDate.toISOString());
 
         const { data: previousOrders, error: previousError } = await ctx.supabase
           .from('orders')
           .select('customer_id')
-          .eq('tenant_id', user.tenant_id)
+          
           .gte('order_date', previousStartDate.toISOString())
           .lt('order_date', startDate.toISOString());
 
@@ -455,7 +455,7 @@ export const analyticsRouter = router({
           product:products(id, sku, name, unit_of_measure),
           warehouse:warehouses(id, name)
         `)
-        .eq('tenant_id', user.tenant_id);
+        ;
       
       if (input.warehouse_id) {
         query = query.eq('warehouse_id', input.warehouse_id);

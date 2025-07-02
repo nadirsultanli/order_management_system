@@ -61,7 +61,7 @@ export const warehousesRouter = router({
             longitude
           )
         `, { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .order('created_at', { ascending: false });
 
       // Apply search filter
@@ -118,7 +118,7 @@ export const warehousesRouter = router({
           )
         `)
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (error) {
@@ -142,7 +142,7 @@ export const warehousesRouter = router({
       const { data, error } = await ctx.supabase
         .from('warehouses')
         .select('capacity_cylinders')
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (error) {
         ctx.logger.error('Error fetching warehouse stats:', error);
@@ -179,7 +179,7 @@ export const warehousesRouter = router({
           name,
           address:addresses(city, state)
         `)
-        .eq('tenant_id', user.tenant_id)
+        
         .order('name');
 
       if (error) {
@@ -211,7 +211,7 @@ export const warehousesRouter = router({
         .from('warehouses')
         .select('id')
         .eq('name', input.name)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (existingName) {
@@ -228,7 +228,7 @@ export const warehousesRouter = router({
           .from('addresses')
           .insert([{
             ...input.address,
-            tenant_id: user.tenant_id,
+            
             customer_id: null, // Not linked to a customer
             is_primary: false,
             created_at: new Date().toISOString(),
@@ -254,7 +254,7 @@ export const warehousesRouter = router({
           name: input.name,
           capacity_cylinders: input.capacity_cylinders,
           address_id: addressId,
-          tenant_id: user.tenant_id,
+          
           created_at: new Date().toISOString(),
         }])
         .select(`
@@ -303,7 +303,7 @@ export const warehousesRouter = router({
           .from('warehouses')
           .select('id')
           .eq('name', updateData.name)
-          .eq('tenant_id', user.tenant_id)
+          
           .neq('id', id)
           .single();
 
@@ -320,7 +320,7 @@ export const warehousesRouter = router({
         .from('warehouses')
         .select('address_id')
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (!currentWarehouse) {
@@ -354,7 +354,7 @@ export const warehousesRouter = router({
             .from('addresses')
             .insert([{
               ...updateData.address,
-              tenant_id: user.tenant_id,
+              
               customer_id: null,
               is_primary: false,
               created_at: new Date().toISOString(),
@@ -388,7 +388,7 @@ export const warehousesRouter = router({
         .from('warehouses')
         .update(warehouseUpdate)
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select(`
           *,
           address:addresses(
@@ -428,7 +428,7 @@ export const warehousesRouter = router({
         .from('warehouses')
         .select('address_id')
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (!warehouse) {
@@ -443,7 +443,7 @@ export const warehousesRouter = router({
         .from('warehouses')
         .delete()
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (error) {
         ctx.logger.error('Delete warehouse error:', error);

@@ -11,16 +11,9 @@ export const requireAuth = (ctx: Context) => {
   return ctx.user;
 };
 
-export const requireTenantAccess = (ctx: Context, resourceTenantId?: string) => {
+export const requireTenantAccess = (ctx: Context) => {
+  // Since we removed tenant concept, just require auth
   const user = requireAuth(ctx);
-  
-  if (resourceTenantId && user.tenant_id !== resourceTenantId) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Access denied: tenant isolation violation'
-    });
-  }
-  
   return user;
 };
 

@@ -94,7 +94,7 @@ export const pricingRouter = router({
           *,
           price_list_item(count)
         `, { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .order('created_at', { ascending: false });
 
       // Apply search filter
@@ -156,7 +156,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('*')
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (error) {
@@ -191,7 +191,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id')
         .eq('name', input.name)
-        .eq('tenant_id', user.tenant_id)
+        
         .maybeSingle();
 
       if (existingName) {
@@ -207,14 +207,14 @@ export const pricingRouter = router({
           .from('price_list')
           .update({ is_default: false })
           .eq('is_default', true)
-          .eq('tenant_id', user.tenant_id);
+          ;
       }
 
       const { data, error } = await ctx.supabase
         .from('price_list')
         .insert([{
           ...input,
-          tenant_id: user.tenant_id,
+          
           created_at: new Date().toISOString(),
         }])
         .select()
@@ -249,7 +249,7 @@ export const pricingRouter = router({
           .from('price_list')
           .select('start_date, end_date')
           .eq('id', id)
-          .eq('tenant_id', user.tenant_id)
+          
           .single();
           
         const startDate = updateData.start_date || current?.start_date;
@@ -269,7 +269,7 @@ export const pricingRouter = router({
           .from('price_list')
           .select('id')
           .eq('name', updateData.name)
-          .eq('tenant_id', user.tenant_id)
+          
           .neq('id', id)
           .maybeSingle();
 
@@ -287,7 +287,7 @@ export const pricingRouter = router({
           .from('price_list')
           .update({ is_default: false })
           .eq('is_default', true)
-          .eq('tenant_id', user.tenant_id)
+          
           .neq('id', id);
       }
 
@@ -295,7 +295,7 @@ export const pricingRouter = router({
         .from('price_list')
         .update(updateData)
         .eq('id', id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -326,7 +326,7 @@ export const pricingRouter = router({
         .from('orders')
         .select('id')
         .eq('price_list_id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .limit(1);
 
       if (orderReferences && orderReferences.length > 0) {
@@ -340,7 +340,7 @@ export const pricingRouter = router({
         .from('price_list')
         .delete()
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (error) {
         ctx.logger.error('Delete price list error:', error);
@@ -369,14 +369,14 @@ export const pricingRouter = router({
         .from('price_list')
         .update({ is_default: false })
         .eq('is_default', true)
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       // Set this one as default
       const { data, error } = await ctx.supabase
         .from('price_list')
         .update({ is_default: true })
         .eq('id', input.id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -410,7 +410,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id')
         .eq('id', input.price_list_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
         
       if (!priceList) {
@@ -469,7 +469,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id')
         .eq('id', input.price_list_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
         
       if (!priceList) {
@@ -535,7 +535,7 @@ export const pricingRouter = router({
         .eq('id', id)
         .single();
         
-      if (!item || (item.price_list as any)?.tenant_id !== user.tenant_id) {
+      if (!item) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Price list item not found'
@@ -585,7 +585,7 @@ export const pricingRouter = router({
         .eq('id', input.id)
         .single();
         
-      if (!item || (item.price_list as any)?.tenant_id !== user.tenant_id) {
+      if (!item) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Price list item not found'
@@ -622,7 +622,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id')
         .eq('id', input.price_list_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
         
       if (!priceList) {
@@ -729,7 +729,7 @@ export const pricingRouter = router({
       const { data: priceLists, error: priceListsError } = await ctx.supabase
         .from('price_list')
         .select('start_date, end_date')
-        .eq('tenant_id', user.tenant_id);
+        ;
 
       if (priceListsError) {
         ctx.logger.error('Pricing stats error:', priceListsError);
@@ -790,7 +790,7 @@ export const pricingRouter = router({
               product_id
             )
           `)
-          .eq('tenant_id', user.tenant_id)
+          
           .eq('price_list_item.product_id', item.product_id)
           .lte('start_date', pricingDate)
           .or(`end_date.is.null,end_date.gte.${pricingDate}`);
@@ -894,7 +894,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id, name')
         .eq('id', input.price_list_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
         
       if (!priceList) {
@@ -913,7 +913,7 @@ export const pricingRouter = router({
           .from('products')
           .select('id, sku, name')
           .eq('id', item.product_id)
-          .eq('tenant_id', user.tenant_id)
+          
           .single();
 
         if (!product) {
@@ -975,7 +975,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id')
         .eq('id', input.price_list_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
         
       if (!priceList) {
@@ -1057,7 +1057,7 @@ export const pricingRouter = router({
           payment_terms
         `)
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (customerError || !customer) {
@@ -1079,7 +1079,7 @@ export const pricingRouter = router({
           is_default,
           currency_code
         `)
-        .eq('tenant_id', user.tenant_id)
+        
         .lte('start_date', new Date().toISOString().split('T')[0])
         .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`);
 

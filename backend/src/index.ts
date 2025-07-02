@@ -71,7 +71,7 @@ app.get('/health', async (req, res) => {
 
 // tRPC middleware
 app.use('/api/v1/trpc', createExpressMiddleware({
-  router: appRouter,
+  router: appRouter as any,
   createContext,
   onError: ({ path, error }) => {
     logger.error(`❌ tRPC failed on ${path ?? '<no-path>'}:`, error);

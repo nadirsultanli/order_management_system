@@ -40,7 +40,7 @@ export const ordersRouter = router({
             product:products(id, sku, name, unit_of_measure)
           )
         `, { count: 'exact' })
-        .eq('tenant_id', user.tenant_id)
+        
         .order('created_at', { ascending: false });
 
       // Apply search filter
@@ -122,7 +122,7 @@ export const ordersRouter = router({
           )
         `)
         .eq('id', input.order_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (error) {
@@ -165,7 +165,7 @@ export const ordersRouter = router({
         .from('customers')
         .select('id, name')
         .eq('id', input.customer_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (customerError || !customer) {
@@ -183,7 +183,7 @@ export const ordersRouter = router({
         notes: input.notes,
         status: 'draft' as const,
         order_date: new Date().toISOString(),
-        tenant_id: user.tenant_id,
+        
         created_by: user.id,
       };
 
@@ -208,7 +208,7 @@ export const ordersRouter = router({
         quantity: line.quantity,
         unit_price: line.unit_price || 0,
         subtotal: (line.unit_price || 0) * line.quantity,
-        tenant_id: user.tenant_id,
+        
       }));
 
       const { error: linesError } = await ctx.supabase
@@ -224,10 +224,10 @@ export const ordersRouter = router({
       }
 
       // Calculate and update order total
-      await calculateOrderTotal(ctx, order.id, user.tenant_id);
+      await calculateOrderTotal(ctx, order.id, user.id);
 
       // Return complete order with relations
-      return await getOrderById(ctx, order.id, user.tenant_id);
+      return await getOrderById(ctx, order.id, user.id);
     }),
 
   // POST /orders/{id}/calculate-total - Calculate order total
@@ -238,7 +238,7 @@ export const ordersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
       
-      return await calculateOrderTotal(ctx, input.order_id, user.tenant_id);
+      return await calculateOrderTotal(ctx, input.order_id, user.id);
     }),
 
   // POST /orders/{id}/status - Update order status
@@ -263,7 +263,7 @@ export const ordersRouter = router({
           order_lines(product_id, quantity)
         `)
         .eq('id', input.order_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .single();
 
       if (orderError || !currentOrder) {
@@ -281,7 +281,7 @@ export const ordersRouter = router({
             await ctx.supabase.rpc('reserve_stock', {
               p_product_id: line.product_id,
               p_quantity: line.quantity,
-              p_tenant_id: user.tenant_id,
+              
             });
           }
         }
@@ -293,7 +293,7 @@ export const ordersRouter = router({
             await ctx.supabase.rpc('fulfill_order_line', {
               p_product_id: line.product_id,
               p_quantity: line.quantity,
-              p_tenant_id: user.tenant_id,
+              
             });
           }
         }
@@ -304,7 +304,7 @@ export const ordersRouter = router({
             await ctx.supabase.rpc('release_reserved_stock', {
               p_product_id: line.product_id,
               p_quantity: line.quantity,
-              p_tenant_id: user.tenant_id,
+              
             });
           }
         }
@@ -325,7 +325,7 @@ export const ordersRouter = router({
         .from('orders')
         .update(updateData)
         .eq('id', input.order_id)
-        .eq('tenant_id', user.tenant_id)
+        
         .select()
         .single();
 
@@ -350,7 +350,7 @@ export const ordersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
       
-      return await updateOrderTax(ctx, input.order_id, input.tax_percent, user.tenant_id);
+      return await updateOrderTax(ctx, input.order_id, input.tax_percent, user.id);
     }),
 });
 

@@ -1,159 +1,149 @@
-import { TRPCError } from '@trpc/server';
 import { Handler, HandlerEvent, HandlerContext } from '@netlify/functions';
-import express from 'express';
-import cors from 'cors';
-import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { appRouter } from '../routes';
 import { createContext } from './context';
 import { logger } from './logger';
-
-// Express app instance
-let app: express.Application | null = null;
-
-const createApp = () => {
-  if (app) return app;
-  
-  app = express();
-  
-  // CORS configuration
-  app.use(cors({
-    origin: [
-      /https:\/\/.*\.netlify\.app$/,
-      'http://localhost:5173',
-      'http://localhost:3000'
-    ],
-    credentials: true
-  }));
-
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true }));
-
-  // Health check
-  app.get('/health', async (req, res) => {
-    try {
-      const { supabaseAdmin } = await import('./supabase');
-      
-      const { error } = await supabaseAdmin
-        .from('customers')
-        .select('count')
-        .limit(1);
-      
-      res.json({ 
-        status: 'healthy', 
-        timestamp: new Date().toISOString(),
-        database: error ? 'disconnected' : 'connected',
-        environment: 'netlify-functions'
-      });
-    } catch (error) {
-      logger.error('Health check failed:', error);
-      res.status(503).json({
-        status: 'unhealthy',
-        error: 'Database connection failed'
-      });
-    }
-  });
-
-  // tRPC middleware
-  app.use('/trpc', createExpressMiddleware({
-    router: appRouter,
-    createContext,
-    onError: ({ path, error }) => {
-      logger.error(`❌ tRPC failed on ${path ?? '<no-path>'}:`, error);
-    },
-  }));
-
-  // Error handling
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    logger.error('Unhandled error:', err);
-    res.status(500).json({
-      message: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    });
-  });
-
-  return app;
-};
-
-// Convert Netlify event to Express-compatible request/response
-const convertEvent = (event: HandlerEvent) => {
-  const url = new URL(event.rawUrl);
-  
-  return {
-    method: event.httpMethod,
-    url: url.pathname + url.search,
-    path: url.pathname,
-    query: event.queryStringParameters || {},
-    headers: event.headers,
-    body: event.body,
-    isBase64Encoded: event.isBase64Encoded
-  };
-};
+import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
 export const createNetlifyHandler = (): Handler => {
   return async (event: HandlerEvent, context: HandlerContext) => {
-    // Set environment variables
-    process.env.NODE_ENV = 'production';
-    
-    // Initialize Express app
-    const expressApp = createApp();
-    
-    return new Promise((resolve, reject) => {
-      const req = convertEvent(event) as any;
+    try {
+      // Set environment variables
+      process.env.NODE_ENV = 'production';
       
-      const res = {
-        statusCode: 200,
-        headers: {} as Record<string, string>,
-        body: '',
-        
-        status(code: number) {
-          this.statusCode = code;
-          return this;
-        },
-        
-        setHeader(name: string, value: string) {
-          this.headers[name] = value;
-          return this;
-        },
-        
-        json(data: any) {
-          this.headers['Content-Type'] = 'application/json';
-          this.body = JSON.stringify(data);
-          resolve({
-            statusCode: this.statusCode,
-            headers: this.headers,
-            body: this.body
-          });
-        },
-        
-        send(data: any) {
-          this.body = typeof data === 'string' ? data : JSON.stringify(data);
-          resolve({
-            statusCode: this.statusCode,
-            headers: this.headers,
-            body: this.body
-          });
-        },
-        
-        end(data?: any) {
-          if (data) this.body = data;
-          resolve({
-            statusCode: this.statusCode,
-            headers: this.headers,
-            body: this.body
-          });
-        }
-      } as any;
+      logger.info('Netlify function invoked:', {
+        method: event.httpMethod,
+        path: event.path,
+        url: event.rawUrl
+      });
 
-      try {
-        // Mock Express app behavior
-        req.app = expressApp;
-        res.app = expressApp;
-        
-        expressApp(req, res);
-      } catch (error) {
-        logger.error('Netlify handler error:', error);
-        reject(error);
+      // Health check endpoint
+      if (event.path === '/health') {
+        try {
+          const { supabaseAdmin } = await import('./supabase');
+          
+          const { error } = await supabaseAdmin
+            .from('customers')
+            .select('count')
+            .limit(1);
+          
+          return {
+            statusCode: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+              'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+              'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+            },
+            body: JSON.stringify({
+              status: 'healthy',
+              timestamp: new Date().toISOString(),
+              database: error ? 'disconnected' : 'connected',
+              environment: 'netlify-functions'
+            })
+          };
+        } catch (error) {
+          logger.error('Health check failed:', error);
+          return {
+            statusCode: 503,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({
+              status: 'unhealthy',
+              error: 'Database connection failed'
+            })
+          };
+        }
       }
-    });
+
+      // Handle CORS preflight
+      if (event.httpMethod === 'OPTIONS') {
+        return {
+          statusCode: 200,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+          },
+          body: ''
+        };
+      }
+
+      // Handle tRPC requests
+      if (event.path?.includes('/trpc')) {
+        // Create a Request object from the Netlify event
+        const url = new URL(event.rawUrl);
+        const request = new Request(url.toString(), {
+          method: event.httpMethod,
+          headers: new Headers(event.headers || {}),
+          body: event.body || undefined,
+        });
+
+        // Use the tRPC fetch adapter
+        const response = await fetchRequestHandler({
+          endpoint: '/trpc',
+          req: request,
+          router: appRouter as any,
+          createContext: async () => {
+            return await createContext({
+              req: {
+                headers: event.headers || {},
+                method: event.httpMethod,
+                url: event.rawUrl,
+                body: event.body ? JSON.parse(event.body) : undefined
+              } as any,
+              res: {} as any
+            });
+          },
+          onError: ({ path, error }) => {
+            logger.error(`❌ tRPC failed on ${path ?? '<no-path>'}:`, error);
+          },
+        });
+
+        // Convert Web API Response to Netlify format
+        const responseBody = await response.text();
+        const responseHeaders: Record<string, string> = {};
+        
+        response.headers.forEach((value, key) => {
+          responseHeaders[key] = value;
+        });
+
+        // Add CORS headers
+        responseHeaders['Access-Control-Allow-Origin'] = '*';
+        responseHeaders['Access-Control-Allow-Headers'] = 'Content-Type, Authorization';
+        responseHeaders['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS';
+        
+        return {
+          statusCode: response.status,
+          headers: responseHeaders,
+          body: responseBody,
+        };
+      }
+
+      // Default response for unknown paths
+      return {
+        statusCode: 404,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ error: 'Not found' })
+      };
+
+    } catch (error) {
+      logger.error('Netlify handler error:', error);
+      return {
+        statusCode: 500,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error'
+        })
+      };
+    }
   };
 };

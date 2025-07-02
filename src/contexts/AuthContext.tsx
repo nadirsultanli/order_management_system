@@ -1,13 +1,23 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User as SupabaseUser } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import { User, AdminUser, AuthState } from '../types';
-import type { Address } from '../types/address';
-import { formatAddress } from '../utils/address';
+import { trpc } from '../lib/trpc-client';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+interface AuthState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+}
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,65 +33,64 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
-    adminUser: null,
     loading: true,
     error: null,
   });
 
-  const checkAdminUser = async (user: User): Promise<AdminUser | null> => {
-    const { data, error } = await supabase
-      .from('admin_users')
-      .select('*')
-      .eq('email', user.email)
-      .eq('active', true)
-      .single();
-
-    if (error || !data) {
-      return null;
-    }
-
-    return data;
-  };
+  // tRPC mutations for auth
+  const loginMutation = trpc.auth.login.useMutation();
+  const registerMutation = trpc.auth.register.useMutation();
+  const logoutMutation = trpc.auth.logout.useMutation();
+  const meMutation = trpc.auth.me.useMutation();
 
   const signIn = async (email: string, password: string) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const result = await loginMutation.mutateAsync({
         email,
         password,
       });
 
-      if (error) {
-        throw error;
-      }
+      // Store tokens in localStorage
+      localStorage.setItem('auth_token', result.session.access_token);
+      localStorage.setItem('refresh_token', result.session.refresh_token);
 
-      if (data.user) {
-        const user: User = {
-          id: data.user.id,
-          email: data.user.email!,
-          created_at: data.user.created_at,
-        };
-
-        const adminUser = await checkAdminUser(user);
-        
-        if (!adminUser) {
-          await supabase.auth.signOut();
-          throw new Error('Unauthorized: You do not have admin access');
-        }
-
-        setState({
-          user,
-          adminUser,
-          loading: false,
-          error: null,
-        });
-      }
-    } catch (error) {
+      setState({
+        user: result.user,
+        loading: false,
+        error: null,
+      });
+    } catch (error: any) {
       setState(prev => ({
         ...prev,
         loading: false,
-        error: error instanceof Error ? error.message : 'Authentication failed',
+        error: error.message || 'Authentication failed',
+      }));
+      throw error;
+    }
+  };
+
+  const register = async (email: string, password: string, name: string) => {
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const result = await registerMutation.mutateAsync({
+        email,
+        password,
+        name,
+      });
+
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: null,
+      }));
+    } catch (error: any) {
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: error.message || 'Registration failed',
       }));
       throw error;
     }
@@ -89,74 +98,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     setState(prev => ({ ...prev, loading: true }));
-    await supabase.auth.signOut();
+    
+    try {
+      // Call backend logout (optional)
+      await logoutMutation.mutateAsync();
+    } catch (error) {
+      // Ignore logout errors
+    }
+
+    // Clear tokens
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('refresh_token');
+    
     setState({
       user: null,
-      adminUser: null,
       loading: false,
       error: null,
     });
   };
 
+  // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = localStorage.getItem('auth_token');
       
-      if (session?.user) {
-        const user: User = {
-          id: session.user.id,
-          email: session.user.email!,
-          created_at: session.user.created_at,
-        };
+      if (!token) {
+        setState(prev => ({ ...prev, loading: false }));
+        return;
+      }
 
-        const adminUser = await checkAdminUser(user);
-        
-        if (!adminUser) {
-          await supabase.auth.signOut();
-          setState({
-            user: null,
-            adminUser: null,
-            loading: false,
-            error: 'Unauthorized: You do not have admin access',
-          });
-          return;
-        }
-
+      try {
+        // Try to get current user from backend
+        const result = await meMutation.mutateAsync();
         setState({
-          user,
-          adminUser,
+          user: result.user,
           loading: false,
           error: null,
         });
-      } else {
-        setState(prev => ({ ...prev, loading: false }));
+      } catch (error) {
+        // Token is invalid, clear it
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('refresh_token');
+        setState({
+          user: null,
+          loading: false,
+          error: null,
+        });
       }
     };
 
     initializeAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
-          setState({
-            user: null,
-            adminUser: null,
-            loading: false,
-            error: null,
-          });
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
   }, []);
 
   const value: AuthContextType = {
     ...state,
     signIn,
     signOut,
+    register,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
