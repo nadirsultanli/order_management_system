@@ -71,7 +71,7 @@ export const createNetlifyHandler = (): Handler => {
       }
 
       // Handle tRPC requests
-      if (event.path?.includes('/trpc')) {
+      if (event.path?.includes('/v1/trpc')) {
         // Create a Request object from the Netlify event
         const url = new URL(event.rawUrl);
         const request = new Request(url.toString(), {
@@ -82,7 +82,7 @@ export const createNetlifyHandler = (): Handler => {
 
         // Use the tRPC fetch adapter
         const response = await fetchRequestHandler({
-          endpoint: '/trpc',
+          endpoint: '/v1/trpc',
           req: request,
           router: appRouter as any,
           createContext: async () => {
