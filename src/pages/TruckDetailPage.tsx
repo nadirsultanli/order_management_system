@@ -1,80 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Truck, Package, Edit, ArrowLeft } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { TruckForm } from '../components/trucks/TruckForm';
-import { TruckInventoryItem } from '../lib/transfers';
-
-interface TruckDetails {
-  id: string;
-  fleet_number: string;
-  license_plate: string;
-  capacity_cylinders: number;
-  driver_name: string | null;
-  active: boolean;
-  inventory: TruckInventoryItem[];
-}
+import { useTruck } from '../hooks/useTrucks';
 
 export const TruckDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [truck, setTruck] = useState<TruckDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadTruckDetails();
-    }
-  }, [id]);
-
-  const loadTruckDetails = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get truck details
-      const { data: truckData, error: truckError } = await supabase
-        .from('truck')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (truckError) throw truckError;
-
-      // Get truck inventory
-      const { data: inventoryData, error: inventoryError } = await supabase
-        .from('truck_inventory')
-        .select(`
-          *,
-          product:product_id (
-            name,
-            sku
-          )
-        `)
-        .eq('truck_id', id);
-
-      if (inventoryError) throw inventoryError;
-
-      setTruck({
-        ...truckData,
-        inventory: (inventoryData || []).map((item) => ({
-          product_id: item.product_id,
-          product_name: item.product.name,
-          product_sku: item.product.sku,
-          qty_full: item.qty_full,
-          qty_empty: item.qty_empty,
-          updated_at: item.updated_at
-        }))
-      });
-    } catch (err: any) {
-      setError(err.message || 'Failed to load truck details');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: truck, isLoading: loading, error } = useTruck(id || '');
 
   if (loading) {
     return (
@@ -91,7 +26,7 @@ export const TruckDetailPage: React.FC = () => {
           <div className="flex">
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">
-                {error || 'Truck not found'}
+                {error?.message || 'Truck not found'}
               </h3>
             </div>
           </div>

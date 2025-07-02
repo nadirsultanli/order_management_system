@@ -1,189 +1,96 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import { Address, CreateAddressData, UpdateAddressData } from '../types/address';
+import { CreateAddressData, UpdateAddressData } from '../types/address';
+import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
 export const useAddresses = (customerId: string) => {
-  return useQuery({
-    queryKey: ['addresses', customerId],
-    queryFn: async () => {
-      if (!customerId || customerId === 'null' || customerId === 'undefined') {
-        return [];
-      }
-
-      const { data, error } = await supabase
-        .from('addresses')
-        .select('*')
-        .eq('customer_id', customerId)
-        .order('is_primary', { ascending: false })
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data as Address[];
-    },
-    enabled: !!customerId && customerId !== 'null' && customerId !== 'undefined',
-  });
+  return trpc.customers.getAddresses.useQuery(
+    { customer_id: customerId },
+    {
+      enabled: !!customerId && customerId !== 'null' && customerId !== 'undefined',
+      retry: 1,
+      staleTime: 30000,
+    }
+  );
 };
 
 export const useCreateAddress = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (addressData: CreateAddressData) => {
-      if (!addressData.customer_id || addressData.customer_id === 'null' || addressData.customer_id === 'undefined') {
-        throw new Error('Invalid customer ID');
-      }
-
-      // If setting as primary, first unset other primary addresses for this customer
-      if (addressData.is_primary) {
-        await supabase
-          .from('addresses')
-          .update({ is_primary: false })
-          .eq('customer_id', addressData.customer_id)
-          .eq('is_primary', true);
-      }
-
-      const { data, error } = await supabase
-        .from('addresses')
-        .insert([addressData])
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data as Address;
-    },
+  return trpc.customers.createAddress.useMutation({
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['addresses', data.customer_id] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      toast.success('Address added successfully');
+      console.log('Address created successfully:', data);
+      toast.success('Address created successfully');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add address');
+      console.error('Create address mutation error:', error);
+      toast.error(error.message || 'Failed to create address');
     },
   });
 };
 
 export const useUpdateAddress = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ id, ...updateData }: UpdateAddressData) => {
-      if (!id || id === 'null' || id === 'undefined') {
-        throw new Error('Invalid address ID');
-      }
-
-      // If setting as primary, first unset other primary addresses for this customer
-      if (updateData.is_primary && updateData.customer_id) {
-        await supabase
-          .from('addresses')
-          .update({ is_primary: false })
-          .eq('customer_id', updateData.customer_id)
-          .eq('is_primary', true)
-          .neq('id', id);
-      }
-
-      const { data, error } = await supabase
-        .from('addresses')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data as Address;
-    },
+  return trpc.customers.updateAddress.useMutation({
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['addresses', data.customer_id] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      console.log('Address updated successfully:', data);
       toast.success('Address updated successfully');
     },
     onError: (error: Error) => {
+      console.error('Update address mutation error:', error);
       toast.error(error.message || 'Failed to update address');
     },
   });
 };
 
 export const useDeleteAddress = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (address: Address) => {
-      if (!address.id || address.id === 'null' || address.id === 'undefined') {
-        throw new Error('Invalid address ID');
-      }
-
-      const { error } = await supabase
-        .from('addresses')
-        .delete()
-        .eq('id', address.id);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return address;
-    },
-    onSuccess: (address) => {
-      queryClient.invalidateQueries({ queryKey: ['addresses', address.customer_id] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
+  return trpc.customers.deleteAddress.useMutation({
+    onSuccess: (_, variables) => {
+      console.log('Address deleted successfully:', variables.address_id);
       toast.success('Address deleted successfully');
     },
     onError: (error: Error) => {
+      console.error('Delete address mutation error:', error);
       toast.error(error.message || 'Failed to delete address');
     },
   });
 };
 
 export const useSetPrimaryAddress = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (address: Address) => {
-      if (!address.id || address.id === 'null' || address.id === 'undefined') {
-        throw new Error('Invalid address ID');
-      }
-
-      if (!address.customer_id || address.customer_id === 'null' || address.customer_id === 'undefined') {
-        throw new Error('Invalid customer ID');
-      }
-
-      // First unset all primary addresses for this customer
-      await supabase
-        .from('addresses')
-        .update({ is_primary: false })
-        .eq('customer_id', address.customer_id)
-        .eq('is_primary', true);
-
-      // Then set this address as primary
-      const { data, error } = await supabase
-        .from('addresses')
-        .update({ is_primary: true })
-        .eq('id', address.id)
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data as Address;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['addresses', data.customer_id] });
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      toast.success('Primary address updated');
+  return trpc.customers.setPrimaryAddress.useMutation({
+    onSuccess: (_, variables) => {
+      console.log('Primary address set successfully:', variables.address_id);
+      toast.success('Primary address updated successfully');
     },
     onError: (error: Error) => {
+      console.error('Set primary address mutation error:', error);
       toast.error(error.message || 'Failed to set primary address');
+    },
+  });
+};
+
+export const useGeocodeAddress = () => {
+  return trpc.customers.geocodeAddress.useMutation({
+    onSuccess: (data) => {
+      console.log('Address geocoded successfully:', data);
+      toast.success('Address location found');
+    },
+    onError: (error: Error) => {
+      console.error('Geocode address mutation error:', error);
+      toast.error(error.message || 'Failed to geocode address');
+    },
+  });
+};
+
+export const useValidateAddress = () => {
+  return trpc.customers.validateAddress.useMutation({
+    onSuccess: (data) => {
+      console.log('Address validated successfully:', data);
+      if (data.valid) {
+        toast.success('Address is valid');
+      } else {
+        toast.warning('Address validation found issues');
+      }
+    },
+    onError: (error: Error) => {
+      console.error('Validate address mutation error:', error);
+      toast.error(error.message || 'Failed to validate address');
     },
   });
 };

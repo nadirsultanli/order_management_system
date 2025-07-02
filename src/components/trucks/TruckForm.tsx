@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, Loader2 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { useCreateTruck, useUpdateTruck } from '../../hooks/useTrucks';
 
 interface TruckFormProps {
   initialData?: {
@@ -17,7 +17,8 @@ interface TruckFormProps {
 
 export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const createTruck = useCreateTruck();
+  const updateTruck = useUpdateTruck();
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     fleet_number: initialData?.fleet_number || '',
@@ -27,10 +28,11 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
     active: initialData?.active ?? true
   });
 
+  const loading = createTruck.isLoading || updateTruck.isLoading;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return; // Prevent double submission
-    setLoading(true);
     setError(null);
 
     try {
@@ -58,39 +60,13 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       let result;
       if (initialData?.id) {
         // Update existing truck
-        console.log('Updating truck with data:', data);
-        const { data: updatedTruck, error } = await supabase
-          .from('truck')
-          .update(data)
-          .eq('id', initialData.id)
-          .select('*')
-          .single();
-
-        if (error) {
-          console.error('Update error:', error);
-          throw new Error(error.message || 'Failed to update truck');
-        }
-        console.log('Update response:', updatedTruck);
-        result = updatedTruck;
+        result = await updateTruck.mutateAsync({
+          id: initialData.id,
+          ...data
+        });
       } else {
         // Create new truck
-        console.log('Creating new truck with data:', data);
-        const { data: newTruck, error } = await supabase
-          .from('truck')
-          .insert([data])
-          .select('*')
-          .single();
-
-        if (error) {
-          console.error('Insert error:', error);
-          throw new Error(error.message || 'Failed to create truck');
-        }
-        console.log('Insert response:', newTruck);
-        result = newTruck;
-      }
-
-      if (!result) {
-        throw new Error('No response received from server');
+        result = await createTruck.mutateAsync(data);
       }
 
       console.log('Operation successful, result:', result);
@@ -104,8 +80,6 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
     } catch (err: any) {
       console.error('Form submission error:', err);
       setError(err.message || 'Failed to save truck');
-    } finally {
-      setLoading(false);
     }
   };
 

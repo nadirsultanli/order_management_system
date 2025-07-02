@@ -1,91 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { TruckTable } from '../components/trucks/TruckTable';
-import { TruckInventoryItem } from '../lib/transfers';
-
-interface TruckWithInventory {
-  id: string;
-  fleet_number: string;
-  license_plate: string;
-  capacity_cyl: number;
-  driver_name: string | null;
-  active: boolean;
-  inventory: TruckInventoryItem[];
-}
+import { useTrucks, useUpdateTruck } from '../hooks/useTrucks';
 
 export const TrucksPage: React.FC = () => {
-  const [trucks, setTrucks] = useState<TruckWithInventory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: trucksData, isLoading: loading, error } = useTrucks();
+  const updateTruck = useUpdateTruck();
 
-  useEffect(() => {
-    loadTrucks();
-  }, []);
+  const trucks = trucksData?.trucks || [];
 
-  const loadTrucks = async () => {
+  const handleStatusChange = async (truck: any, newStatus: boolean) => {
     try {
-      setLoading(true);
-      setError(null);
-
-      // Get all trucks
-      const { data: trucksData, error: trucksError } = await supabase
-        .from('truck')
-        .select('*')
-        .order('fleet_number');
-
-      if (trucksError) throw trucksError;
-
-      // Get inventory for all trucks
-      const trucksWithInventory = await Promise.all(
-        trucksData.map(async (truck) => {
-          const { data: inventoryData } = await supabase
-            .from('truck_inventory')
-            .select(`
-              *,
-              product:product_id (
-                name,
-                sku
-              )
-            `)
-            .eq('truck_id', truck.id);
-
-          return {
-            ...truck,
-            inventory: (inventoryData || []).map((item) => ({
-              product_id: item.product_id,
-              product_name: item.product.name,
-              product_sku: item.product.sku,
-              qty_full: item.qty_full,
-              qty_empty: item.qty_empty,
-              updated_at: item.updated_at
-            }))
-          };
-        })
-      );
-
-      setTrucks(trucksWithInventory);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load trucks');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusChange = async (truck: TruckWithInventory, newStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('truck')
-        .update({ active: newStatus })
-        .eq('id', truck.id);
-
-      if (error) throw error;
-
-      setTrucks(trucks.map(t => 
-        t.id === truck.id ? { ...t, active: newStatus } : t
-      ));
+      await updateTruck.mutateAsync({
+        id: truck.id,
+        active: newStatus
+      });
     } catch (err: any) {
       console.error('Error updating truck status:', err);
       alert('Failed to update truck status. Please try again.');
@@ -114,7 +44,7 @@ export const TrucksPage: React.FC = () => {
         <div className="rounded-md bg-red-50 p-4 mb-8">
           <div className="flex">
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">{error}</h3>
+              <h3 className="text-sm font-medium text-red-800">{error.message}</h3>
             </div>
           </div>
         </div>
