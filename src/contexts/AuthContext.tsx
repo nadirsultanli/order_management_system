@@ -2,7 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User as SupabaseUser } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { User, AdminUser, AuthState } from '../types';
-import type { Address } from './address';
+import type { Address } from '../types/address';
+import { formatAddress } from '../utils/address';
 
 interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
@@ -159,15 +160,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const getAddressSummary = (address?: Address): string => {
-  if (
-    !address ||
-    !address.line1 ||
-    !address.city ||
-    !address.country ||
-    !address.postal_code
-  ) {
-    return 'Address incomplete';
-  }
-  return formatAddress(address);
-};

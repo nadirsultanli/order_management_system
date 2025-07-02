@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "strictPropertyInitialization": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false
+  },
+  "exclude": [
+    "src/__tests__/**/*",
+    "src/mcp/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

@@ -43,7 +43,7 @@ supabaseAdmin
       logger.info(`✅ Supabase connected successfully. Customer count: ${count}`);
     }
   })
-  .catch((error) => {
+  .catch((error: any) => {
     logger.error('❌ Supabase connection test error:', error);
     process.exit(1);
   });
