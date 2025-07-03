@@ -1,10 +1,15 @@
 [build]
   command = "npm run build:frontend"
   publish = "dist"
+  ignore = "netlify/functions/"
 
 [build.environment]
   NODE_VERSION = "18"
   VITE_BACKEND_URL = "https://your-railway-backend.railway.app/api/v1/trpc"
+
+# Disable functions
+[functions]
+  directory = "nonexistent"
 
 # Frontend SPA routing
 [[redirects]]
