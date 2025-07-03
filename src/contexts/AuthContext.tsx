@@ -170,15 +170,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         console.log('🔍 Checking auth with backend...');
         
-        // Use non-batch endpoint for simpler auth check
+        // Use GET request for tRPC query procedure
         const tokenForHeader = token;
         const response = await fetch('https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me', {
-          method: 'POST',
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/json',
             'Authorization': `Bearer ${tokenForHeader}`,
           },
-          body: JSON.stringify({}),
         });
         
         const data = await response.json();
