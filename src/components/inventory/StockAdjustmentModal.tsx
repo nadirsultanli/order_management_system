@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, Package, TrendingUp, TrendingDown } from 'lucide-react';
 import { InventoryBalance, StockAdjustmentData } from '../../types/inventory';
+import { trpc } from '../../lib/trpc-client';
 
 interface StockAdjustmentModalProps {
   isOpen: boolean;
@@ -37,6 +38,36 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const qtyFullChange = watch('qty_full_change') || 0;
   const qtyEmptyChange = watch('qty_empty_change') || 0;
 
+  const validateAdjustment = async (data: {
+    inventory_id: string;
+    qty_full_change: number;
+    qty_empty_change: number;
+    adjustment_type: string;
+  }) => {
+    try {
+      const result = await trpc.inventory.validateAdjustment.mutate({
+        inventory_id: data.inventory_id,
+        qty_full_change: data.qty_full_change,
+        qty_empty_change: data.qty_empty_change,
+        adjustment_type: data.adjustment_type as 'received_full' | 'received_empty' | 'physical_count' | 'damage_loss' | 'other',
+      });
+      
+      if (!result.valid) {
+        return result.errors[0] || 'Stock adjustment validation failed';
+      }
+      
+      // Show warnings as info (but don't block validation)
+      if (result.warnings.length > 0) {
+        console.warn('Stock adjustment warnings:', result.warnings);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Stock adjustment validation error:', error);
+      return 'Failed to validate stock adjustment';
+    }
+  };
+
   useEffect(() => {
     if (inventory) {
       reset({
@@ -49,8 +80,24 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
     }
   }, [inventory, reset]);
 
-  const handleFormSubmit = (data: StockAdjustmentData) => {
-    onSubmit(data);
+  const handleFormSubmit = async (data: StockAdjustmentData) => {
+    try {
+      // Validate adjustment using backend
+      const adjustmentValidation = await validateAdjustment({
+        inventory_id: data.inventory_id,
+        qty_full_change: data.qty_full_change,
+        qty_empty_change: data.qty_empty_change,
+        adjustment_type: data.adjustment_type,
+      });
+      
+      if (adjustmentValidation !== true) {
+        return; // Validation failed, error already shown
+      }
+
+      onSubmit(data);
+    } catch (error) {
+      console.error('Form validation error:', error);
+    }
   };
 
   const newQtyFull = inventory.qty_full + qtyFullChange;
@@ -134,11 +181,6 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                       id="qty_full_change"
                       {...register('qty_full_change', {
                         valueAsNumber: true,
-                        validate: (value) => {
-                          const newQty = inventory.qty_full + (value || 0);
-                          if (newQty < 0) return 'Cannot result in negative quantity';
-                          return true;
-                        },
                       })}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="0"
@@ -157,11 +199,6 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                       id="qty_empty_change"
                       {...register('qty_empty_change', {
                         valueAsNumber: true,
-                        validate: (value) => {
-                          const newQty = inventory.qty_empty + (value || 0);
-                          if (newQty < 0) return 'Cannot result in negative quantity';
-                          return true;
-                        },
                       })}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="0"

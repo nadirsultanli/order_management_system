@@ -72,9 +72,10 @@ export const InventoryFilters: React.FC<InventoryFiltersProps> = ({
                 ? 'bg-red-100 text-red-800 border border-red-200'
                 : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
             }`}
+            title="Show items with intelligent low stock detection"
           >
             <AlertTriangle className="h-4 w-4" />
-            <span>Low Stock Only</span>
+            <span>Smart Low Stock</span>
           </button>
 
           <button

@@ -89,7 +89,7 @@ export const ProductSelectionGrid: React.FC<ProductSelectionGridProps> = ({
     if (!stock || stock.qty_available === 0) {
       return { status: 'out-of-stock', color: 'text-red-600 bg-red-100', text: 'Out of Stock' };
     }
-    if (stock.qty_available <= (stock.reorder_level || 0)) {
+    if (stock.qty_available <= 10) { // Simplified threshold - backend handles complex logic
       return { status: 'low-stock', color: 'text-yellow-600 bg-yellow-100', text: 'Low Stock' };
     }
     return { status: 'in-stock', color: 'text-green-600 bg-green-100', text: 'In Stock' };

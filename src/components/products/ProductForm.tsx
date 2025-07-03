@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Product, CreateProductData } from '../../types/product';
+import { trpc } from '../../lib/trpc-client';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -77,44 +78,83 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     setShowObsoleteWarning(watchedStatus === 'obsolete');
   }, [watchedStatus]);
 
-  const validateSKU = (sku: string) => {
-    const skuPattern = /^[A-Z0-9-]+$/;
-    if (!skuPattern.test(sku)) {
-      return 'SKU must contain only uppercase letters, numbers, and hyphens';
+  const validateSKUAndWeight = async (data: CreateProductData) => {
+    // Validate SKU using backend
+    try {
+      const skuResult = await trpc.products.validateSku.mutate({ 
+        sku: data.sku, 
+        exclude_id: product?.id 
+      });
+      
+      if (!skuResult.valid) {
+        console.error('SKU validation failed:', skuResult.errors);
+        return false;
+      }
+      
+      // Show warnings
+      if (skuResult.warnings.length > 0) {
+        console.warn('SKU warnings:', skuResult.warnings);
+      }
+    } catch (error) {
+      console.error('SKU validation error:', error);
+      return false;
     }
+
+    // Validate weights if it's a cylinder
+    if (data.unit_of_measure === 'cylinder' && (data.capacity_kg || data.tare_weight_kg)) {
+      try {
+        const weightResult = await trpc.products.validateWeight.mutate({ 
+          capacity_kg: data.capacity_kg, 
+          tare_weight_kg: data.tare_weight_kg, 
+          unit_of_measure: data.unit_of_measure
+        });
+        
+        if (!weightResult.valid) {
+          console.error('Weight validation failed:', weightResult.errors);
+          return false;
+        }
+        
+        // Show warnings
+        if (weightResult.warnings.length > 0) {
+          console.warn('Weight warnings:', weightResult.warnings);
+        }
+      } catch (error) {
+        console.error('Weight validation error:', error);
+        return false;
+      }
+    }
+
     return true;
   };
 
-  const validateWeight = (weight: number | undefined, fieldName: string) => {
-    if (weight !== undefined) {
-      if (weight <= 0) {
-        return `${fieldName} must be greater than 0`;
+  const handleFormSubmit = async (data: CreateProductData) => {
+    try {
+      // Validate using backend
+      const isValid = await validateSKUAndWeight(data);
+      if (!isValid) {
+        return; // Validation failed, errors logged to console
       }
-      if (weight > 500) {
-        return `${fieldName} must be 500 kg or less`;
+
+      // Clean up data based on unit of measure
+      const cleanedData = { ...data };
+      
+      if (data.unit_of_measure !== 'cylinder') {
+        cleanedData.capacity_kg = undefined;
+        cleanedData.tare_weight_kg = undefined;
+        cleanedData.valve_type = undefined;
       }
+
+      // Remove empty strings
+      Object.keys(cleanedData).forEach(key => {
+        if (cleanedData[key as keyof CreateProductData] === '') {
+          cleanedData[key as keyof CreateProductData] = undefined as any;
+        }
+      });
+
+      onSubmit(cleanedData);
+    } catch (error) {
+      console.error('Form validation error:', error);
     }
-    return true;
-  };
-
-  const handleFormSubmit = (data: CreateProductData) => {
-    // Clean up data based on unit of measure
-    const cleanedData = { ...data };
-    
-    if (data.unit_of_measure !== 'cylinder') {
-      cleanedData.capacity_kg = undefined;
-      cleanedData.tare_weight_kg = undefined;
-      cleanedData.valve_type = undefined;
-    }
-
-    // Remove empty strings
-    Object.keys(cleanedData).forEach(key => {
-      if (cleanedData[key as keyof CreateProductData] === '') {
-        cleanedData[key as keyof CreateProductData] = undefined as any;
-      }
-    });
-
-    onSubmit(cleanedData);
   };
 
   if (!isOpen) return null;
@@ -154,7 +194,18 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                         id="sku"
                         {...register('sku', { 
                           required: 'SKU is required',
-                          validate: validateSKU
+                          pattern: {
+                            value: /^[A-Z0-9-]+$/,
+                            message: 'SKU must contain only uppercase letters, numbers, and hyphens'
+                          },
+                          minLength: {
+                            value: 3,
+                            message: 'SKU must be at least 3 characters long'
+                          },
+                          maxLength: {
+                            value: 50,
+                            message: 'SKU must be 50 characters or less'
+                          }
                         })}
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase"
                         placeholder="CYL-50KG-S"
@@ -266,7 +317,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                             id="capacity_kg"
                             {...register('capacity_kg', {
                               valueAsNumber: true,
-                              validate: (value) => validateWeight(value, 'Capacity')
+                              min: {
+                                value: 0.1,
+                                message: 'Capacity must be greater than 0'
+                              }
                             })}
                             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                             placeholder="50.0"
@@ -288,7 +342,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                             id="tare_weight_kg"
                             {...register('tare_weight_kg', {
                               valueAsNumber: true,
-                              validate: (value) => validateWeight(value, 'Tare weight')
+                              min: {
+                                value: 0.1,
+                                message: 'Tare weight must be greater than 0'
+                              }
                             })}
                             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                             placeholder="15.0"

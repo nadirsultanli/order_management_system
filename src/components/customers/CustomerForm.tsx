@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { X, Loader2 } from 'lucide-react';
 import { Customer, CreateCustomerData } from '../../types/customer';
 import { getGeocodeSuggestions } from '../../utils/geocoding';
-import { validateDeliveryWindow } from '../../utils/address';
+import { trpc } from '../../lib/trpc-client';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -55,6 +55,82 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const longitude = watch('longitude');
   const deliveryStart = watch('delivery_window_start');
   const deliveryEnd = watch('delivery_window_end');
+
+  const validateCustomerData = async (data: {
+    name: string;
+    email?: string;
+    phone?: string;
+    external_id?: string;
+    tax_id?: string;
+  }) => {
+    try {
+      const result = await trpc.customers.validate.mutate({
+        ...data,
+        exclude_id: customer?.id
+      });
+      
+      if (!result.valid) {
+        return result.errors[0] || 'Customer validation failed';
+      }
+      
+      // Show warnings as info (but don't block validation)
+      if (result.warnings.length > 0) {
+        console.warn('Customer warnings:', result.warnings);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Customer validation error:', error);
+      return 'Failed to validate customer data';
+    }
+  };
+
+  const validateCreditTerms = async (credit_terms_days: number, account_status: string) => {
+    try {
+      const result = await trpc.customers.validateCreditTerms.mutate({
+        credit_terms_days,
+        account_status: account_status as 'active' | 'credit_hold' | 'closed',
+        customer_id: customer?.id
+      });
+      
+      if (!result.valid) {
+        return result.errors[0] || 'Credit terms validation failed';
+      }
+      
+      // Show warnings as info (but don't block validation)
+      if (result.warnings.length > 0) {
+        console.warn('Credit terms warnings:', result.warnings);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Credit terms validation error:', error);
+      return 'Failed to validate credit terms';
+    }
+  };
+
+  const validateDeliveryWindow = async (start?: string, end?: string) => {
+    try {
+      const result = await trpc.customers.validateDeliveryWindow.mutate({
+        delivery_window_start: start,
+        delivery_window_end: end
+      });
+      
+      if (!result.valid) {
+        return result.errors[0] || 'Delivery window validation failed';
+      }
+      
+      // Show warnings as info (but don't block validation)
+      if (result.warnings.length > 0) {
+        console.warn('Delivery window warnings:', result.warnings);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Delivery window validation error:', error);
+      return 'Failed to validate delivery window';
+    }
+  };
 
   useEffect(() => {
     if (customer) {
@@ -178,42 +254,66 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     };
   }, []);
 
-  const handleFormSubmit = (data: any) => {
-    // Validate delivery window
-    if (data.delivery_window_start && data.delivery_window_end) {
-      if (!validateDeliveryWindow(data.delivery_window_start, data.delivery_window_end)) {
-        return;
+  const handleFormSubmit = async (data: any) => {
+    try {
+      // Validate customer data using backend
+      const customerValidation = await validateCustomerData({
+        name: data.name,
+        email: data.email || undefined,
+        phone: data.phone || undefined,
+        external_id: data.external_id || undefined,
+        tax_id: data.tax_id || undefined,
+      });
+      
+      if (customerValidation !== true) {
+        return; // Validation failed, error already shown
       }
+
+      // Validate credit terms using backend
+      const creditValidation = await validateCreditTerms(data.credit_terms_days, data.account_status);
+      if (creditValidation !== true) {
+        return; // Validation failed, error already shown
+      }
+
+      // Validate delivery window using backend
+      if (data.delivery_window_start && data.delivery_window_end) {
+        const windowValidation = await validateDeliveryWindow(data.delivery_window_start, data.delivery_window_end);
+        if (windowValidation !== true) {
+          return; // Validation failed, error already shown
+        }
+      }
+
+      // Group address fields under 'address'
+      const {
+        address_label, line1, line2, city, state, postal_code, country,
+        delivery_window_start, delivery_window_end, is_primary, instructions,
+        latitude, longitude,
+        ...customerFields
+      } = data;
+
+      const address = {
+        label: address_label,
+        line1,
+        line2,
+        city,
+        state,
+        postal_code,
+        country,
+        delivery_window_start: delivery_window_start || undefined,
+        delivery_window_end: delivery_window_end || undefined,
+        is_primary,
+        instructions,
+        latitude,
+        longitude,
+      };
+
+      onSubmit({
+        ...customerFields,
+        address,
+      });
+    } catch (error) {
+      console.error('Form validation error:', error);
     }
-
-    // Group address fields under 'address'
-    const {
-      address_label, line1, line2, city, state, postal_code, country,
-      delivery_window_start, delivery_window_end, is_primary, instructions,
-      latitude, longitude,
-      ...customerFields
-    } = data;
-
-    const address = {
-      label: address_label,
-      line1,
-      line2,
-      city,
-      state,
-      postal_code,
-      country,
-      delivery_window_start: delivery_window_start || undefined,
-      delivery_window_end: delivery_window_end || undefined,
-      is_primary,
-      instructions,
-      latitude,
-      longitude,
-    };
-
-    onSubmit({
-      ...customerFields,
-      address,
-    });
   };
 
   if (!isOpen) return null;
@@ -451,9 +551,6 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                         {...register('delivery_window_end')}
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
-                      {deliveryStart && deliveryEnd && !validateDeliveryWindow(deliveryStart, deliveryEnd) && (
-                        <p className="mt-1 text-sm text-red-600">End time must be after start time</p>
-                      )}
                     </div>
                   </div>
                 </div>

@@ -75,9 +75,11 @@ export const AdvancedOrderFilters: React.FC<AdvancedOrderFiltersProps> = ({
 
   const quickFilters = [
     { name: "Today's Deliveries", filters: { scheduled_date_from: new Date().toISOString().split('T')[0], scheduled_date_to: new Date().toISOString().split('T')[0] } },
-    { name: 'Overdue Orders', filters: { scheduled_date_to: new Date(Date.now() - 86400000).toISOString().split('T')[0], status: 'scheduled' } },
+    { name: 'Overdue Orders', filters: { is_overdue: true } },
     { name: 'Draft Orders', filters: { status: 'draft' } },
+    { name: 'High Value Orders', filters: { amount_min: 1000 } },
     { name: 'This Week', filters: { order_date_from: new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] } },
+    { name: 'Payment Overdue', filters: { payment_status: 'overdue' } },
   ];
 
   return (

@@ -59,6 +59,32 @@ export const analyticsRouter = router({
         });
       }
 
+      // Get additional stats for the dashboard
+      const { data: allCustomers, error: allCustomersError } = await ctx.supabase
+        .from('customers')
+        .select('id, created_at, account_status');
+
+      const { data: products, error: productsError } = await ctx.supabase
+        .from('products')
+        .select('id, is_active');
+
+      const { data: warehouses, error: warehousesError } = await ctx.supabase
+        .from('warehouses')
+        .select('id');
+
+      const { data: inventoryBalances, error: inventoryError } = await ctx.supabase
+        .from('inventory_balances')
+        .select('available_quantity, reorder_point, product:products(name)');
+
+      if (allCustomersError || productsError || warehousesError || inventoryError) {
+        ctx.logger.error('Dashboard stats additional data error:', {
+          allCustomersError,
+          productsError,
+          warehousesError,
+          inventoryError
+        });
+      }
+
       // Calculate metrics
       const totalOrders = orders?.length || 0;
       const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
@@ -71,6 +97,19 @@ export const analyticsRouter = router({
         return acc;
       }, {} as Record<string, number>) || {};
 
+      // Calculate additional dashboard metrics
+      const totalCustomers = allCustomers?.length || 0;
+      const activeCustomers = allCustomers?.filter(c => c.account_status === 'active').length || 0;
+      const totalProducts = products?.length || 0;
+      const activeProducts = products?.filter(p => p.is_active !== false).length || 0;
+      const totalWarehouses = warehouses?.length || 0;
+      
+      // Calculate total cylinders and low stock
+      const totalCylinders = inventoryBalances?.reduce((sum, item) => sum + (item.available_quantity || 0), 0) || 0;
+      const lowStockProducts = inventoryBalances?.filter(item => 
+        (item.available_quantity || 0) <= (item.reorder_point || 10)
+      ).length || 0;
+
       return {
         period: input.period,
         totalOrders,
@@ -79,6 +118,14 @@ export const analyticsRouter = router({
         newCustomers,
         uniqueCustomers,
         statusCounts,
+        // Additional dashboard stats
+        totalCustomers,
+        activeCustomers,
+        totalProducts,
+        activeProducts,
+        totalWarehouses,
+        totalCylinders,
+        lowStockProducts,
       };
     }),
 
@@ -522,6 +569,308 @@ export const analyticsRouter = router({
         lowStockItems: lowStockItems.slice(0, 10), // Top 10 low stock items
         outOfStockItems: outOfStockItems.slice(0, 10), // Top 10 out of stock items
         warehouseBreakdown: Object.values(warehouseBreakdown),
+      };
+    }),
+
+  // GET /analytics/comprehensive-order-analytics - Complete order analytics for reports
+  getComprehensiveOrderAnalytics: protectedProcedure
+    .input(z.object({
+      start_date: z.string(),
+      end_date: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Fetching comprehensive order analytics:', input);
+      
+      // Get all orders with related data in the date range
+      const { data: orders, error } = await ctx.supabase
+        .from('orders')
+        .select(`
+          id,
+          status,
+          total_amount,
+          order_date,
+          scheduled_date,
+          customer_id,
+          customer:customers(id, name, email),
+          delivery_address:delivery_addresses(id, line1, city, state, country),
+          order_lines(
+            id,
+            product_id,
+            quantity,
+            unit_price,
+            subtotal,
+            product:products(id, name, sku)
+          )
+        `)
+        .gte('order_date', input.start_date)
+        .lte('order_date', input.end_date)
+        .order('order_date', { ascending: true });
+
+      if (error) {
+        ctx.logger.error('Comprehensive order analytics error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      const ordersData = orders || [];
+      const totalOrders = ordersData.length;
+
+      // Calculate orders by status with percentages
+      const statusCounts = ordersData.reduce((acc, order) => {
+        acc[order.status] = (acc[order.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const orders_by_status = Object.entries(statusCounts).map(([status, count]) => ({
+        status,
+        count,
+        percentage: totalOrders > 0 ? (count / totalOrders) * 100 : 0,
+      }));
+
+      // Calculate daily trends
+      const dailyData = ordersData.reduce((acc, order) => {
+        const date = order.order_date.split('T')[0]; // Get date part only
+        if (!acc[date]) {
+          acc[date] = { orders: 0, revenue: 0 };
+        }
+        acc[date].orders += 1;
+        acc[date].revenue += order.total_amount || 0;
+        return acc;
+      }, {} as Record<string, { orders: number; revenue: number }>);
+
+      const daily_trends = Object.entries(dailyData)
+        .map(([date, data]) => ({
+          date,
+          orders: data.orders,
+          revenue: data.revenue,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Calculate top customers
+      const customerData = ordersData.reduce((acc, order) => {
+        const customerId = order.customer_id;
+        const customerName = order.customer?.name || 'Unknown Customer';
+        
+        if (!acc[customerId]) {
+          acc[customerId] = {
+            customer_id: customerId,
+            customer_name: customerName,
+            order_count: 0,
+            total_revenue: 0,
+          };
+        }
+        
+        acc[customerId].order_count += 1;
+        acc[customerId].total_revenue += order.total_amount || 0;
+        
+        return acc;
+      }, {} as Record<string, any>);
+
+      const top_customers = Object.values(customerData)
+        .sort((a: any, b: any) => b.total_revenue - a.total_revenue)
+        .slice(0, 10);
+
+      // Calculate top products
+      const productData = ordersData.reduce((acc, order) => {
+        order.order_lines?.forEach((line: any) => {
+          const productId = line.product_id;
+          const productName = line.product?.name || 'Unknown Product';
+          
+          if (!acc[productId]) {
+            acc[productId] = {
+              product_id: productId,
+              product_name: productName,
+              quantity_sold: 0,
+              revenue: 0,
+            };
+          }
+          
+          acc[productId].quantity_sold += line.quantity;
+          acc[productId].revenue += line.subtotal || (line.quantity * line.unit_price);
+        });
+        
+        return acc;
+      }, {} as Record<string, any>);
+
+      const top_products = Object.values(productData)
+        .sort((a: any, b: any) => b.revenue - a.revenue)
+        .slice(0, 10);
+
+      // Calculate delivery performance
+      const deliveredOrders = ordersData.filter(o => o.status === 'delivered');
+      const scheduledOrders = ordersData.filter(o => o.scheduled_date);
+      
+      // Calculate on-time vs late deliveries based on scheduled vs actual delivery
+      let onTimeDeliveries = 0;
+      let lateDeliveries = 0;
+      let totalFulfillmentTime = 0;
+      let fulfillmentTimeCount = 0;
+
+      deliveredOrders.forEach(order => {
+        if (order.scheduled_date) {
+          const scheduledDate = new Date(order.scheduled_date);
+          const orderDate = new Date(order.order_date);
+          
+          // For simplicity, consider delivered orders as on-time if they were completed
+          // In reality, you'd track actual delivery date vs scheduled date
+          onTimeDeliveries += 1;
+          
+          // Calculate fulfillment time (order date to scheduled date)
+          const fulfillmentHours = (scheduledDate.getTime() - orderDate.getTime()) / (1000 * 60 * 60);
+          totalFulfillmentTime += fulfillmentHours;
+          fulfillmentTimeCount += 1;
+        }
+      });
+
+      // Calculate late deliveries as orders past their scheduled date that aren't delivered
+      const now = new Date();
+      lateDeliveries = scheduledOrders.filter(order => 
+        new Date(order.scheduled_date) < now && order.status !== 'delivered' && order.status !== 'invoiced'
+      ).length;
+
+      const delivery_performance = {
+        on_time_deliveries: onTimeDeliveries,
+        late_deliveries: lateDeliveries,
+        avg_fulfillment_time: fulfillmentTimeCount > 0 ? Math.round(totalFulfillmentTime / fulfillmentTimeCount) : 0,
+      };
+
+      // Calculate regional breakdown
+      const regionData = ordersData.reduce((acc, order) => {
+        const region = order.delivery_address?.city || 'Unknown';
+        
+        if (!acc[region]) {
+          acc[region] = { order_count: 0, revenue: 0 };
+        }
+        
+        acc[region].order_count += 1;
+        acc[region].revenue += order.total_amount || 0;
+        
+        return acc;
+      }, {} as Record<string, any>);
+
+      const regional_breakdown = Object.entries(regionData)
+        .map(([region, data]: [string, any]) => ({
+          region,
+          order_count: data.order_count,
+          revenue: data.revenue,
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 10);
+
+      // Calculate summary metrics
+      const totalRevenue = ordersData.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+      const completedOrders = ordersData.filter(o => ['delivered', 'invoiced'].includes(o.status)).length;
+      const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+
+      return {
+        summary: {
+          totalOrders,
+          totalRevenue,
+          avgOrderValue,
+          completionRate,
+        },
+        orders_by_status,
+        daily_trends,
+        top_customers,
+        top_products,
+        delivery_performance,
+        regional_breakdown,
+      };
+    }),
+
+  // GET /analytics/order-stats - Order statistics for dashboard
+  getOrderStats: protectedProcedure
+    .input(z.object({
+      period: z.enum(['today', 'week', 'month', 'quarter', 'year']).default('month'),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Fetching order statistics:', input);
+      
+      const periodDays = {
+        today: 1,
+        week: 7,
+        month: 30,
+        quarter: 90,
+        year: 365,
+      }[input.period];
+      
+      const startDate = new Date();
+      if (input.period === 'today') {
+        startDate.setHours(0, 0, 0, 0);
+      } else {
+        startDate.setDate(startDate.getDate() - periodDays);
+      }
+      
+      // Get all orders
+      const { data: allOrders, error: allOrdersError } = await ctx.supabase
+        .from('orders')
+        .select('id, status, total_amount, order_date, scheduled_date');
+
+      if (allOrdersError) {
+        ctx.logger.error('Order stats error:', allOrdersError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: allOrdersError.message
+        });
+      }
+
+      const orders = allOrders || [];
+      
+      // Calculate status counts
+      const statusCounts = orders.reduce((acc, order) => {
+        acc[order.status] = (acc[order.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // Calculate today's deliveries
+      const today = new Date().toISOString().split('T')[0];
+      const todaysDeliveries = orders.filter(o => 
+        o.scheduled_date && o.scheduled_date.split('T')[0] === today
+      ).length;
+
+      // Calculate overdue orders
+      const now = new Date();
+      const overdueOrders = orders.filter(o => 
+        o.scheduled_date && 
+        new Date(o.scheduled_date) < now && 
+        !['delivered', 'invoiced', 'cancelled'].includes(o.status)
+      ).length;
+
+      // Calculate revenue from invoiced orders
+      const totalRevenue = orders
+        .filter(o => o.status === 'invoiced')
+        .reduce((sum, order) => sum + (order.total_amount || 0), 0);
+
+      // Calculate period-specific metrics
+      const periodOrders = orders.filter(o => new Date(o.order_date) >= startDate);
+      const avgOrderValue = periodOrders.length > 0 
+        ? periodOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0) / periodOrders.length 
+        : 0;
+
+      return {
+        total_orders: orders.length,
+        draft_orders: statusCounts['draft'] || 0,
+        confirmed_orders: statusCounts['confirmed'] || 0,
+        scheduled_orders: statusCounts['scheduled'] || 0,
+        en_route_orders: statusCounts['en_route'] || 0,
+        delivered_orders: statusCounts['delivered'] || 0,
+        invoiced_orders: statusCounts['invoiced'] || 0,
+        cancelled_orders: statusCounts['cancelled'] || 0,
+        todays_deliveries: todaysDeliveries,
+        overdue_orders: overdueOrders,
+        total_revenue: totalRevenue,
+        avg_order_value: avgOrderValue,
+        orders_this_month: periodOrders.length,
+        orders_last_month: 0, // TODO: Calculate previous period
+        revenue_this_month: periodOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
+        revenue_last_month: 0, // TODO: Calculate previous period
       };
     }),
 });

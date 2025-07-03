@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, BarChart3, Download, Calendar } from 'lucide-react';
-import { useOrdersNew } from '../hooks/useOrders';
+import { useComprehensiveOrderAnalytics } from '../hooks/useAnalytics';
 import { OrderAnalytics } from '../components/orders/OrderAnalytics';
 import { OrderAnalytics as AnalyticsType } from '../types/order';
 
@@ -12,122 +12,33 @@ export const OrderReportsPage: React.FC = () => {
     end: new Date().toISOString().split('T')[0], // today
   });
 
-  // Get all orders for analytics
-  const { data: ordersData } = useOrdersNew({
-    order_date_from: dateRange.start,
-    order_date_to: dateRange.end,
-    limit: 10000, // Get all orders in range
-  });
+  // Get analytics from backend API (replaces all frontend calculations)
+  const { data: analyticsData, isLoading } = useComprehensiveOrderAnalytics(
+    dateRange.start,
+    dateRange.end
+  );
 
-  const orders = ordersData?.orders || [];
-
-  // Calculate analytics from orders data
-  const analytics: AnalyticsType = useMemo(() => {
-    const statusCounts = orders.reduce((acc, order) => {
-      acc[order.status] = (acc[order.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const totalOrders = orders.length;
-    const orders_by_status = Object.entries(statusCounts).map(([status, count]) => ({
-      status,
-      count,
-      percentage: totalOrders > 0 ? (count / totalOrders) * 100 : 0,
-    }));
-
-    // Daily trends
-    const dailyData = orders.reduce((acc, order) => {
-      const date = order.order_date;
-      if (!acc[date]) {
-        acc[date] = { orders: 0, revenue: 0 };
-      }
-      acc[date].orders += 1;
-      acc[date].revenue += order.total_amount || 0;
-      return acc;
-    }, {} as Record<string, { orders: number; revenue: number }>);
-
-    const daily_trends = Object.entries(dailyData).map(([date, data]) => ({
-      date,
-      orders: data.orders,
-      revenue: data.revenue,
-    })).sort((a, b) => a.date.localeCompare(b.date));
-
-    // Top customers
-    const customerData = orders.reduce((acc, order) => {
-      const customerId = order.customer_id;
-      const customerName = order.customer?.name || 'Unknown';
-      if (!acc[customerId]) {
-        acc[customerId] = { customer_name: customerName, order_count: 0, total_revenue: 0 };
-      }
-      acc[customerId].order_count += 1;
-      acc[customerId].total_revenue += order.total_amount || 0;
-      return acc;
-    }, {} as Record<string, { customer_name: string; order_count: number; total_revenue: number }>);
-
-    const top_customers = Object.entries(customerData)
-      .map(([customer_id, data]) => ({ customer_id, ...data }))
-      .sort((a, b) => b.total_revenue - a.total_revenue)
-      .slice(0, 10);
-
-    // Top products
-    const productData = orders.reduce((acc, order) => {
-      order.order_lines?.forEach(line => {
-        const productId = line.product_id;
-        const productName = line.product?.name || 'Unknown';
-        if (!acc[productId]) {
-          acc[productId] = { product_name: productName, quantity_sold: 0, revenue: 0 };
-        }
-        acc[productId].quantity_sold += line.quantity;
-        acc[productId].revenue += line.subtotal || (line.quantity * line.unit_price);
-      });
-      return acc;
-    }, {} as Record<string, { product_name: string; quantity_sold: number; revenue: number }>);
-
-    const top_products = Object.entries(productData)
-      .map(([product_id, data]) => ({ product_id, ...data }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10);
-
-    // Delivery performance (mock data for now)
-    const deliveredOrders = orders.filter(o => o.status === 'delivered');
-    const delivery_performance = {
-      on_time_deliveries: Math.floor(deliveredOrders.length * 0.85), // 85% on time
-      late_deliveries: Math.floor(deliveredOrders.length * 0.15), // 15% late
-      avg_fulfillment_time: 48, // 48 hours average
-    };
-
-    // Regional breakdown
-    const regionData = orders.reduce((acc, order) => {
-      const region = order.delivery_address?.city || 'Unknown';
-      if (!acc[region]) {
-        acc[region] = { order_count: 0, revenue: 0 };
-      }
-      acc[region].order_count += 1;
-      acc[region].revenue += order.total_amount || 0;
-      return acc;
-    }, {} as Record<string, { order_count: number; revenue: number }>);
-
-    const regional_breakdown = Object.entries(regionData)
-      .map(([region, data]) => ({ region, ...data }))
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10);
-
-    return {
-      orders_by_status,
-      daily_trends,
-      top_customers,
-      top_products,
-      delivery_performance,
-      regional_breakdown,
-    };
-  }, [orders]);
+  const analytics: AnalyticsType = analyticsData || {
+    orders_by_status: [],
+    daily_trends: [],
+    top_customers: [],
+    top_products: [],
+    delivery_performance: { on_time_deliveries: 0, late_deliveries: 0, avg_fulfillment_time: 0 },
+    regional_breakdown: [],
+  };
 
   const handleExportReport = () => {
-    // Create CSV content
+    if (!analyticsData) {
+      return;
+    }
+
+    // Create CSV content using backend analytics data
     const csvContent = [
       ['Date Range', `${dateRange.start} to ${dateRange.end}`],
-      ['Total Orders', orders.length.toString()],
-      ['Total Revenue', orders.reduce((sum, o) => sum + (o.total_amount || 0), 0).toString()],
+      ['Total Orders', analyticsData.summary.totalOrders.toString()],
+      ['Total Revenue', analyticsData.summary.totalRevenue.toString()],
+      ['Average Order Value', analyticsData.summary.avgOrderValue.toString()],
+      ['Completion Rate', `${analyticsData.summary.completionRate.toFixed(1)}%`],
       [],
       ['Status', 'Count', 'Percentage'],
       ...analytics.orders_by_status.map(item => [
@@ -189,7 +100,9 @@ export const OrderReportsPage: React.FC = () => {
             <BarChart3 className="h-8 w-8 text-blue-600" />
             <div>
               <h3 className="text-sm font-medium text-gray-600">Total Orders</h3>
-              <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {isLoading ? '...' : (analyticsData?.summary.totalOrders || 0).toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
@@ -200,7 +113,7 @@ export const OrderReportsPage: React.FC = () => {
             <div>
               <h3 className="text-sm font-medium text-gray-600">Total Revenue</h3>
               <p className="text-2xl font-bold text-gray-900">
-                {orders.reduce((sum, o) => sum + (o.total_amount || 0), 0).toLocaleString('en-US', {
+                {isLoading ? '...' : (analyticsData?.summary.totalRevenue || 0).toLocaleString('en-US', {
                   style: 'currency',
                   currency: 'USD',
                 })}
@@ -215,13 +128,10 @@ export const OrderReportsPage: React.FC = () => {
             <div>
               <h3 className="text-sm font-medium text-gray-600">Avg Order Value</h3>
               <p className="text-2xl font-bold text-gray-900">
-                {orders.length > 0 
-                  ? (orders.reduce((sum, o) => sum + (o.total_amount || 0), 0) / orders.length).toLocaleString('en-US', {
-                      style: 'currency',
-                      currency: 'USD',
-                    })
-                  : '$0'
-                }
+                {isLoading ? '...' : (analyticsData?.summary.avgOrderValue || 0).toLocaleString('en-US', {
+                  style: 'currency',
+                  currency: 'USD',
+                })}
               </p>
             </div>
           </div>
@@ -233,10 +143,7 @@ export const OrderReportsPage: React.FC = () => {
             <div>
               <h3 className="text-sm font-medium text-gray-600">Completion Rate</h3>
               <p className="text-2xl font-bold text-gray-900">
-                {orders.length > 0 
-                  ? `${((orders.filter(o => ['delivered', 'invoiced'].includes(o.status)).length / orders.length) * 100).toFixed(1)}%`
-                  : '0%'
-                }
+                {isLoading ? '...' : `${(analyticsData?.summary.completionRate || 0).toFixed(1)}%`}
               </p>
             </div>
           </div>

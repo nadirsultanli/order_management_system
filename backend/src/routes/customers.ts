@@ -598,6 +598,7 @@ export const customersRouter = router({
       phone: z.string().optional(),
       external_id: z.string().optional(),
       tax_id: z.string().optional(),
+      exclude_id: z.string().uuid().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
@@ -609,46 +610,119 @@ export const customersRouter = router({
       
       // Check for duplicate email
       if (input.email) {
-        const { data: existingByEmail } = await ctx.supabase
+        let emailQuery = ctx.supabase
           .from('customers')
-          .select('id')
+          .select('id, name')
           .eq('email', input.email)
-          
-          .single();
+          ;
+        
+        if (input.exclude_id) {
+          emailQuery = emailQuery.neq('id', input.exclude_id);
+        }
+        
+        const { data: existingByEmail } = await emailQuery.single();
         
         if (existingByEmail) {
-          errors.push('A customer with this email already exists');
+          errors.push(`A customer with email "${input.email}" already exists: ${existingByEmail.name}`);
         }
       }
       
       // Check for duplicate external_id
       if (input.external_id) {
-        const { data: existingByExternalId } = await ctx.supabase
+        let externalIdQuery = ctx.supabase
           .from('customers')
-          .select('id')
+          .select('id, name')
           .eq('external_id', input.external_id)
-          
-          .single();
+          ;
+        
+        if (input.exclude_id) {
+          externalIdQuery = externalIdQuery.neq('id', input.exclude_id);
+        }
+        
+        const { data: existingByExternalId } = await externalIdQuery.single();
         
         if (existingByExternalId) {
-          errors.push('A customer with this external ID already exists');
+          errors.push(`A customer with external ID "${input.external_id}" already exists: ${existingByExternalId.name}`);
         }
       }
       
       // Check for duplicate tax_id
       if (input.tax_id) {
-        const { data: existingByTaxId } = await ctx.supabase
+        let taxIdQuery = ctx.supabase
           .from('customers')
-          .select('id')
+          .select('id, name')
           .eq('tax_id', input.tax_id)
-          
-          .single();
+          ;
+        
+        if (input.exclude_id) {
+          taxIdQuery = taxIdQuery.neq('id', input.exclude_id);
+        }
+        
+        const { data: existingByTaxId } = await taxIdQuery.single();
         
         if (existingByTaxId) {
-          warnings.push('A customer with this tax ID already exists');
+          warnings.push(`A customer with tax ID "${input.tax_id}" already exists: ${existingByTaxId.name}`);
         }
       }
       
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+      };
+    }),
+
+  // POST /customers/validate-credit-terms - Validate credit terms business rules
+  validateCreditTerms: protectedProcedure
+    .input(z.object({
+      credit_terms_days: z.number(),
+      account_status: z.enum(['active', 'credit_hold', 'closed']),
+      customer_id: z.string().uuid().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      // Business rule: Credit terms validation
+      if (input.credit_terms_days < 0) {
+        errors.push('Credit terms cannot be negative');
+      }
+      
+      if (input.credit_terms_days > 365) {
+        errors.push('Credit terms cannot exceed 365 days');
+      }
+
+      // Business rule: Credit terms vs account status consistency
+      if (input.account_status === 'credit_hold' && input.credit_terms_days > 0) {
+        warnings.push('Customer is on credit hold but has credit terms - orders may be blocked');
+      }
+
+      if (input.account_status === 'closed' && input.credit_terms_days > 0) {
+        warnings.push('Customer account is closed but has credit terms - no new orders allowed');
+      }
+
+      // Business rule: Extended credit terms warning
+      if (input.credit_terms_days > 90) {
+        warnings.push('Extended credit terms (>90 days) may require management approval');
+      }
+
+      // Business rule: Check customer payment history if updating existing customer
+      if (input.customer_id) {
+        const { data: overdueOrders } = await ctx.supabase
+          .from('orders')
+          .select('id, total_amount, order_date')
+          .eq('customer_id', input.customer_id)
+          .eq('status', 'invoiced')
+          .lt('order_date', new Date(Date.now() - input.credit_terms_days * 24 * 60 * 60 * 1000).toISOString());
+
+        if (overdueOrders && overdueOrders.length > 0) {
+          const overdueAmount = overdueOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+          warnings.push(`Customer has ${overdueOrders.length} overdue orders totaling ${overdueAmount.toFixed(2)}`);
+        }
+      }
+
       return {
         valid: errors.length === 0,
         errors,
@@ -1057,6 +1131,80 @@ export const customersRouter = router({
         errors,
         warnings,
         geocode_result: geocodeResult,
+      };
+    }),
+
+  // POST /addresses/validate-delivery-window - Validate delivery window business rules
+  validateDeliveryWindow: protectedProcedure
+    .input(z.object({
+      delivery_window_start: z.string().optional(),
+      delivery_window_end: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      // Business rule: Both start and end must be provided together
+      if ((input.delivery_window_start && !input.delivery_window_end) || 
+          (!input.delivery_window_start && input.delivery_window_end)) {
+        errors.push('Both delivery window start and end times must be provided');
+        return { valid: false, errors, warnings };
+      }
+
+      if (input.delivery_window_start && input.delivery_window_end) {
+        // Business rule: Validate time format (HH:MM)
+        const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        
+        if (!timeRegex.test(input.delivery_window_start)) {
+          errors.push('Delivery window start time must be in HH:MM format');
+        }
+        
+        if (!timeRegex.test(input.delivery_window_end)) {
+          errors.push('Delivery window end time must be in HH:MM format');
+        }
+
+        if (errors.length === 0) {
+          // Business rule: End time must be after start time
+          const startTime = new Date(`1970-01-01T${input.delivery_window_start}:00`);
+          const endTime = new Date(`1970-01-01T${input.delivery_window_end}:00`);
+          
+          if (endTime <= startTime) {
+            errors.push('Delivery window end time must be after start time');
+          }
+
+          // Business rule: Minimum delivery window
+          const diffMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+          if (diffMinutes < 60) {
+            warnings.push('Delivery window is less than 1 hour - may be difficult to schedule');
+          }
+
+          // Business rule: Maximum delivery window
+          if (diffMinutes > 12 * 60) {
+            warnings.push('Delivery window exceeds 12 hours - consider splitting into multiple windows');
+          }
+
+          // Business rule: Business hours validation
+          const startHour = startTime.getHours();
+          const endHour = endTime.getHours();
+          
+          if (startHour < 6 || endHour > 22) {
+            warnings.push('Delivery window outside typical business hours (6:00-22:00) may incur additional charges');
+          }
+
+          // Business rule: Weekend/holiday considerations
+          // This would need additional business logic for holiday checking
+          if (startHour < 8 || endHour > 18) {
+            warnings.push('Early morning or evening deliveries may have limited availability');
+          }
+        }
+      }
+
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
       };
     }),
 });

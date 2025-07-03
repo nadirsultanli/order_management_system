@@ -154,8 +154,10 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                       </div>
                       <div className="text-sm text-green-700">
                         {formatPercentage(
-                          (analytics.delivery_performance.on_time_deliveries / 
-                           (analytics.delivery_performance.on_time_deliveries + analytics.delivery_performance.late_deliveries)) * 100
+                          analytics.delivery_performance.on_time_deliveries + analytics.delivery_performance.late_deliveries > 0
+                            ? (analytics.delivery_performance.on_time_deliveries / 
+                               (analytics.delivery_performance.on_time_deliveries + analytics.delivery_performance.late_deliveries)) * 100
+                            : 0
                         )} success rate
                       </div>
                     </div>
@@ -217,7 +219,7 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                         {formatCurrency(day.revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(day.revenue / (day.orders || 1))} avg
+                        {formatCurrency(day.orders > 0 ? day.revenue / day.orders : 0)} avg
                       </div>
                     </div>
                   </div>
@@ -247,7 +249,7 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                         {formatCurrency(customer.total_revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(customer.total_revenue / customer.order_count)} avg
+                        {formatCurrency(customer.order_count > 0 ? customer.total_revenue / customer.order_count : 0)} avg
                       </div>
                     </div>
                   </div>
@@ -277,7 +279,7 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                         {formatCurrency(product.revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(product.revenue / product.quantity_sold)} per unit
+                        {formatCurrency(product.quantity_sold > 0 ? product.revenue / product.quantity_sold : 0)} per unit
                       </div>
                     </div>
                   </div>
@@ -305,7 +307,7 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                         {formatCurrency(region.revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(region.revenue / region.order_count)} avg
+                        {formatCurrency(region.order_count > 0 ? region.revenue / region.order_count : 0)} avg
                       </div>
                     </div>
                   </div>

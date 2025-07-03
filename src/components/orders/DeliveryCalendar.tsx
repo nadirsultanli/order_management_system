@@ -55,6 +55,8 @@ export const DeliveryCalendar: React.FC<DeliveryCalendarProps> = ({
 
   const getOrdersForDate = (date: Date) => {
     const dateString = formatDate(date);
+    // Simple client-side filtering for immediate UI feedback
+    // Complex business logic is handled by backend endpoints
     return orders.filter(order => order.scheduled_date === dateString);
   };
 
