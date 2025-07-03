@@ -131,10 +131,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = localStorage.getItem('auth_token');
       console.log('📱 Token from localStorage:', token ? 'EXISTS' : 'NOT_FOUND');
       
+      // Don't redirect if we're already on the login page
+      const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
+      
       if (!token) {
-        console.log('❌ No token found, redirecting to login');
+        console.log('❌ No token found');
         setState(prev => ({ ...prev, loading: false }));
-        window.location.href = '/login';
+        if (!isLoginPage) {
+          console.log('🔄 Redirecting to login');
+          window.location.href = '/login';
+        }
         return;
       }
 
@@ -158,7 +164,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           loading: false,
           error: null,
         });
-        window.location.href = '/login';
+        if (!isLoginPage) {
+          window.location.href = '/login';
+        }
       }
     };
 
