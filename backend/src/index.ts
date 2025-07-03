@@ -94,11 +94,14 @@ app.get('/', (req, res) => {
       health: '/health',
       api: '/api/v1/trpc',
       docs: '/api/docs',
-      documentation: '/docs'
+      documentation: '/docs',
+      scalar: '/scalar'
     },
     documentation: {
+      scalar: `${req.protocol}://${req.get('host')}/scalar`,
       interactive: `${req.protocol}://${req.get('host')}/api/docs`,
-      markdown: `${req.protocol}://${req.get('host')}/docs`
+      markdown: `${req.protocol}://${req.get('host')}/docs`,
+      openapi: `${req.protocol}://${req.get('host')}/openapi.json`
     },
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString()
@@ -133,6 +136,285 @@ app.get('/health', async (req, res) => {
       error: 'Database connection failed'
     });
   }
+});
+
+// Scalar API Documentation - Modern & Beautiful
+app.get('/scalar', (req, res) => {
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? `https://${req.get('host')}`
+    : `http://${req.get('host')}`;
+
+  const html = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Order Management System API</title>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+    </head>
+    <body>
+      <script
+        id="api-reference"
+        data-url="${baseUrl}/openapi.json"
+        data-configuration='{
+          "theme": "purple",
+          "layout": "modern",
+          "defaultHttpClient": {
+            "targetKey": "javascript",
+            "clientKey": "fetch"
+          },
+          "spec": {
+            "url": "${baseUrl}/openapi.json"
+          }
+        }'></script>
+      <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    </body>
+  </html>
+  `;
+
+  res.type('html').send(html);
+});
+
+// OpenAPI JSON endpoint for Scalar
+app.get('/openapi.json', (req, res) => {
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? `https://${req.get('host')}`
+    : `http://${req.get('host')}`;
+
+  const openApiSpec = {
+    openapi: '3.0.0',
+    info: {
+      title: 'Order Management System API',
+      version: '1.0.0',
+      description: 'LPG Order Management System with multi-tenant support',
+      contact: {
+        name: 'API Support',
+        url: `${baseUrl}/docs`
+      }
+    },
+    servers: [
+      {
+        url: `${baseUrl}/api/v1/trpc`,
+        description: 'Production API'
+      }
+    ],
+    paths: {
+      '/auth.login': {
+        post: {
+          summary: 'User Authentication',
+          description: 'Login with email and password to get JWT token',
+          tags: ['Authentication'],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    email: { type: 'string', format: 'email', example: 'user@example.com' },
+                    password: { type: 'string', example: 'your-password' }
+                  },
+                  required: ['email', 'password']
+                }
+              }
+            }
+          },
+          responses: {
+            '200': {
+              description: 'Login successful',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      result: {
+                        type: 'object',
+                        properties: {
+                          data: {
+                            type: 'object',
+                            properties: {
+                              user: { type: 'object' },
+                              session: {
+                                type: 'object',
+                                properties: {
+                                  access_token: { type: 'string' },
+                                  refresh_token: { type: 'string' }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/customers.list': {
+        get: {
+          summary: 'List Customers',
+          description: 'Get paginated list of customers with filters',
+          tags: ['Customers'],
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'input',
+              in: 'query',
+              schema: {
+                type: 'object',
+                properties: {
+                  page: { type: 'integer', minimum: 1, default: 1 },
+                  limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+                  search: { type: 'string' },
+                  status: { type: 'string', enum: ['active', 'inactive'] }
+                }
+              }
+            }
+          ],
+          responses: {
+            '200': {
+              description: 'Customers retrieved successfully',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      result: {
+                        type: 'object',
+                        properties: {
+                          data: {
+                            type: 'object',
+                            properties: {
+                              customers: { type: 'array', items: { type: 'object' } },
+                              totalCount: { type: 'integer' },
+                              totalPages: { type: 'integer' },
+                              currentPage: { type: 'integer' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/orders.calculateTotals': {
+        post: {
+          summary: 'Calculate Order Totals',
+          description: 'Calculate order totals with tax (moved from frontend for clean architecture)',
+          tags: ['Orders'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    lines: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          quantity: { type: 'number' },
+                          unit_price: { type: 'number' },
+                          subtotal: { type: 'number' }
+                        }
+                      }
+                    },
+                    tax_percent: { type: 'number', default: 0 }
+                  },
+                  required: ['lines']
+                }
+              }
+            }
+          },
+          responses: {
+            '200': {
+              description: 'Order totals calculated',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      result: {
+                        type: 'object',
+                        properties: {
+                          data: {
+                            type: 'object',
+                            properties: {
+                              subtotal: { type: 'number' },
+                              taxAmount: { type: 'number' },
+                              grandTotal: { type: 'number' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      '/trucks.calculateCapacity': {
+        post: {
+          summary: 'Calculate Truck Capacity',
+          description: 'Calculate truck capacity utilization and optimization',
+          tags: ['Fleet Management'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    truck_id: { type: 'string', format: 'uuid' },
+                    date: { type: 'string', format: 'date' }
+                  },
+                  required: ['truck_id', 'date']
+                }
+              }
+            }
+          }
+        }
+      },
+      '/analytics.getDashboard': {
+        get: {
+          summary: 'Get Dashboard Analytics',
+          description: 'Get business intelligence dashboard data',
+          tags: ['Analytics'],
+          security: [{ bearerAuth: [] }]
+        }
+      }
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
+      }
+    },
+    tags: [
+      { name: 'Authentication', description: 'User authentication and authorization' },
+      { name: 'Customers', description: 'Customer management operations' },
+      { name: 'Orders', description: 'Order lifecycle management' },
+      { name: 'Fleet Management', description: 'Truck and capacity management' },
+      { name: 'Analytics', description: 'Business intelligence and reporting' }
+    ]
+  };
+
+  res.json(openApiSpec);
 });
 
 // Simple API Documentation (no CSP issues)
