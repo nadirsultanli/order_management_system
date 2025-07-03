@@ -1624,14 +1624,7 @@ app.get('/openapi.json', (req, res) => {
           bearerFormat: 'JWT'
         }
       }
-    },
-    tags: [
-      { name: 'Authentication', description: 'User authentication and authorization' },
-      { name: 'Customers', description: 'Customer management operations' },
-      { name: 'Orders', description: 'Order lifecycle management' },
-      { name: 'Fleet Management', description: 'Truck and capacity management' },
-      { name: 'Analytics', description: 'Business intelligence and reporting' }
-    ]
+    }
   };
 
   res.json(openApiSpec);
