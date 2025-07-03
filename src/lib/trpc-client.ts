@@ -8,7 +8,7 @@ export const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
       url: import.meta.env.VITE_BACKEND_URL || 
-           (import.meta.env.PROD ? 'https://your-railway-backend.railway.app/api/v1/trpc' : 'http://localhost:3001/api/v1/trpc'),
+           (import.meta.env.PROD ? 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc' : 'http://localhost:3001/api/v1/trpc'),
       headers: async () => {
         try {
           // Get auth token from localStorage (we'll implement proper auth later)
