@@ -10,7 +10,7 @@ import { logger } from './lib/logger';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // Security and parsing middleware
 app.use(helmet());
