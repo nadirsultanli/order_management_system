@@ -14,36 +14,33 @@ const PORT = process.env.PORT || 3001;
 
 // Security and parsing middleware
 app.use(helmet());
-// Configure CORS origins
-const getCorsOrigins = (): (string | RegExp)[] => {
-  if (process.env.NODE_ENV === 'production') {
-    // Explicit list of allowed origins
-    const origins = [
-      'https://omsmvpapp.netlify.app',
-      process.env.FRONTEND_URL,
-      /https:\/\/.*\.netlify\.app$/
-    ].filter(Boolean);
-    
-    logger.info('CORS origins configured:', { 
-      origins: origins.map(o => o.toString()),
-      frontendUrl: process.env.FRONTEND_URL 
-    });
-    
-    return origins;
-  }
-  
-  return ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001'];
-};
-
+// Temporary: Allow all origins for debugging
 app.use(cors({
-  origin: getCorsOrigins(),
+  origin: true, // Allow all origins for now
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+logger.info('CORS configured to allow all origins (debug mode)');
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Root endpoint - API status
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Order Management System API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      api: '/api/v1/trpc'
+    },
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Health check endpoint with database connectivity test
 app.get('/health', async (req, res) => {
@@ -75,22 +72,15 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// tRPC middleware with explicit CORS handling
+// tRPC middleware with debug CORS
 app.use('/api/v1/trpc', (req, res, next) => {
-  // Add CORS headers explicitly for tRPC
-  const allowedOrigins = [
-    'https://omsmvpapp.netlify.app',
-    process.env.FRONTEND_URL
-  ].filter(Boolean);
-  
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  
+  // Allow all origins for debugging
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
+  
+  logger.info(`tRPC request: ${req.method} ${req.path} from ${req.headers.origin}`);
   
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
@@ -123,7 +113,9 @@ app.use('*', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📝 API docs available at http://localhost:${PORT}/api/v1/docs`);
+  logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
+  logger.info(`📝 Frontend URL: ${process.env.FRONTEND_URL}`);
+  logger.info(`📝 CORS Origins configured for production mode`);
 });
