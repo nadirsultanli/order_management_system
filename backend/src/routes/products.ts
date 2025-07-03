@@ -966,6 +966,261 @@ export const productsRouter = router({
         }
       };
     }),
+
+  // POST /products/calculate-inventory-movements - Calculate inventory movements for orders
+  calculateInventoryMovements: protectedProcedure
+    .input(z.object({
+      order: z.object({
+        id: z.string().uuid(),
+        order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
+        exchange_empty_qty: z.number().min(0).default(0),
+        order_lines: z.array(z.object({
+          id: z.string().uuid(),
+          product_id: z.string().uuid(),
+          quantity: z.number().min(1),
+          product: z.object({
+            id: z.string().uuid(),
+            name: z.string(),
+          }),
+        })),
+      }),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Calculating inventory movements for order:', input.order.id);
+      
+      const movements: Array<{
+        product_id: string;
+        variant_name: string;
+        qty_full_change: number;
+        qty_empty_change: number;
+        movement_type: 'delivery' | 'pickup' | 'exchange';
+        description: string;
+      }> = [];
+      
+      if (!input.order.order_lines) return { movements };
+      
+      for (const line of input.order.order_lines) {
+        if (!line.product) continue;
+        
+        const product = line.product;
+        const quantity = line.quantity;
+        
+        switch (input.order.order_type) {
+          case 'delivery':
+            // Standard delivery: deduct full cylinders
+            movements.push({
+              product_id: product.id,
+              variant_name: 'full',
+              qty_full_change: -quantity,
+              qty_empty_change: 0,
+              movement_type: 'delivery',
+              description: `Delivered ${quantity} full ${product.name}`,
+            });
+            break;
+            
+          case 'refill':
+            // Refill: deduct full, add empty
+            movements.push({
+              product_id: product.id,
+              variant_name: 'full',
+              qty_full_change: -quantity,
+              qty_empty_change: 0,
+              movement_type: 'delivery',
+              description: `Delivered ${quantity} full ${product.name}`,
+            });
+            movements.push({
+              product_id: product.id,
+              variant_name: 'empty',
+              qty_full_change: 0,
+              qty_empty_change: quantity, // Picked up empties
+              movement_type: 'pickup',
+              description: `Picked up ${quantity} empty ${product.name}`,
+            });
+            break;
+            
+          case 'exchange':
+            // Exchange: deduct full, add empty
+            movements.push({
+              product_id: product.id,
+              variant_name: 'full',
+              qty_full_change: -quantity,
+              qty_empty_change: 0,
+              movement_type: 'delivery',
+              description: `Exchanged ${quantity} full ${product.name}`,
+            });
+            movements.push({
+              product_id: product.id,
+              variant_name: 'empty',
+              qty_full_change: 0,
+              qty_empty_change: input.order.exchange_empty_qty,
+              movement_type: 'exchange',
+              description: `Collected ${input.order.exchange_empty_qty} empty ${product.name}`,
+            });
+            break;
+            
+          case 'pickup':
+            // Pickup only: add empty cylinders
+            movements.push({
+              product_id: product.id,
+              variant_name: 'empty',
+              qty_full_change: 0,
+              qty_empty_change: input.order.exchange_empty_qty,
+              movement_type: 'pickup',
+              description: `Picked up ${input.order.exchange_empty_qty} empty ${product.name}`,
+            });
+            break;
+        }
+      }
+      
+      return { movements };
+    }),
+
+  // POST /products/validate-order-type - Validate order type business rules
+  validateOrderType: protectedProcedure
+    .input(z.object({
+      order: z.object({
+        order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
+        exchange_empty_qty: z.number().min(0).default(0),
+        requires_pickup: z.boolean().default(false),
+      }),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating order type:', input.order.order_type);
+      
+      const errors: string[] = [];
+      
+      // Validate refill orders
+      if (input.order.order_type === 'refill') {
+        if (input.order.exchange_empty_qty <= 0) {
+          errors.push('Refill orders must specify quantity of empty cylinders to exchange');
+        }
+      }
+      
+      // Validate exchange orders
+      if (input.order.order_type === 'exchange') {
+        if (!input.order.requires_pickup) {
+          errors.push('Exchange orders must require pickup of empty cylinders');
+        }
+        if (input.order.exchange_empty_qty <= 0) {
+          errors.push('Exchange orders must specify quantity of empty cylinders');
+        }
+      }
+      
+      // Validate pickup orders
+      if (input.order.order_type === 'pickup') {
+        if (input.order.exchange_empty_qty <= 0) {
+          errors.push('Pickup orders must specify quantity of cylinders to collect');
+        }
+      }
+      
+      return {
+        valid: errors.length === 0,
+        errors,
+      };
+    }),
+
+  // POST /products/calculate-exchange-quantity - Calculate exchange quantity for order types
+  calculateExchangeQuantity: protectedProcedure
+    .input(z.object({
+      order: z.object({
+        order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
+        exchange_empty_qty: z.number().min(0).default(0),
+      }),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Calculating exchange quantity for order type:', input.order.order_type);
+      
+      let exchange_quantity = 0;
+      
+      if (input.order.order_type === 'refill' || input.order.order_type === 'exchange') {
+        // For refill orders, exchange quantity equals delivery quantity
+        exchange_quantity = input.order.exchange_empty_qty || 0;
+      }
+      
+      return { exchange_quantity };
+    }),
+
+  // POST /products/should-require-pickup - Determine if order type requires pickup
+  shouldRequirePickup: protectedProcedure
+    .input(z.object({
+      order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Checking pickup requirement for order type:', input.order_type);
+      
+      const requires_pickup = input.order_type === 'exchange' || input.order_type === 'pickup';
+      
+      return { requires_pickup };
+    }),
+
+  // GET /products/standard-cylinder-variants - Get standard cylinder variants
+  getStandardCylinderVariants: protectedProcedure
+    .query(async ({ ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Fetching standard cylinder variants');
+      
+      return {
+        variants: [
+          { name: 'full', description: 'Full cylinder ready for delivery' },
+          { name: 'empty', description: 'Empty cylinder for exchange/pickup' },
+        ]
+      };
+    }),
+
+  // POST /products/generate-variant-sku - Generate SKU for product variant
+  generateVariantSku: protectedProcedure
+    .input(z.object({
+      parent_sku: z.string().min(1),
+      variant_name: z.string().min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Generating variant SKU for:', input.parent_sku, input.variant_name);
+      
+      const variant_sku = `${input.parent_sku}-${input.variant_name.toLowerCase()}`;
+      
+      return { variant_sku };
+    }),
+
+  // POST /products/create-variant-data - Create variant product data
+  createVariantData: protectedProcedure
+    .input(z.object({
+      parent_product: z.object({
+        id: z.string().uuid(),
+        sku: z.string(),
+        name: z.string(),
+        status: ProductStatusEnum,
+      }),
+      variant_name: z.string().min(1),
+      description: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Creating variant data for parent product:', input.parent_product.id);
+      
+      const variant_sku = `${input.parent_product.sku}-${input.variant_name.toLowerCase()}`;
+      
+      return {
+        parent_product_id: input.parent_product.id,
+        variant_name: input.variant_name,
+        sku: variant_sku,
+        name: `${input.parent_product.name} (${input.variant_name})`,
+        description: input.description || `${input.variant_name} variant of ${input.parent_product.name}`,
+        status: input.parent_product.status,
+        barcode_uid: undefined,
+      };
+    }),
 });
 
 // Helper functions for products business logic

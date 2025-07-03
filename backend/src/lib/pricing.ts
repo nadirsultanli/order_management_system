@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { TRPCError } from '@trpc/server';
-import { Logger } from './logger';
+import { logger } from './logger';
 
 export interface PriceListStatus {
   status: 'active' | 'future' | 'expired';
@@ -25,7 +25,7 @@ export interface OrderTotals {
 export class PricingService {
   constructor(
     private supabase: SupabaseClient,
-    private logger: Logger,
+    private logger: typeof logger,
     private tenantId: string
   ) {}
 

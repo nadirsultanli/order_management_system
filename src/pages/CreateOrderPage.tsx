@@ -7,7 +7,10 @@ import { useProducts } from '../hooks/useProducts';
 import { useCreateOrderNew } from '../hooks/useOrders';
 import { usePriceListsNew } from '../hooks/usePricing';
 import { CreateOrderData, CreateOrderLineData } from '../types/order';
-import { CreateAddressData } from '../types/address';
+import { CreateAddressData, Address } from '../types/address';
+import { Customer } from '../types/customer';
+import { Product } from '../types/product';
+import { PriceList } from '../types/pricing';
 import { formatCurrency } from '../utils/order';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
@@ -62,7 +65,7 @@ export const CreateOrderPage: React.FC = () => {
   
   // Get active price lists (not expired)
   const today = new Date().toISOString().split('T')[0];
-  const activePriceLists = priceLists.filter((pl: any) => {
+  const activePriceLists = priceLists.filter((pl: PriceList) => {
     // Check if price list is active (not expired)
     if (pl.end_date && pl.end_date < today) return false;
     // Check if price list has started
@@ -71,19 +74,19 @@ export const CreateOrderPage: React.FC = () => {
   });
   
   // Prefer default price list, but fallback to first active price list
-  const selectedPriceList = activePriceLists.find((pl: any) => pl.is_default) || 
+  const selectedPriceList = activePriceLists.find((pl: PriceList) => pl.is_default) || 
                            activePriceLists[0];
   
   // Get all active product IDs for stock availability check
   const activeProductIds = products
-    .filter((p: any) => p.status === 'active')
-    .map((p: any) => p.id);
+    .filter((p: Product) => p.status === 'active')
+    .map((p: Product) => p.id);
   
   // Note: useStockAvailability not available - stock checking disabled
   // Note: usePriceListItems not available - price list items disabled
 
-  const selectedCustomer = customers.find((c: any) => c.id === selectedCustomerId);
-  const selectedAddress = addresses.find((a: any) => a.id === selectedAddressId);
+  const selectedCustomer = customers.find((c: Customer) => c.id === selectedCustomerId);
+  const selectedAddress = addresses.find((a: Address) => a.id === selectedAddressId);
 
   const orderTotal = orderLines.reduce((total: number, line: OrderLineItem) => total + line.subtotal, 0);
   const taxAmount = orderTotal * (taxPercent / 100);
@@ -97,7 +100,7 @@ export const CreateOrderPage: React.FC = () => {
   // Auto-select primary address when customer is selected
   useEffect(() => {
     if (selectedCustomerId && addresses.length > 0 && !selectedAddressId) {
-      const primaryAddress = addresses.find((a: any) => a.is_primary);
+      const primaryAddress = addresses.find((a: Address) => a.is_primary);
       if (primaryAddress) {
         setSelectedAddressId(primaryAddress.id);
       }
@@ -127,7 +130,7 @@ export const CreateOrderPage: React.FC = () => {
   };
 
   const handleAddProduct = async (productId: string) => {
-    const product = products.find((p: any) => p.id === productId);
+    const product = products.find((p: Product) => p.id === productId);
     if (!product) return;
 
     const existingLine = orderLines.find((line: OrderLineItem) => line.product_id === productId);

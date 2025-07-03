@@ -6,7 +6,7 @@ import {
   TransferSummary 
 } from '../types/transfer';
 import { Product } from '../types/product';
-import { CYLINDER_WEIGHTS } from './truck-capacity';
+// Note: Cylinder weights are now managed by the backend API.
 import { trpc } from '../lib/trpc-client';
 
 /**
@@ -44,99 +44,13 @@ export async function validateMultiSkuTransfer(
     const result = await trpc.transfers.validateMultiSkuTransfer.mutate(transferData);
     return result;
   } catch (error) {
-    console.error('Failed to validate transfer via API, using fallback:', error);
-    // Fallback to local validation if API fails
-    return validateMultiSkuTransferFallback(transfer);
+    console.error('Failed to validate transfer via API:', error);
+    throw new Error('Transfer validation failed. Please try again.');
   }
 }
 
-/**
- * Fallback local validation for multi-SKU transfer
- */
-function validateMultiSkuTransferFallback(
-  transfer: Partial<MultiSkuTransfer>
-): TransferValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-  const blocked_items: string[] = [];
-  let total_weight_kg = 0;
-  let estimated_cost = 0;
-
-  // Basic transfer validation
-  if (!transfer.source_warehouse_id) {
-    errors.push('Source warehouse is required');
-  }
-
-  if (!transfer.destination_warehouse_id) {
-    errors.push('Destination warehouse is required');
-  }
-
-  if (transfer.source_warehouse_id === transfer.destination_warehouse_id) {
-    errors.push('Source and destination warehouses must be different');
-  }
-
-  if (!transfer.transfer_date) {
-    errors.push('Transfer date is required');
-  }
-
-  if (!transfer.items || transfer.items.length === 0) {
-    errors.push('At least one item must be selected for transfer');
-  }
-
-  // Validate transfer date
-  if (transfer.transfer_date) {
-    const transferDate = new Date(transfer.transfer_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (transferDate < today) {
-      errors.push('Transfer date cannot be in the past');
-    }
-  }
-
-  // Validate each item (basic validation without stock data)
-  if (transfer.items) {
-    for (const item of transfer.items) {
-      if (!item.product_id) {
-        errors.push(`${item.product_name}: Product ID is required`);
-        blocked_items.push(item.product_id);
-      }
-
-      if (!item.quantity_to_transfer || item.quantity_to_transfer <= 0) {
-        errors.push(`${item.product_name}: Transfer quantity must be greater than 0`);
-        blocked_items.push(item.product_id);
-      }
-
-      total_weight_kg += item.total_weight_kg || 0;
-      estimated_cost += item.total_cost || 0;
-    }
-
-    // Check for duplicate items
-    const itemKeys = transfer.items.map(item => `${item.product_id}-${item.variant_name || 'default'}`);
-    const uniqueKeys = new Set(itemKeys);
-    if (itemKeys.length !== uniqueKeys.size) {
-      errors.push('Duplicate products with same variant are not allowed');
-    }
-
-    // Check transfer limits
-    if (transfer.items.length > 100) {
-      warnings.push('Large transfers with over 100 items may take longer to process');
-    }
-
-    if (total_weight_kg > 5000) {
-      warnings.push('Heavy transfer (over 5 tons) may require special handling');
-    }
-  }
-
-  return {
-    is_valid: errors.length === 0,
-    errors,
-    warnings,
-    blocked_items,
-    total_weight_kg,
-    estimated_cost: estimated_cost > 0 ? estimated_cost : undefined
-  };
-}
+// Fallback validation removed to achieve 100% UI purity.
+// All transfer validation now handled by backend API.
 
 /**
  * Validate inventory availability using backend API
@@ -170,75 +84,12 @@ export async function validateInventoryAvailability(
     return result;
   } catch (error) {
     console.error('Failed to validate inventory availability via API:', error);
-    return {
-      is_available: false,
-      errors: ['Failed to validate inventory availability'],
-      warnings: []
-    };
+    throw new Error('Inventory availability validation failed. Please try again.');
   }
 }
 
-/**
- * Validate a single transfer item (legacy function for backward compatibility)
- */
-export function validateTransferItem(
-  item: MultiSkuTransferItem,
-  warehouseStockData: WarehouseStockInfo[]
-): { is_valid: boolean; errors: string[]; warnings: string[] } {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  // Find stock info for this item
-  const stockInfo = warehouseStockData.find(
-    stock => stock.product_id === item.product_id && 
-             stock.variant_name === item.variant_name
-  );
-
-  // Basic validation
-  if (!item.product_id) {
-    errors.push('Product ID is required');
-  }
-
-  if (!item.quantity_to_transfer || item.quantity_to_transfer <= 0) {
-    errors.push('Transfer quantity must be greater than 0');
-  }
-
-  if (item.quantity_to_transfer % 1 !== 0) {
-    errors.push('Transfer quantity must be a whole number');
-  }
-
-  // Stock availability validation
-  if (stockInfo) {
-    const availableForTransfer = stockInfo.qty_available - (stockInfo.qty_reserved || 0);
-    
-    if (item.quantity_to_transfer > availableForTransfer) {
-      errors.push(`Insufficient stock. Available: ${availableForTransfer}, Requested: ${item.quantity_to_transfer}`);
-    }
-
-    if (item.quantity_to_transfer > stockInfo.qty_available * 0.9) {
-      warnings.push('Transferring more than 90% of available stock');
-    }
-
-    // Check reorder levels
-    if (stockInfo.reorder_level && 
-        (stockInfo.qty_available - item.quantity_to_transfer) < stockInfo.reorder_level) {
-      warnings.push(`Stock will fall below reorder level (${stockInfo.reorder_level})`);
-    }
-  } else {
-    errors.push('Stock information not found for this product');
-  }
-
-  // Quantity limits
-  if (item.quantity_to_transfer > 1000) {
-    warnings.push('Large quantity transfer may require special approval');
-  }
-
-  return {
-    is_valid: errors.length === 0,
-    errors,
-    warnings
-  };
-}
+// Removed local business logic to achieve 100% UI purity.
+// Use validateMultiSkuTransfer() async function instead.
 
 /**
  * Calculate transfer details using backend API
@@ -269,121 +120,19 @@ export async function calculateTransferDetails(
 
     return result;
   } catch (error) {
-    console.error('Failed to calculate transfer details via API, using fallback:', error);
-    // Fallback to local calculation
-    return calculateTransferDetailsFallback(items);
+    console.error('Failed to calculate transfer details via API:', error);
+    throw new Error('Transfer details calculation failed. Please try again.');
   }
 }
 
-/**
- * Calculate transfer item weight and cost (legacy function for backward compatibility)
- */
-export function calculateTransferItemDetails(
-  item: MultiSkuTransferItem,
-  product: Product
-): MultiSkuTransferItem {
-  let unit_weight_kg = 0;
-  let unit_cost = 0;
+// Removed local business logic to achieve 100% UI purity.
+// Use calculateTransferDetails() async function instead.
 
-  // Calculate weight based on product type and variant
-  if (product.is_variant && product.variant_name && product.parent_product_id) {
-    // For cylinder variants, use standard weights
-    if (product.capacity_kg) {
-      const capacity = `${product.capacity_kg}kg` as keyof typeof CYLINDER_WEIGHTS;
-      const weights = CYLINDER_WEIGHTS[capacity];
-      
-      if (weights) {
-        if (product.variant_name === 'full') {
-          unit_weight_kg = weights.full;
-        } else if (product.variant_name === 'empty') {
-          unit_weight_kg = weights.empty;
-        }
-      }
-    }
-  } else {
-    // For non-variant products, use product specifications
-    if (product.capacity_kg && product.tare_weight_kg) {
-      unit_weight_kg = product.capacity_kg + product.tare_weight_kg;
-    } else if (product.capacity_kg) {
-      unit_weight_kg = product.capacity_kg + 10; // default tare weight
-    }
-  }
+// Fallback calculation removed to achieve 100% UI purity.
+// All transfer details calculations now handled by backend API.
 
-  // Calculate costs (placeholder - would come from pricing system)
-  unit_cost = 0; // TODO: Integrate with pricing system
-
-  return {
-    ...item,
-    unit_weight_kg,
-    total_weight_kg: unit_weight_kg * item.quantity_to_transfer,
-    unit_cost,
-    total_cost: unit_cost * item.quantity_to_transfer
-  };
-}
-
-/**
- * Fallback calculation for transfer details
- */
-function calculateTransferDetailsFallback(
-  items: MultiSkuTransferItem[]
-): { items: MultiSkuTransferItem[]; summary: TransferSummary } {
-  const processedItems = items.map(item => ({
-    ...item,
-    unit_weight_kg: item.unit_weight_kg || 0,
-    total_weight_kg: (item.unit_weight_kg || 0) * item.quantity_to_transfer,
-    unit_cost: item.unit_cost || 0,
-    total_cost: (item.unit_cost || 0) * item.quantity_to_transfer
-  }));
-
-  const summary = generateTransferSummary(processedItems);
-
-  return { items: processedItems, summary };
-}
-
-/**
- * Generate transfer summary
- */
-export function generateTransferSummary(items: MultiSkuTransferItem[]): TransferSummary {
-  const validItems = items.filter(item => item.is_valid);
-  const invalidItems = items.filter(item => !item.is_valid);
-  const itemsWithWarnings = items.filter(item => item.validation_warnings.length > 0);
-
-  const total_quantity = items.reduce((sum, item) => sum + item.quantity_to_transfer, 0);
-  const total_weight_kg = items.reduce((sum, item) => sum + (item.total_weight_kg || 0), 0);
-  const total_cost = items.reduce((sum, item) => sum + (item.total_cost || 0), 0);
-
-  // Find unique variants
-  const variantSet = new Set(items.map(item => item.variant_name || 'default'));
-  const unique_variants = variantSet.size;
-
-  // Find heaviest and most expensive items
-  const heaviest_item = items.reduce((heaviest, current) => {
-    const currentWeight = current.total_weight_kg || 0;
-    const heaviestWeight = heaviest?.total_weight_kg || 0;
-    return currentWeight > heaviestWeight ? current : heaviest;
-  }, items[0]);
-
-  const most_expensive_item = items.reduce((expensive, current) => {
-    const currentCost = current.total_cost || 0;
-    const expensiveCost = expensive?.total_cost || 0;
-    return currentCost > expensiveCost ? current : expensive;
-  }, items[0]);
-
-  return {
-    total_products: items.length,
-    total_quantity,
-    total_weight_kg,
-    total_cost: total_cost > 0 ? total_cost : undefined,
-    unique_variants,
-    heaviest_item: (heaviest_item?.total_weight_kg || 0) > 0 ? heaviest_item : undefined,
-    most_expensive_item: (most_expensive_item?.total_cost || 0) > 0 ? most_expensive_item : undefined,
-    validation_summary: {
-      valid_items: validItems.length,
-      invalid_items: invalidItems.length,
-      items_with_warnings: itemsWithWarnings.length
-    }
-  };
-}
+// Removed local business logic to achieve 100% UI purity.
+// Use calculateTransferDetails() async function instead.
 
 /**
  * Validate warehouse capacity using backend API
@@ -418,47 +167,13 @@ export async function validateWarehouseCapacity(
 
     return result;
   } catch (error) {
-    console.error('Failed to validate warehouse capacity via API, using fallback:', error);
-    return validateWarehouseCapacityFallback(warehouseId, items, warehouseCapacityKg);
+    console.error('Failed to validate warehouse capacity via API:', error);
+    throw new Error('Warehouse capacity validation failed. Please try again.');
   }
 }
 
-/**
- * Fallback warehouse capacity validation
- */
-function validateWarehouseCapacityFallback(
-  warehouseId: string,
-  items: MultiSkuTransferItem[],
-  warehouseCapacityKg?: number
-): { can_accommodate: boolean; warnings: string[] } {
-  const warnings: string[] = [];
-  
-  if (!warehouseCapacityKg) {
-    warnings.push('Warehouse capacity not defined - cannot validate space availability');
-    return { can_accommodate: true, warnings };
-  }
-
-  const total_incoming_weight = items.reduce((sum, item) => sum + (item.total_weight_kg || 0), 0);
-  
-  // This would need actual current warehouse utilization
-  // For now, we'll assume 70% current utilization as example
-  const current_utilization = warehouseCapacityKg * 0.7;
-  const utilization_after = current_utilization + total_incoming_weight;
-  const utilization_percentage = (utilization_after / warehouseCapacityKg) * 100;
-
-  if (utilization_percentage > 100) {
-    return {
-      can_accommodate: false,
-      warnings: [`Transfer would exceed warehouse capacity by ${(utilization_after - warehouseCapacityKg).toFixed(0)}kg`]
-    };
-  }
-
-  if (utilization_percentage > 90) {
-    warnings.push(`Transfer will utilize ${utilization_percentage.toFixed(1)}% of warehouse capacity`);
-  }
-
-  return { can_accommodate: true, warnings };
-}
+// Fallback capacity validation removed to achieve 100% UI purity.
+// All warehouse capacity validation now handled by backend API.
 
 /**
  * Check for transfer conflicts using backend API
@@ -496,64 +211,12 @@ export async function checkTransferConflicts(
     return result;
   } catch (error) {
     console.error('Failed to check transfer conflicts via API:', error);
-    return {
-      has_conflicts: false,
-      conflicts: ['Could not check for transfer conflicts']
-    };
+    throw new Error('Transfer conflict check failed. Please try again.');
   }
 }
 
-/**
- * Check for potential conflicts with existing transfers (legacy function)
- */
-export function checkTransferConflictsLocal(
-  newTransfer: Partial<MultiSkuTransfer>,
-  existingTransfers: MultiSkuTransfer[]
-): { has_conflicts: boolean; conflicts: string[] } {
-  const conflicts: string[] = [];
-
-  if (!newTransfer.items || !newTransfer.source_warehouse_id) {
-    return { has_conflicts: false, conflicts };
-  }
-
-  // Check for transfers on the same date from same warehouse
-  const sameDate = existingTransfers.filter(
-    transfer => transfer.source_warehouse_id === newTransfer.source_warehouse_id &&
-               transfer.transfer_date === newTransfer.transfer_date &&
-               ['pending', 'approved', 'in_transit'].includes(transfer.status)
-  );
-
-  if (sameDate.length > 0) {
-    const totalExistingItems = sameDate.reduce((sum, t) => sum + t.total_items, 0);
-    const newItems = newTransfer.items.length;
-    
-    if (totalExistingItems + newItems > 50) {
-      conflicts.push(`High volume of transfers scheduled for this date (${totalExistingItems + newItems} total items)`);
-    }
-  }
-
-  // Check for overlapping products
-  for (const item of newTransfer.items) {
-    const overlapping = existingTransfers.find(transfer =>
-      transfer.source_warehouse_id === newTransfer.source_warehouse_id &&
-      transfer.transfer_date === newTransfer.transfer_date &&
-      ['pending', 'approved'].includes(transfer.status) &&
-      transfer.items.some(existingItem => 
-        existingItem.product_id === item.product_id &&
-        existingItem.variant_name === item.variant_name
-      )
-    );
-
-    if (overlapping) {
-      conflicts.push(`Product ${item.product_name} is already scheduled for transfer on this date`);
-    }
-  }
-
-  return {
-    has_conflicts: conflicts.length > 0,
-    conflicts
-  };
-}
+// Removed local business logic to achieve 100% UI purity.
+// Use checkTransferConflicts() async function instead.
 
 /**
  * Format validation errors for display using backend API
@@ -568,44 +231,16 @@ export async function formatValidationErrors(
 
     return result;
   } catch (error) {
-    console.error('Failed to format validation errors via API, using fallback:', error);
-    return formatValidationErrorsFallback(validationResult);
+    console.error('Failed to format validation errors via API:', error);
+    throw new Error('Validation error formatting failed. Please try again.');
   }
 }
 
-/**
- * Format validation errors for display (local fallback)
- */
-function formatValidationErrorsFallback(
-  validationResult: TransferValidationResult
-): { severity: 'error' | 'warning'; message: string }[] {
-  const messages: { severity: 'error' | 'warning'; message: string }[] = [];
+// Error formatting fallback removed to achieve 100% UI purity.
+// All validation error formatting now handled by backend API.
 
-  validationResult.errors.forEach(error => {
-    messages.push({ severity: 'error', message: error });
-  });
-
-  validationResult.warnings.forEach(warning => {
-    messages.push({ severity: 'warning', message: warning });
-  });
-
-  return messages;
-}
-
-/**
- * Generate transfer reference number
- */
-export function generateTransferReference(
-  sourceWarehouseCode: string,
-  destinationWarehouseCode: string,
-  transferDate: string
-): string {
-  const date = new Date(transferDate);
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
-  
-  return `TR-${sourceWarehouseCode}-${destinationWarehouseCode}-${dateStr}-${randomSuffix}`;
-}
+// Removed local business logic to achieve 100% UI purity.
+// Use backend API for transfer reference generation.
 
 /**
  * Calculate estimated transfer duration using backend API
@@ -642,33 +277,10 @@ export async function estimateTransferDuration(
 
     return result;
   } catch (error) {
-    console.error('Failed to estimate transfer duration via API, using fallback:', error);
-    return estimateTransferDurationFallback(items, estimatedDistanceKm);
+    console.error('Failed to estimate transfer duration via API:', error);
+    throw new Error('Transfer duration estimation failed. Please try again.');
   }
 }
 
-/**
- * Calculate estimated transfer duration (local fallback)
- */
-function estimateTransferDurationFallback(
-  items: MultiSkuTransferItem[],
-  estimatedDistanceKm?: number
-): {
-  preparation_hours: number;
-  transport_hours: number;
-  total_hours: number;
-} {
-  // Base preparation time: 15 minutes per item + 30 minutes setup
-  const preparation_hours = (items.length * 0.25) + 0.5;
-  
-  // Transport time: assume 50km/h average + loading/unloading
-  const transport_hours = estimatedDistanceKm 
-    ? (estimatedDistanceKm / 50) + 1 // +1 hour for loading/unloading
-    : 2; // default 2 hours for unknown distance
-
-  return {
-    preparation_hours,
-    transport_hours,
-    total_hours: preparation_hours + transport_hours
-  };
-} 
+// Duration estimation fallback removed to achieve 100% UI purity.
+// All transfer duration estimation now handled by backend API. 

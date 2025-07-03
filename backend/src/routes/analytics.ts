@@ -854,6 +854,14 @@ export const analyticsRouter = router({
         ? periodOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0) / periodOrders.length 
         : 0;
 
+      // Calculate previous period for comparison
+      const previousStartDate = new Date(startDate);
+      previousStartDate.setDate(previousStartDate.getDate() - periodDays);
+      const previousPeriodOrders = orders.filter(o => {
+        const orderDate = new Date(o.order_date);
+        return orderDate >= previousStartDate && orderDate < startDate;
+      });
+
       return {
         total_orders: orders.length,
         draft_orders: statusCounts['draft'] || 0,
@@ -868,9 +876,9 @@ export const analyticsRouter = router({
         total_revenue: totalRevenue,
         avg_order_value: avgOrderValue,
         orders_this_month: periodOrders.length,
-        orders_last_month: 0, // TODO: Calculate previous period
+        orders_last_month: previousPeriodOrders.length,
         revenue_this_month: periodOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
-        revenue_last_month: 0, // TODO: Calculate previous period
+        revenue_last_month: previousPeriodOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0),
       };
     }),
 });

@@ -751,13 +751,13 @@ export const transfersRouter = router({
         variant_name: item.product.variant_name,
         qty_available: item.qty_full + item.qty_empty,
         qty_reserved: item.qty_reserved,
-        qty_on_order: 0, // TODO: Calculate from pending orders
+        qty_on_order: 0, // Future: Calculate from pending purchase orders when implemented
         qty_full: item.qty_full,
         qty_empty: item.qty_empty,
-        locations: [], // TODO: Fetch location details
+        locations: item.locations || [], // Storage locations within warehouse
         last_updated: item.updated_at,
-        reorder_level: 10, // TODO: Get from product settings
-        max_capacity: 1000 // TODO: Get from warehouse settings
+        reorder_level: item.product.reorder_level || 10,
+        max_capacity: item.warehouse.max_capacity || 1000
       }));
 
       // Apply search filter

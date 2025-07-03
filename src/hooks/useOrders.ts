@@ -143,36 +143,5 @@ export const useOrdersContext = () => {
   return trpc.useContext().orders;
 };
 
-// Legacy compatibility functions to help with migration
-export const convertFiltersToNew = (oldFilters: OrderFilters): OrderListFilters => {
-  return {
-    status: oldFilters.status as any,
-    customer_id: oldFilters.customer_id,
-    search: oldFilters.search,
-    order_date_from: oldFilters.order_date_from,
-    order_date_to: oldFilters.order_date_to,
-    scheduled_date_from: oldFilters.scheduled_date_from,
-    scheduled_date_to: oldFilters.scheduled_date_to,
-    page: oldFilters.page,
-    limit: oldFilters.limit,
-  };
-};
-
-// Migration helper: wrapper that uses new hooks but provides old interface
-export const useOrdersMigration = (filters: OrderFilters = {}) => {
-  const newFilters = convertFiltersToNew(filters);
-  const result = useOrdersNew(newFilters);
-  
-  // Transform the result to match the old interface
-  return {
-    data: result.data ? {
-      orders: result.data.orders,
-      totalCount: result.data.totalCount,
-      totalPages: result.data.totalPages,
-      currentPage: result.data.currentPage,
-    } : undefined,
-    isLoading: result.isLoading,
-    error: result.error,
-    refetch: result.refetch,
-  };
-};
+// Removed legacy compatibility functions to achieve 100% UI purity.
+// All components should use the direct tRPC hooks instead.
