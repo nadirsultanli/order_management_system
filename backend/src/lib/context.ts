@@ -21,7 +21,10 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
   if (token) {
     try {
       // Verify JWT token and extract user information
-      const payload = jwt.verify(token, process.env.JWT_SECRET!) as any;
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET environment variable is not configured');
+      }
+      const payload = jwt.verify(token, process.env.JWT_SECRET) as any;
       
       // Get user details from Supabase
       const { data: userData, error } = await supabaseAdmin.auth.getUser(token);

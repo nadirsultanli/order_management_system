@@ -9,6 +9,15 @@ import { logger } from './lib/logger';
 
 dotenv.config();
 
+// Validate required environment variables
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'JWT_SECRET'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
@@ -17,13 +26,13 @@ app.use(helmet());
 // Bulletproof CORS configuration
 app.use((req, res, next) => {
   const allowedOrigins = [
-    'https://omsmvpapp.netlify.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ];
+    process.env.FRONTEND_URL || 'https://omsmvpapp.netlify.app',
+    process.env.LOCAL_FRONTEND_URL || 'http://localhost:5173',
+    process.env.LOCAL_FRONTEND_ALT_URL || 'http://localhost:3000'
+  ].filter(Boolean);
   
   const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
+  if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   
@@ -40,7 +49,7 @@ app.use((req, res, next) => {
   next();
 });
 
-logger.info('CORS configured for:', ['https://omsmvpapp.netlify.app']);
+logger.info('CORS configured for:', [process.env.FRONTEND_URL || 'https://omsmvpapp.netlify.app']);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

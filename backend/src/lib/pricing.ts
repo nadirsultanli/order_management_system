@@ -25,8 +25,7 @@ export interface OrderTotals {
 export class PricingService {
   constructor(
     private supabase: SupabaseClient,
-    private logger: typeof logger,
-    private tenantId: string
+    private logger: any
   ) {}
 
   /**
@@ -113,7 +112,6 @@ export class PricingService {
             product_id
           )
         `)
-        .eq('tenant_id', this.tenantId)
         .eq('price_list_item.product_id', productId)
         .lte('start_date', pricingDate)
         .or(`end_date.is.null,end_date.gte.${pricingDate}`);
@@ -249,7 +247,6 @@ export class PricingService {
       const { data, error } = await this.supabase
         .from('price_list')
         .select('*')
-        .eq('tenant_id', this.tenantId)
         .lte('start_date', checkDate)
         .or(`end_date.is.null,end_date.gte.${checkDate}`)
         .order('is_default', { ascending: false })
@@ -317,7 +314,7 @@ export class PricingService {
       const { data: priceLists, error: plError } = await this.supabase
         .from('price_list')
         .select('id, start_date, end_date')
-        .eq('tenant_id', this.tenantId);
+;
         
       if (plError) throw plError;
       
@@ -344,13 +341,11 @@ export class PricingService {
       const { count: productsWithoutPricingCount, error: pwpError } = await this.supabase
         .from('products')
         .select('id', { count: 'exact', head: true })
-        .eq('tenant_id', this.tenantId)
         .eq('status', 'active')
         .not('id', 'in', `(
           SELECT DISTINCT product_id 
           FROM price_list_item pli
           JOIN price_list pl ON pli.price_list_id = pl.id
-          WHERE pl.tenant_id = '${this.tenantId}'
           AND pl.start_date <= '${today}'
           AND (pl.end_date IS NULL OR pl.end_date >= '${today}')
         )`);

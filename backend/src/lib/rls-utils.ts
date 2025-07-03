@@ -2,62 +2,18 @@
  * Row Level Security (RLS) Utilities
  * 
  * This module provides utilities for working with RLS policies
- * and ensuring proper tenant isolation in the application.
+ * and database access validation.
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from './logger';
 
-export interface TenantContext {
-  tenant_id: string;
-  user_id: string;
-  role: string;
-}
-
 /**
- * Validates that a user can access data for a specific tenant
- */
-export async function validateTenantAccess(
-  supabase: SupabaseClient,
-  tenantId: string,
-  userContext: TenantContext
-): Promise<boolean> {
-  // Service role bypasses all checks
-  if (userContext.role === 'service_role') {
-    return true;
-  }
-
-  // Check if user belongs to the tenant
-  if (userContext.tenant_id !== tenantId) {
-    logger.warn('Tenant isolation violation attempted', {
-      user_id: userContext.user_id,
-      user_tenant: userContext.tenant_id,
-      attempted_tenant: tenantId
-    });
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Creates a Supabase client with proper RLS context
- */
-export function createTenantScopedClient(
-  supabase: SupabaseClient,
-  tenantContext: TenantContext
-): SupabaseClient {
-  // The client should already have the JWT token set
-  // RLS policies will automatically enforce tenant isolation
-  return supabase;
-}
-
-/**
- * Tests RLS policies for a specific tenant
+ * Tests RLS policies for basic database access
  */
 export async function testRLSPolicies(
   supabase: SupabaseClient,
-  tenantId: string
+  userId: string
 ): Promise<{
   success: boolean;
   results: Record<string, boolean>;
@@ -67,92 +23,75 @@ export async function testRLSPolicies(
   const errors: string[] = [];
 
   try {
-    // Test customers table RLS
+    // Test customers table access
     try {
       const { data, error } = await supabase
         .from('customers')
-        .select('id, tenant_id')
+        .select('id')
         .limit(1);
       
       if (error) {
-        errors.push(`Customers RLS test failed: ${error.message}`);
+        errors.push(`Customers access test failed: ${error.message}`);
         results.customers = false;
       } else {
-        // Verify all returned records belong to the current tenant
-        const wrongTenantRecords = data?.filter(record => record.tenant_id !== tenantId) || [];
-        results.customers = wrongTenantRecords.length === 0;
-        if (wrongTenantRecords.length > 0) {
-          errors.push(`Customers RLS leak: Found ${wrongTenantRecords.length} records from other tenants`);
-        }
+        results.customers = true;
       }
     } catch (error) {
-      errors.push(`Customers RLS test error: ${error}`);
+      errors.push(`Customers access test error: ${error}`);
       results.customers = false;
     }
 
-    // Test orders table RLS
+    // Test orders table access
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('id, tenant_id')
+        .select('id')
         .limit(1);
       
       if (error) {
-        errors.push(`Orders RLS test failed: ${error.message}`);
+        errors.push(`Orders access test failed: ${error.message}`);
         results.orders = false;
       } else {
-        const wrongTenantRecords = data?.filter(record => record.tenant_id !== tenantId) || [];
-        results.orders = wrongTenantRecords.length === 0;
-        if (wrongTenantRecords.length > 0) {
-          errors.push(`Orders RLS leak: Found ${wrongTenantRecords.length} records from other tenants`);
-        }
+        results.orders = true;
       }
     } catch (error) {
-      errors.push(`Orders RLS test error: ${error}`);
+      errors.push(`Orders access test error: ${error}`);
       results.orders = false;
     }
 
-    // Test products table RLS
+    // Test products table access
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('id, tenant_id')
+        .select('id')
         .limit(1);
       
       if (error) {
-        errors.push(`Products RLS test failed: ${error.message}`);
+        errors.push(`Products access test failed: ${error.message}`);
         results.products = false;
       } else {
-        const wrongTenantRecords = data?.filter(record => record.tenant_id !== tenantId) || [];
-        results.products = wrongTenantRecords.length === 0;
-        if (wrongTenantRecords.length > 0) {
-          errors.push(`Products RLS leak: Found ${wrongTenantRecords.length} records from other tenants`);
-        }
+        results.products = true;
       }
     } catch (error) {
-      errors.push(`Products RLS test error: ${error}`);
+      errors.push(`Products access test error: ${error}`);
       results.products = false;
     }
 
-    // Test inventory table RLS
+    // Test inventory table access
     try {
       const { data, error } = await supabase
-        .from('inventory')
-        .select('id, tenant_id')
+        .from('inventory_balance')
+        .select('id')
         .limit(1);
       
       if (error) {
-        errors.push(`Inventory RLS test failed: ${error.message}`);
+        errors.push(`Inventory access test failed: ${error.message}`);
         results.inventory = false;
       } else {
-        const wrongTenantRecords = data?.filter(record => record.tenant_id !== tenantId) || [];
-        results.inventory = wrongTenantRecords.length === 0;
-        if (wrongTenantRecords.length > 0) {
-          errors.push(`Inventory RLS leak: Found ${wrongTenantRecords.length} records from other tenants`);
-        }
+        results.inventory = true;
       }
     } catch (error) {
-      errors.push(`Inventory RLS test error: ${error}`);
+      errors.push(`Inventory access test error: ${error}`);
       results.inventory = false;
     }
 
@@ -165,7 +104,7 @@ export async function testRLSPolicies(
     };
 
   } catch (error) {
-    logger.error('RLS policy test failed', { error, tenantId });
+    logger.error('RLS policy test failed', { error, userId });
     return {
       success: false,
       results,
@@ -300,31 +239,3 @@ export async function validateRLSStatus(
   }
 }
 
-/**
- * Helper function to create RLS-compatible database queries
- * Automatically adds tenant filtering when needed
- */
-export function createTenantQuery(
-  supabase: SupabaseClient,
-  table: string,
-  tenantId: string
-) {
-  // RLS policies will automatically filter by tenant_id
-  // But we can add explicit filtering for better performance
-  return supabase.from(table).select('*').eq('tenant_id', tenantId);
-}
-
-/**
- * Middleware to ensure tenant context is properly set
- */
-export function ensureTenantContext(tenantContext: TenantContext | null) {
-  if (!tenantContext) {
-    throw new Error('Tenant context not found. Authentication required.');
-  }
-
-  if (!tenantContext.tenant_id) {
-    throw new Error('Tenant ID not found in context. Invalid authentication.');
-  }
-
-  return tenantContext;
-}

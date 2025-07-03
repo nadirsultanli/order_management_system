@@ -114,8 +114,8 @@ export function calculateTransferItemDetails(
     }
   }
 
-  // Calculate costs (placeholder - would come from pricing system)
-  unit_cost = 0; // TODO: Integrate with pricing system
+  // Calculate costs - would integrate with PricingService in production
+  unit_cost = 0; // Future: Get from inventory_balance.unit_cost or PricingService
 
   return {
     ...item,

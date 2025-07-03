@@ -64,7 +64,7 @@ export const pricingRouter = router({
     }))
     .query(({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         finalPrice: pricingService.calculateFinalPrice(input.unitPrice, input.surchargePercent)
       };
@@ -77,7 +77,7 @@ export const pricingRouter = router({
     }))
     .query(({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return pricingService.getPriceListStatus(input.startDate, input.endDate);
     }),
 
@@ -88,7 +88,7 @@ export const pricingRouter = router({
     }))
     .query(({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         valid: pricingService.validateDateRange(input.startDate, input.endDate)
       };
@@ -101,7 +101,7 @@ export const pricingRouter = router({
     }))
     .query(({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         expiringSoon: pricingService.isExpiringSoon(input.endDate, input.days)
       };
@@ -115,7 +115,7 @@ export const pricingRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const price = await pricingService.getProductPrice(input.productId, input.customerId, input.date);
       return price;
     }),
@@ -128,7 +128,7 @@ export const pricingRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const prices = await pricingService.getProductPrices(input.productIds, input.customerId, input.date);
       return Object.fromEntries(prices);
     }),
@@ -144,7 +144,7 @@ export const pricingRouter = router({
     }))
     .mutation(({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return pricingService.calculateOrderTotals(input.lines, input.taxPercent);
     }),
 
@@ -157,7 +157,7 @@ export const pricingRouter = router({
     }))
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return await pricingService.validateProductPricing(
         input.productId,
         input.requestedPrice,
@@ -172,7 +172,7 @@ export const pricingRouter = router({
     }))
     .query(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return await pricingService.getActivePriceLists(input.date);
     }),
 
@@ -183,7 +183,7 @@ export const pricingRouter = router({
     }))
     .mutation(({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         formatted: pricingService.formatCurrency(input.amount, input.currencyCode)
       };
@@ -236,7 +236,7 @@ export const pricingRouter = router({
         });
       }
 
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const processedLists = (data || []).map((list: any) => {
         const statusInfo = pricingService.getPriceListStatus(list.start_date, list.end_date);
         return {
@@ -297,7 +297,7 @@ export const pricingRouter = router({
       ctx.logger.info('Creating price list:', input);
       
       // Validate date range
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       if (!pricingService.validateDateRange(input.start_date, input.end_date)) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -374,7 +374,7 @@ export const pricingRouter = router({
         const startDate = updateData.start_date || current?.start_date;
         const endDate = updateData.end_date || current?.end_date;
         
-        const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+        const pricingService = new PricingService(ctx.supabase, ctx.logger);
         if (!pricingService.validateDateRange(startDate, endDate)) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -859,7 +859,7 @@ export const pricingRouter = router({
         });
       }
 
-      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const detailedStats = await pricingService.getPricingStats();
       
       const stats = {
@@ -975,7 +975,7 @@ export const pricingRouter = router({
           continue;
         }
 
-        const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+        const pricingService = new PricingService(ctx.supabase, ctx.logger);
         const finalPrice = pricingService.calculateFinalPrice(priceItem.unit_price, priceItem.surcharge_pct);
         const subtotal = finalPrice * item.quantity;
 
