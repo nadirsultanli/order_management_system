@@ -170,22 +170,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         console.log('🔍 Checking auth with backend...');
         
-        // Use fetch directly since trpcClient.auth is undefined
+        // Use non-batch endpoint for simpler auth check
         const tokenForHeader = token;
-        const response = await fetch('https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me?batch=1', {
+        const response = await fetch('https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${tokenForHeader}`,
           },
-          body: JSON.stringify([]),
+          body: JSON.stringify({}),
         });
         
         const data = await response.json();
         console.log('✅ Auth check response:', data);
         
-        if (data && data[0] && data[0].result && data[0].result.data) {
-          const result = data[0].result.data;
+        if (data && data.result && data.result.data) {
+          const result = data.result.data;
           console.log('✅ Auth check successful:', result);
           setState({
             user: result.user,
