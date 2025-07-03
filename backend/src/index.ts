@@ -75,8 +75,30 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// tRPC middleware
-app.use('/api/v1/trpc', createExpressMiddleware({
+// tRPC middleware with explicit CORS handling
+app.use('/api/v1/trpc', (req, res, next) => {
+  // Add CORS headers explicitly for tRPC
+  const allowedOrigins = [
+    'https://omsmvpapp.netlify.app',
+    process.env.FRONTEND_URL
+  ].filter(Boolean);
+  
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  
+  next();
+}, createExpressMiddleware({
   router: appRouter as any,
   createContext,
   onError: ({ path, error }) => {
