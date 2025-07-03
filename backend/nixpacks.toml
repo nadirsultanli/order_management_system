@@ -9,6 +9,3 @@ cmd = "npm run build"
 
 [phases.start]
 cmd = "npm start"
-
-[staticAssets]
-disabled = true
