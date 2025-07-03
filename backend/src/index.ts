@@ -21,7 +21,7 @@ const getCorsOrigins = (): (string | RegExp)[] => {
     const origins: string[] = [
       process.env.FRONTEND_URL,
       process.env.NETLIFY_URL,
-      'https://trcrjinrdjgizqhjdgvc.netlify.app', // Add your actual Netlify URL here
+      'https://omsmvpapp.netlify.app', // Your actual Netlify URL
     ].filter((url): url is string => Boolean(url));
     
     // Also allow any netlify.app subdomain for preview deployments
