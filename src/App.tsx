@@ -53,6 +53,7 @@ function App() {
               }
             >
               <Route index element={<DashboardPage />} />
+              <Route path="dashboard" element={<DashboardPage />} />
               <Route path="customers" element={<CustomersPage />} />
               <Route path="customers/:id" element={<CustomerDetailPage />} />
               <Route path="products" element={<ProductsPage />} />
