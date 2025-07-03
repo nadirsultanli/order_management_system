@@ -10,6 +10,7 @@ interface User {
 
 interface AuthState {
   user: User | null;
+  adminUser: User | null;
   loading: boolean;
   error: string | null;
 }
@@ -33,6 +34,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
+    adminUser: null,
     loading: true,
     error: null,
   });
@@ -61,6 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setState({
         user: result.user,
+        adminUser: result.user, // Backend returns admin user data in the user object
         loading: false,
         error: null,
       });
@@ -119,6 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setState({
       user: null,
+      adminUser: null,
       loading: false,
       error: null,
     });
@@ -159,7 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (!token) {
         console.log('❌ No token found');
-        setState(prev => ({ ...prev, loading: false }));
+        setState(prev => ({ ...prev, user: null, adminUser: null, loading: false }));
         if (!isLoginPage) {
           console.log('🔄 Redirecting to login');
           window.location.href = '/login';
@@ -187,6 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Auth check successful:', result);
           setState({
             user: result.user,
+            adminUser: result.user, // Backend returns admin user data in the user object
             loading: false,
             error: null,
           });
@@ -205,6 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('refresh_token');
         setState({
           user: null,
+          adminUser: null,
           loading: false,
           error: null,
         });
