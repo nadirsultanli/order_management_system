@@ -128,7 +128,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initializeAuth = async () => {
       console.log('🔄 Initializing auth...');
-      const token = localStorage.getItem('auth_token');
+      
+      // Try multiple ways to get the token
+      let token = localStorage.getItem('auth_token');
+      
+      // If auth_token doesn't exist, try to get from session object
+      if (!token) {
+        const keys = Object.keys(localStorage);
+        console.log('📱 LocalStorage keys:', keys);
+        
+        for (const key of keys) {
+          const value = localStorage.getItem(key);
+          try {
+            const parsed = JSON.parse(value);
+            if (parsed && parsed.access_token) {
+              token = parsed.access_token;
+              console.log('📱 Found token in key:', key);
+              break;
+            }
+          } catch (e) {
+            // Not JSON, skip
+          }
+        }
+      }
+      
       console.log('📱 Token from localStorage:', token ? 'EXISTS' : 'NOT_FOUND');
       
       // Don't redirect if we're already on the login page
