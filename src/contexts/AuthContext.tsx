@@ -52,16 +52,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
       });
 
+      console.log('Login result:', result);
+
       // Store tokens in localStorage
       localStorage.setItem('auth_token', result.session.access_token);
       localStorage.setItem('refresh_token', result.session.refresh_token);
+
+      console.log('Token stored:', localStorage.getItem('auth_token'));
 
       setState({
         user: result.user,
         loading: false,
         error: null,
       });
+
+      // Redirect to dashboard after successful login
+      window.location.href = '/dashboard';
     } catch (error: any) {
+      console.error('Login error:', error);
       setState(prev => ({
         ...prev,
         loading: false,
