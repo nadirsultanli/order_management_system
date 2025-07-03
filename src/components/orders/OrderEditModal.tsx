@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { useUpdateOrderTaxNew } from '../../hooks/useOrders';
 import { Order } from '../../types/order';
-import { formatCurrency } from '../../utils/order';
+import { formatCurrency, calculateOrderTotalWithTax } from '../../utils/order';
 import { toast } from 'react-hot-toast';
 
 interface OrderEditModalProps {
@@ -18,6 +18,12 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
 }) => {
   const [taxPercent, setTaxPercent] = useState(0);
   const [notes, setNotes] = useState('');
+  const [orderCalculations, setOrderCalculations] = useState({
+    subtotal: 0,
+    taxAmount: 0,
+    grandTotal: 0
+  });
+  const [calculatingTotals, setCalculatingTotals] = useState(false);
   const updateOrderTax = useUpdateOrderTaxNew();
 
   useEffect(() => {
@@ -27,11 +33,41 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     }
   }, [order]);
 
+  // Calculate totals using backend API whenever order or tax changes - NO frontend business logic
+  useEffect(() => {
+    const calculateTotals = async () => {
+      if (!order?.order_lines || order.order_lines.length === 0) {
+        setOrderCalculations({ subtotal: 0, taxAmount: 0, grandTotal: 0 });
+        return;
+      }
+
+      setCalculatingTotals(true);
+      try {
+        const orderLines = order.order_lines.map(line => ({
+          quantity: line.quantity,
+          unit_price: line.unit_price,
+          subtotal: line.subtotal || (line.quantity * line.unit_price)
+        }));
+        
+        const result = await calculateOrderTotalWithTax(orderLines, taxPercent);
+        setOrderCalculations(result);
+      } catch (error) {
+        console.error('Failed to calculate order totals:', error);
+        // Keep previous values on error
+      } finally {
+        setCalculatingTotals(false);
+      }
+    };
+
+    calculateTotals();
+  }, [order, taxPercent]);
+
   if (!isOpen || !order) return null;
 
-  const subtotal = order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0;
-  const taxAmount = subtotal * (taxPercent / 100);
-  const grandTotal = subtotal + taxAmount;
+  // Extract values for backward compatibility
+  const subtotal = orderCalculations.subtotal;
+  const taxAmount = orderCalculations.taxAmount;
+  const grandTotal = orderCalculations.grandTotal;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

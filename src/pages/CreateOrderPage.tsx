@@ -11,7 +11,7 @@ import { CreateAddressData, Address } from '../types/address';
 import { Customer } from '../types/customer';
 import { Product } from '../types/product';
 import { PriceList } from '../types/pricing';
-import { formatCurrency } from '../utils/order';
+import { formatCurrency, calculateOrderTotalWithTax } from '../utils/order';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
@@ -88,9 +88,41 @@ export const CreateOrderPage: React.FC = () => {
   const selectedCustomer = customers.find((c: Customer) => c.id === selectedCustomerId);
   const selectedAddress = addresses.find((a: Address) => a.id === selectedAddressId);
 
-  const orderTotal = orderLines.reduce((total: number, line: OrderLineItem) => total + line.subtotal, 0);
-  const taxAmount = orderTotal * (taxPercent / 100);
-  const grandTotal = orderTotal + taxAmount;
+  // Use backend API for ALL calculations - NO frontend business logic
+  const [orderCalculations, setOrderCalculations] = useState({
+    subtotal: 0,
+    taxAmount: 0,
+    grandTotal: 0
+  });
+  const [calculatingTotals, setCalculatingTotals] = useState(false);
+
+  // Calculate totals using backend API whenever order lines or tax changes
+  useEffect(() => {
+    const calculateTotals = async () => {
+      if (orderLines.length === 0) {
+        setOrderCalculations({ subtotal: 0, taxAmount: 0, grandTotal: 0 });
+        return;
+      }
+
+      setCalculatingTotals(true);
+      try {
+        const result = await calculateOrderTotalWithTax(orderLines, taxPercent);
+        setOrderCalculations(result);
+      } catch (error) {
+        console.error('Failed to calculate order totals:', error);
+        // Keep previous values on error
+      } finally {
+        setCalculatingTotals(false);
+      }
+    };
+
+    calculateTotals();
+  }, [orderLines, taxPercent]);
+
+  // Extract values for backward compatibility
+  const orderTotal = orderCalculations.subtotal;
+  const taxAmount = orderCalculations.taxAmount;
+  const grandTotal = orderCalculations.grandTotal;
 
   const handleCustomerChange = (customerId: string) => {
     setSelectedCustomerId(customerId);

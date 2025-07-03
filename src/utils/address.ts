@@ -33,14 +33,12 @@ export const formatDeliveryWindow = (start?: string, end?: string): string => {
   return `${formatTime(start)} - ${formatTime(end)}`;
 };
 
-// Simple client-side delivery window validation for UI feedback
+// UI-only placeholder - NO business validation logic
 export const validateDeliveryWindow = (start?: string, end?: string): boolean => {
-  if (!start || !end) return false;
-  
-  const startTime = new Date(`1970-01-01T${start}:00`);
-  const endTime = new Date(`1970-01-01T${end}:00`);
-  
-  return startTime < endTime;
+  // This is a placeholder for build compatibility only
+  // Real validation MUST use backend API validation
+  console.warn('validateDeliveryWindow is deprecated - use backend API validation instead');
+  return true; // Default to valid for UI placeholder
 };
 
 // Export the country options from the new countries utility

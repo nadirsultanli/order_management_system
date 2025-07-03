@@ -35,10 +35,12 @@ export const calculateFinalPrice = async (unitPrice: number, surchargePercent?: 
   }
 };
 
-// Synchronous fallback for backward compatibility
+// UI-only placeholder - NO business logic, returns input for display
 export const calculateFinalPriceSync = (unitPrice: number, surchargePercent?: number): number => {
-  if (!surchargePercent || surchargePercent === 0) return unitPrice;
-  return unitPrice * (1 + surchargePercent / 100);
+  // This is a placeholder for build compatibility only
+  // Real calculations MUST use calculateFinalPrice() async API
+  console.warn('calculateFinalPriceSync is deprecated - use calculateFinalPrice() API instead');
+  return unitPrice; // Return base price only, no calculations
 };
 
 export const formatDateRange = (startDate: string, endDate?: string): string => {
@@ -72,25 +74,16 @@ export const getPriceListStatus = async (startDate: string, endDate?: string): P
   }
 };
 
-// Synchronous fallback for backward compatibility
+// UI-only placeholder - NO business logic
 export const getPriceListStatusSync = (startDate: string, endDate?: string): {
   status: 'active' | 'future' | 'expired';
   label: string;
   color: string;
 } => {
-  const now = new Date();
-  const start = new Date(startDate);
-  const end = endDate ? new Date(endDate) : null;
-
-  if (start > now) {
-    return { status: 'future', label: 'Future', color: 'bg-blue-100 text-blue-800' };
-  }
-  
-  if (end && end < now) {
-    return { status: 'expired', label: 'Expired', color: 'bg-gray-100 text-gray-800' };
-  }
-  
-  return { status: 'active', label: 'Active', color: 'bg-green-100 text-green-800' };
+  // This is a placeholder for build compatibility only
+  // Real status logic MUST use getPriceListStatus() async API
+  console.warn('getPriceListStatusSync is deprecated - use getPriceListStatus() API instead');
+  return { status: 'active', label: 'Loading...', color: 'bg-gray-100 text-gray-800' };
 };
 
 export const validateDateRange = async (startDate: string, endDate?: string): Promise<boolean> => {
@@ -113,11 +106,10 @@ export const isExpiringSoon = async (endDate?: string, days: number = 30): Promi
   }
 };
 
-// Synchronous fallback for backward compatibility
+// UI-only placeholder - NO business logic
 export const isExpiringSoonSync = (endDate?: string, days: number = 30): boolean => {
-  if (!endDate) return false;
-  const end = new Date(endDate);
-  const threshold = new Date();
-  threshold.setDate(threshold.getDate() + days);
-  return end <= threshold;
+  // This is a placeholder for build compatibility only
+  // Real expiration logic MUST use isExpiringSoon() async API
+  console.warn('isExpiringSoonSync is deprecated - use isExpiringSoon() API instead');
+  return false; // Default to not expiring for UI placeholder
 };

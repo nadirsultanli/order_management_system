@@ -54,12 +54,9 @@ export const createVariantProduct = async (
   }
 };
 
-// Standard cylinder variants for backward compatibility
+// UI-only placeholder - NO business data
 export const STANDARD_CYLINDER_VARIANTS = [
-  { name: 'Small (5kg)', description: 'Standard 5kg gas cylinder' },
-  { name: 'Medium (15kg)', description: 'Standard 15kg gas cylinder' },
-  { name: 'Large (45kg)', description: 'Standard 45kg gas cylinder' },
-  { name: 'Industrial (90kg)', description: 'Industrial 90kg gas cylinder' },
+  { name: 'Loading...', description: 'Please use getStandardCylinderVariants() API' },
 ];
 
 // Standard cylinder variants - Now fetched from backend
@@ -69,8 +66,7 @@ export const getStandardCylinderVariants = async (): Promise<Array<{ name: strin
     return result.variants;
   } catch (error) {
     console.error('Failed to fetch standard cylinder variants via API:', error);
-    // Return fallback data
-    return STANDARD_CYLINDER_VARIANTS;
+    throw new Error('Cylinder variants must be fetched from backend. No local fallback.');
   }
 };
 
