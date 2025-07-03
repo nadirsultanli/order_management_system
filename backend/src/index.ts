@@ -14,15 +14,33 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // Security and parsing middleware
 app.use(helmet());
-// Temporary: Allow all origins for debugging
-app.use(cors({
-  origin: true, // Allow all origins for now
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Bulletproof CORS configuration
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'https://omsmvpapp.netlify.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+    return;
+  }
+  
+  next();
+});
 
-logger.info('CORS configured to allow all origins (debug mode)');
+logger.info('CORS configured for:', ['https://omsmvpapp.netlify.app']);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -72,23 +90,8 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// tRPC middleware with debug CORS
-app.use('/api/v1/trpc', (req, res, next) => {
-  // Allow all origins for debugging
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  logger.info(`tRPC request: ${req.method} ${req.path} from ${req.headers.origin}`);
-  
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-    return;
-  }
-  
-  next();
-}, createExpressMiddleware({
+// tRPC middleware
+app.use('/api/v1/trpc', createExpressMiddleware({
   router: appRouter as any,
   createContext,
   onError: ({ path, error }) => {
