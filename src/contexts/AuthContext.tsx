@@ -169,6 +169,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         console.log('🔍 Checking auth with backend...');
+        console.log('🔍 trpcClient:', trpcClient);
+        console.log('🔍 trpcClient.auth:', trpcClient.auth);
         console.log('🔍 Making request to:', 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me');
         // Try to get current user from backend
         const result = await trpcClient.auth.me.query();
