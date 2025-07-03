@@ -7,7 +7,7 @@ import { PriceListForm } from '../components/pricing/PriceListForm';
 import { AddProductsToPriceListModal } from '../components/pricing/AddProductsToPriceListModal';
 import { EditPriceListItemModal } from '../components/pricing/EditPriceListItemModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { formatDateRange, getPriceListStatus, formatCurrency } from '../utils/pricing';
+import { formatDateRange, getPriceListStatusSync, formatCurrencySync, calculateFinalPriceSync } from '../utils/pricing';
 import { PriceList, PriceListItem, CreatePriceListData } from '../types/pricing';
 
 export const PriceListDetailPage: React.FC = () => {
@@ -88,8 +88,7 @@ export const PriceListDetailPage: React.FC = () => {
   };
 
   const calculateFinalPrice = (unitPrice: number, surchargeRate?: number) => {
-    if (!surchargeRate) return unitPrice;
-    return unitPrice * (1 + surchargeRate / 100);
+    return calculateFinalPriceSync(unitPrice, surchargeRate);
   };
 
   if (isLoading) {
@@ -139,7 +138,7 @@ export const PriceListDetailPage: React.FC = () => {
     );
   }
 
-  const statusInfo = getPriceListStatus(priceList.start_date, priceList.end_date);
+  const statusInfo = getPriceListStatusSync(priceList.start_date, priceList.end_date);
 
   return (
     <div className="space-y-6">
@@ -313,7 +312,7 @@ export const PriceListDetailPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <span className="text-sm font-medium text-gray-900">
-                        {formatCurrency(item.unit_price, priceList.currency_code)}
+                        {formatCurrencySync(item.unit_price, priceList.currency_code)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -328,7 +327,7 @@ export const PriceListDetailPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <span className="text-sm font-medium text-gray-900">
-                        {formatCurrency(calculateFinalPrice(item.unit_price, item.surcharge_pct), priceList.currency_code)}
+                        {formatCurrencySync(calculateFinalPrice(item.unit_price, item.surcharge_pct), priceList.currency_code)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

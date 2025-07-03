@@ -13,6 +13,8 @@ import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
+import { trpc } from '../lib/trpc-client';
+import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 
 interface OrderLineItem {
   product_id: string;
@@ -53,6 +55,10 @@ export const CreateOrderPage: React.FC = () => {
   const customers = customersData?.customers || [];
   const products = productsData?.products || [];
   const priceLists = priceListsData?.priceLists || [];
+  
+  // Get product prices from backend
+  const productIds = products.map(p => p.id);
+  const { data: productPrices } = useProductPrices(productIds, selectedCustomerId || undefined);
   
   // Get active price lists (not expired)
   const today = new Date().toISOString().split('T')[0];
@@ -98,17 +104,34 @@ export const CreateOrderPage: React.FC = () => {
     }
   }, [selectedCustomerId, addresses, selectedAddressId]);
 
-  const getProductPrice = (productId: string): number => {
-    // Note: Price list items disabled - using default pricing
+  const getProductPrice = async (productId: string): Promise<number> => {
+    try {
+      const priceData = await trpc.pricing.getProductPrice.query({ 
+        productId,
+        customerId: selectedCustomerId || undefined
+      });
+      return priceData?.finalPrice || 0;
+    } catch (error) {
+      console.error('Failed to fetch product price:', error);
+      return 0;
+    }
+  };
+
+  // Synchronous version for immediate UI feedback
+  const getProductPriceSync = (productId: string): number => {
+    // Use cached price data from the hook
+    if (productPrices && productPrices[productId]) {
+      return productPrices[productId].finalPrice;
+    }
     return 0;
   };
 
-  const handleAddProduct = (productId: string) => {
+  const handleAddProduct = async (productId: string) => {
     const product = products.find((p: any) => p.id === productId);
     if (!product) return;
 
     const existingLine = orderLines.find((line: OrderLineItem) => line.product_id === productId);
-    const unitPrice = getProductPrice(productId);
+    const unitPrice = await getProductPrice(productId);
     const stockAvailable = getStockInfo(productId);
     
     if (existingLine) {
@@ -427,7 +450,7 @@ export const CreateOrderPage: React.FC = () => {
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {products.filter(p => p.status === 'active').map((product) => {
                     const stockAvailable = getStockInfo(product.id);
-                    const unitPrice = getProductPrice(product.id);
+                    const unitPrice = getProductPriceSync(product.id); // Use sync version for display
                     const orderLine = orderLines.find(line => line.product_id === product.id);
                     const isInOrder = !!orderLine;
                     const currentOrderQuantity = orderLine?.quantity || 0;

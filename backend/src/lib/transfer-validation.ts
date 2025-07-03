@@ -1,60 +1,146 @@
-import { 
-  MultiSkuTransferItem, 
-  MultiSkuTransfer, 
-  TransferValidationResult, 
-  WarehouseStockInfo,
-  TransferSummary 
-} from '../types/transfer';
-import { Product } from '../types/product';
-import { CYLINDER_WEIGHTS } from './truck-capacity';
-import { trpc } from '../lib/trpc-client';
+import { TRPCError } from '@trpc/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-/**
- * Validate a complete multi-SKU transfer using backend API
- */
-export async function validateMultiSkuTransfer(
-  transfer: Partial<MultiSkuTransfer>
-): Promise<TransferValidationResult> {
-  try {
-    // Prepare the transfer data for API call
-    const transferData = {
-      source_warehouse_id: transfer.source_warehouse_id!,
-      destination_warehouse_id: transfer.destination_warehouse_id!,
-      transfer_date: transfer.transfer_date!,
-      items: transfer.items?.map(item => ({
-        product_id: item.product_id,
-        product_sku: item.product_sku,
-        product_name: item.product_name,
-        variant_name: item.variant_name,
-        variant_type: item.variant_type,
-        quantity_to_transfer: item.quantity_to_transfer,
-        available_stock: item.available_stock,
-        reserved_stock: item.reserved_stock,
-        unit_weight_kg: item.unit_weight_kg,
-        unit_cost: item.unit_cost,
-        source_location: item.source_location,
-        batch_number: item.batch_number,
-        expiry_date: item.expiry_date
-      })) || [],
-      notes: transfer.notes,
-      reason: transfer.reason,
-      priority: transfer.priority || 'normal'
-    };
-
-    const result = await trpc.transfers.validateMultiSkuTransfer.mutate(transferData);
-    return result;
-  } catch (error) {
-    console.error('Failed to validate transfer via API, using fallback:', error);
-    // Fallback to local validation if API fails
-    return validateMultiSkuTransferFallback(transfer);
-  }
+// Transfer validation types
+export interface MultiSkuTransferItem {
+  id?: string;
+  product_id: string;
+  product_sku: string;
+  product_name: string;
+  variant_name?: string;
+  variant_type?: 'cylinder' | 'refillable' | 'disposable';
+  quantity_to_transfer: number;
+  available_stock?: number;
+  reserved_stock?: number;
+  unit_weight_kg?: number;
+  total_weight_kg?: number;
+  unit_cost?: number;
+  total_cost?: number;
+  source_location?: string;
+  batch_number?: string;
+  expiry_date?: string;
+  is_valid: boolean;
+  validation_errors: string[];
+  validation_warnings: string[];
 }
 
+export interface MultiSkuTransfer {
+  id?: string;
+  transfer_reference?: string;
+  source_warehouse_id: string;
+  source_warehouse_name?: string;
+  destination_warehouse_id: string;
+  destination_warehouse_name?: string;
+  transfer_date: string;
+  scheduled_date?: string;
+  completed_date?: string;
+  status: 'draft' | 'pending' | 'approved' | 'in_transit' | 'completed' | 'cancelled';
+  transfer_type: 'internal' | 'external' | 'adjustment' | 'return';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  items: MultiSkuTransferItem[];
+  total_items: number;
+  total_quantity: number;
+  total_weight_kg?: number;
+  total_cost?: number;
+  notes?: string;
+  reason?: string;
+  instructions?: string;
+  created_by_user_id: string;
+  created_by_user_name?: string;
+  approved_by_user_id?: string;
+  approved_by_user_name?: string;
+  processed_by_user_id?: string;
+  created_at: string;
+  updated_at: string;
+  approved_at?: string;
+  processed_at?: string;
+  truck_id?: string;
+  route_id?: string;
+  tracking_number?: string;
+  external_reference?: string;
+}
+
+export interface TransferValidationResult {
+  is_valid: boolean;
+  errors: string[];
+  warnings: string[];
+  blocked_items: string[];
+  total_weight_kg: number;
+  estimated_cost?: number;
+}
+
+export interface WarehouseStockInfo {
+  warehouse_id: string;
+  warehouse_name: string;
+  product_id: string;
+  product_sku: string;
+  product_name: string;
+  variant_name?: string;
+  qty_available: number;
+  qty_reserved: number;
+  qty_on_order: number;
+  qty_full?: number;
+  qty_empty?: number;
+  locations: Array<{
+    location_code: string;
+    location_name: string;
+    quantity: number;
+  }>;
+  last_updated: string;
+  reorder_level?: number;
+  max_capacity?: number;
+}
+
+export interface TransferSummary {
+  total_products: number;
+  total_quantity: number;
+  total_weight_kg: number;
+  total_cost?: number;
+  unique_variants: number;
+  heaviest_item?: MultiSkuTransferItem;
+  most_expensive_item?: MultiSkuTransferItem;
+  validation_summary: {
+    valid_items: number;
+    invalid_items: number;
+    items_with_warnings: number;
+  };
+}
+
+export interface Product {
+  id: string;
+  sku: string;
+  name: string;
+  description?: string;
+  unit_of_measure: 'cylinder' | 'kg';
+  capacity_kg?: number;
+  tare_weight_kg?: number;
+  valve_type?: string;
+  status: 'active' | 'end_of_sale' | 'obsolete';
+  barcode_uid?: string;
+  requires_tag: boolean;
+  created_at: string;
+  variant_type: 'cylinder' | 'refillable' | 'disposable';
+  parent_product_id?: string;
+  variant_name?: string;
+  is_variant: boolean;
+  parent_product?: Product;
+  variants?: Product[];
+}
+
+// Standard cylinder weights (kg) - can be customized per product
+export const CYLINDER_WEIGHTS = {
+  '6kg': { full: 16, empty: 10, net: 6 },
+  '13kg': { full: 27, empty: 14, net: 13 },
+  '48kg': { full: 98, empty: 50, net: 48 },
+  '90kg': { full: 180, empty: 90, net: 90 }
+} as const;
+
 /**
- * Fallback local validation for multi-SKU transfer
+ * Validate a complete multi-SKU transfer
  */
-function validateMultiSkuTransferFallback(
-  transfer: Partial<MultiSkuTransfer>
+export function validateMultiSkuTransfer(
+  transfer: Partial<MultiSkuTransfer>,
+  warehouseStockData: WarehouseStockInfo[]
 ): TransferValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -94,17 +180,18 @@ function validateMultiSkuTransferFallback(
     }
   }
 
-  // Validate each item (basic validation without stock data)
+  // Validate each item
   if (transfer.items) {
     for (const item of transfer.items) {
-      if (!item.product_id) {
-        errors.push(`${item.product_name}: Product ID is required`);
+      const itemValidation = validateTransferItem(item, warehouseStockData);
+      
+      if (!itemValidation.is_valid) {
         blocked_items.push(item.product_id);
+        errors.push(...itemValidation.errors.map(e => `${item.product_name}: ${e}`));
       }
-
-      if (!item.quantity_to_transfer || item.quantity_to_transfer <= 0) {
-        errors.push(`${item.product_name}: Transfer quantity must be greater than 0`);
-        blocked_items.push(item.product_id);
+      
+      if (itemValidation.warnings.length > 0) {
+        warnings.push(...itemValidation.warnings.map(w => `${item.product_name}: ${w}`));
       }
 
       total_weight_kg += item.total_weight_kg || 0;
@@ -139,47 +226,7 @@ function validateMultiSkuTransferFallback(
 }
 
 /**
- * Validate inventory availability using backend API
- */
-export async function validateInventoryAvailability(
-  warehouseId: string,
-  items: MultiSkuTransferItem[]
-): Promise<{ is_available: boolean; errors: string[]; warnings: string[] }> {
-  try {
-    const itemData = items.map(item => ({
-      product_id: item.product_id,
-      product_sku: item.product_sku,
-      product_name: item.product_name,
-      variant_name: item.variant_name,
-      variant_type: item.variant_type,
-      quantity_to_transfer: item.quantity_to_transfer,
-      available_stock: item.available_stock,
-      reserved_stock: item.reserved_stock,
-      unit_weight_kg: item.unit_weight_kg,
-      unit_cost: item.unit_cost,
-      source_location: item.source_location,
-      batch_number: item.batch_number,
-      expiry_date: item.expiry_date
-    }));
-
-    const result = await trpc.transfers.validateInventoryAvailability.mutate({
-      warehouse_id: warehouseId,
-      items: itemData
-    });
-
-    return result;
-  } catch (error) {
-    console.error('Failed to validate inventory availability via API:', error);
-    return {
-      is_available: false,
-      errors: ['Failed to validate inventory availability'],
-      warnings: []
-    };
-  }
-}
-
-/**
- * Validate a single transfer item (legacy function for backward compatibility)
+ * Validate a single transfer item
  */
 export function validateTransferItem(
   item: MultiSkuTransferItem,
@@ -241,42 +288,7 @@ export function validateTransferItem(
 }
 
 /**
- * Calculate transfer details using backend API
- */
-export async function calculateTransferDetails(
-  items: MultiSkuTransferItem[]
-): Promise<{ items: MultiSkuTransferItem[]; summary: TransferSummary }> {
-  try {
-    const itemData = items.map(item => ({
-      product_id: item.product_id,
-      product_sku: item.product_sku,
-      product_name: item.product_name,
-      variant_name: item.variant_name,
-      variant_type: item.variant_type,
-      quantity_to_transfer: item.quantity_to_transfer,
-      available_stock: item.available_stock,
-      reserved_stock: item.reserved_stock,
-      unit_weight_kg: item.unit_weight_kg,
-      unit_cost: item.unit_cost,
-      source_location: item.source_location,
-      batch_number: item.batch_number,
-      expiry_date: item.expiry_date
-    }));
-
-    const result = await trpc.transfers.calculateTransferDetails.mutate({
-      items: itemData
-    });
-
-    return result;
-  } catch (error) {
-    console.error('Failed to calculate transfer details via API, using fallback:', error);
-    // Fallback to local calculation
-    return calculateTransferDetailsFallback(items);
-  }
-}
-
-/**
- * Calculate transfer item weight and cost (legacy function for backward compatibility)
+ * Calculate transfer item weight and cost
  */
 export function calculateTransferItemDetails(
   item: MultiSkuTransferItem,
@@ -319,25 +331,6 @@ export function calculateTransferItemDetails(
     unit_cost,
     total_cost: unit_cost * item.quantity_to_transfer
   };
-}
-
-/**
- * Fallback calculation for transfer details
- */
-function calculateTransferDetailsFallback(
-  items: MultiSkuTransferItem[]
-): { items: MultiSkuTransferItem[]; summary: TransferSummary } {
-  const processedItems = items.map(item => ({
-    ...item,
-    unit_weight_kg: item.unit_weight_kg || 0,
-    total_weight_kg: (item.unit_weight_kg || 0) * item.quantity_to_transfer,
-    unit_cost: item.unit_cost || 0,
-    total_cost: (item.unit_cost || 0) * item.quantity_to_transfer
-  }));
-
-  const summary = generateTransferSummary(processedItems);
-
-  return { items: processedItems, summary };
 }
 
 /**
@@ -386,47 +379,9 @@ export function generateTransferSummary(items: MultiSkuTransferItem[]): Transfer
 }
 
 /**
- * Validate warehouse capacity using backend API
+ * Validate warehouse capacity for incoming transfer
  */
-export async function validateWarehouseCapacity(
-  warehouseId: string,
-  items: MultiSkuTransferItem[],
-  warehouseCapacityKg?: number
-): Promise<{ can_accommodate: boolean; warnings: string[] }> {
-  try {
-    const itemData = items.map(item => ({
-      product_id: item.product_id,
-      product_sku: item.product_sku,
-      product_name: item.product_name,
-      variant_name: item.variant_name,
-      variant_type: item.variant_type,
-      quantity_to_transfer: item.quantity_to_transfer,
-      available_stock: item.available_stock,
-      reserved_stock: item.reserved_stock,
-      unit_weight_kg: item.unit_weight_kg,
-      unit_cost: item.unit_cost,
-      source_location: item.source_location,
-      batch_number: item.batch_number,
-      expiry_date: item.expiry_date
-    }));
-
-    const result = await trpc.transfers.validateTransferCapacity.mutate({
-      warehouse_id: warehouseId,
-      items: itemData,
-      warehouse_capacity_kg: warehouseCapacityKg
-    });
-
-    return result;
-  } catch (error) {
-    console.error('Failed to validate warehouse capacity via API, using fallback:', error);
-    return validateWarehouseCapacityFallback(warehouseId, items, warehouseCapacityKg);
-  }
-}
-
-/**
- * Fallback warehouse capacity validation
- */
-function validateWarehouseCapacityFallback(
+export function validateWarehouseCapacity(
   warehouseId: string,
   items: MultiSkuTransferItem[],
   warehouseCapacityKg?: number
@@ -461,52 +416,9 @@ function validateWarehouseCapacityFallback(
 }
 
 /**
- * Check for transfer conflicts using backend API
+ * Check for potential conflicts with existing transfers
  */
-export async function checkTransferConflicts(
-  sourceWarehouseId: string,
-  destinationWarehouseId: string,
-  transferDate: string,
-  items: MultiSkuTransferItem[]
-): Promise<{ has_conflicts: boolean; conflicts: string[] }> {
-  try {
-    const itemData = items.map(item => ({
-      product_id: item.product_id,
-      product_sku: item.product_sku,
-      product_name: item.product_name,
-      variant_name: item.variant_name,
-      variant_type: item.variant_type,
-      quantity_to_transfer: item.quantity_to_transfer,
-      available_stock: item.available_stock,
-      reserved_stock: item.reserved_stock,
-      unit_weight_kg: item.unit_weight_kg,
-      unit_cost: item.unit_cost,
-      source_location: item.source_location,
-      batch_number: item.batch_number,
-      expiry_date: item.expiry_date
-    }));
-
-    const result = await trpc.transfers.checkTransferConflicts.mutate({
-      source_warehouse_id: sourceWarehouseId,
-      destination_warehouse_id: destinationWarehouseId,
-      transfer_date: transferDate,
-      items: itemData
-    });
-
-    return result;
-  } catch (error) {
-    console.error('Failed to check transfer conflicts via API:', error);
-    return {
-      has_conflicts: false,
-      conflicts: ['Could not check for transfer conflicts']
-    };
-  }
-}
-
-/**
- * Check for potential conflicts with existing transfers (legacy function)
- */
-export function checkTransferConflictsLocal(
+export function checkTransferConflicts(
   newTransfer: Partial<MultiSkuTransfer>,
   existingTransfers: MultiSkuTransfer[]
 ): { has_conflicts: boolean; conflicts: string[] } {
@@ -556,27 +468,9 @@ export function checkTransferConflictsLocal(
 }
 
 /**
- * Format validation errors for display using backend API
+ * Format validation errors for display
  */
-export async function formatValidationErrors(
-  validationResult: TransferValidationResult
-): Promise<{ severity: 'error' | 'warning'; message: string }[]> {
-  try {
-    const result = await trpc.transfers.formatValidationErrors.mutate({
-      validation_result: validationResult
-    });
-
-    return result;
-  } catch (error) {
-    console.error('Failed to format validation errors via API, using fallback:', error);
-    return formatValidationErrorsFallback(validationResult);
-  }
-}
-
-/**
- * Format validation errors for display (local fallback)
- */
-function formatValidationErrorsFallback(
+export function formatValidationErrors(
   validationResult: TransferValidationResult
 ): { severity: 'error' | 'warning'; message: string }[] {
   const messages: { severity: 'error' | 'warning'; message: string }[] = [];
@@ -608,49 +502,9 @@ export function generateTransferReference(
 }
 
 /**
- * Calculate estimated transfer duration using backend API
+ * Calculate estimated transfer duration based on items and distance
  */
-export async function estimateTransferDuration(
-  items: MultiSkuTransferItem[],
-  estimatedDistanceKm?: number
-): Promise<{
-  preparation_hours: number;
-  transport_hours: number;
-  total_hours: number;
-}> {
-  try {
-    const itemData = items.map(item => ({
-      product_id: item.product_id,
-      product_sku: item.product_sku,
-      product_name: item.product_name,
-      variant_name: item.variant_name,
-      variant_type: item.variant_type,
-      quantity_to_transfer: item.quantity_to_transfer,
-      available_stock: item.available_stock,
-      reserved_stock: item.reserved_stock,
-      unit_weight_kg: item.unit_weight_kg,
-      unit_cost: item.unit_cost,
-      source_location: item.source_location,
-      batch_number: item.batch_number,
-      expiry_date: item.expiry_date
-    }));
-
-    const result = await trpc.transfers.estimateTransferDuration.mutate({
-      items: itemData,
-      estimated_distance_km: estimatedDistanceKm
-    });
-
-    return result;
-  } catch (error) {
-    console.error('Failed to estimate transfer duration via API, using fallback:', error);
-    return estimateTransferDurationFallback(items, estimatedDistanceKm);
-  }
-}
-
-/**
- * Calculate estimated transfer duration (local fallback)
- */
-function estimateTransferDurationFallback(
+export function estimateTransferDuration(
   items: MultiSkuTransferItem[],
   estimatedDistanceKm?: number
 ): {
@@ -671,4 +525,58 @@ function estimateTransferDurationFallback(
     transport_hours,
     total_hours: preparation_hours + transport_hours
   };
-} 
+}
+
+/**
+ * Check if inventory is available for transfer
+ */
+export async function validateInventoryAvailability(
+  supabase: SupabaseClient,
+  warehouseId: string,
+  items: MultiSkuTransferItem[]
+): Promise<{ is_available: boolean; errors: string[]; warnings: string[] }> {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Get stock information for all items
+  const productIds = items.map(item => item.product_id);
+  const { data: stockData, error: stockError } = await supabase
+    .from('inventory_balance')
+    .select(`
+      *,
+      product:product_id(id, sku, name, capacity_kg, tare_weight_kg, is_variant, variant_name, variant_type)
+    `)
+    .eq('warehouse_id', warehouseId)
+    .in('product_id', productIds);
+
+  if (stockError) {
+    errors.push('Failed to fetch stock information');
+    return { is_available: false, errors, warnings };
+  }
+
+  // Validate each item
+  for (const item of items) {
+    const stockInfo = stockData?.find(stock => stock.product_id === item.product_id);
+
+    if (!stockInfo) {
+      errors.push(`Stock information not found for product ${item.product_id}`);
+      continue;
+    }
+
+    const availableForTransfer = stockInfo.qty_full - (stockInfo.qty_reserved || 0);
+    
+    if (item.quantity_to_transfer > availableForTransfer) {
+      errors.push(`Insufficient stock for product ${stockInfo.product?.name || item.product_id}. Available: ${availableForTransfer}, Requested: ${item.quantity_to_transfer}`);
+    }
+
+    if (item.quantity_to_transfer > stockInfo.qty_full * 0.9) {
+      warnings.push(`Transferring more than 90% of available stock for product ${stockInfo.product?.name || item.product_id}`);
+    }
+  }
+
+  return {
+    is_available: errors.length === 0,
+    errors,
+    warnings
+  };
+}

@@ -3,7 +3,7 @@ import { X, Loader2, Package, Search } from 'lucide-react';
 import { useProducts } from '../../hooks/useProducts';
 import { usePriceListItemsNew } from '../../hooks/usePricing';
 import { PriceList } from '../../types/pricing';
-import { formatCurrency } from '../../utils/pricing';
+import { formatCurrencySync, calculateFinalPriceSync } from '../../utils/pricing';
 
 interface ProductPrice {
   productId: string;
@@ -254,10 +254,8 @@ export const AddProductsToPriceListModal: React.FC<AddProductsToPriceListModalPr
                           {productPrice.unitPrice > 0 && (
                             <div className="mt-3 p-2 bg-blue-50 rounded">
                               <span className="text-sm text-blue-800">
-                                Final Price: {formatCurrency(
-                                  productPrice.surchargeRate 
-                                    ? productPrice.unitPrice * (1 + productPrice.surchargeRate / 100)
-                                    : productPrice.unitPrice,
+                                Final Price: {formatCurrencySync(
+                                  calculateFinalPriceSync(productPrice.unitPrice, productPrice.surchargeRate),
                                   priceList.currency_code
                                 )}
                               </span>

@@ -2,6 +2,20 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireTenantAccess } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
+import {
+  calculateOrderWeight,
+  calculateTruckCapacity,
+  findBestTruckForOrder,
+  validateTruckAllocation,
+  generateDailyTruckSchedule,
+  calculateFleetUtilization,
+  optimizeTruckAllocations,
+  type TruckWithInventory,
+  type TruckAllocation,
+  type Order,
+  type OrderLine,
+  type Product
+} from '../lib/truck-capacity';
 
 // Validation schemas
 const TruckStatusEnum = z.enum(['active', 'inactive', 'maintenance']);
@@ -601,5 +615,383 @@ export const trucksRouter = router({
       }
 
       return data;
+    }),
+
+  // Truck Capacity Calculation Endpoints
+  calculateOrderWeight: protectedProcedure
+    .input(z.object({
+      order_lines: z.array(z.object({
+        id: z.string(),
+        order_id: z.string(),
+        product_id: z.string(),
+        quantity: z.number(),
+        unit_price: z.number()
+      })),
+      product_ids: z.array(z.string()).optional()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Calculating order weight for order lines:', input.order_lines.length);
+      
+      // Get product details for weight calculation
+      const productIds = input.product_ids || input.order_lines.map(line => line.product_id);
+      
+      const { data: products, error } = await ctx.supabase
+        .from('products')
+        .select('id, name, sku, is_variant, variant_name, parent_product_id, capacity_kg, tare_weight_kg')
+        .in('id', productIds);
+
+      if (error) {
+        ctx.logger.error('Error fetching products for weight calculation:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch product data',
+        });
+      }
+
+      const result = calculateOrderWeight(input.order_lines, products || []);
+      
+      return result;
+    }),
+
+  calculateCapacity: protectedProcedure
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      date: z.string()
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Calculating truck capacity:', input.truck_id, input.date);
+      
+      // Get truck details
+      const { data: truck, error: truckError } = await ctx.supabase
+        .from('truck')
+        .select('*')
+        .eq('id', input.truck_id)
+        .single();
+
+      if (truckError || !truck) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Truck not found',
+        });
+      }
+
+      // Get truck allocations for the date
+      const { data: allocations, error: allocError } = await ctx.supabase
+        .from('truck_allocations')
+        .select('*')
+        .eq('allocation_date', input.date)
+        .neq('status', 'cancelled');
+
+      if (allocError) {
+        ctx.logger.error('Error fetching truck allocations:', allocError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch truck allocations',
+        });
+      }
+
+      const truckWithCapacity: TruckWithInventory = {
+        ...truck,
+        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
+        status: truck.status || (truck.active ? 'active' : 'inactive')
+      };
+
+      const result = calculateTruckCapacity(truckWithCapacity, allocations || [], input.date);
+      
+      return result;
+    }),
+
+  findBestAllocation: protectedProcedure
+    .input(z.object({
+      order_id: z.string().uuid(),
+      order_weight: z.number(),
+      target_date: z.string()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Finding best truck allocation for order:', input.order_id);
+      
+      // Get order details
+      const { data: order, error: orderError } = await ctx.supabase
+        .from('orders')
+        .select('*')
+        .eq('id', input.order_id)
+        .single();
+
+      if (orderError || !order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found',
+        });
+      }
+
+      // Get all active trucks
+      const { data: trucks, error: trucksError } = await ctx.supabase
+        .from('truck')
+        .select('*')
+        .eq('active', true);
+
+      if (trucksError) {
+        ctx.logger.error('Error fetching trucks:', trucksError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch trucks',
+        });
+      }
+
+      // Get all allocations for the target date
+      const { data: allocations, error: allocError } = await ctx.supabase
+        .from('truck_allocations')
+        .select('*')
+        .eq('allocation_date', input.target_date)
+        .neq('status', 'cancelled');
+
+      if (allocError) {
+        ctx.logger.error('Error fetching allocations:', allocError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch allocations',
+        });
+      }
+
+      // Enhance trucks with capacity info
+      const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => ({
+        ...truck,
+        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
+        status: truck.status || (truck.active ? 'active' : 'inactive')
+      }));
+
+      const result = findBestTruckForOrder(
+        order,
+        input.order_weight,
+        enhancedTrucks,
+        allocations || [],
+        input.target_date
+      );
+      
+      return result;
+    }),
+
+  validateAllocation: protectedProcedure
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      order_id: z.string().uuid(),
+      order_weight: z.number(),
+      target_date: z.string()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating truck allocation:', input.truck_id, input.order_id);
+      
+      // Get truck details
+      const { data: truck, error: truckError } = await ctx.supabase
+        .from('truck')
+        .select('*')
+        .eq('id', input.truck_id)
+        .single();
+
+      if (truckError || !truck) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Truck not found',
+        });
+      }
+
+      // Get order details
+      const { data: order, error: orderError } = await ctx.supabase
+        .from('orders')
+        .select('*')
+        .eq('id', input.order_id)
+        .single();
+
+      if (orderError || !order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found',
+        });
+      }
+
+      // Get existing allocations
+      const { data: existingAllocations, error: allocError } = await ctx.supabase
+        .from('truck_allocations')
+        .select('*')
+        .eq('truck_id', input.truck_id)
+        .eq('allocation_date', input.target_date)
+        .neq('status', 'cancelled');
+
+      if (allocError) {
+        ctx.logger.error('Error fetching existing allocations:', allocError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch existing allocations',
+        });
+      }
+
+      const truckWithCapacity: TruckWithInventory = {
+        ...truck,
+        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
+        status: truck.status || (truck.active ? 'active' : 'inactive')
+      };
+
+      const result = validateTruckAllocation(
+        truckWithCapacity,
+        order,
+        input.order_weight,
+        existingAllocations || [],
+        input.target_date
+      );
+      
+      return result;
+    }),
+
+  generateSchedule: protectedProcedure
+    .input(z.object({
+      date: z.string()
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Generating daily truck schedule for:', input.date);
+      
+      // Get all trucks
+      const { data: trucks, error: trucksError } = await ctx.supabase
+        .from('truck')
+        .select('*')
+        .order('fleet_number');
+
+      if (trucksError) {
+        ctx.logger.error('Error fetching trucks:', trucksError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch trucks',
+        });
+      }
+
+      // Get all allocations for the date
+      const { data: allocations, error: allocError } = await ctx.supabase
+        .from('truck_allocations')
+        .select('*')
+        .eq('allocation_date', input.date);
+
+      if (allocError) {
+        ctx.logger.error('Error fetching allocations:', allocError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch allocations',
+        });
+      }
+
+      // Enhance trucks with capacity info
+      const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => ({
+        ...truck,
+        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
+        status: truck.status || (truck.active ? 'active' : 'inactive')
+      }));
+
+      const schedules = generateDailyTruckSchedule(enhancedTrucks, allocations || [], input.date);
+      const fleetUtilization = calculateFleetUtilization(schedules);
+      
+      return {
+        schedules,
+        fleet_utilization: fleetUtilization
+      };
+    }),
+
+  optimizeAllocations: protectedProcedure
+    .input(z.object({
+      order_ids: z.array(z.string().uuid()),
+      target_date: z.string()
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Optimizing truck allocations for orders:', input.order_ids.length);
+      
+      // Get orders
+      const { data: orders, error: ordersError } = await ctx.supabase
+        .from('orders')
+        .select('*')
+        .in('id', input.order_ids);
+
+      if (ordersError) {
+        ctx.logger.error('Error fetching orders:', ordersError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch orders',
+        });
+      }
+
+      // Get order lines to calculate weights
+      const { data: orderLines, error: linesError } = await ctx.supabase
+        .from('order_lines')
+        .select('*')
+        .in('order_id', input.order_ids);
+
+      if (linesError) {
+        ctx.logger.error('Error fetching order lines:', linesError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch order lines',
+        });
+      }
+
+      // Get products for weight calculation
+      const productIds = [...new Set(orderLines?.map(line => line.product_id) || [])];
+      const { data: products, error: productsError } = await ctx.supabase
+        .from('products')
+        .select('id, name, sku, is_variant, variant_name, parent_product_id, capacity_kg, tare_weight_kg')
+        .in('id', productIds);
+
+      if (productsError) {
+        ctx.logger.error('Error fetching products:', productsError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch products',
+        });
+      }
+
+      // Calculate weights for each order
+      const orderWeights = new Map<string, number>();
+      for (const order of orders || []) {
+        const orderLinesForOrder = orderLines?.filter(line => line.order_id === order.id) || [];
+        const { total_weight_kg } = calculateOrderWeight(orderLinesForOrder, products || []);
+        orderWeights.set(order.id, total_weight_kg);
+      }
+
+      // Get trucks
+      const { data: trucks, error: trucksError } = await ctx.supabase
+        .from('truck')
+        .select('*')
+        .eq('active', true);
+
+      if (trucksError) {
+        ctx.logger.error('Error fetching trucks:', trucksError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch trucks',
+        });
+      }
+
+      // Enhance trucks with capacity info
+      const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => ({
+        ...truck,
+        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
+        status: truck.status || (truck.active ? 'active' : 'inactive')
+      }));
+
+      const result = optimizeTruckAllocations(
+        orders || [],
+        orderWeights,
+        enhancedTrucks,
+        input.target_date
+      );
+      
+      return result;
     }),
 });

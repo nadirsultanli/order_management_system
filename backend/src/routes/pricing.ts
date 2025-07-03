@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireTenantAccess } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
+import { PricingService } from '../lib/pricing';
 
 // Zod schemas for validation
 const PriceListStatusEnum = z.enum(['active', 'future', 'expired']);
@@ -52,28 +53,141 @@ const BulkPricingSchema = z.object({
   surcharge_pct: z.number().min(0).max(100).optional(),
 });
 
-// Helper functions
-const getListStatus = (startDate: string, endDate: string | null, today: string): string => {
-  if (startDate > today) return 'future';
-  if (endDate && endDate < today) return 'expired';
-  return 'active';
-};
-
-const isActiveList = (startDate: string, endDate: string | null, today: string): boolean => {
-  return startDate <= today && (!endDate || endDate >= today);
-};
-
-const calculateFinalPrice = (unitPrice: number, surchargePercent?: number): number => {
-  if (!surchargePercent) return unitPrice;
-  return unitPrice * (1 + surchargePercent / 100);
-};
-
-const validateDateRange = (startDate: string, endDate?: string): boolean => {
-  if (!endDate) return true;
-  return new Date(startDate) <= new Date(endDate);
-};
+// Helper functions moved to PricingService
 
 export const pricingRouter = router({
+  // Business logic endpoints
+  calculateFinalPrice: protectedProcedure
+    .input(z.object({
+      unitPrice: z.number().positive(),
+      surchargePercent: z.number().optional(),
+    }))
+    .query(({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return {
+        finalPrice: pricingService.calculateFinalPrice(input.unitPrice, input.surchargePercent)
+      };
+    }),
+
+  getPriceListStatus: protectedProcedure
+    .input(z.object({
+      startDate: z.string(),
+      endDate: z.string().optional(),
+    }))
+    .query(({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return pricingService.getPriceListStatus(input.startDate, input.endDate);
+    }),
+
+  validateDateRange: protectedProcedure
+    .input(z.object({
+      startDate: z.string(),
+      endDate: z.string().optional(),
+    }))
+    .query(({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return {
+        valid: pricingService.validateDateRange(input.startDate, input.endDate)
+      };
+    }),
+
+  isExpiringSoon: protectedProcedure
+    .input(z.object({
+      endDate: z.string().optional(),
+      days: z.number().optional().default(30),
+    }))
+    .query(({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return {
+        expiringSoon: pricingService.isExpiringSoon(input.endDate, input.days)
+      };
+    }),
+
+  getProductPrice: protectedProcedure
+    .input(z.object({
+      productId: z.string().uuid(),
+      customerId: z.string().uuid().optional(),
+      date: z.string().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const price = await pricingService.getProductPrice(input.productId, input.customerId, input.date);
+      return price;
+    }),
+
+  getProductPrices: protectedProcedure
+    .input(z.object({
+      productIds: z.array(z.string().uuid()),
+      customerId: z.string().uuid().optional(),
+      date: z.string().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const prices = await pricingService.getProductPrices(input.productIds, input.customerId, input.date);
+      return Object.fromEntries(prices);
+    }),
+
+  calculateOrderTotals: protectedProcedure
+    .input(z.object({
+      lines: z.array(z.object({
+        quantity: z.number().positive(),
+        unit_price: z.number().nonnegative(),
+        subtotal: z.number().optional(),
+      })),
+      taxPercent: z.number().default(0),
+    }))
+    .mutation(({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return pricingService.calculateOrderTotals(input.lines, input.taxPercent);
+    }),
+
+  validateProductPricing: protectedProcedure
+    .input(z.object({
+      productId: z.string().uuid(),
+      requestedPrice: z.number().positive(),
+      quantity: z.number().positive(),
+      priceListId: z.string().uuid().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return await pricingService.validateProductPricing(
+        input.productId,
+        input.requestedPrice,
+        input.quantity,
+        input.priceListId
+      );
+    }),
+
+  getActivePriceLists: protectedProcedure
+    .input(z.object({
+      date: z.string().optional(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return await pricingService.getActivePriceLists(input.date);
+    }),
+
+  formatCurrency: protectedProcedure
+    .input(z.object({
+      amount: z.number(),
+      currencyCode: z.string().default('KES'),
+    }))
+    .mutation(({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      return {
+        formatted: pricingService.formatCurrency(input.amount, input.currencyCode)
+      };
+    }),
   // GET /price-lists - List price lists with filtering
   list: protectedProcedure
     .input(z.object({
@@ -122,12 +236,16 @@ export const pricingRouter = router({
         });
       }
 
-      const today = new Date().toISOString().split('T')[0];
-      const processedLists = (data || []).map((list: any) => ({
-        ...list,
-        product_count: list.price_list_item?.[0]?.count || 0,
-        status: getListStatus(list.start_date, list.end_date, today),
-      })).filter((list: any) => {
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const processedLists = (data || []).map((list: any) => {
+        const statusInfo = pricingService.getPriceListStatus(list.start_date, list.end_date);
+        return {
+          ...list,
+          product_count: list.price_list_item?.[0]?.count || 0,
+          status: statusInfo.status,
+          statusInfo,
+        };
+      }).filter((list: any) => {
         if (input.status) {
           return list.status === input.status;
         }
@@ -179,7 +297,8 @@ export const pricingRouter = router({
       ctx.logger.info('Creating price list:', input);
       
       // Validate date range
-      if (!validateDateRange(input.start_date, input.end_date)) {
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      if (!pricingService.validateDateRange(input.start_date, input.end_date)) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'End date must be after start date'
@@ -255,7 +374,8 @@ export const pricingRouter = router({
         const startDate = updateData.start_date || current?.start_date;
         const endDate = updateData.end_date || current?.end_date;
         
-        if (!validateDateRange(startDate, endDate)) {
+        const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+        if (!pricingService.validateDateRange(startDate, endDate)) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'End date must be after start date'
@@ -739,16 +859,22 @@ export const pricingRouter = router({
         });
       }
 
-      const today = new Date().toISOString().split('T')[0];
-      const thirtyDaysFromNow = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
+      const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+      const detailedStats = await pricingService.getPricingStats();
+      
       const stats = {
-        total_price_lists: priceLists.length,
-        active_price_lists: priceLists.filter(list => isActiveList(list.start_date, list.end_date, today)).length,
-        future_price_lists: priceLists.filter(list => list.start_date > today).length,
-        expired_price_lists: priceLists.filter(list => list.end_date && list.end_date < today).length,
-        expiring_soon: priceLists.filter(list => list.end_date && list.end_date <= thirtyDaysFromNow && list.end_date >= today).length,
-        products_without_pricing: 0, // Could be calculated with a more complex query if needed
+        total_price_lists: detailedStats.totalPriceLists,
+        active_price_lists: detailedStats.activePriceLists,
+        future_price_lists: priceLists.filter(list => {
+          const status = pricingService.getPriceListStatus(list.start_date, list.end_date);
+          return status.status === 'future';
+        }).length,
+        expired_price_lists: priceLists.filter(list => {
+          const status = pricingService.getPriceListStatus(list.start_date, list.end_date);
+          return status.status === 'expired';
+        }).length,
+        expiring_soon: detailedStats.expiringPriceLists,
+        products_without_pricing: detailedStats.productsWithoutPricing,
       };
 
       ctx.logger.info('Pricing stats:', stats);
@@ -849,7 +975,8 @@ export const pricingRouter = router({
           continue;
         }
 
-        const finalPrice = calculateFinalPrice(priceItem.unit_price, priceItem.surcharge_pct);
+        const pricingService = new PricingService(ctx.supabase, ctx.logger, user.tenantId);
+        const finalPrice = pricingService.calculateFinalPrice(priceItem.unit_price, priceItem.surcharge_pct);
         const subtotal = finalPrice * item.quantity;
 
         results.push({

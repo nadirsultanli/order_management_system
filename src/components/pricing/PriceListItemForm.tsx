@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { X, Loader2, Plus } from 'lucide-react';
 import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
 import { useProducts } from '../../hooks/useProducts';
-import { formatCurrency } from '../../utils/pricing';
+import { formatCurrencySync, calculateFinalPriceSync } from '../../utils/pricing';
 
 interface PriceListItemFormProps {
   isOpen: boolean;
@@ -103,8 +103,9 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
     );
   };
 
+  // Use sync version for immediate UI feedback
   const calculateFinalPrice = (unitPrice: number, surcharge: number) => {
-    return unitPrice * (1 + (surcharge || 0) / 100);
+    return calculateFinalPriceSync(unitPrice, surcharge);
   };
 
   if (!isOpen) return null;
@@ -278,7 +279,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                 {(watchedPrice > 0 || bulkPrice > 0) && watchedSurcharge > 0 && (
                   <div className="p-3 bg-green-50 rounded-lg">
                     <div className="text-sm text-green-800">
-                      <strong>Final Price:</strong> {formatCurrency(
+                      <strong>Final Price:</strong> {formatCurrencySync(
                         calculateFinalPrice(
                           useBulkPrice ? bulkPrice : watchedPrice, 
                           watchedSurcharge

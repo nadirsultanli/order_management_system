@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Edit, Plus, DollarSign } from 'lucide-react';
 import { usePriceListsNew, useCreatePriceListItemNew } from '../../hooks/usePricing';
 import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
-import { formatCurrency, calculateFinalPrice, getPriceListStatus } from '../../utils/pricing';
+import { formatCurrencySync, calculateFinalPriceSync, getPriceListStatusSync } from '../../utils/pricing';
 import { PriceListItemForm } from '../pricing/PriceListItemForm';
 
 interface ProductPricingProps {
@@ -66,7 +66,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
 
   const today = new Date().toISOString().split('T')[0];
   const activePriceLists = allPriceLists.filter(list => {
-    const status = getPriceListStatus(list.start_date, list.end_date);
+    const status = getPriceListStatusSync(list.start_date, list.end_date);
     return status.status === 'active';
   });
 
@@ -168,8 +168,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                   if (!priceList || !items.length) return null;
                   
                   const item = items[0]; // There should only be one item per price list for a product
-                  const statusInfo = getPriceListStatus(priceList.start_date, priceList.end_date);
-                  const finalPrice = calculateFinalPrice(item.unit_price, item.surcharge_pct);
+                  const statusInfo = getPriceListStatusSync(priceList.start_date, priceList.end_date);
+                  const finalPrice = calculateFinalPriceSync(item.unit_price, item.surcharge_pct);
                   
                   return (
                     <tr key={priceListId} className="hover:bg-gray-50">
@@ -192,7 +192,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <span className="text-sm font-medium text-gray-900">
-                          {formatCurrency(item.unit_price)}
+                          {formatCurrencySync(item.unit_price)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -205,7 +205,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <span className="text-sm font-medium text-green-600">
-                          {formatCurrency(finalPrice)}
+                          {formatCurrencySync(finalPrice)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

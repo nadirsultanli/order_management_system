@@ -1,7 +1,7 @@
 import React from 'react';
 import { Edit, Copy, Star, Trash2, Loader2, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 import { PriceList } from '../../types/pricing';
-import { formatDateRange, getPriceListStatus, formatCurrency, isExpiringSoon } from '../../utils/pricing';
+import { formatDateRange, getPriceListStatusSync, formatCurrencySync, isExpiringSoonSync } from '../../utils/pricing';
 
 interface PriceListTableProps {
   priceLists: (PriceList & { product_count?: number; status?: string })[];
@@ -96,8 +96,8 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {priceLists.map((priceList) => {
-              const statusInfo = getPriceListStatus(priceList.start_date, priceList.end_date);
-              const expiringSoon = isExpiringSoon(priceList.end_date);
+              const statusInfo = getPriceListStatusSync(priceList.start_date, priceList.end_date);
+              const expiringSoon = isExpiringSoonSync(priceList.end_date);
 
               return (
                 <tr key={priceList.id} className="hover:bg-gray-50">
@@ -129,7 +129,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 font-mono">
-                      {formatCurrency(priceList.currency_code)}
+                      {priceList.currency_code}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2 } from 'lucide-react';
 import { PriceListItem } from '../../types/pricing';
-import { formatCurrency } from '../../utils/pricing';
+import { formatCurrencySync, calculateFinalPriceSync } from '../../utils/pricing';
 
 interface EditPriceListItemModalProps {
   isOpen: boolean;
@@ -63,9 +63,7 @@ export const EditPriceListItemModal: React.FC<EditPriceListItemModalProps> = ({
   };
 
   const calculateFinalPrice = () => {
-    if (!unitPrice) return 0;
-    if (!surchargeRate) return unitPrice;
-    return unitPrice * (1 + surchargeRate / 100);
+    return calculateFinalPriceSync(unitPrice || 0, surchargeRate);
   };
 
   if (!isOpen) return null;
@@ -168,12 +166,12 @@ export const EditPriceListItemModal: React.FC<EditPriceListItemModalProps> = ({
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-medium text-blue-900">Final Price:</span>
                       <span className="text-lg font-bold text-blue-900">
-                        {formatCurrency(calculateFinalPrice(), currencyCode)}
+                        {formatCurrencySync(calculateFinalPrice(), currencyCode)}
                       </span>
                     </div>
                     {surchargeRate && surchargeRate > 0 && (
                       <div className="text-xs text-blue-700 mt-1">
-                        Base: {formatCurrency(unitPrice, currencyCode)} + {surchargeRate}% surcharge
+                        Base: {formatCurrencySync(unitPrice, currencyCode)} + {surchargeRate}% surcharge
                       </div>
                     )}
                   </div>

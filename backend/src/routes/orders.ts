@@ -2,6 +2,32 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireTenantAccess } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
+import {
+  getOrderWorkflow,
+  getOrderStatusInfo,
+  canTransitionTo,
+  validateTransition,
+  calculateOrderTotalWithTax,
+  validateOrderForConfirmation,
+  validateOrderForScheduling,
+  validateOrderDeliveryWindow,
+  formatOrderId,
+  formatCurrency,
+  formatDate,
+  isOrderEditable,
+  isOrderCancellable,
+  getStatusColor,
+  getNextPossibleStatuses,
+  OrderStatusSchema,
+  OrderLineSchema,
+  StatusTransitionSchema,
+  CalculateTotalsSchema,
+  OrderValidationSchema,
+  type OrderStatus,
+  type OrderWorkflowStep,
+  type OrderValidationResult,
+  type OrderTotalCalculation,
+} from '../lib/order-workflow';
 
 const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']);
 
@@ -351,6 +377,173 @@ export const ordersRouter = router({
       const user = requireTenantAccess(ctx);
       
       return await updateOrderTax(ctx, input.order_id, input.tax_percent, user.id);
+    }),
+
+  // Workflow endpoints
+  
+  // GET /orders/workflow - Get order workflow steps
+  getWorkflow: protectedProcedure
+    .query(async ({ ctx }) => {
+      requireTenantAccess(ctx);
+      
+      ctx.logger.info('Fetching order workflow');
+      
+      return getOrderWorkflow();
+    }),
+
+  // POST /orders/workflow/validate-transition - Validate status transition
+  validateTransition: protectedProcedure
+    .input(StatusTransitionSchema)
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating status transition:', input);
+      
+      return validateTransition(input.current_status, input.new_status);
+    }),
+
+  // POST /orders/workflow/calculate-totals - Calculate order totals with tax
+  calculateTotals: protectedProcedure
+    .input(CalculateTotalsSchema)
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      ctx.logger.info('Calculating order totals:', input);
+      
+      // Ensure lines have the correct types
+      const validatedLines = input.lines.map(line => ({
+        quantity: line.quantity!,
+        unit_price: line.unit_price!,
+        subtotal: line.subtotal,
+      }));
+      
+      return calculateOrderTotalWithTax(validatedLines, input.tax_percent || 0);
+    }),
+
+  // POST /orders/workflow/validate-for-confirmation - Validate order for confirmation
+  validateForConfirmation: protectedProcedure
+    .input(z.object({
+      order: z.any(), // We'll validate the structure in the function
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating order for confirmation:', input.order.id);
+      
+      return validateOrderForConfirmation(input.order);
+    }),
+
+  // POST /orders/workflow/validate-for-scheduling - Validate order for scheduling
+  validateForScheduling: protectedProcedure
+    .input(z.object({
+      order: z.any(), // We'll validate the structure in the function
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating order for scheduling:', input.order.id);
+      
+      return validateOrderForScheduling(input.order);
+    }),
+
+  // POST /orders/workflow/validate-delivery-window - Validate order delivery window
+  validateDeliveryWindow: protectedProcedure
+    .input(z.object({
+      order: z.any(), // We'll validate the structure in the function
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating order delivery window:', input.order.id);
+      
+      return validateOrderDeliveryWindow(input.order);
+    }),
+
+  // GET /orders/{id}/workflow-info - Get workflow information for a specific order
+  getWorkflowInfo: protectedProcedure
+    .input(z.object({
+      order_id: z.string().uuid(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Getting workflow info for order:', input.order_id);
+      
+      // Get order to check current status
+      const { data: order, error } = await ctx.supabase
+        .from('orders')
+        .select('id, status')
+        .eq('id', input.order_id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Order not found'
+          });
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      const currentStatus = order.status as OrderStatus;
+      const currentStep = getOrderStatusInfo(currentStatus);
+      const nextPossibleStatuses = getNextPossibleStatuses(currentStatus);
+      
+      return {
+        currentStatus,
+        currentStep,
+        nextPossibleStatuses,
+        nextSteps: nextPossibleStatuses.map(status => getOrderStatusInfo(status)),
+        isEditable: isOrderEditable(currentStatus),
+        isCancellable: isOrderCancellable(currentStatus),
+        formattedOrderId: formatOrderId(order.id),
+        statusColor: getStatusColor(currentStatus),
+      };
+    }),
+
+  // Utility endpoints for formatting
+  
+  // POST /orders/workflow/format-order-id - Format order ID for display
+  formatOrderId: protectedProcedure
+    .input(z.object({
+      order_id: z.string().uuid(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      return {
+        formatted_id: formatOrderId(input.order_id),
+      };
+    }),
+
+  // POST /orders/workflow/format-currency - Format currency amount
+  formatCurrency: protectedProcedure
+    .input(z.object({
+      amount: z.number(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      return {
+        formatted_amount: formatCurrency(input.amount),
+      };
+    }),
+
+  // POST /orders/workflow/format-date - Format date for display
+  formatDate: protectedProcedure
+    .input(z.object({
+      date: z.string().datetime(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      requireTenantAccess(ctx);
+      
+      return {
+        formatted_date: formatDate(input.date),
+      };
     }),
 });
 

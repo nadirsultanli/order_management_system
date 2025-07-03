@@ -2,6 +2,24 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireTenantAccess } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
+import {
+  validateMultiSkuTransfer,
+  validateTransferItem,
+  calculateTransferItemDetails,
+  generateTransferSummary,
+  validateWarehouseCapacity,
+  checkTransferConflicts,
+  formatValidationErrors,
+  generateTransferReference as generateTransferReferenceFromLib,
+  estimateTransferDuration,
+  validateInventoryAvailability,
+  type MultiSkuTransferItem,
+  type MultiSkuTransfer,
+  type TransferValidationResult,
+  type WarehouseStockInfo,
+  type TransferSummary,
+  type Product
+} from '../lib/transfer-validation';
 
 // Validation schemas
 const TransferItemSchema = z.object({
@@ -54,6 +72,30 @@ const UpdateTransferStatusSchema = z.object({
   notes: z.string().optional(),
   completed_items: z.array(z.string().uuid()).optional(),
 });
+
+// Helper function to convert transfer item schema to MultiSkuTransferItem
+function createTransferItem(item: any): MultiSkuTransferItem {
+  return {
+    product_id: item.product_id,
+    product_sku: item.product_sku || '',
+    product_name: item.product_name || 'Unknown Product',
+    variant_name: item.variant_name,
+    variant_type: item.variant_type,
+    quantity_to_transfer: item.quantity_to_transfer,
+    available_stock: item.available_stock || 0,
+    reserved_stock: item.reserved_stock,
+    unit_weight_kg: item.unit_weight_kg,
+    total_weight_kg: item.total_weight_kg,
+    unit_cost: item.unit_cost,
+    total_cost: item.total_cost,
+    source_location: item.source_location,
+    batch_number: item.batch_number,
+    expiry_date: item.expiry_date,
+    is_valid: true,
+    validation_errors: [],
+    validation_warnings: []
+  };
+}
 
 const ValidateTransferSchema = z.object({
   source_warehouse_id: z.string().uuid(),
@@ -871,5 +913,317 @@ export const transfersRouter = router({
       }
 
       return filteredProducts;
+    }),
+
+  // POST /transfers/validate-multi-sku - Validate multi-SKU transfer with enhanced logic
+  validateMultiSkuTransfer: protectedProcedure
+    .input(z.object({
+      source_warehouse_id: z.string().uuid(),
+      destination_warehouse_id: z.string().uuid(),
+      transfer_date: z.string(),
+      items: z.array(TransferItemSchema).min(1),
+      notes: z.string().optional(),
+      reason: z.string().optional(),
+      priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating multi-SKU transfer:', input);
+
+      // Get warehouse stock information
+      const productIds = input.items.map(item => item.product_id);
+      const { data: stockData, error: stockError } = await ctx.supabase
+        .from('inventory_balance')
+        .select(`
+          *,
+          warehouse:warehouse_id(id, name),
+          product:product_id(
+            id,
+            sku,
+            name,
+            variant_name,
+            variant_type,
+            capacity_kg,
+            tare_weight_kg,
+            is_variant
+          )
+        `)
+        .eq('warehouse_id', input.source_warehouse_id)
+        .in('product_id', productIds);
+
+      if (stockError) {
+        ctx.logger.error('Stock data fetch error:', stockError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch stock information'
+        });
+      }
+
+      // Transform stock data to warehouse stock info format
+      const warehouseStockData: WarehouseStockInfo[] = (stockData || []).map((item: any) => ({
+        warehouse_id: item.warehouse_id,
+        warehouse_name: item.warehouse?.name || 'Unknown',
+        product_id: item.product_id,
+        product_sku: item.product?.sku || '',
+        product_name: item.product?.name || 'Unknown Product',
+        variant_name: item.product?.variant_name,
+        qty_available: item.qty_full + item.qty_empty,
+        qty_reserved: item.qty_reserved || 0,
+        qty_on_order: 0,
+        qty_full: item.qty_full,
+        qty_empty: item.qty_empty,
+        locations: [],
+        last_updated: item.updated_at,
+        reorder_level: 10,
+        max_capacity: 1000
+      }));
+
+      // Create partial transfer object for validation
+      const transferData: Partial<MultiSkuTransfer> = {
+        source_warehouse_id: input.source_warehouse_id,
+        destination_warehouse_id: input.destination_warehouse_id,
+        transfer_date: input.transfer_date,
+        items: input.items.map(item => createTransferItem(item))
+      };
+
+      // Perform validation
+      const validationResult = validateMultiSkuTransfer(transferData, warehouseStockData);
+
+      ctx.logger.info('Multi-SKU transfer validation result:', validationResult);
+      return validationResult;
+    }),
+
+  // POST /transfers/calculate-details - Calculate transfer item details
+  calculateTransferDetails: protectedProcedure
+    .input(z.object({
+      items: z.array(TransferItemSchema).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Calculating transfer details:', input);
+
+      // Get product information for all items
+      const productIds = input.items.map(item => item.product_id);
+      const { data: products, error: productError } = await ctx.supabase
+        .from('products')
+        .select('*')
+        .in('id', productIds);
+
+      if (productError) {
+        ctx.logger.error('Product fetch error:', productError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch product information'
+        });
+      }
+
+      // Calculate details for each item
+      const itemsWithDetails = input.items.map(item => {
+        const product = products?.find(p => p.id === item.product_id);
+        if (!product) {
+          const transferItem = createTransferItem(item);
+          transferItem.is_valid = false;
+          transferItem.validation_errors = ['Product not found'];
+          return transferItem;
+        }
+
+        const transferItem = createTransferItem({
+          ...item,
+          product_sku: product.sku,
+          product_name: product.name
+        });
+
+        return calculateTransferItemDetails(transferItem, product);
+      });
+
+      // Generate summary
+      const summary = generateTransferSummary(itemsWithDetails);
+
+      ctx.logger.info('Transfer details calculation complete');
+      return {
+        items: itemsWithDetails,
+        summary
+      };
+    }),
+
+  // POST /transfers/validate-capacity - Validate warehouse capacity
+  validateTransferCapacity: protectedProcedure
+    .input(z.object({
+      warehouse_id: z.string().uuid(),
+      items: z.array(TransferItemSchema).min(1),
+      warehouse_capacity_kg: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating transfer capacity:', input);
+
+      // Get warehouse information
+      const { data: warehouse, error: warehouseError } = await ctx.supabase
+        .from('warehouses')
+        .select('id, name, capacity_kg')
+        .eq('id', input.warehouse_id)
+        .single();
+
+      if (warehouseError) {
+        ctx.logger.error('Warehouse fetch error:', warehouseError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch warehouse information'
+        });
+      }
+
+      // Prepare transfer items with calculated weights
+      const transferItems: MultiSkuTransferItem[] = input.items.map(item => createTransferItem(item));
+
+      // Validate capacity
+      const capacityValidation = validateWarehouseCapacity(
+        input.warehouse_id,
+        transferItems,
+        input.warehouse_capacity_kg || warehouse.capacity_kg
+      );
+
+      ctx.logger.info('Warehouse capacity validation result:', capacityValidation);
+      return capacityValidation;
+    }),
+
+  // POST /transfers/validate-inventory - Validate inventory availability
+  validateInventoryAvailability: protectedProcedure
+    .input(z.object({
+      warehouse_id: z.string().uuid(),
+      items: z.array(TransferItemSchema).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating inventory availability:', input);
+
+      // Prepare transfer items
+      const transferItems: MultiSkuTransferItem[] = input.items.map(item => createTransferItem(item));
+
+      // Validate inventory availability
+      const availabilityValidation = await validateInventoryAvailability(
+        ctx.supabase,
+        input.warehouse_id,
+        transferItems
+      );
+
+      ctx.logger.info('Inventory availability validation result:', availabilityValidation);
+      return availabilityValidation;
+    }),
+
+  // POST /transfers/check-conflicts - Check for transfer conflicts
+  checkTransferConflicts: protectedProcedure
+    .input(z.object({
+      source_warehouse_id: z.string().uuid(),
+      destination_warehouse_id: z.string().uuid(),
+      transfer_date: z.string(),
+      items: z.array(TransferItemSchema).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Checking transfer conflicts:', input);
+
+      // Get existing transfers on the same date
+      const { data: existingTransfers, error: transferError } = await ctx.supabase
+        .from('transfers')
+        .select(`
+          *,
+          items:transfer_lines(
+            product_id,
+            quantity_full,
+            quantity_empty,
+            product:product_id(id, sku, name, variant_name)
+          )
+        `)
+        .eq('source_warehouse_id', input.source_warehouse_id)
+        .eq('transfer_date', input.transfer_date)
+        .in('status', ['pending', 'approved', 'in_transit']);
+
+      if (transferError) {
+        ctx.logger.error('Existing transfers fetch error:', transferError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch existing transfers'
+        });
+      }
+
+      // Transform existing transfers to the expected format
+      const transformedExistingTransfers: MultiSkuTransfer[] = (existingTransfers || []).map(transfer => ({
+        ...transfer,
+        items: transfer.items.map((item: any) => createTransferItem({
+          ...item,
+          product_sku: item.product?.sku || '',
+          product_name: item.product?.name || 'Unknown Product',
+          variant_name: item.product?.variant_name,
+          quantity_to_transfer: item.quantity_full + item.quantity_empty,
+          available_stock: 0
+        }))
+      }));
+
+      // Prepare new transfer data
+      const newTransferData: Partial<MultiSkuTransfer> = {
+        source_warehouse_id: input.source_warehouse_id,
+        destination_warehouse_id: input.destination_warehouse_id,
+        transfer_date: input.transfer_date,
+        items: input.items.map(item => createTransferItem(item))
+      };
+
+      // Check for conflicts
+      const conflictCheck = checkTransferConflicts(newTransferData, transformedExistingTransfers);
+
+      ctx.logger.info('Transfer conflicts check result:', conflictCheck);
+      return conflictCheck;
+    }),
+
+  // POST /transfers/estimate-duration - Estimate transfer duration
+  estimateTransferDuration: protectedProcedure
+    .input(z.object({
+      items: z.array(TransferItemSchema).min(1),
+      estimated_distance_km: z.number().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Estimating transfer duration:', input);
+
+      // Prepare transfer items
+      const transferItems: MultiSkuTransferItem[] = input.items.map(item => createTransferItem(item));
+
+      // Calculate duration estimate
+      const durationEstimate = estimateTransferDuration(
+        transferItems,
+        input.estimated_distance_km
+      );
+
+      ctx.logger.info('Transfer duration estimation complete:', durationEstimate);
+      return durationEstimate;
+    }),
+
+  // POST /transfers/format-validation-errors - Format validation errors for display
+  formatValidationErrors: protectedProcedure
+    .input(z.object({
+      validation_result: z.object({
+        is_valid: z.boolean(),
+        errors: z.array(z.string()),
+        warnings: z.array(z.string()),
+        blocked_items: z.array(z.string()),
+        total_weight_kg: z.number(),
+        estimated_cost: z.number().optional(),
+      }),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Formatting validation errors:', input);
+
+      // Format validation errors
+      const formattedErrors = formatValidationErrors(input.validation_result);
+
+      ctx.logger.info('Validation errors formatted');
+      return formattedErrors;
     }),
 });
