@@ -10,6 +10,7 @@
   "exclude": [
     "src/__tests__/**/*",
     "src/mcp/**/*",
+    "src/lib/netlify-adapter.ts",
     "**/*.test.ts",
     "**/*.spec.ts"
   ]

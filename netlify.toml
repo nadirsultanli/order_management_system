@@ -1,35 +1,13 @@
 [build]
-  command = "npm run build"
+  command = "npm run build:frontend"
   publish = "dist"
-  functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "18"
-
-# Environment variables for functions
-[functions.environment]
-  SUPABASE_URL = "https://trcrjinrdjgizqhjdgvc.supabase.co"
-  SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyY3JqaW5yZGpnaXpxaGpkZ3ZjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTA0MTY1MCwiZXhwIjoyMDY0NjE3NjUwfQ.3yf8UQGvmSl-EiYAdaKfZ8_HC-p5rgQMHseuvhGH59M"
-  SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyY3JqaW5yZGpnaXpxaGpkZ3ZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDkwNDE2NTAsImV4cCI6MjA2NDYxNzY1MH0.2-y5r5UzIfcGoHc6BPkRy5rnxWxl4SJwxUehPWBxAao"
-  JWT_SECRET = "nyG1PU9P6ZyX/+MzUDlWq49Q6lz0EpVEMQQnmqciZy0VDA2wVlwywxPfkkSpJpvRX5Lc8i4p3+hPmiF9tTOyJw=="
-
-# API routes to Netlify Functions
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
-  status = 200
-
-# Health check
-[[redirects]]
-  from = "/health"
-  to = "/.netlify/functions/api/health"
-  status = 200
+  VITE_BACKEND_URL = "https://your-railway-backend.railway.app/api/v1/trpc"
 
 # Frontend SPA routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
-  status = 200
-
-[functions]
-  node_bundler = "esbuild" 
+  status = 200 
