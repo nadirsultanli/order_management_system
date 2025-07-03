@@ -283,4 +283,20 @@ export async function estimateTransferDuration(
 }
 
 // Duration estimation fallback removed to achieve 100% UI purity.
-// All transfer duration estimation now handled by backend API. 
+// All transfer duration estimation now handled by backend API.
+
+/**
+ * Generate transfer reference for backward compatibility
+ */
+export function generateTransferReference(
+  sourceWarehouseId: string,
+  destinationWarehouseId: string,
+  date?: string
+): string {
+  const timestamp = date ? new Date(date) : new Date();
+  const dateStr = timestamp.toISOString().slice(0, 10).replace(/-/g, '');
+  const timeStr = timestamp.toISOString().slice(11, 19).replace(/:/g, '');
+  const sourceShort = sourceWarehouseId.slice(-4).toUpperCase();
+  const destShort = destinationWarehouseId.slice(-4).toUpperCase();
+  return `TRF-${dateStr}-${timeStr}-${sourceShort}-${destShort}`;
+}

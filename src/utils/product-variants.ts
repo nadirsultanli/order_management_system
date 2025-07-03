@@ -54,6 +54,14 @@ export const createVariantProduct = async (
   }
 };
 
+// Standard cylinder variants for backward compatibility
+export const STANDARD_CYLINDER_VARIANTS = [
+  { name: 'Small (5kg)', description: 'Standard 5kg gas cylinder' },
+  { name: 'Medium (15kg)', description: 'Standard 15kg gas cylinder' },
+  { name: 'Large (45kg)', description: 'Standard 45kg gas cylinder' },
+  { name: 'Industrial (90kg)', description: 'Industrial 90kg gas cylinder' },
+];
+
 // Standard cylinder variants - Now fetched from backend
 export const getStandardCylinderVariants = async (): Promise<Array<{ name: string; description: string }>> => {
   try {
@@ -61,15 +69,31 @@ export const getStandardCylinderVariants = async (): Promise<Array<{ name: strin
     return result.variants;
   } catch (error) {
     console.error('Failed to fetch standard cylinder variants via API:', error);
-    throw new Error('Standard cylinder variants fetch failed. Please try again.');
+    // Return fallback data
+    return STANDARD_CYLINDER_VARIANTS;
   }
 };
 
-// Removed hardcoded constants to achieve 100% UI purity.
-// Use getStandardCylinderVariants() async function instead.
+// Display name functions for backward compatibility
+export const getOrderTypeDisplayName = (orderType: string): string => {
+  const orderTypeMap: Record<string, string> = {
+    delivery: 'Delivery',
+    refill: 'Refill',
+    exchange: 'Exchange',
+    pickup: 'Pickup',
+  };
+  return orderTypeMap[orderType] || orderType;
+};
 
-// Removed local business logic to achieve 100% UI purity.
-// Use backend API for order and service type display names.
+export const getServiceTypeDisplayName = (serviceType: string): string => {
+  const serviceTypeMap: Record<string, string> = {
+    standard: 'Standard',
+    express: 'Express',
+    emergency: 'Emergency',
+    scheduled: 'Scheduled',
+  };
+  return serviceTypeMap[serviceType] || serviceType;
+};
 
 // Business logic for order types - Now uses backend API
 export const calculateExchangeQuantity = async (order: CreateOrderData): Promise<number> => {

@@ -18,8 +18,12 @@ export const formatCurrency = async (amount: number, currencyCode: string = 'KES
   }
 };
 
-// Removed local business logic to achieve 100% UI purity.
-// Use formatCurrency() async function instead.
+// Synchronous fallback for backward compatibility
+export const formatCurrencySync = (amount: number, currencyCode: string = 'KES'): string => {
+  const currency = getCurrencyOptions().find(c => c.code === currencyCode);
+  const symbol = currency?.symbol || 'Ksh';
+  return `${symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 export const calculateFinalPrice = async (unitPrice: number, surchargePercent?: number): Promise<number> => {
   try {
@@ -31,8 +35,11 @@ export const calculateFinalPrice = async (unitPrice: number, surchargePercent?: 
   }
 };
 
-// Removed local business logic to achieve 100% UI purity.
-// Use calculateFinalPrice() async function instead.
+// Synchronous fallback for backward compatibility
+export const calculateFinalPriceSync = (unitPrice: number, surchargePercent?: number): number => {
+  if (!surchargePercent || surchargePercent === 0) return unitPrice;
+  return unitPrice * (1 + surchargePercent / 100);
+};
 
 export const formatDateRange = (startDate: string, endDate?: string): string => {
   const start = new Date(startDate).toLocaleDateString('en-US', {
@@ -65,8 +72,26 @@ export const getPriceListStatus = async (startDate: string, endDate?: string): P
   }
 };
 
-// Removed local business logic to achieve 100% UI purity.
-// Use getPriceListStatus() async function instead.
+// Synchronous fallback for backward compatibility
+export const getPriceListStatusSync = (startDate: string, endDate?: string): {
+  status: 'active' | 'future' | 'expired';
+  label: string;
+  color: string;
+} => {
+  const now = new Date();
+  const start = new Date(startDate);
+  const end = endDate ? new Date(endDate) : null;
+
+  if (start > now) {
+    return { status: 'future', label: 'Future', color: 'bg-blue-100 text-blue-800' };
+  }
+  
+  if (end && end < now) {
+    return { status: 'expired', label: 'Expired', color: 'bg-gray-100 text-gray-800' };
+  }
+  
+  return { status: 'active', label: 'Active', color: 'bg-green-100 text-green-800' };
+};
 
 export const validateDateRange = async (startDate: string, endDate?: string): Promise<boolean> => {
   try {
@@ -78,9 +103,6 @@ export const validateDateRange = async (startDate: string, endDate?: string): Pr
   }
 };
 
-// Removed local business logic to achieve 100% UI purity.
-// Use validateDateRange() async function instead.
-
 export const isExpiringSoon = async (endDate?: string, days: number = 30): Promise<boolean> => {
   try {
     const result = await trpc.pricing.isExpiringSoon.query({ endDate, days });
@@ -91,5 +113,11 @@ export const isExpiringSoon = async (endDate?: string, days: number = 30): Promi
   }
 };
 
-// Removed local business logic to achieve 100% UI purity.
-// Use isExpiringSoon() async function instead.
+// Synchronous fallback for backward compatibility
+export const isExpiringSoonSync = (endDate?: string, days: number = 30): boolean => {
+  if (!endDate) return false;
+  const end = new Date(endDate);
+  const threshold = new Date();
+  threshold.setDate(threshold.getDate() + days);
+  return end <= threshold;
+};
