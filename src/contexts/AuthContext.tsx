@@ -127,22 +127,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log('🔄 Initializing auth...');
       const token = localStorage.getItem('auth_token');
+      console.log('📱 Token from localStorage:', token ? 'EXISTS' : 'NOT_FOUND');
       
       if (!token) {
+        console.log('❌ No token found, redirecting to login');
         setState(prev => ({ ...prev, loading: false }));
+        window.location.href = '/login';
         return;
       }
 
       try {
+        console.log('🔍 Checking auth with backend...');
         // Try to get current user from backend
         const result = await trpcClient.auth.me.query();
+        console.log('✅ Auth check successful:', result);
         setState({
           user: result.user,
           loading: false,
           error: null,
         });
       } catch (error) {
+        console.log('❌ Auth check failed:', error);
         // Token is invalid, clear it
         localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
@@ -151,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           loading: false,
           error: null,
         });
+        window.location.href = '/login';
       }
     };
 
