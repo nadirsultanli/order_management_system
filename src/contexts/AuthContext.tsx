@@ -169,17 +169,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         console.log('🔍 Checking auth with backend...');
-        console.log('🔍 trpcClient:', trpcClient);
-        console.log('🔍 trpcClient.auth:', trpcClient.auth);
-        console.log('🔍 Making request to:', 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me');
-        // Try to get current user from backend
-        const result = await trpcClient.auth.me.query();
-        console.log('✅ Auth check successful:', result);
-        setState({
-          user: result.user,
-          loading: false,
-          error: null,
+        
+        // Use fetch directly since trpcClient.auth is undefined
+        const tokenForHeader = token;
+        const response = await fetch('https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me?batch=1', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenForHeader}`,
+          },
+          body: JSON.stringify([]),
         });
+        
+        const data = await response.json();
+        console.log('✅ Auth check response:', data);
+        
+        if (data && data[0] && data[0].result && data[0].result.data) {
+          const result = data[0].result.data;
+          console.log('✅ Auth check successful:', result);
+          setState({
+            user: result.user,
+            loading: false,
+            error: null,
+          });
+        } else {
+          throw new Error('Invalid response format from auth.me');
+        }
       } catch (error) {
         console.log('❌ Auth check failed with error:', error);
         console.log('❌ Error details:', {
