@@ -27,16 +27,16 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 // Security middleware - strict CSP for most endpoints
 app.use((req, res, next) => {
   // Relax CSP only for documentation endpoints
-  if (req.path === '/api/docs' || req.path === '/docs') {
+  if (req.path === '/api/docs' || req.path === '/docs' || req.path === '/scalar') {
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:"],
           fontSrc: ["'self'", "https:", "data:"],
-          connectSrc: ["'self'", "https:", "wss:"],
+          connectSrc: ["'self'", "https:", "wss:", "https://cdn.jsdelivr.net"],
           frameSrc: ["'none'"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
