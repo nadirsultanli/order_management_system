@@ -53,13 +53,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
       });
 
-      console.log('Login result:', result);
-
       // Store tokens in localStorage
       localStorage.setItem('auth_token', result.session.access_token);
       localStorage.setItem('refresh_token', result.session.refresh_token);
-
-      console.log('Token stored:', localStorage.getItem('auth_token'));
 
       setState({
         user: result.user,
@@ -131,15 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
-      console.log('🔄 Initializing auth...');
-      
       // Try multiple ways to get the token
       let token = localStorage.getItem('auth_token');
       
       // If auth_token doesn't exist, try to get from session object
       if (!token) {
         const keys = Object.keys(localStorage);
-        console.log('📱 LocalStorage keys:', keys);
         
         for (const key of keys) {
           const value = localStorage.getItem(key);
@@ -147,7 +140,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const parsed = JSON.parse(value);
             if (parsed && parsed.access_token) {
               token = parsed.access_token;
-              console.log('📱 Found token in key:', key);
               break;
             }
           } catch (e) {
@@ -156,24 +148,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       
-      console.log('📱 Token from localStorage:', token ? 'EXISTS' : 'NOT_FOUND');
-      
       // Don't redirect if we're already on the login page
       const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
       
       if (!token) {
-        console.log('❌ No token found');
         setState(prev => ({ ...prev, user: null, adminUser: null, loading: false }));
         if (!isLoginPage) {
-          console.log('🔄 Redirecting to login');
           window.location.href = '/login';
         }
         return;
       }
 
       try {
-        console.log('🔍 Checking auth with backend...');
-        
         // Use GET request for tRPC query procedure
         const tokenForHeader = token;
         const response = await fetch('https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me', {
@@ -184,11 +170,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
         
         const data = await response.json();
-        console.log('✅ Auth check response:', data);
         
         if (data && data.result && data.result.data) {
           const result = data.result.data;
-          console.log('✅ Auth check successful:', result);
           setState({
             user: result.user,
             adminUser: result.user, // Backend returns admin user data in the user object
@@ -199,12 +183,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Invalid response format from auth.me');
         }
       } catch (error) {
-        console.log('❌ Auth check failed with error:', error);
-        console.log('❌ Error details:', {
-          message: error?.message,
-          status: error?.status,
-          code: error?.code
-        });
+        // Keep only essential error logging for production debugging
+        console.error('Auth initialization failed:', error?.message);
+        
         // Token is invalid, clear it
         localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
@@ -215,7 +196,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           error: null,
         });
         if (!isLoginPage) {
-          console.log('🔄 Redirecting back to login due to auth failure');
           window.location.href = '/login';
         }
       }
