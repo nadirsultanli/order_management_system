@@ -1,33 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { getTruckInventory, TruckInventoryItem } from '../../lib/transfers';
 import { Package, Loader2 } from 'lucide-react';
+import { trpc } from '../../lib/trpc-client';
+
+// Define type locally since it was removed from lib/transfers
+interface TruckInventoryItem {
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  qty_full: number;
+  qty_empty: number;
+  updated_at: string;
+}
 
 interface TruckInventoryProps {
   truckId: string;
 }
 
 export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
-  const [inventory, setInventory] = useState<TruckInventoryItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    loadInventory();
-  }, [truckId]);
-
-  const loadInventory = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getTruckInventory(truckId);
-      setInventory(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load truck inventory');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use tRPC to get truck details with inventory
+  const { data: truck, isLoading: loading, error: truckError } = trpc.trucks.get.useQuery({ id: truckId });
+  
+  const error = truckError?.message || null;
+  const inventory = truck?.inventory || [];
 
   if (loading) {
     return (
@@ -82,7 +76,7 @@ export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {inventory.map((item) => (
+          {inventory.map((item: any) => (
             <tr key={item.product_id}>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-900">{item.product_name}</div>

@@ -650,7 +650,7 @@ export const trucksRouter = router({
         });
       }
 
-      const result = calculateOrderWeight(input.order_lines, products || []);
+      const result = calculateOrderWeight(input.order_lines as OrderLine[], products || []);
       
       return result;
     }),

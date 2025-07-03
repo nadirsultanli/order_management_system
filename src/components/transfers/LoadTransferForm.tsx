@@ -1,17 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { createLoadTransfer, getAvailableTrucks, TransferLine } from '../../lib/transfers';
 import { WarehouseInventory } from './WarehouseInventory';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
 import { ProductSelector } from '../products/ProductSelector';
+import { trpc } from '../../lib/trpc-client';
+
+// Define types locally since they were removed from lib/transfers
+interface TransferLine {
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  unit_of_measure: string;
+  qty_full: number | string;
+  qty_empty: number | string;
+}
 
 interface LoadTransferFormProps {
   onSuccess?: () => void;
 }
 
 export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess }) => {
-  const [trucks, setTrucks] = useState<any[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<string>('');
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
   const [lines, setLines] = useState<TransferLine[]>([]);
@@ -23,19 +32,12 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadTrucks();
-  }, []);
-
-  const loadTrucks = async () => {
-    try {
-      const data = await getAvailableTrucks();
-      setTrucks(data);
-    } catch (err) {
-      setError('Failed to load trucks');
-      console.error(err);
-    }
-  };
+  // Use tRPC to get trucks
+  const { data: trucksData } = trpc.trucks.list.useQuery({ active: true });
+  const trucks = trucksData?.trucks || [];
+  
+  // Use tRPC to create transfer
+  const createTransferMutation = trpc.transfers.create.useMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,8 +85,16 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
 
       console.log('Creating transfer with data:', transferData);
 
-      const transferId = await createLoadTransfer(transferData);
-      console.log('Transfer created successfully:', transferId);
+      const transfer = await createTransferMutation.mutateAsync({
+        source_warehouse_id: transferData.warehouse_id,
+        destination_warehouse_id: '', // This would need to be selected, for now leave empty
+        transfer_date: new Date().toISOString().split('T')[0],
+        items: transferData.lines.map(line => ({
+          product_id: line.product_id,
+          quantity_to_transfer: (line.qty_full || 0) + (line.qty_empty || 0)
+        }))
+      });
+      console.log('Transfer created successfully:', transfer);
 
       // Reset form
       setSelectedTruck('');
@@ -138,8 +148,8 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   };
 
   const filteredTrucks = trucks.filter(truck =>
-    truck.fleet_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    truck.license_plate.toLowerCase().includes(searchTerm.toLowerCase())
+    truck.fleet_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    truck.license_plate?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

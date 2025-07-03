@@ -1221,7 +1221,7 @@ export const transfersRouter = router({
       ctx.logger.info('Formatting validation errors:', input);
 
       // Format validation errors
-      const formattedErrors = formatValidationErrors(input.validation_result);
+      const formattedErrors = formatValidationErrors(input.validation_result as TransferValidationResult);
 
       ctx.logger.info('Validation errors formatted');
       return formattedErrors;

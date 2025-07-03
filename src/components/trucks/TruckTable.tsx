@@ -1,7 +1,16 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Truck, Package, AlertCircle } from 'lucide-react';
-import { TruckInventoryItem } from '../../lib/transfers';
+
+// Define type locally since it was removed from lib/transfers
+interface TruckInventoryItem {
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  qty_full: number;
+  qty_empty: number;
+  updated_at: string;
+}
 
 interface TruckDetails {
   id: string;

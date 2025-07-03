@@ -145,7 +145,13 @@ export const pricingRouter = router({
     .mutation(({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      return pricingService.calculateOrderTotals(input.lines, input.taxPercent);
+      // Ensure required properties are present
+      const validatedLines = input.lines.map(line => ({
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+        subtotal: line.subtotal,
+      }));
+      return pricingService.calculateOrderTotals(validatedLines, input.taxPercent);
     }),
 
   validateProductPricing: protectedProcedure

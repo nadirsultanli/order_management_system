@@ -627,8 +627,8 @@ export const analyticsRouter = router({
 
       const orders_by_status = Object.entries(statusCounts).map(([status, count]) => ({
         status,
-        count,
-        percentage: totalOrders > 0 ? (count / totalOrders) * 100 : 0,
+        count: count as number,
+        percentage: totalOrders > 0 ? ((count as number) / totalOrders) * 100 : 0,
       }));
 
       // Calculate daily trends
@@ -645,8 +645,8 @@ export const analyticsRouter = router({
       const daily_trends = Object.entries(dailyData)
         .map(([date, data]) => ({
           date,
-          orders: data.orders,
-          revenue: data.revenue,
+          orders: (data as { orders: number; revenue: number }).orders,
+          revenue: (data as { orders: number; revenue: number }).revenue,
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
 
