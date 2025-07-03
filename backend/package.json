@@ -13,6 +13,9 @@
     "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
     "@trpc/server": "^10.45.2",
