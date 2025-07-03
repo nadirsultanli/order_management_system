@@ -146,6 +146,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         console.log('🔍 Checking auth with backend...');
+        console.log('🔍 Making request to:', 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me');
         // Try to get current user from backend
         const result = await trpcClient.auth.me.query();
         console.log('✅ Auth check successful:', result);
@@ -155,7 +156,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           error: null,
         });
       } catch (error) {
-        console.log('❌ Auth check failed:', error);
+        console.log('❌ Auth check failed with error:', error);
+        console.log('❌ Error details:', {
+          message: error?.message,
+          status: error?.status,
+          code: error?.code
+        });
         // Token is invalid, clear it
         localStorage.removeItem('auth_token');
         localStorage.removeItem('refresh_token');
@@ -165,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           error: null,
         });
         if (!isLoginPage) {
+          console.log('🔄 Redirecting back to login due to auth failure');
           window.location.href = '/login';
         }
       }
