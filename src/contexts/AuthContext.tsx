@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { trpc } from '../lib/trpc-client';
+import { trpc, trpcClient } from '../lib/trpc-client';
 
 interface User {
   id: string;
@@ -41,7 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginMutation = trpc.auth.login.useMutation();
   const registerMutation = trpc.auth.register.useMutation();
   const logoutMutation = trpc.auth.logout.useMutation();
-  const meMutation = trpc.auth.me.useMutation();
 
   const signIn = async (email: string, password: string) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
@@ -137,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         // Try to get current user from backend
-        const result = await meMutation.mutateAsync();
+        const result = await trpcClient.auth.me.query();
         setState({
           user: result.user,
           loading: false,
