@@ -1,16 +1,21 @@
 # Order Management System - Backend API
 
-Backend API for the LPG Order Management System with multi-tenant support.
+## 🚀 Quick Links
 
-## Features
+- **🌐 Production API**: https://ordermanagementsystem-production-3ed7.up.railway.app
+- **📖 Interactive Docs**: https://ordermanagementsystem-production-3ed7.up.railway.app/api/docs
+- **📋 Full Documentation**: https://ordermanagementsystem-production-3ed7.up.railway.app/docs
+- **💚 Health Check**: https://ordermanagementsystem-production-3ed7.up.railway.app/health
 
-- **tRPC** for type-safe API endpoints
-- **Multi-tenant architecture** with Row Level Security (RLS)
-- **JWT authentication** with tenant isolation
-- **Supabase integration** for database operations
-- **TypeScript** for type safety
-- **Comprehensive logging** with Winston
-- **Test framework** with Jest
+## 🏗️ Architecture
+
+- **Framework**: Express.js + tRPC for type-safe API endpoints
+- **Database**: Supabase (PostgreSQL) with Row Level Security (RLS)
+- **Authentication**: JWT with Supabase Auth and tenant isolation
+- **Deployment**: Railway with automatic builds
+- **Type Safety**: TypeScript + Zod validation
+- **Logging**: Winston with structured logging
+- **Testing**: Jest with comprehensive test coverage
 
 ## Project Structure
 
@@ -61,16 +66,35 @@ backend/
    npm test
    ```
 
-## API Endpoints
+## 📖 Documentation Types
 
-The API uses tRPC with the following main routers:
+### 1. Interactive API Explorer (`/api/docs`)
+**Best for**: Testing endpoints, exploring schemas, live API calls
+- Browse all available procedures with real-time testing
+- View request/response schemas
+- Test authentication flows
+- Real-time validation feedback
 
-- `/api/v1/trpc/orders.*` - Order management
-- `/api/v1/trpc/inventory.*` - Inventory operations
-- `/api/v1/trpc/transfers.*` - Transfer management
-- `/api/v1/trpc/pricing.*` - Pricing calculations
-- `/api/v1/trpc/customers.*` - Customer operations
-- `/api/v1/trpc/analytics.*` - Analytics and reporting
+### 2. Markdown Documentation (`/docs`)
+**Best for**: Understanding concepts, implementation guides
+- Complete API reference with examples
+- Authentication guide
+- Error handling patterns
+- Integration examples
+
+## 🔗 Core API Modules
+
+| Module | Base Path | Description |
+|--------|-----------|-------------|
+| Auth | `/auth.*` | Login, logout, user registration |
+| Customers | `/customers.*` | Customer management & delivery windows |
+| Products | `/products.*` | Product catalog, variants & inventory |
+| Orders | `/orders.*` | Order lifecycle & calculations |
+| Warehouses | `/warehouses.*` | Warehouse operations |
+| Trucks | `/trucks.*` | Fleet management & capacity optimization |
+| Transfers | `/transfers.*` | Inter-warehouse inventory transfers |
+| Pricing | `/pricing.*` | Price lists & real-time calculations |
+| Analytics | `/analytics.*` | Business intelligence & reporting |
 
 ## Authentication
 
