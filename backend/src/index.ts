@@ -17,15 +17,19 @@ app.use(helmet());
 // Configure CORS origins
 const getCorsOrigins = (): (string | RegExp)[] => {
   if (process.env.NODE_ENV === 'production') {
-    // Allow both environment variable and common deployment patterns
-    const origins: string[] = [
+    // Explicit list of allowed origins
+    const origins = [
+      'https://omsmvpapp.netlify.app',
       process.env.FRONTEND_URL,
-      process.env.NETLIFY_URL,
-      'https://omsmvpapp.netlify.app', // Your actual Netlify URL
-    ].filter((url): url is string => Boolean(url));
+      /https:\/\/.*\.netlify\.app$/
+    ].filter(Boolean);
     
-    // Also allow any netlify.app subdomain for preview deployments
-    return [...origins, /https:\/\/.*\.netlify\.app$/];
+    logger.info('CORS origins configured:', { 
+      origins: origins.map(o => o.toString()),
+      frontendUrl: process.env.FRONTEND_URL 
+    });
+    
+    return origins;
   }
   
   return ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001'];
@@ -33,7 +37,9 @@ const getCorsOrigins = (): (string | RegExp)[] => {
 
 app.use(cors({
   origin: getCorsOrigins(),
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json({ limit: '10mb' }));
