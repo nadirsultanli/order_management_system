@@ -24,8 +24,30 @@ for (const envVar of requiredEnvVars) {
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
-// Security and parsing middleware
-app.use(helmet());
+// Security middleware - strict CSP for most endpoints
+app.use((req, res, next) => {
+  // Relax CSP only for documentation endpoints
+  if (req.path === '/api/docs' || req.path === '/docs') {
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          fontSrc: ["'self'", "https:", "data:"],
+          connectSrc: ["'self'", "https:", "wss:"],
+          frameSrc: ["'none'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+        },
+      },
+    })(req, res, next);
+  } else {
+    // Strict CSP for other endpoints
+    helmet()(req, res, next);
+  }
+});
 // Bulletproof CORS configuration
 app.use((req, res, next) => {
   const allowedOrigins = [
@@ -56,6 +78,11 @@ logger.info('CORS configured for:', [process.env.FRONTEND_URL || 'https://omsmvp
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Favicon endpoint to prevent 404 errors
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).send(); // No content response
+});
 
 // Root endpoint - API status
 app.get('/', (req, res) => {
@@ -108,14 +135,47 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API Documentation - Interactive tRPC Panel
-app.use('/api/docs', (_req, res) => {
-  return res.type('html').send(
-    renderTrpcPanel(appRouter, {
-      url: `${process.env.BACKEND_URL || 'http://localhost:3001'}/api/v1/trpc`,
-      transformer: 'superjson', // if you use superjson
-    })
-  );
+// Simple API Documentation (no CSP issues)
+app.get('/api/docs', (req, res) => {
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? `https://${req.get('host')}`
+    : `http://${req.get('host')}`;
+    
+  try {
+    const template = fs.readFileSync(path.join(__dirname, 'docs-template.html'), 'utf8');
+    const html = template
+      .replace(/\{\{BASE_URL\}\}/g, baseUrl)
+      .replace(/\{\{ENVIRONMENT\}\}/g, process.env.NODE_ENV || 'development');
+      
+    return res.type('html').send(html);
+  } catch (error) {
+    logger.error('Error serving documentation template:', error);
+    return res.type('html').send(`
+      <html>
+        <head><title>API Documentation</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+          <h1>Order Management System API</h1>
+          <p><strong>Base URL:</strong> ${baseUrl}</p>
+          <p><strong>Status:</strong> Running</p>
+          <h2>Quick Links:</h2>
+          <ul>
+            <li><a href="${baseUrl}/docs">📋 Full Documentation</a></li>
+            <li><a href="${baseUrl}/health">💚 Health Check</a></li>
+            <li><a href="${baseUrl}/">🏠 API Info</a></li>
+          </ul>
+          <h2>Authentication:</h2>
+          <p>Include Bearer token: <code>Authorization: Bearer YOUR_JWT_TOKEN</code></p>
+          <h2>Main Endpoints:</h2>
+          <ul>
+            <li><code>POST /api/v1/trpc/auth.login</code> - Login</li>
+            <li><code>GET /api/v1/trpc/customers.list</code> - Get customers</li>
+            <li><code>GET /api/v1/trpc/orders.list</code> - Get orders</li>
+            <li><code>POST /api/v1/trpc/orders.calculateTotals</code> - Calculate order totals</li>
+          </ul>
+        </body>
+      </html>
+    `);
+  }
 });
 
 // Markdown Documentation
