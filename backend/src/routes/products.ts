@@ -959,7 +959,7 @@ export const productsRouter = router({
         .select(`
           *,
           product:products(id, sku, name, unit_of_measure, status),
-          warehouse:warehouses(id, name, location_type)
+          warehouse:warehouses(id, name)
         `);
 
       if (input.product_ids && input.product_ids.length > 0) {

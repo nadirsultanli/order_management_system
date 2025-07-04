@@ -70,7 +70,7 @@ export const inventoryRouter = router({
         .from('inventory_balance')
         .select(`
           *,
-          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name, location_type),
+          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
           product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure, status, capacity_kg, reorder_level, max_stock_level)
         `, { count: 'exact' });
 
@@ -845,7 +845,7 @@ export const inventoryRouter = router({
         .from('inventory_balance')
         .select(`
           *,
-          warehouse:warehouses(id, name, location_type),
+          warehouse:warehouses(id, name),
           product:products(id, sku, name, unit_of_measure, status, reorder_level, max_stock_level, seasonal_demand_factor)
         `);
 
@@ -929,7 +929,7 @@ export const inventoryRouter = router({
           .from('inventory_balance')
           .select(`
             *,
-            warehouse:warehouses(id, name, location_type, latitude, longitude),
+            warehouse:warehouses(id, name),
             product:products(id, sku, name, unit_of_measure)
           `)
           .eq('product_id', productRequest.product_id)
@@ -1104,9 +1104,8 @@ function analyzeProductAvailability(inventoryRecords: any[], quantityRequested: 
       const stockDiff = (b.qty_full - b.qty_reserved) - (a.qty_full - a.qty_reserved);
       if (stockDiff !== 0) return stockDiff;
       
-      // Secondary: warehouse type preference
-      const typePreference = { 'main': 3, 'regional': 2, 'local': 1 };
-      return (typePreference[b.warehouse?.location_type] || 0) - (typePreference[a.warehouse?.location_type] || 0);
+      // Secondary: warehouse name preference (alphabetical)
+      return a.warehouse?.name?.localeCompare(b.warehouse?.name || '') || 0;
     });
   
   const allocationPlan = [];
