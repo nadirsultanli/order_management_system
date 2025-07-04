@@ -56,6 +56,367 @@ const BulkPricingSchema = z.object({
 // Helper functions moved to PricingService
 
 export const pricingRouter = router({
+  // Alias endpoints for frontend compatibility
+  listPriceLists: protectedProcedure
+    .input(z.object({
+      search: z.string().optional(),
+      currency_code: z.string().length(3).optional(),
+      status: PriceListStatusEnum.optional(),
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(50),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Fetching price lists with filters:', input);
+      
+      let query = ctx.supabase
+        .from('price_list')
+        .select(`
+          *,
+          price_list_item(count)
+        `, { count: 'exact' })
+        
+        .order('created_at', { ascending: false });
+
+      // Apply search filter
+      if (input.search) {
+        query = query.or(`name.ilike.%${input.search}%,description.ilike.%${input.search}%`);
+      }
+
+      // Apply currency filter
+      if (input.currency_code) {
+        query = query.eq('currency_code', input.currency_code);
+      }
+
+      // Apply pagination
+      const from = (input.page - 1) * input.limit;
+      const to = from + input.limit - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        ctx.logger.error('Supabase price lists error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      const processedLists = (data || []).map((list: any) => {
+        const statusInfo = pricingService.getPriceListStatus(list.start_date, list.end_date);
+        return {
+          ...list,
+          product_count: list.price_list_item?.[0]?.count || 0,
+          status: statusInfo.status,
+          statusInfo,
+        };
+      }).filter((list: any) => {
+        if (input.status) {
+          return list.status === input.status;
+        }
+        return true;
+      });
+
+      return {
+        priceLists: processedLists,
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / input.limit),
+        currentPage: input.page,
+      };
+    }),
+
+  getPriceList: protectedProcedure
+    .input(z.object({
+      price_list_id: z.string().uuid(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Fetching price list:', input.price_list_id);
+      
+      const { data, error } = await ctx.supabase
+        .from('price_list')
+        .select('*')
+        .eq('id', input.price_list_id)
+        
+        .single();
+
+      if (error) {
+        ctx.logger.error('Price list fetch error:', error);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Price list not found'
+        });
+      }
+
+      return data;
+    }),
+
+  createPriceList: protectedProcedure
+    .input(CreatePriceListSchema)
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Creating price list:', input);
+      
+      // Validate date range
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      if (!pricingService.validateDateRange(input.start_date, input.end_date)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'End date must be after start date'
+        });
+      }
+      
+      // Check name uniqueness within tenant
+      const { data: existingName } = await ctx.supabase
+        .from('price_list')
+        .select('id')
+        .eq('name', input.name)
+        
+        .maybeSingle();
+
+      if (existingName) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Price list name already exists. Please use a unique name.'
+        });
+      }
+
+      // If setting as default, unset other defaults first
+      if (input.is_default) {
+        await ctx.supabase
+          .from('price_list')
+          .update({ is_default: false })
+          .eq('is_default', true)
+          ;
+      }
+
+      const { data, error } = await ctx.supabase
+        .from('price_list')
+        .insert([{
+          ...input,
+          
+          created_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        ctx.logger.error('Create price list error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      ctx.logger.info('Price list created successfully:', data.id);
+      return data;
+    }),
+
+  updatePriceList: protectedProcedure
+    .input(UpdatePriceListSchema)
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Updating price list:', input.id);
+      
+      const { id, ...updateData } = input;
+      
+      // Validate date range if dates are being updated
+      if (updateData.start_date || updateData.end_date) {
+        // Get current data to validate combined dates
+        const { data: current } = await ctx.supabase
+          .from('price_list')
+          .select('start_date, end_date')
+          .eq('id', id)
+          
+          .single();
+          
+        const startDate = updateData.start_date || current?.start_date;
+        const endDate = updateData.end_date || current?.end_date;
+        
+        const pricingService = new PricingService(ctx.supabase, ctx.logger);
+        if (!pricingService.validateDateRange(startDate, endDate)) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'End date must be after start date'
+          });
+        }
+      }
+      
+      // Check name uniqueness if name is being updated
+      if (updateData.name) {
+        const { data: existingName } = await ctx.supabase
+          .from('price_list')
+          .select('id')
+          .eq('name', updateData.name)
+          
+          .neq('id', id)
+          .maybeSingle();
+
+        if (existingName) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Price list name already exists. Please use a unique name.'
+          });
+        }
+      }
+
+      // If setting as default, unset other defaults first
+      if (updateData.is_default) {
+        await ctx.supabase
+          .from('price_list')
+          .update({ is_default: false })
+          .eq('is_default', true)
+          
+          .neq('id', id);
+      }
+
+      const { data, error } = await ctx.supabase
+        .from('price_list')
+        .update(updateData)
+        .eq('id', id)
+        
+        .select()
+        .single();
+
+      if (error) {
+        ctx.logger.error('Update price list error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      ctx.logger.info('Price list updated successfully:', data.id);
+      return data;
+    }),
+
+  getPriceListItems: protectedProcedure
+    .input(z.object({
+      price_list_id: z.string().uuid(),
+      search: z.string().optional(),
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(50),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Fetching price list items:', input.price_list_id);
+      
+      // Verify price list belongs to tenant
+      const { data: priceList } = await ctx.supabase
+        .from('price_list')
+        .select('id')
+        .eq('id', input.price_list_id)
+        
+        .single();
+        
+      if (!priceList) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Price list not found'
+        });
+      }
+      
+      let query = ctx.supabase
+        .from('price_list_item')
+        .select(`
+          *,
+          product:products(id, sku, name, unit_of_measure)
+        `, { count: 'exact' })
+        .eq('price_list_id', input.price_list_id)
+        .order('unit_price', { ascending: false });
+
+      if (input.search) {
+        query = query.or(`product.sku.ilike.%${input.search}%,product.name.ilike.%${input.search}%`);
+      }
+
+      // Apply pagination
+      const from = (input.page - 1) * input.limit;
+      const to = from + input.limit - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        ctx.logger.error('Price list items error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      return {
+        items: data || [],
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / input.limit),
+        currentPage: input.page,
+      };
+    }),
+
+  createPriceListItem: protectedProcedure
+    .input(CreatePriceListItemSchema)
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Creating price list item:', input);
+      
+      // Verify price list belongs to tenant
+      const { data: priceList } = await ctx.supabase
+        .from('price_list')
+        .select('id')
+        .eq('id', input.price_list_id)
+        
+        .single();
+        
+      if (!priceList) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Price list not found'
+        });
+      }
+      
+      // Check if product already exists in this price list
+      const { data: existingItem } = await ctx.supabase
+        .from('price_list_item')
+        .select('id')
+        .eq('price_list_id', input.price_list_id)
+        .eq('product_id', input.product_id)
+        .maybeSingle();
+
+      if (existingItem) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Product already exists in this price list'
+        });
+      }
+      
+      const { data, error } = await ctx.supabase
+        .from('price_list_item')
+        .insert([input])
+        .select(`
+          *,
+          product:products(id, sku, name, unit_of_measure)
+        `)
+        .single();
+
+      if (error) {
+        ctx.logger.error('Create price list item error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      ctx.logger.info('Price list item created successfully:', data.id);
+      return data;
+    }),
+
   // Business logic endpoints
   calculateFinalPrice: protectedProcedure
     .input(z.object({
