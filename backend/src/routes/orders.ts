@@ -28,6 +28,7 @@ import {
   type OrderValidationResult,
   type OrderTotalCalculation,
 } from '../lib/order-workflow';
+import { PricingService } from '../lib/pricing';
 
 const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']);
 
@@ -73,6 +74,14 @@ export const ordersRouter = router({
             unit_price,
             subtotal,
             product:products(id, sku, name, unit_of_measure)
+          ),
+          payments(
+            id,
+            amount,
+            payment_method,
+            payment_status,
+            payment_date,
+            transaction_id
           )
         `, { count: 'exact' });
 
@@ -195,14 +204,22 @@ export const ordersRouter = router({
       let orders = data || [];
 
       // Post-process for complex business logic that can't be done in SQL
-      orders = orders.map(order => ({
-        ...order,
-        // Calculate business metrics
-        is_high_value: (order.total_amount || 0) > 1000,
-        days_since_order: Math.floor((new Date().getTime() - new Date(order.order_date).getTime()) / (1000 * 60 * 60 * 24)),
-        estimated_delivery_window: calculateDeliveryWindow(order),
-        risk_level: calculateOrderRisk(order),
-      }));
+      orders = orders.map(order => {
+        const paymentSummary = calculateOrderPaymentSummary(order);
+        
+        return {
+          ...order,
+          // Calculate business metrics
+          is_high_value: (order.total_amount || 0) > 1000,
+          days_since_order: Math.floor((new Date().getTime() - new Date(order.order_date).getTime()) / (1000 * 60 * 60 * 24)),
+          estimated_delivery_window: calculateDeliveryWindow(order),
+          risk_level: calculateOrderRisk(order),
+          // Payment information
+          payment_summary: paymentSummary,
+          payment_balance: paymentSummary.balance,
+          payment_status: order.payment_status_cache || paymentSummary.status,
+        };
+      });
 
       return {
         orders,
@@ -238,6 +255,15 @@ export const ordersRouter = router({
             unit_price,
             subtotal,
             product:products(id, sku, name, unit_of_measure, weight, volume)
+          ),
+          payments(
+            id,
+            amount,
+            payment_method,
+            payment_status,
+            payment_date,
+            transaction_id,
+            reference_number
           )
         `)
         .eq('id', input.order_id)
@@ -258,7 +284,15 @@ export const ordersRouter = router({
         });
       }
 
-      return data;
+      // Add payment calculation to the order
+      const paymentSummary = calculateOrderPaymentSummary(data);
+      
+      return {
+        ...data,
+        payment_summary: paymentSummary,
+        payment_balance: paymentSummary.balance,
+        payment_status: data.payment_status_cache || paymentSummary.status,
+      };
     }),
 
   // GET /orders/overdue - Get overdue orders with business logic
@@ -435,85 +469,360 @@ export const ordersRouter = router({
       delivery_address_id: z.string().uuid().optional(),
       scheduled_date: z.string().datetime().optional(),
       notes: z.string().optional(),
+      idempotency_key: z.string().optional(),
+      validate_pricing: z.boolean().default(true),
+      skip_inventory_check: z.boolean().default(false),
       order_lines: z.array(z.object({
         product_id: z.string().uuid(),
         quantity: z.number().positive(),
         unit_price: z.number().positive().optional(),
-      })),
+        expected_price: z.number().positive().optional(),
+        price_list_id: z.string().uuid().optional(),
+      })).min(1, 'At least one order line is required'),
     }))
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
       
       ctx.logger.info('Creating order for customer:', input.customer_id);
-
-      // Verify customer belongs to user's tenant
-      const { data: customer, error: customerError } = await ctx.supabase
-        .from('customers')
-        .select('id, name')
-        .eq('id', input.customer_id)
+      
+      // Generate hash for idempotency if key provided
+      let idempotencyKeyId: string | null = null;
+      if (input.idempotency_key) {
+        const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${user.tenant_id}`).toString('base64');
         
-        .single();
-
-      if (customerError || !customer) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Customer not found'
-        });
-      }
-
-      // Create order
-      const orderData = {
-        customer_id: input.customer_id,
-        delivery_address_id: input.delivery_address_id,
-        scheduled_date: input.scheduled_date,
-        notes: input.notes,
-        status: 'draft' as const,
-        order_date: new Date().toISOString(),
+        // Check idempotency
+        const { data: idempotencyData, error: idempotencyError } = await ctx.supabase
+          .rpc('check_idempotency_key', {
+            p_tenant_id: user.tenant_id,
+            p_key_hash: keyHash,
+            p_operation_type: 'order_create',
+            p_request_data: input
+          });
+          
+        if (idempotencyError) {
+          ctx.logger.error('Idempotency check error:', idempotencyError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to check idempotency'
+          });
+        }
         
-        created_by: user.id,
-      };
-
-      const { data: order, error: orderError } = await ctx.supabase
-        .from('orders')
-        .insert(orderData)
-        .select()
-        .single();
-
-      if (orderError) {
-        ctx.logger.error('Order creation error:', orderError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: orderError.message
-        });
-      }
-
-      // Create order lines
-      const orderLinesData = input.order_lines.map(line => ({
-        order_id: order.id,
-        product_id: line.product_id,
-        quantity: line.quantity,
-        unit_price: line.unit_price || 0,
-        subtotal: (line.unit_price || 0) * line.quantity,
+        const idempotencyResult = idempotencyData[0];
+        if (idempotencyResult.key_exists) {
+          if (idempotencyResult.is_processing) {
+            throw new TRPCError({
+              code: 'CONFLICT',
+              message: 'Order creation already in progress with this key'
+            });
+          } else {
+            // Return existing result
+            return idempotencyResult.response_data;
+          }
+        }
         
-      }));
-
-      const { error: linesError } = await ctx.supabase
-        .from('order_lines')
-        .insert(orderLinesData);
-
-      if (linesError) {
-        ctx.logger.error('Order lines creation error:', linesError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: linesError.message
-        });
+        idempotencyKeyId = idempotencyResult.key_id;
       }
+      
+      try {
+        // Verify customer belongs to user's tenant and get account status
+        const { data: customer, error: customerError } = await ctx.supabase
+          .from('customers')
+          .select('id, name, account_status, credit_terms_days')
+          .eq('id', input.customer_id)
+          .single();
 
-      // Calculate and update order total
-      await calculateOrderTotal(ctx, order.id, user.id);
+        if (customerError || !customer) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Customer not found'
+          });
+        }
+        
+        // Validate customer account status
+        if (customer.account_status === 'credit_hold') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Cannot create order for customer on credit hold'
+          });
+        }
+        
+        if (customer.account_status === 'closed') {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Cannot create order for closed customer account'
+          });
+        }
 
-      // Return complete order with relations
-      return await getOrderById(ctx, order.id, user.id);
+        // Validate delivery address if provided
+        if (input.delivery_address_id) {
+          const { data: address, error: addressError } = await ctx.supabase
+            .from('addresses')
+            .select('id, customer_id, latitude, longitude')
+            .eq('id', input.delivery_address_id)
+            .eq('customer_id', input.customer_id)
+            .single();
+            
+          if (addressError || !address) {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'Delivery address not found or does not belong to customer'
+            });
+          }
+          
+          // Validate service zone if coordinates available
+          if (address.latitude && address.longitude) {
+            const { data: serviceZoneData, error: serviceZoneError } = await ctx.supabase
+              .rpc('validate_address_in_service_zone', {
+                p_tenant_id: user.tenant_id,
+                p_latitude: address.latitude,
+                p_longitude: address.longitude
+              });
+              
+            if (!serviceZoneError && serviceZoneData && serviceZoneData.length > 0) {
+              const serviceZoneResult = serviceZoneData[0];
+              if (!serviceZoneResult.is_valid) {
+                ctx.logger.warn('Address outside service zone:', {
+                  address_id: input.delivery_address_id,
+                  customer_id: input.customer_id
+                });
+                // Don't block order but log for review
+              }
+            }
+          }
+        }
+
+        // Initialize pricing service
+        const pricingService = new PricingService(ctx.supabase, ctx.logger);
+        
+        // Validate order lines and pricing
+        const validatedOrderLines: any[] = [];
+        const validationErrors: string[] = [];
+        const validationWarnings: string[] = [];
+        let totalAmount = 0;
+        
+        for (let i = 0; i < input.order_lines.length; i++) {
+          const line = input.order_lines[i];
+          
+          // Verify product exists and is active
+          const { data: product, error: productError } = await ctx.supabase
+            .from('products')
+            .select('id, sku, name, status, weight_kg, volume_m3')
+            .eq('id', line.product_id)
+            .single();
+            
+          if (productError || !product) {
+            validationErrors.push(`Product not found for line ${i + 1}`);
+            continue;
+          }
+          
+          if (product.status !== 'active') {
+            validationErrors.push(`Product ${product.sku} is not active`);
+            continue;
+          }
+          
+          // Validate pricing if enabled
+          let finalUnitPrice = line.unit_price || 0;
+          
+          if (input.validate_pricing) {
+            // Get current pricing
+            const currentPricing = await pricingService.getProductPrice(
+              line.product_id,
+              input.customer_id
+            );
+            
+            if (!currentPricing) {
+              validationErrors.push(`No pricing found for product ${product.sku}`);
+              continue;
+            }
+            
+            // If unit price not provided, use current pricing
+            if (!line.unit_price) {
+              finalUnitPrice = currentPricing.finalPrice;
+            } else {
+              // Validate provided price matches current pricing
+              const priceTolerance = 0.01;
+              if (Math.abs(line.unit_price - currentPricing.finalPrice) > priceTolerance) {
+                if (line.expected_price && Math.abs(line.expected_price - currentPricing.finalPrice) <= priceTolerance) {
+                  // Price changed between client request and server processing
+                  validationErrors.push(
+                    `Price for ${product.sku} has changed. Expected: ${line.expected_price}, Current: ${currentPricing.finalPrice}`
+                  );
+                } else {
+                  validationErrors.push(
+                    `Invalid price for ${product.sku}. Provided: ${line.unit_price}, Current: ${currentPricing.finalPrice}`
+                  );
+                }
+                continue;
+              }
+            }
+            
+            // Check price list constraints
+            if (line.price_list_id && currentPricing.priceListId !== line.price_list_id) {
+              validationErrors.push(`Price list mismatch for product ${product.sku}`);
+              continue;
+            }
+          }
+          
+          // Check inventory availability if not skipped
+          if (!input.skip_inventory_check) {
+            const { data: inventory, error: inventoryError } = await ctx.supabase
+              .from('inventory_balance')
+              .select('qty_full, qty_reserved')
+              .eq('product_id', line.product_id)
+              .single();
+              
+            if (inventoryError || !inventory) {
+              validationWarnings.push(`No inventory found for product ${product.sku}`);
+            } else {
+              const availableStock = inventory.qty_full - inventory.qty_reserved;
+              if (line.quantity > availableStock) {
+                validationErrors.push(
+                  `Insufficient stock for ${product.sku}. Requested: ${line.quantity}, Available: ${availableStock}`
+                );
+                continue;
+              }
+              
+              if (line.quantity > availableStock * 0.8) {
+                validationWarnings.push(
+                  `Large quantity requested for ${product.sku} (${line.quantity}/${availableStock} available)`
+                );
+              }
+            }
+          }
+          
+          const subtotal = finalUnitPrice * line.quantity;
+          totalAmount += subtotal;
+          
+          validatedOrderLines.push({
+            product_id: line.product_id,
+            quantity: line.quantity,
+            unit_price: finalUnitPrice,
+            subtotal: subtotal,
+            product_sku: product.sku,
+            product_name: product.name,
+          });
+        }
+        
+        // Check for validation errors
+        if (validationErrors.length > 0) {
+          const errorMessage = `Order validation failed: ${validationErrors.join('; ')}`;
+          
+          if (idempotencyKeyId) {
+            await ctx.supabase.rpc('complete_idempotency_key', {
+              p_key_id: idempotencyKeyId,
+              p_response_data: { error: errorMessage },
+              p_status: 'failed'
+            });
+          }
+          
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: errorMessage
+          });
+        }
+        
+        // Validate minimum order amount if configured
+        const minimumOrderAmount = 100; // Could be configurable per tenant
+        if (totalAmount < minimumOrderAmount) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Order total (${totalAmount}) is below minimum order amount (${minimumOrderAmount})`
+          });
+        }
+
+        // Create order
+        const orderData = {
+          customer_id: input.customer_id,
+          delivery_address_id: input.delivery_address_id,
+          scheduled_date: input.scheduled_date,
+          notes: input.notes,
+          status: 'draft' as const,
+          order_date: new Date().toISOString(),
+          total_amount: totalAmount,
+          created_by: user.id,
+        };
+
+        const { data: order, error: orderError } = await ctx.supabase
+          .from('orders')
+          .insert(orderData)
+          .select()
+          .single();
+
+        if (orderError) {
+          ctx.logger.error('Order creation error:', orderError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: orderError.message
+          });
+        }
+
+        // Create order lines
+        const orderLinesData = validatedOrderLines.map(line => ({
+          order_id: order.id,
+          product_id: line.product_id,
+          quantity: line.quantity,
+          unit_price: line.unit_price,
+          subtotal: line.subtotal,
+        }));
+
+        const { error: linesError } = await ctx.supabase
+          .from('order_lines')
+          .insert(orderLinesData);
+
+        if (linesError) {
+          ctx.logger.error('Order lines creation error:', linesError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: linesError.message
+          });
+        }
+
+        // Calculate and update order total (includes tax calculation)
+        await calculateOrderTotal(ctx, order.id, user.id);
+
+        // Get complete order with relations
+        const completeOrder = await getOrderById(ctx, order.id, user.id);
+        
+        // Complete idempotency if used
+        if (idempotencyKeyId) {
+          await ctx.supabase.rpc('complete_idempotency_key', {
+            p_key_id: idempotencyKeyId,
+            p_response_data: completeOrder,
+            p_status: 'completed'
+          });
+        }
+        
+        // Log warnings if any
+        if (validationWarnings.length > 0) {
+          ctx.logger.warn('Order created with warnings:', {
+            order_id: order.id,
+            warnings: validationWarnings
+          });
+        }
+
+        ctx.logger.info('Order created successfully:', {
+          order_id: order.id,
+          customer_id: input.customer_id,
+          total_amount: totalAmount,
+          line_count: validatedOrderLines.length
+        });
+
+        return {
+          ...completeOrder,
+          validation_warnings: validationWarnings
+        };
+        
+      } catch (error) {
+        // Complete idempotency with error if used
+        if (idempotencyKeyId) {
+          await ctx.supabase.rpc('complete_idempotency_key', {
+            p_key_id: idempotencyKeyId,
+            p_response_data: { error: error.message },
+            p_status: 'failed'
+          });
+        }
+        throw error;
+      }
     }),
 
   // POST /orders/{id}/calculate-total - Calculate order total
@@ -803,6 +1112,252 @@ export const ordersRouter = router({
       
       return {
         formatted_date: formatDate(input.date),
+      };
+    }),
+
+  // POST /orders/validate-order-pricing - Validate order pricing before creation
+  validateOrderPricing: protectedProcedure
+    .input(z.object({
+      customer_id: z.string().uuid(),
+      order_lines: z.array(z.object({
+        product_id: z.string().uuid(),
+        quantity: z.number().positive(),
+        expected_price: z.number().positive().optional(),
+        price_list_id: z.string().uuid().optional(),
+      })).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating order pricing for customer:', input.customer_id);
+      
+      // Verify customer exists
+      const { data: customer, error: customerError } = await ctx.supabase
+        .from('customers')
+        .select('id, name, account_status')
+        .eq('id', input.customer_id)
+        .single();
+
+      if (customerError || !customer) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Customer not found'
+        });
+      }
+      
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      const results: any[] = [];
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      let totalAmount = 0;
+      
+      for (let i = 0; i < input.order_lines.length; i++) {
+        const line = input.order_lines[i];
+        
+        try {
+          // Get product information
+          const { data: product, error: productError } = await ctx.supabase
+            .from('products')
+            .select('id, sku, name, status')
+            .eq('id', line.product_id)
+            .single();
+            
+          if (productError || !product) {
+            errors.push(`Product not found for line ${i + 1}`);
+            results.push({
+              product_id: line.product_id,
+              quantity: line.quantity,
+              is_valid: false,
+              error: 'Product not found'
+            });
+            continue;
+          }
+          
+          if (product.status !== 'active') {
+            errors.push(`Product ${product.sku} is not active`);
+            results.push({
+              product_id: line.product_id,
+              product_sku: product.sku,
+              quantity: line.quantity,
+              is_valid: false,
+              error: 'Product is not active'
+            });
+            continue;
+          }
+          
+          // Get current pricing
+          const currentPricing = await pricingService.getProductPrice(
+            line.product_id,
+            input.customer_id
+          );
+          
+          if (!currentPricing) {
+            errors.push(`No pricing found for product ${product.sku}`);
+            results.push({
+              product_id: line.product_id,
+              product_sku: product.sku,
+              quantity: line.quantity,
+              is_valid: false,
+              error: 'No pricing found'
+            });
+            continue;
+          }
+          
+          let isValid = true;
+          let lineErrors: string[] = [];
+          let lineWarnings: string[] = [];
+          
+          // Validate expected price if provided
+          if (line.expected_price) {
+            const priceTolerance = 0.01;
+            if (Math.abs(line.expected_price - currentPricing.finalPrice) > priceTolerance) {
+              isValid = false;
+              lineErrors.push(`Price mismatch: expected ${line.expected_price}, current ${currentPricing.finalPrice}`);
+            }
+          }
+          
+          // Validate price list if provided
+          if (line.price_list_id && currentPricing.priceListId !== line.price_list_id) {
+            isValid = false;
+            lineErrors.push('Price list mismatch');
+          }
+          
+          // Check inventory
+          const { data: inventory } = await ctx.supabase
+            .from('inventory_balance')
+            .select('qty_full, qty_reserved')
+            .eq('product_id', line.product_id)
+            .single();
+            
+          let availableStock = 0;
+          if (inventory) {
+            availableStock = inventory.qty_full - inventory.qty_reserved;
+            if (line.quantity > availableStock) {
+              isValid = false;
+              lineErrors.push(`Insufficient stock: requested ${line.quantity}, available ${availableStock}`);
+            } else if (line.quantity > availableStock * 0.8) {
+              lineWarnings.push('Large quantity request relative to available stock');
+            }
+          } else {
+            lineWarnings.push('No inventory information found');
+          }
+          
+          const subtotal = currentPricing.finalPrice * line.quantity;
+          if (isValid) {
+            totalAmount += subtotal;
+          }
+          
+          results.push({
+            product_id: line.product_id,
+            product_sku: product.sku,
+            product_name: product.name,
+            quantity: line.quantity,
+            current_price: currentPricing.finalPrice,
+            price_list_id: currentPricing.priceListId,
+            price_list_name: currentPricing.priceListName,
+            subtotal: subtotal,
+            available_stock: availableStock,
+            is_valid: isValid,
+            errors: lineErrors,
+            warnings: lineWarnings
+          });
+          
+          if (lineErrors.length > 0) {
+            errors.push(...lineErrors.map(err => `${product.sku}: ${err}`));
+          }
+          if (lineWarnings.length > 0) {
+            warnings.push(...lineWarnings.map(warn => `${product.sku}: ${warn}`));
+          }
+          
+        } catch (error) {
+          ctx.logger.error(`Error validating line ${i + 1}:`, error);
+          errors.push(`Error validating line ${i + 1}: ${error.message}`);
+          results.push({
+            product_id: line.product_id,
+            quantity: line.quantity,
+            is_valid: false,
+            error: 'Validation error'
+          });
+        }
+      }
+      
+      const isOrderValid = errors.length === 0;
+      
+      return {
+        is_valid: isOrderValid,
+        customer: {
+          id: customer.id,
+          name: customer.name,
+          account_status: customer.account_status
+        },
+        line_validations: results,
+        total_amount: totalAmount,
+        summary: {
+          total_lines: input.order_lines.length,
+          valid_lines: results.filter(r => r.is_valid).length,
+          invalid_lines: results.filter(r => !r.is_valid).length,
+          total_errors: errors.length,
+          total_warnings: warnings.length
+        },
+        errors,
+        warnings
+      };
+    }),
+
+  // POST /orders/validate-truck-capacity - Validate truck capacity for order assignment
+  validateTruckCapacity: protectedProcedure
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      order_ids: z.array(z.string().uuid()).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Validating truck capacity:', input);
+      
+      // Validate truck exists
+      const { data: truck, error: truckError } = await ctx.supabase
+        .from('trucks')
+        .select('id, name, capacity_kg, capacity_volume_m3')
+        .eq('id', input.truck_id)
+        .single();
+        
+      if (truckError || !truck) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Truck not found'
+        });
+      }
+      
+      // Use the database function to validate capacity
+      const { data: capacityValidation, error: validationError } = await ctx.supabase
+        .rpc('validate_truck_capacity', {
+          p_tenant_id: user.tenant_id,
+          p_truck_id: input.truck_id,
+          p_order_ids: input.order_ids
+        });
+        
+      if (validationError) {
+        ctx.logger.error('Truck capacity validation error:', validationError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to validate truck capacity'
+        });
+      }
+      
+      const result = capacityValidation[0];
+      
+      return {
+        truck: {
+          id: truck.id,
+          name: truck.name,
+          capacity_kg: truck.capacity_kg,
+          capacity_volume_m3: truck.capacity_volume_m3
+        },
+        validation: result,
+        recommendation: result.is_valid ? 
+          'Truck capacity is sufficient for the assigned orders' : 
+          'Truck capacity exceeded - consider reassigning some orders'
       };
     }),
 });
@@ -1124,5 +1679,57 @@ function calculateTruckRequirements(totalWeight: number, totalVolume: number): a
       volume_percent: Math.min(100, (totalVolume / requiredTruck.max_volume) * 100),
     },
     multiple_trucks_needed: totalWeight > requiredTruck.max_weight || totalVolume > requiredTruck.max_volume,
+  };
+}
+
+// Helper function to calculate payment summary for an order
+function calculateOrderPaymentSummary(order: any): any {
+  const orderTotal = order.total_amount || 0;
+  const payments = order.payments || [];
+  
+  const completedPayments = payments.filter((p: any) => p.payment_status === 'completed');
+  const pendingPayments = payments.filter((p: any) => p.payment_status === 'pending');
+  const failedPayments = payments.filter((p: any) => p.payment_status === 'failed');
+  
+  const totalPaid = completedPayments.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0);
+  const totalPending = pendingPayments.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0);
+  const totalFailed = failedPayments.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0);
+  
+  const balance = orderTotal - totalPaid;
+  
+  // Determine payment status
+  let status = 'pending';
+  if (balance <= 0) {
+    status = 'paid';
+  } else if (totalPaid > 0) {
+    status = 'partial';
+  } else if (order.payment_due_date && new Date(order.payment_due_date) < new Date()) {
+    status = 'overdue';
+  }
+  
+  // Calculate payment method breakdown
+  const paymentMethods = completedPayments.reduce((acc: any, payment: any) => {
+    const method = payment.payment_method || 'unknown';
+    acc[method] = (acc[method] || 0) + (payment.amount || 0);
+    return acc;
+  }, {});
+  
+  return {
+    order_total: orderTotal,
+    total_paid: totalPaid,
+    total_pending: totalPending,
+    total_failed: totalFailed,
+    balance: balance,
+    status: status,
+    payment_count: payments.length,
+    completed_payment_count: completedPayments.length,
+    last_payment_date: completedPayments.length > 0 
+      ? completedPayments.sort((a: any, b: any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0].payment_date
+      : null,
+    payment_methods: paymentMethods,
+    is_overdue: status === 'overdue',
+    days_overdue: order.payment_due_date && new Date(order.payment_due_date) < new Date()
+      ? Math.floor((new Date().getTime() - new Date(order.payment_due_date).getTime()) / (1000 * 60 * 60 * 24))
+      : 0,
   };
 }

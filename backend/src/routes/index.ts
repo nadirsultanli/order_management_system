@@ -10,6 +10,8 @@ import { adminRouter } from './admin';
 import { trucksRouter } from './trucks';
 import { warehousesRouter } from './warehouses';
 import { productsRouter } from './products';
+import { driverRouter } from './driver';
+import { paymentsRouter } from './payments';
 
 export const appRouter = router({
   auth: authRouter as any,
@@ -23,6 +25,8 @@ export const appRouter = router({
   trucks: trucksRouter as any,
   warehouses: warehousesRouter as any,
   products: productsRouter as any,
+  driver: driverRouter as any,
+  payments: paymentsRouter as any,
 });
 
 export type AppRouter = typeof appRouter;
