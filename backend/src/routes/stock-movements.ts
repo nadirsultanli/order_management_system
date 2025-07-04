@@ -404,8 +404,10 @@ export const stockMovementsRouter = router({
       return summary;
     }),
 
-  // Helper function to update inventory balances from stock movement
-  updateInventoryFromMovement: async (ctx: any, movement: any) => {
+});
+
+// Helper function to update inventory balances from stock movement
+async function updateInventoryFromMovement(ctx: any, movement: any) {
     // Get current inventory balance
     const { data: currentInventory, error: invError } = await ctx.supabase
       .from('inventory_balance')
@@ -457,5 +459,4 @@ export const stockMovementsRouter = router({
         ctx.logger.error('Error creating inventory balance:', insertError);
       }
     }
-  },
-});
+}

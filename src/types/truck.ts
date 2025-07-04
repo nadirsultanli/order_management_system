@@ -75,9 +75,34 @@ export interface TruckAllocation {
   order_id: string;
   allocation_date: string;
   estimated_weight_kg: number;
+  actual_weight_kg?: number;
   stop_sequence?: number;
   status: 'planned' | 'loaded' | 'delivered' | 'cancelled';
+  allocated_by_user_id?: string;
+  allocated_at: string;
+  delivered_at?: string;
+  notes?: string;
   created_at: string;
+  updated_at: string;
+  // Populated fields
+  order?: {
+    id: string;
+    customer_id: string;
+    order_date: string;
+    scheduled_date?: string;
+    status: string;
+    total_amount?: number;
+    order_type: string;
+    customer?: {
+      name: string;
+      phone?: string;
+    };
+    delivery_address?: {
+      line1: string;
+      city: string;
+      postal_code?: string;
+    };
+  };
 }
 
 export interface DailyTruckSchedule {
@@ -157,4 +182,190 @@ export const MaintenanceType = {
   REPAIR: 'repair',
   INSPECTION: 'inspection',
   EMERGENCY: 'emergency'
-} as const; 
+} as const;
+
+// =====================================================================
+// ENHANCED TYPES FOR NEW FEATURES
+// =====================================================================
+
+export interface AllocationSuggestion {
+  truck_id: string;
+  fleet_number: string;
+  capacity_info: TruckCapacityInfo;
+  score: number; // 0-100, higher is better
+  reasons: string[];
+}
+
+export interface OrderWeight {
+  order_id: string;
+  total_weight_kg: number;
+  breakdown: {
+    product_id: string;
+    product_name: string;
+    quantity: number;
+    unit_weight_kg: number;
+    total_weight_kg: number;
+  }[];
+}
+
+export interface TruckScheduleSummary {
+  date: string;
+  total_trucks: number;
+  active_trucks: number;
+  total_orders: number;
+  avg_utilization: number;
+}
+
+export interface StockMovement {
+  id: string;
+  product_id: string;
+  warehouse_id?: string;
+  truck_id?: string;
+  order_id?: string;
+  movement_type: 'delivery' | 'pickup' | 'refill' | 'exchange' | 'transfer' | 'adjustment';
+  qty_full_in: number;
+  qty_full_out: number;
+  qty_empty_in: number;
+  qty_empty_out: number;
+  movement_date: string;
+  reference_number?: string;
+  notes?: string;
+  created_by_user_id?: string;
+  created_at: string;
+  // Populated fields
+  product?: {
+    id: string;
+    sku: string;
+    name: string;
+    variant_name?: string;
+    is_variant: boolean;
+  };
+  warehouse?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  truck?: {
+    id: string;
+    fleet_number: string;
+    license_plate: string;
+  };
+  order?: {
+    id: string;
+    order_date: string;
+    status: string;
+  };
+}
+
+export interface StockMovementSummary {
+  total_movements: number;
+  total_full_in: number;
+  total_full_out: number;
+  total_empty_in: number;
+  total_empty_out: number;
+  by_movement_type: Record<string, {
+    count: number;
+    qty_full_in: number;
+    qty_full_out: number;
+    qty_empty_in: number;
+    qty_empty_out: number;
+  }>;
+  by_product: Record<string, {
+    product: any;
+    count: number;
+    qty_full_in: number;
+    qty_full_out: number;
+    qty_empty_in: number;
+    qty_empty_out: number;
+  }>;
+}
+
+export interface CreateStockMovementData {
+  product_id: string;
+  warehouse_id?: string;
+  truck_id?: string;
+  order_id?: string;
+  movement_type: 'delivery' | 'pickup' | 'refill' | 'exchange' | 'transfer' | 'adjustment';
+  qty_full_in?: number;
+  qty_full_out?: number;
+  qty_empty_in?: number;
+  qty_empty_out?: number;
+  movement_date: string;
+  reference_number?: string;
+  notes?: string;
+}
+
+export interface AllocationRequest {
+  order_id: string;
+  truck_id?: string; // Optional - system can auto-assign
+  allocation_date: string;
+  force_allocation?: boolean; // Override capacity warnings
+}
+
+export interface TruckMaintenanceRecord {
+  id: string;
+  truck_id: string;
+  maintenance_type: 'routine' | 'repair' | 'inspection' | 'emergency';
+  scheduled_date: string;
+  completed_date?: string;
+  description: string;
+  cost?: number;
+  mechanic?: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RefillOrderProcessing {
+  order_id: string;
+  warehouse_id?: string;
+  processed_at?: string;
+  movements_created: StockMovement[];
+}
+
+// Filter types
+export interface StockMovementFilters {
+  search?: string;
+  product_id?: string;
+  warehouse_id?: string;
+  truck_id?: string;
+  order_id?: string;
+  movement_type?: 'delivery' | 'pickup' | 'refill' | 'exchange' | 'transfer' | 'adjustment';
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  limit?: number;
+  sort_by?: 'movement_date' | 'created_at' | 'movement_type';
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface TruckMaintenanceFilters {
+  truck_id?: string;
+  maintenance_type?: 'routine' | 'repair' | 'inspection' | 'emergency';
+  status?: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  limit?: number;
+}
+
+// API Response types
+export interface TruckAllocationResponse {
+  allocations: TruckAllocation[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+export interface StockMovementResponse {
+  movements: StockMovement[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+export interface TruckScheduleResponse {
+  date: string;
+  trucks: DailyTruckSchedule[];
+  summary: TruckScheduleSummary;
+} 
