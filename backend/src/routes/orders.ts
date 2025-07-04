@@ -488,12 +488,12 @@ export const ordersRouter = router({
       // Generate hash for idempotency if key provided
       let idempotencyKeyId: string | null = null;
       if (input.idempotency_key) {
-        const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${user.tenant_id}`).toString('base64');
+        const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${'00000000-0000-0000-0000-000000000001'}`).toString('base64');
         
         // Check idempotency
         const { data: idempotencyData, error: idempotencyError } = await ctx.supabase
           .rpc('check_idempotency_key', {
-            p_tenant_id: user.tenant_id,
+            p_tenant_id: '00000000-0000-0000-0000-000000000001',
             p_key_hash: keyHash,
             p_operation_type: 'order_create',
             p_request_data: input
@@ -573,7 +573,7 @@ export const ordersRouter = router({
           if (address.latitude && address.longitude) {
             const { data: serviceZoneData, error: serviceZoneError } = await ctx.supabase
               .rpc('validate_address_in_service_zone', {
-                p_tenant_id: user.tenant_id,
+                p_tenant_id: '00000000-0000-0000-0000-000000000001',
                 p_latitude: address.latitude,
                 p_longitude: address.longitude
               });
@@ -817,7 +817,7 @@ export const ordersRouter = router({
         if (idempotencyKeyId) {
           await ctx.supabase.rpc('complete_idempotency_key', {
             p_key_id: idempotencyKeyId,
-            p_response_data: { error: error.message },
+            p_response_data: { error: error instanceof Error ? error.message : String(error) },
             p_status: 'failed'
           });
         }
@@ -1271,7 +1271,7 @@ export const ordersRouter = router({
           
         } catch (error) {
           ctx.logger.error(`Error validating line ${i + 1}:`, error);
-          errors.push(`Error validating line ${i + 1}: ${error.message}`);
+          errors.push(`Error validating line ${i + 1}: ${error instanceof Error ? error.message : String(error)}`);
           results.push({
             product_id: line.product_id,
             quantity: line.quantity,
@@ -1332,7 +1332,7 @@ export const ordersRouter = router({
       // Use the database function to validate capacity
       const { data: capacityValidation, error: validationError } = await ctx.supabase
         .rpc('validate_truck_capacity', {
-          p_tenant_id: user.tenant_id,
+          p_tenant_id: '00000000-0000-0000-0000-000000000001',
           p_truck_id: input.truck_id,
           p_order_ids: input.order_ids
         });

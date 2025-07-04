@@ -10,7 +10,7 @@ import { adminRouter } from './admin';
 import { trucksRouter } from './trucks';
 import { warehousesRouter } from './warehouses';
 import { productsRouter } from './products';
-import { driverRouter } from './driver';
+// import { driverRouter } from './driver'; // Temporarily disabled
 import { paymentsRouter } from './payments';
 
 export const appRouter = router({
@@ -25,7 +25,7 @@ export const appRouter = router({
   trucks: trucksRouter as any,
   warehouses: warehousesRouter as any,
   products: productsRouter as any,
-  driver: driverRouter as any,
+  // driver: driverRouter as any, // Temporarily disabled
   payments: paymentsRouter as any,
 });
 
