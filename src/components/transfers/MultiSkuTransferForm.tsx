@@ -65,7 +65,7 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
     validateTransfer
   } = useTransferForm();
 
-  const { stockInfo, fetchStockInfo } = useWarehouseStock();
+  const { stockInfo, fetchStockInfo } = useWarehouseStock(formData.source_warehouse_id);
 
   // Generate transfer reference when warehouses are selected
   useEffect(() => {
@@ -87,7 +87,7 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
   // Load stock data when source warehouse changes
   useEffect(() => {
     if (formData.source_warehouse_id) {
-      fetchStockInfo({ warehouse_id: formData.source_warehouse_id, has_stock: true });
+      fetchStockInfo();
     }
   }, [formData.source_warehouse_id, fetchStockInfo]);
 

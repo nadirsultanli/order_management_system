@@ -35,7 +35,7 @@ export const ProductSelectionGrid: React.FC<ProductSelectionGridProps> = ({
   useEffect(() => {
     if (filters.warehouse_id) {
       searchProducts(filters);
-      fetchStockInfo(filters);
+      fetchStockInfo();
     }
   }, [filters, searchProducts, fetchStockInfo]);
 

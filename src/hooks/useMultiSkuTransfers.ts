@@ -53,6 +53,13 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
 
   // Warehouse stock query
   const fetchWarehouseStock = useCallback(async (warehouseId: string) => {
+    // Validate UUID format before making the call
+    if (!warehouseId || !uuidRegex.test(warehouseId)) {
+      console.error('Invalid warehouse ID format:', warehouseId);
+      setError('Invalid warehouse ID format');
+      return null;
+    }
+    
     try {
       const stockData = await trpc.transfers.getWarehouseStock.query({ warehouse_id: warehouseId });
       return stockData;
@@ -192,18 +199,24 @@ export const useProductSelection = (warehouseId?: string) => {
   };
 };
 
+// UUID validation regex
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 // Hook for warehouse stock information
 export const useWarehouseStock = (warehouseId?: string) => {
+  // Only enable the query if warehouseId is a valid UUID
+  const isValidUuid = warehouseId && uuidRegex.test(warehouseId);
+  
   const { data: stockData, isLoading, refetch } = trpc.transfers.getWarehouseStock.useQuery({
-    warehouse_id: warehouseId || '',
+    warehouse_id: warehouseId!,
   }, {
-    enabled: !!warehouseId,
+    enabled: isValidUuid,
     retry: 1,
     staleTime: 60000,
   });
 
   return {
-    stockInfo: stockData?.stock || [],
+    stockInfo: stockData || [],
     isLoading,
     refetch: () => refetch(),
     fetchStockInfo: refetch,
