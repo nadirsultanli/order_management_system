@@ -93,12 +93,12 @@ export const productsRouter = router({
         ctx.logger.info('Fetching products with advanced filters:', input);
       
       // Start with basic product fields
-      let selectClause = 'products.*';
+      let selectClause = '*';
       
       // Only include inventory data if explicitly requested
-      // This complex join might be causing issues
+      // Note: When using nested selects in PostgREST, we can't use '*' in combination with nested fields
       if (input.include_inventory_data) {
-        selectClause += ', inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, warehouse:warehouses(name))';
+        selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_product_id, variant_name, is_variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
       }
       
       let query = ctx.supabase
@@ -163,7 +163,8 @@ export const productsRouter = router({
         query = query.gte('created_at', input.created_after);
       }
       if (input.updated_after) {
-        query = query.gte('updated_at', input.updated_after);
+        // Note: products table doesn't have updated_at column, treating as created_after
+        query = query.gte('created_at', input.updated_after);
       }
 
       // Apply sorting
@@ -207,7 +208,7 @@ export const productsRouter = router({
             last_restocked: getLastRestockedDate(inventoryData),
           } : undefined,
           // Business logic fields
-          is_popular: calculatePopularity(product),
+          popularity_score: calculatePopularity(product),
           compliance_score: calculateComplianceScore(product),
           profitability_score: calculateProfitabilityScore(product),
         };
@@ -480,7 +481,6 @@ export const productsRouter = router({
         .from('products')
         .update({
           ...updateData,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         
@@ -526,7 +526,6 @@ export const productsRouter = router({
         .from('products')
         .update({
           status: 'obsolete',
-          updated_at: new Date().toISOString(),
         })
         .eq('id', input.id)
         
@@ -647,7 +646,6 @@ export const productsRouter = router({
         .from('products')
         .update({
           status: input.status,
-          updated_at: new Date().toISOString(),
         })
         .in('id', input.product_ids)
         
@@ -680,7 +678,6 @@ export const productsRouter = router({
         .from('products')
         .update({
           status: 'active',
-          updated_at: new Date().toISOString(),
         })
         .eq('id', input.id)
         
@@ -1271,6 +1268,8 @@ function getLastRestockedDate(inventoryData: any[]): string | null {
 }
 
 function calculatePopularity(product: any): number {
+  if (!product) return 0;
+  
   // Mock calculation - in production, this would use sales data
   // Higher score = more popular
   let score = 5; // Base score
@@ -1289,6 +1288,8 @@ function calculatePopularity(product: any): number {
 }
 
 function calculateComplianceScore(product: any): number {
+  if (!product) return 0;
+  
   let score = 10; // Start with perfect score
   
   // Deduct points for missing data
@@ -1305,6 +1306,8 @@ function calculateComplianceScore(product: any): number {
 }
 
 function calculateProfitabilityScore(product: any): number {
+  if (!product) return 0;
+  
   // Mock calculation - in production, this would use cost and pricing data
   let score = 5; // Base score
   
@@ -1332,17 +1335,25 @@ async function generateProductSummary(ctx: any, products: any[]): Promise<any> {
     variant_breakdown: {} as Record<string, number>,
     with_inventory: products.filter(p => p.inventory_summary?.is_available).length,
     low_stock: products.filter(p => ['low', 'critical'].includes(p.inventory_summary?.stock_level || '')).length,
-    popular_products: products.filter(p => p.is_popular >= 7).length,
-    compliance_issues: products.filter(p => p.compliance_score < 8).length,
-    avg_compliance_score: products.reduce((sum, p) => sum + p.compliance_score, 0) / products.length,
-    avg_profitability_score: products.reduce((sum, p) => sum + p.profitability_score, 0) / products.length,
+    popular_products: products.filter(p => (p.popularity_score || 0) >= 7).length,
+    compliance_issues: products.filter(p => (p.compliance_score || 0) < 8).length,
+    avg_compliance_score: products.length > 0 ? products.reduce((sum, p) => sum + (p.compliance_score || 0), 0) / products.length : 0,
+    avg_profitability_score: products.length > 0 ? products.reduce((sum, p) => sum + (p.profitability_score || 0), 0) / products.length : 0,
   };
 
   // Calculate breakdowns
   products.forEach(product => {
-    summary.status_breakdown[product.status] = (summary.status_breakdown[product.status] || 0) + 1;
-    summary.unit_breakdown[product.unit_of_measure] = (summary.unit_breakdown[product.unit_of_measure] || 0) + 1;
-    summary.variant_breakdown[product.variant_type] = (summary.variant_breakdown[product.variant_type] || 0) + 1;
+    if (product) {
+      if (product.status) {
+        summary.status_breakdown[product.status] = (summary.status_breakdown[product.status] || 0) + 1;
+      }
+      if (product.unit_of_measure) {
+        summary.unit_breakdown[product.unit_of_measure] = (summary.unit_breakdown[product.unit_of_measure] || 0) + 1;
+      }
+      if (product.variant_type) {
+        summary.variant_breakdown[product.variant_type] = (summary.variant_breakdown[product.variant_type] || 0) + 1;
+      }
+    }
   });
 
   return summary;
