@@ -9,7 +9,7 @@ const CustomerFiltersSchema = z.object({
   search: z.string().optional(),
   account_status: z.enum(['active', 'credit_hold', 'closed']).optional(),
   page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
+  limit: z.number().min(1).max(1000).default(50),
 });
 
 const CreateCustomerSchema = z.object({
@@ -428,7 +428,7 @@ export const customersRouter = router({
   getOrderHistory: protectedProcedure
     .input(z.object({
       customer_id: z.string().uuid(),
-      limit: z.number().min(1).max(100).default(50),
+      limit: z.number().min(1).max(1000).default(50),
       offset: z.number().min(0).default(0),
       status: z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']).optional(),
     }))

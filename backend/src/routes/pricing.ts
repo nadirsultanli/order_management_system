@@ -63,7 +63,7 @@ export const pricingRouter = router({
       currency_code: z.string().length(3).optional(),
       status: PriceListStatusEnum.optional(),
       page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(50),
+      limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
@@ -303,7 +303,7 @@ export const pricingRouter = router({
       price_list_id: z.string().uuid(),
       search: z.string().optional(),
       page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(50),
+      limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
@@ -564,7 +564,7 @@ export const pricingRouter = router({
       currency_code: z.string().length(3).optional(),
       status: PriceListStatusEnum.optional(),
       page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(50),
+      limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
@@ -889,7 +889,7 @@ export const pricingRouter = router({
       price_list_id: z.string().uuid(),
       search: z.string().optional(),
       page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(50),
+      limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);

@@ -71,7 +71,7 @@ export const inventoryRouter = router({
         .select(`
           *,
           warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
-          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure, status, capacity_kg, reorder_level, max_stock_level)
+          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure, status, capacity_kg)
         `, { count: 'exact' });
 
       // Apply warehouse filter
@@ -118,8 +118,10 @@ export const inventoryRouter = router({
 
       let inventory = (data || []).map(item => {
         const qtyAvailable = input.include_reserved ? item.qty_full : (item.qty_full - item.qty_reserved);
-        const reorderLevel = item.product?.reorder_level || 10;
-        const maxStockLevel = item.product?.max_stock_level || 100;
+        // Use default values since reorder_level and max_stock_level columns may not exist yet
+        // These should be configurable per product after migration is applied
+        const reorderLevel = item.product?.reorder_level || (item.product?.capacity_kg >= 50 ? 5 : item.product?.capacity_kg >= 20 ? 10 : 20);
+        const maxStockLevel = item.product?.max_stock_level || (item.product?.capacity_kg >= 50 ? 50 : item.product?.capacity_kg >= 20 ? 100 : 200);
         const stockLevel = calculateStockLevel(qtyAvailable, reorderLevel, maxStockLevel);
         
         return {
@@ -846,7 +848,7 @@ export const inventoryRouter = router({
         .select(`
           *,
           warehouse:warehouses(id, name),
-          product:products(id, sku, name, unit_of_measure, status, reorder_level, max_stock_level, seasonal_demand_factor)
+          product:products(id, sku, name, unit_of_measure, status, capacity_kg)
         `);
 
       if (input.warehouse_id) {

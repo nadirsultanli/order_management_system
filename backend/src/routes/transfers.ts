@@ -756,7 +756,7 @@ export const transfersRouter = router({
         qty_empty: item.qty_empty,
         locations: item.locations || [], // Storage locations within warehouse
         last_updated: item.updated_at,
-        reorder_level: item.product.reorder_level || 10,
+        reorder_level: item.product?.reorder_level || (item.product?.capacity_kg >= 50 ? 5 : item.product?.capacity_kg >= 20 ? 10 : 20),
         max_capacity: item.warehouse.max_capacity || 1000
       }));
 
