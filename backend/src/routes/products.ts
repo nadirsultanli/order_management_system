@@ -87,9 +87,10 @@ export const productsRouter = router({
   list: protectedProcedure
     .input(ProductFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
-      
-      ctx.logger.info('Fetching products with advanced filters:', input);
+      try {
+        const user = requireTenantAccess(ctx);
+        
+        ctx.logger.info('Fetching products with advanced filters:', input);
       
       let selectClause = 'products.*';
       if (input.include_inventory_data) {
@@ -98,7 +99,8 @@ export const productsRouter = router({
       
       let query = ctx.supabase
         .from('products')
-        .select(selectClause, { count: 'exact' });
+        .select(selectClause, { count: 'exact' })
+        .throwOnError();
 
       // By default, hide obsolete products unless specifically requested
       if (!input.show_obsolete) {
@@ -107,12 +109,8 @@ export const productsRouter = router({
 
       // Apply search filter with enhanced logic
       if (input.search) {
-        query = query.or(`
-          sku.ilike.%${input.search}%,
-          name.ilike.%${input.search}%,
-          description.ilike.%${input.search}%,
-          barcode_uid.ilike.%${input.search}%
-        `);
+        const searchTerm = input.search.replace(/[%_]/g, '\\$&'); // Escape special characters
+        query = query.or(`sku.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,barcode_uid.ilike.%${searchTerm}%`);
       }
 
       // Apply status filter
@@ -175,10 +173,17 @@ export const productsRouter = router({
       const { data, error, count } = await query;
 
       if (error) {
-        ctx.logger.error('Error fetching products:', error);
+        ctx.logger.error('Error fetching products:', {
+          error,
+          errorMessage: error.message,
+          errorCode: error.code,
+          errorDetails: error.details,
+          errorHint: error.hint,
+          filters: input
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch products',
+          message: `Failed to fetch products: ${error.message}`,
         });
       }
 
@@ -259,6 +264,23 @@ export const productsRouter = router({
         currentPage: input.page,
         summary: await generateProductSummary(ctx, products),
       };
+      } catch (error) {
+        ctx.logger.error('Unexpected error in products.list:', {
+          error,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          errorStack: error instanceof Error ? error.stack : undefined,
+          filters: input
+        });
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An unexpected error occurred while fetching products',
+        });
+      }
     }),
 
   // GET /products/:id - Get single product by ID
