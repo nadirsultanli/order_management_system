@@ -72,38 +72,27 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       // Load transfer: move inventory from warehouse to truck
       console.log('Loading truck with products from warehouse');
       
-      // For now, we'll create a simplified load operation
-      // TODO: Implement proper truck loading endpoint in backend
-      
-      // Process each line to validate and prepare for loading
-      const loadOperations = [];
+      // Process each line and validate quantities
       for (const line of lines) {
         const qtyFull = Number(line.qty_full) || 0;
         const qtyEmpty = Number(line.qty_empty) || 0;
         
         if (qtyFull > 0 || qtyEmpty > 0) {
-          loadOperations.push({
-            product_id: line.product_id,
-            product_name: line.product_name,
-            qty_full: qtyFull,
-            qty_empty: qtyEmpty
-          });
+          // For now, this is a placeholder for the actual truck loading logic
+          // TODO: Implement backend endpoint for truck loading that:
+          // 1. Validates warehouse stock availability
+          // 2. Decreases warehouse inventory
+          // 3. Increases truck inventory
+          // 4. Creates audit trail
+          
+          console.log(`Loading ${qtyFull} full and ${qtyEmpty} empty ${line.product_name} to truck`);
         }
       }
       
-      if (loadOperations.length === 0) {
-        throw new Error('No valid items to load');
-      }
-      
-      // For now, we'll simulate the loading process
-      // In a real implementation, this would call a backend endpoint
-      console.log('Loading operations:', loadOperations);
-      
-      // Simulate async operation
+      // Simulate the loading operation
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       console.log('Truck loading completed successfully');
-      console.log('Transfer created successfully:', transfer);
 
       // Reset form
       setSelectedTruck('');
@@ -178,7 +167,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
           {/* Source Warehouse Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Source Warehouse
+              Select Warehouse (Source)
             </label>
             <div className="relative">
               <select
@@ -188,7 +177,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
                 }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">Select source warehouse...</option>
+                <option value="">Select warehouse to load from...</option>
                 {warehouses.map((warehouse) => (
                   <option key={warehouse.id} value={warehouse.id}>
                     {warehouse.name}
@@ -272,14 +261,14 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         {/* Warehouse Inventory Display */}
         {selectedWarehouse && (
           <div className="mt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Source Warehouse Inventory</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Available Warehouse Inventory</h3>
             <WarehouseInventory warehouseId={selectedWarehouse} />
           </div>
         )}
 
         <div className="mt-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Transfer Lines</h3>
+            <h3 className="text-lg font-medium text-gray-900">Items to Load</h3>
             <button
               type="button"
               onClick={handleAddLine}
