@@ -1396,9 +1396,15 @@ export const ordersRouter = router({
       ctx.logger.info('Allocating order to truck:', input);
       
       const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
-      const result = await allocationService.allocateOrder(input, user.user_id);
+      const allocationRequest = {
+        order_id: input.order_id,
+        truck_id: input.truck_id,
+        allocation_date: input.allocation_date,
+        force_allocation: input.force_allocation
+      };
+      const result = await allocationService.allocateOrder(allocationRequest, user.user_id);
       
       return result;
     }),
@@ -1415,7 +1421,7 @@ export const ordersRouter = router({
       ctx.logger.info('Getting allocation suggestions for order:', input.order_id);
       
       const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
       const suggestions = await allocationService.findBestTrucks(input.order_id, input.allocation_date);
       const orderWeight = await allocationService.calculateOrderWeight(input.order_id);
@@ -1438,7 +1444,7 @@ export const ordersRouter = router({
       ctx.logger.info('Calculating order weight:', input.order_id);
       
       const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
       const weight = await allocationService.calculateOrderWeight(input.order_id);
       
@@ -1459,7 +1465,7 @@ export const ordersRouter = router({
       ctx.logger.info('Removing truck allocation:', input.allocation_id);
       
       const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
       await allocationService.removeAllocation(input.allocation_id);
       
@@ -1477,7 +1483,7 @@ export const ordersRouter = router({
       ctx.logger.info('Getting daily order schedule for:', input.date);
       
       const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
       const schedule = await allocationService.getDailySchedule(input.date);
       

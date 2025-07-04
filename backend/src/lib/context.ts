@@ -8,6 +8,8 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   role: string;
+  user_id: string;
+  tenant_id: string;
 }
 
 export const createContext = async ({ req, res }: CreateExpressContextOptions) => {
@@ -47,7 +49,9 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
           user = {
             id: userData.user.id,
             email: userData.user.email!,
-            role: adminUser.role || 'admin'
+            role: adminUser.role || 'admin',
+            user_id: userData.user.id,
+            tenant_id: '00000000-0000-0000-0000-000000000000' // Hardcoded since we removed tenant concept
           };
 
           // Create user-scoped Supabase client
