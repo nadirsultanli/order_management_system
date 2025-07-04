@@ -162,8 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         // Use GET request for tRPC query procedure
         const tokenForHeader = token;
-        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://ordermanagementsystem-production-3ed7.up.railway.app';
-        const response = await fetch(`${baseUrl}/api/v1/trpc/auth.me`, {
+        const response = await fetch('https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${tokenForHeader}`,
