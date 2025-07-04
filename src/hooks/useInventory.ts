@@ -27,7 +27,7 @@ export const useInventoryByWarehouseNew = (warehouseId: string) => {
   return trpc.inventory.getByWarehouse.useQuery({
     warehouse_id: warehouseId,
   }, {
-    enabled: !!warehouseId,
+    enabled: Boolean(warehouseId),
     staleTime: 30000,
     retry: 1,
     onError: (error) => {

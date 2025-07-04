@@ -13,7 +13,7 @@ export const useWarehouse = (id: string) => {
   return trpc.warehouses.get.useQuery(
     { id },
     {
-      enabled: !!id,
+      enabled: Boolean(id),
     }
   );
 };

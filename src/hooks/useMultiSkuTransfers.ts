@@ -187,7 +187,7 @@ export const useProductSelection = (warehouseId?: string) => {
     include_variants: true,
     limit: 100,
   }, {
-    enabled: !!warehouseId,
+    enabled: Boolean(warehouseId),
     retry: 1,
     staleTime: 60000,
   });
@@ -210,7 +210,7 @@ export const useWarehouseStock = (warehouseId?: string) => {
   const { data: stockData, isLoading, refetch } = trpc.transfers.getWarehouseStock.useQuery({
     warehouse_id: warehouseId!,
   }, {
-    enabled: isValidUuid,
+    enabled: Boolean(isValidUuid),
     retry: 1,
     staleTime: 60000,
   });

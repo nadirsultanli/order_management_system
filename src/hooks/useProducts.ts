@@ -22,7 +22,7 @@ export const useProduct = (id: string) => {
   return trpc.products.getById.useQuery(
     { id },
     {
-      enabled: !!id,
+      enabled: Boolean(id),
     }
   );
 };
@@ -88,7 +88,7 @@ export const useProductVariants = (parentProductId: string) => {
   return trpc.products.getVariants.useQuery(
     { parent_product_id: parentProductId },
     {
-      enabled: !!parentProductId,
+      enabled: Boolean(parentProductId),
       staleTime: 60000,
     }
   );

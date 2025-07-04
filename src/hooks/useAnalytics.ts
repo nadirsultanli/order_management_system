@@ -6,7 +6,7 @@ export const useComprehensiveOrderAnalytics = (startDate: string, endDate: strin
   return trpc.analytics.getComprehensiveOrderAnalytics.useQuery(
     { start_date: startDate, end_date: endDate },
     {
-      enabled: !!startDate && !!endDate,
+      enabled: Boolean(startDate && endDate),
       staleTime: 60000, // 1 minute cache
       retry: 1,
       onError: (error) => {

@@ -8,7 +8,7 @@ export const useProductPrice = (productId: string, customerId?: string, enabled:
       if (!productId) return null;
       return await trpc.pricing.getProductPrice.query({ productId, customerId });
     },
-    enabled: enabled && !!productId,
+    enabled: !!(enabled && !!productId),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 };
@@ -20,7 +20,7 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
       if (!productIds.length) return {};
       return await trpc.pricing.getProductPrices.query({ productIds, customerId });
     },
-    enabled: enabled && productIds.length > 0,
+    enabled: !!(enabled && productIds.length > 0),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 };

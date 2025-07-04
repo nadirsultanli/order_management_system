@@ -38,7 +38,7 @@ export const useTruck = (id: string) => {
   return trpc.trucks.get.useQuery(
     { id },
     {
-      enabled: !!id,
+      enabled: Boolean(id),
     }
   );
 };
