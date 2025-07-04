@@ -5,7 +5,8 @@ import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { OrderEditModal } from '../components/orders/OrderEditModal';
-import { formatOrderId, formatCurrency, getOrderStatusInfo, getNextPossibleStatuses } from '../utils/order';
+import { getOrderStatusInfo, getNextPossibleStatuses } from '../utils/order';
+import { formatCurrencySync } from '../utils/pricing';
 import { Order, OrderStatusChange } from '../types/order';
 
 export const OrderDetailPage: React.FC = () => {
@@ -41,6 +42,11 @@ export const OrderDetailPage: React.FC = () => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const formatOrderIdSyncSync = (id: string) => {
+    // Simple formatting - take first 8 characters and add prefix
+    return `ORD-${id.substring(0, 8).toUpperCase()}`;
   };
 
   if (isLoading) {
@@ -130,7 +136,7 @@ export const OrderDetailPage: React.FC = () => {
           </button>
           <div className="text-gray-400">/</div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Order {formatOrderId(order.id)}
+            Order {formatOrderIdSync(order.id)}
           </h1>
         </div>
         <div className="flex items-center space-x-3">
@@ -175,7 +181,7 @@ export const OrderDetailPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Order {formatOrderId(order.id)}
+                  Order {formatOrderIdSync(order.id)}
                 </h2>
                 <p className="text-gray-600">
                   Created on {formatDate(order.created_at)}
@@ -310,12 +316,12 @@ export const OrderDetailPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <span className="text-sm text-gray-900">
-                            {formatCurrency(line.unit_price)}
+                            {formatCurrencySync(line.unit_price)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <span className="text-sm font-medium text-gray-900">
-                            {formatCurrency(line.subtotal || (line.quantity * line.unit_price))}
+                            {formatCurrencySync(line.subtotal || (line.quantity * line.unit_price))}
                           </span>
                         </td>
                       </tr>
@@ -327,7 +333,7 @@ export const OrderDetailPage: React.FC = () => {
                         Total:
                       </td>
                       <td className="px-6 py-4 text-right text-lg font-bold text-gray-900">
-                        {order.total_amount ? formatCurrency(order.total_amount) : formatCurrency(
+                        {order.total_amount ? formatCurrencySync(order.total_amount) : formatCurrencySync(
                           order.order_lines.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0)
                         )}
                       </td>
@@ -362,20 +368,20 @@ export const OrderDetailPage: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal:</span>
                 <span className="font-medium text-gray-900">
-                  {formatCurrency(order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0)}
+                  {formatCurrencySync(order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Tax{order.tax_percent != null ? ` (${order.tax_percent}%)` : ''}:</span>
                 <span className="font-medium text-gray-900">
-                  {formatCurrency(order.tax_amount != null ? order.tax_amount : 0)}
+                  {formatCurrencySync(order.tax_amount != null ? order.tax_amount : 0)}
                 </span>
               </div>
               <div className="border-t border-gray-200 pt-4">
                 <div className="flex justify-between">
                   <span className="text-lg font-semibold text-gray-900">Total:</span>
                   <span className="text-lg font-bold text-gray-900">
-                    {formatCurrency((order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0) + (order.tax_amount != null ? order.tax_amount : 0))}
+                    {formatCurrencySync((order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0) + (order.tax_amount != null ? order.tax_amount : 0))}
                   </span>
                 </div>
               </div>

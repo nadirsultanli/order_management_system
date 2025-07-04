@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { useUpdateOrderTaxNew } from '../../hooks/useOrders';
 import { Order } from '../../types/order';
-import { formatCurrency, calculateOrderTotalWithTax } from '../../utils/order';
+import { calculateOrderTotalWithTax } from '../../utils/order';
+import { formatCurrencySync } from '../../utils/pricing';
 import { toast } from 'react-hot-toast';
 
 interface OrderEditModalProps {
@@ -106,15 +107,15 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal:</span>
-                <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
+                <span className="font-medium text-gray-900">{formatCurrencySync(subtotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Tax ({taxPercent}%):</span>
-                <span className="font-medium text-gray-900">{formatCurrency(taxAmount)}</span>
+                <span className="font-medium text-gray-900">{formatCurrencySync(taxAmount)}</span>
               </div>
               <div className="flex justify-between border-t border-gray-200 pt-2">
                 <span className="font-semibold text-gray-900">Total:</span>
-                <span className="font-bold text-gray-900">{formatCurrency(grandTotal)}</span>
+                <span className="font-bold text-gray-900">{formatCurrencySync(grandTotal)}</span>
               </div>
             </div>
           </div>

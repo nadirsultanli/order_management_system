@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Eye, Edit, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar } from 'lucide-react';
 import { Order } from '../../types/order';
-import { formatOrderId, formatCurrency, getStatusColor } from '../../utils/order';
+import { formatCurrencySync } from '../../utils/pricing';
 
 interface OrderTableProps {
   orders: Order[];
@@ -30,6 +30,32 @@ export const OrderTable: React.FC<OrderTableProps> = ({
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const getStatusColorSync = (status: string) => {
+    switch (status) {
+      case 'draft':
+        return 'bg-gray-100 text-gray-800 border-gray-300';
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'scheduled':
+        return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'en_route':
+        return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'delivered':
+        return 'bg-green-100 text-green-800 border-green-300';
+      case 'invoiced':
+        return 'bg-teal-100 text-teal-800 border-teal-300';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-300';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  const formatOrderIdSync = (id: string) => {
+    // Simple formatting - take first 8 characters and add prefix
+    return `ORD-${id.substring(0, 8).toUpperCase()}`;
   };
 
   const getQuickActions = (order: Order) => {
@@ -208,7 +234,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                         onClick={() => onView(order)}
                         className="text-sm font-medium text-blue-600 hover:text-blue-900"
                       >
-                        {formatOrderId(order.id)}
+                        {formatOrderIdSync(order.id)}
                       </button>
                       <div className="text-sm text-gray-500">
                         {order.order_lines?.length || 0} item{(order.order_lines?.length || 0) !== 1 ? 's' : ''}
@@ -252,13 +278,13 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(order.status as any)}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColorSync(order.status)}`}>
                       {order.status.replace('_', ' ').toUpperCase()}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="text-sm font-medium text-gray-900">
-                      {order.total_amount ? formatCurrency(order.total_amount) : '-'}
+                      {order.total_amount ? formatCurrencySync(order.total_amount) : '-'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

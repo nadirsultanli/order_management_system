@@ -48,7 +48,6 @@ export const ordersRouter = router({
       is_overdue: z.boolean().optional(),
       delivery_method: z.enum(['pickup', 'delivery']).optional(),
       priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
-      customer_type: z.enum(['retail', 'wholesale', 'government']).optional(),
       payment_status: z.enum(['pending', 'paid', 'overdue']).optional(),
       sort_by: z.enum(['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name']).default('created_at'),
       sort_order: z.enum(['asc', 'desc']).default('desc'),
@@ -65,7 +64,7 @@ export const ordersRouter = router({
         .from('orders')
         .select(`
           *,
-          customer:customers(id, name, email, phone, account_status, credit_terms_days, customer_type),
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
           order_lines(
             id,
@@ -99,10 +98,6 @@ export const ordersRouter = router({
         query = query.eq('customer_id', input.customer_id);
       }
 
-      // Apply customer type filter (business logic)
-      if (input.customer_type) {
-        query = query.eq('customer.customer_type', input.customer_type);
-      }
 
       // Apply date filters
       if (input.order_date_from) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangle, DollarSign, Check, X, Info, ExternalLink } from 'lucide-react';
-import { formatCurrency } from '../../utils/pricing';
+import { formatCurrencySync } from '../../utils/pricing';
 
 interface ProductAvailabilityIndicatorProps {
   productId: string;
@@ -96,7 +96,7 @@ export const ProductAvailabilityIndicator: React.FC<ProductAvailabilityIndicator
     return (
       <div className="flex items-center space-x-2 text-sm">
         <Icon className={`h-4 w-4 ${status.iconColor}`} />
-        <span className="text-green-600 font-medium">{formatCurrency(unitPrice)}</span>
+        <span className="text-green-600 font-medium">{formatCurrencySync(unitPrice)}</span>
         <span className="text-gray-500">• {stockAvailable} available</span>
       </div>
     );
@@ -128,7 +128,7 @@ export const ProductAvailabilityIndicator: React.FC<ProductAvailabilityIndicator
             {unitPrice > 0 && (
               <div className="text-sm">
                 <span className="font-medium">Price: </span>
-                <span>{formatCurrency(unitPrice)}</span>
+                <span>{formatCurrencySync(unitPrice)}</span>
                 {priceListName && (
                   <span className="text-gray-600"> (from {priceListName})</span>
                 )}
@@ -192,7 +192,7 @@ export const ProductTooltip: React.FC<ProductTooltipProps> = ({
           <span className={!hasActivePricing || unitPrice === 0 ? 'text-yellow-300' : 'text-white'}>
             {!hasActivePricing || unitPrice === 0 
               ? 'Not set' 
-              : formatCurrency(unitPrice)
+              : formatCurrencySync(unitPrice)
             }
           </span>
         </div>

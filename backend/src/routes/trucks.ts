@@ -271,7 +271,7 @@ export const trucksRouter = router({
         capacity_cylinders: input.capacity_cylinders,
         driver_name: input.driver_name || null,
         active: input.active,
-        user_id: user.id,
+        user_id: null, // Set to null since admin users don't exist in users table
         last_maintenance_date: input.last_maintenance_date || null,
         next_maintenance_due: input.next_maintenance_due || null,
         fuel_capacity_liters: input.fuel_capacity_liters || null,

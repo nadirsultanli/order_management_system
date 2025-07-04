@@ -192,8 +192,8 @@ export const transfersRouter = router({
         .from('transfers')
         .select(`
           *,
-          source_warehouse:source_warehouse_id(id, name, code),
-          destination_warehouse:destination_warehouse_id(id, name, code),
+          source_warehouse:source_warehouse_id(id, name),
+          destination_warehouse:destination_warehouse_id(id, name),
           items:transfer_lines(
             id,
             product_id,
@@ -277,8 +277,8 @@ export const transfersRouter = router({
         .from('transfers')
         .select(`
           *,
-          source_warehouse:source_warehouse_id(id, name, code),
-          destination_warehouse:destination_warehouse_id(id, name, code),
+          source_warehouse:source_warehouse_id(id, name),
+          destination_warehouse:destination_warehouse_id(id, name),
           items:transfer_lines(
             id,
             product_id,
@@ -325,7 +325,7 @@ export const transfersRouter = router({
       // Validate warehouses exist and belong to tenant
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
-        .select('id, name, code')
+        .select('id, name')
         
         .in('id', [input.source_warehouse_id, input.destination_warehouse_id]);
 
@@ -452,7 +452,7 @@ export const transfersRouter = router({
       // Validate warehouses exist and belong to tenant
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
-        .select('id, name, code')
+        .select('id, name')
         
         .in('id', [input.source_warehouse_id, input.destination_warehouse_id]);
 
@@ -508,8 +508,8 @@ export const transfersRouter = router({
 
       // Generate transfer reference if not provided
       const transferReference = input.transfer_reference || generateTransferReference(
-        sourceWarehouse?.code || 'WH',
-        destWarehouse?.code || 'WH',
+        sourceWarehouse?.name?.substring(0, 3).toUpperCase() || 'WH',
+        destWarehouse?.name?.substring(0, 3).toUpperCase() || 'WH',
         input.transfer_date
       );
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BarChart3, TrendingUp, Users, Package, Clock, MapPin, Calendar, DollarSign } from 'lucide-react';
 import { OrderAnalytics as AnalyticsType } from '../../types/order';
-import { formatCurrency } from '../../utils/order';
+import { formatCurrencySync } from '../../utils/pricing';
 
 interface OrderAnalyticsProps {
   analytics: AnalyticsType;
@@ -216,10 +216,10 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-gray-900">
-                        {formatCurrency(day.revenue)}
+                        {formatCurrencySync(day.revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(day.orders > 0 ? day.revenue / day.orders : 0)} avg
+                        {formatCurrencySync(day.orders > 0 ? day.revenue / day.orders : 0)} avg
                       </div>
                     </div>
                   </div>
@@ -246,10 +246,10 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-gray-900">
-                        {formatCurrency(customer.total_revenue)}
+                        {formatCurrencySync(customer.total_revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(customer.order_count > 0 ? customer.total_revenue / customer.order_count : 0)} avg
+                        {formatCurrencySync(customer.order_count > 0 ? customer.total_revenue / customer.order_count : 0)} avg
                       </div>
                     </div>
                   </div>
@@ -276,10 +276,10 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-gray-900">
-                        {formatCurrency(product.revenue)}
+                        {formatCurrencySync(product.revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(product.quantity_sold > 0 ? product.revenue / product.quantity_sold : 0)} per unit
+                        {formatCurrencySync(product.quantity_sold > 0 ? product.revenue / product.quantity_sold : 0)} per unit
                       </div>
                     </div>
                   </div>
@@ -304,10 +304,10 @@ export const OrderAnalytics: React.FC<OrderAnalyticsProps> = ({
                     </div>
                     <div className="text-right">
                       <div className="font-medium text-gray-900">
-                        {formatCurrency(region.revenue)}
+                        {formatCurrencySync(region.revenue)}
                       </div>
                       <div className="text-sm text-gray-600">
-                        {formatCurrency(region.order_count > 0 ? region.revenue / region.order_count : 0)} avg
+                        {formatCurrencySync(region.order_count > 0 ? region.revenue / region.order_count : 0)} avg
                       </div>
                     </div>
                   </div>

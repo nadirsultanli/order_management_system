@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Truck, Package, MapPin, Clock } from 'lucide-react';
 import { Order } from '../../types/order';
-import { formatCurrency } from '../../utils/order';
+import { formatCurrencySync } from '../../utils/pricing';
 
 interface DeliveryCalendarProps {
   orders: Order[];
@@ -169,7 +169,7 @@ export const DeliveryCalendar: React.FC<DeliveryCalendarProps> = ({
                       <div
                         key={order.id}
                         className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded truncate"
-                        title={`${order.customer?.name} - ${formatCurrency(order.total_amount || 0)}`}
+                        title={`${order.customer?.name} - ${formatCurrencySync(order.total_amount || 0)}`}
                       >
                         {order.customer?.name}
                       </div>
@@ -231,7 +231,7 @@ export const DeliveryCalendar: React.FC<DeliveryCalendarProps> = ({
                 </div>
                 <div className="text-right">
                   <div className="font-medium text-gray-900">
-                    {formatCurrency(order.total_amount || 0)}
+                    {formatCurrencySync(order.total_amount || 0)}
                   </div>
                   <div className="text-sm text-gray-600">
                     {order.order_lines?.length || 0} items
@@ -255,7 +255,7 @@ export const DeliveryCalendar: React.FC<DeliveryCalendarProps> = ({
             <div className="flex items-center justify-between text-sm mt-1">
               <span className="text-blue-800">Total Revenue:</span>
               <span className="font-medium text-blue-900">
-                {formatCurrency(selectedDateOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0))}
+                {formatCurrencySync(selectedDateOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0))}
               </span>
             </div>
           </div>

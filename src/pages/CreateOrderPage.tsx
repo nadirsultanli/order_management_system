@@ -11,7 +11,8 @@ import { CreateAddressData, Address } from '../types/address';
 import { Customer } from '../types/customer';
 import { Product } from '../types/product';
 import { PriceList } from '../types/pricing';
-import { formatCurrency, calculateOrderTotalWithTax } from '../utils/order';
+import { calculateOrderTotalWithTax } from '../utils/order';
+import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
@@ -555,7 +556,7 @@ export const CreateOrderPage: React.FC = () => {
                               ) : (
                                 <div className="flex items-center space-x-1 text-green-600">
                                   <DollarSign className="h-4 w-4" />
-                                  <span className="text-sm font-medium">{formatCurrency(unitPrice)}</span>
+                                  <span className="text-sm font-medium">{formatCurrencySync(unitPrice)}</span>
                                   {selectedPriceList && (
                                     <span className="text-xs text-gray-500">({selectedPriceList.name})</span>
                                   )}
@@ -660,10 +661,10 @@ export const CreateOrderPage: React.FC = () => {
                             </div>
                             <div className="text-right">
                               <div className="text-sm text-gray-600">
-                                {formatCurrency(line.unit_price)} each
+                                {formatCurrencySync(line.unit_price)} each
                               </div>
                               <div className="font-medium text-gray-900">
-                                {formatCurrency(line.subtotal)}
+                                {formatCurrencySync(line.subtotal)}
                               </div>
                             </div>
                           </div>
@@ -675,7 +676,7 @@ export const CreateOrderPage: React.FC = () => {
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-lg font-medium text-gray-900">Subtotal:</span>
                         <span className="text-xl font-bold text-gray-900">
-                          {formatCurrency(orderTotal)}
+                          {formatCurrencySync(orderTotal)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center mb-2">
@@ -692,13 +693,13 @@ export const CreateOrderPage: React.FC = () => {
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-lg font-medium text-gray-900">Tax:</span>
                         <span className="text-lg font-bold text-gray-900">
-                          {formatCurrency(taxAmount)}
+                          {formatCurrencySync(taxAmount)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold text-gray-900">Total:</span>
                         <span className="text-xl font-bold text-green-700">
-                          {formatCurrency(grandTotal)}
+                          {formatCurrencySync(grandTotal)}
                         </span>
                       </div>
                     </div>
@@ -784,30 +785,30 @@ export const CreateOrderPage: React.FC = () => {
                       <div>
                         <div className="font-medium text-gray-900">{line.product_name}</div>
                         <div className="text-sm text-gray-500">
-                          {line.quantity} × {formatCurrency(line.unit_price)}
+                          {line.quantity} × {formatCurrencySync(line.unit_price)}
                         </div>
                       </div>
                       <div className="font-medium text-gray-900">
-                        {formatCurrency(line.subtotal)}
+                        {formatCurrencySync(line.subtotal)}
                       </div>
                     </div>
                   ))}
                   <div className="flex justify-between items-center pt-3 border-t border-gray-300">
                     <span className="text-lg font-medium text-gray-900">Subtotal:</span>
                     <span className="text-xl font-bold text-gray-900">
-                      {formatCurrency(orderTotal)}
+                      {formatCurrencySync(orderTotal)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-medium text-gray-900">Tax:</span>
                     <span className="text-lg font-bold text-gray-900">
-                      {formatCurrency(taxAmount)}
+                      {formatCurrencySync(taxAmount)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold text-gray-900">Total:</span>
                     <span className="text-xl font-bold text-green-700">
-                      {formatCurrency(grandTotal)}
+                      {formatCurrencySync(grandTotal)}
                     </span>
                   </div>
                 </div>

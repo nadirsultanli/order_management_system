@@ -1,7 +1,7 @@
 import React from 'react';
 import { ShoppingCart, CheckCircle, Calendar, Truck, Package, Receipt, XCircle, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useOrderStats } from '../../hooks/useAnalytics';
-import { formatCurrency } from '../../utils/order';
+import { formatCurrencySync } from '../../utils/pricing';
 
 export const OrderStats: React.FC = () => {
   const { data: stats, isLoading } = useOrderStats();
@@ -127,7 +127,7 @@ export const OrderStats: React.FC = () => {
             </div>
             <div className="text-right">
               <div className="text-3xl font-bold text-gray-900">
-                {formatCurrency(stats.total_revenue)}
+                {stats.total_revenue ? formatCurrencySync(stats.total_revenue) : 'Ksh 0.00'}
               </div>
             </div>
           </div>
