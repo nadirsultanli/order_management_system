@@ -27,7 +27,6 @@ export async function validateStockAvailability(
     .select('qty_full, qty_reserved')
     .eq('warehouse_id', warehouseId)
     .eq('product_id', productId)
-    .eq('tenant_id', tenantId)
     .single();
 
   if (error) {
@@ -71,7 +70,6 @@ export async function validateWarehouseTenant(
     .from('warehouses')
     .select('id')
     .eq('id', warehouseId)
-    .eq('tenant_id', tenantId)
     .single();
 
   return !error && !!data;
@@ -89,7 +87,6 @@ export async function validateProductTenant(
     .from('products')
     .select('id')
     .eq('id', productId)
-    .eq('tenant_id', tenantId)
     .single();
 
   return !error && !!data;
@@ -208,8 +205,7 @@ export async function getWarehouseInventorySummary(
   const { data, error } = await supabase
     .from('inventory_balance')
     .select('qty_full, qty_empty, qty_reserved')
-    .eq('warehouse_id', warehouseId)
-    .eq('tenant_id', tenantId);
+    .eq('warehouse_id', warehouseId);
 
   if (error) {
     throw new TRPCError({
@@ -248,7 +244,6 @@ export async function atomicStockUpdate(
       .from('inventory_balance')
       .select('*')
       .eq('id', inventoryId)
-      .eq('tenant_id', tenantId)
       .single();
 
     if (fetchError) {
@@ -269,7 +264,6 @@ export async function atomicStockUpdate(
         updated_at: new Date().toISOString()
       })
       .eq('id', inventoryId)
-      .eq('tenant_id', tenantId)
       .eq('updated_at', current.updated_at) // Optimistic locking
       .select()
       .single();

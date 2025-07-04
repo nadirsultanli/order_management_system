@@ -266,7 +266,6 @@ export async function checkTransferConflicts(
     `)
     .eq('source_warehouse_id', newTransfer.source_warehouse_id)
     .eq('transfer_date', newTransfer.transfer_date)
-    .eq('tenant_id', tenantId)
     .in('status', ['pending', 'approved', 'in_transit']);
 
   if (error) {

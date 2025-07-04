@@ -820,8 +820,7 @@ async function calculateOrderTotal(ctx: any, orderId: string, tenantId: string) 
   const { data: lines, error: linesError } = await ctx.supabase
     .from('order_lines')
     .select('quantity, unit_price, subtotal')
-    .eq('order_id', orderId)
-    .eq('tenant_id', tenantId);
+    .eq('order_id', orderId);
 
   if (linesError) {
     throw new TRPCError({
@@ -835,7 +834,6 @@ async function calculateOrderTotal(ctx: any, orderId: string, tenantId: string) 
     .from('orders')
     .select('tax_amount, tax_percent')
     .eq('id', orderId)
-    .eq('tenant_id', tenantId)
     .single();
 
   if (orderError) {
@@ -862,8 +860,7 @@ async function calculateOrderTotal(ctx: any, orderId: string, tenantId: string) 
         total_amount: grandTotal,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', orderId)
-      .eq('tenant_id', tenantId);
+      .eq('id', orderId);
 
     if (updateError) {
       throw new TRPCError({
@@ -898,8 +895,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number, ten
   const { data: lines, error: linesError } = await ctx.supabase
     .from('order_lines')
     .select('quantity, unit_price, subtotal')
-    .eq('order_id', orderId)
-    .eq('tenant_id', tenantId);
+    .eq('order_id', orderId);
 
   if (linesError) {
     throw new TRPCError({
@@ -927,8 +923,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number, ten
         total_amount: grandTotal,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', orderId)
-      .eq('tenant_id', tenantId);
+      .eq('id', orderId);
 
     if (updateError) {
       throw new TRPCError({
@@ -969,7 +964,6 @@ async function getOrderById(ctx: any, orderId: string, tenantId: string) {
       )
     `)
     .eq('id', orderId)
-    .eq('tenant_id', tenantId)
     .single();
 
   if (error) {

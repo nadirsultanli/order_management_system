@@ -28,13 +28,13 @@ const CreateTruckSchema = z.object({
   fleet_number: z.string().min(1),
   license_plate: z.string().min(1),
   capacity_cylinders: z.number().positive(),
-  capacity_kg: z.number().positive().optional(),
+  capacity_kg: z.number().positive().optional(), // Not in database, for calculations only
   driver_name: z.string().optional(),
   active: z.boolean().default(true),
-  status: TruckStatusEnum.default('active'),
+  status: TruckStatusEnum.default('active').optional(), // Not in database
   last_maintenance_date: z.string().optional(),
   next_maintenance_due: z.string().optional(),
-  maintenance_interval_days: z.number().positive().optional(),
+  maintenance_interval_days: z.number().positive().optional(), // Not in database
   fuel_capacity_liters: z.number().positive().optional(),
   avg_fuel_consumption: z.number().positive().optional(),
 });
@@ -44,20 +44,20 @@ const UpdateTruckSchema = z.object({
   fleet_number: z.string().min(1).optional(),
   license_plate: z.string().min(1).optional(),
   capacity_cylinders: z.number().positive().optional(),
-  capacity_kg: z.number().positive().optional(),
+  capacity_kg: z.number().positive().optional(), // Not in database, for calculations only
   driver_name: z.string().optional(),
   active: z.boolean().optional(),
-  status: TruckStatusEnum.optional(),
+  status: TruckStatusEnum.optional(), // Not in database
   last_maintenance_date: z.string().optional(),
   next_maintenance_due: z.string().optional(),
-  maintenance_interval_days: z.number().positive().optional(),
+  maintenance_interval_days: z.number().positive().optional(), // Not in database
   fuel_capacity_liters: z.number().positive().optional(),
   avg_fuel_consumption: z.number().positive().optional(),
 });
 
 const TruckFiltersSchema = z.object({
   search: z.string().optional(),
-  status: TruckStatusEnum.optional(),
+  status: TruckStatusEnum.optional(), // For frontend compatibility but not used in database query
   active: z.boolean().optional(),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(50),
@@ -124,7 +124,6 @@ export const trucksRouter = router({
       let query = ctx.supabase
         .from('truck')
         .select('*', { count: 'exact' })
-        
         .order('fleet_number');
 
       // Apply search filter
@@ -132,9 +131,14 @@ export const trucksRouter = router({
         query = query.or(`fleet_number.ilike.%${input.search}%,license_plate.ilike.%${input.search}%,driver_name.ilike.%${input.search}%`);
       }
 
-      // Apply status filter
+      // Apply status filter using active field (status doesn't exist in database)
       if (input.status) {
-        query = query.eq('status', input.status);
+        if (input.status === 'active') {
+          query = query.eq('active', true);
+        } else if (input.status === 'inactive') {
+          query = query.eq('active', false);
+        }
+        // maintenance status would need additional logic if needed
       }
 
       // Apply active filter
@@ -157,8 +161,15 @@ export const trucksRouter = router({
         });
       }
 
+      // Enhance trucks with calculated fields
+      const enhancedTrucks = (data || []).map(truck => ({
+        ...truck,
+        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+        status: truck.active ? 'active' : 'inactive', // Derive from active field
+      }));
+
       return {
-        trucks: data || [],
+        trucks: enhancedTrucks,
         totalCount: count || 0,
         totalPages: Math.ceil((count || 0) / input.limit),
         currentPage: input.page,
@@ -236,8 +247,8 @@ export const trucksRouter = router({
 
       const enhancedTruck = {
         ...truck,
-        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
-        status: truck.status || (truck.active ? 'active' : 'inactive'),
+        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+        status: truck.active ? 'active' : 'inactive', // Derive from active field
         inventory,
         current_route: routeData
       };
@@ -253,10 +264,18 @@ export const trucksRouter = router({
       
       ctx.logger.info('Creating truck:', input);
       
+      // Only include columns that exist in the database
       const truckData = {
-        ...input,
-        
-        capacity_kg: input.capacity_kg || input.capacity_cylinders * 27,
+        fleet_number: input.fleet_number,
+        license_plate: input.license_plate,
+        capacity_cylinders: input.capacity_cylinders,
+        driver_name: input.driver_name || null,
+        active: input.active,
+        user_id: user.id,
+        last_maintenance_date: input.last_maintenance_date || null,
+        next_maintenance_due: input.next_maintenance_due || null,
+        fuel_capacity_liters: input.fuel_capacity_liters || null,
+        avg_fuel_consumption: input.avg_fuel_consumption || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -284,18 +303,20 @@ export const trucksRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
       
-      const { id, ...updateData } = input;
+      const { id, capacity_kg, status, maintenance_interval_days, ...updateData } = input;
       
       ctx.logger.info('Updating truck:', id, updateData);
       
+      // Only include columns that exist in the database
+      const cleanUpdateData = {
+        ...updateData,
+        updated_at: new Date().toISOString(),
+      };
+
       const { data, error } = await ctx.supabase
         .from('truck')
-        .update({
-          ...updateData,
-          updated_at: new Date().toISOString(),
-        })
+        .update(cleanUpdateData)
         .eq('id', id)
-        
         .select()
         .single();
 
@@ -696,8 +717,8 @@ export const trucksRouter = router({
 
       const truckWithCapacity: TruckWithInventory = {
         ...truck,
-        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
-        status: truck.status || (truck.active ? 'active' : 'inactive')
+        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+        status: truck.active ? 'active' : 'inactive' // Derive from active field
       };
 
       const result = calculateTruckCapacity(truckWithCapacity, allocations || [], input.date);
@@ -762,8 +783,8 @@ export const trucksRouter = router({
       // Enhance trucks with capacity info
       const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => ({
         ...truck,
-        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
-        status: truck.status || (truck.active ? 'active' : 'inactive')
+        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+        status: truck.active ? 'active' : 'inactive' // Derive from active field
       }));
 
       const result = findBestTruckForOrder(
@@ -835,8 +856,8 @@ export const trucksRouter = router({
 
       const truckWithCapacity: TruckWithInventory = {
         ...truck,
-        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
-        status: truck.status || (truck.active ? 'active' : 'inactive')
+        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+        status: truck.active ? 'active' : 'inactive' // Derive from active field
       };
 
       const result = validateTruckAllocation(
@@ -890,8 +911,8 @@ export const trucksRouter = router({
       // Enhance trucks with capacity info
       const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => ({
         ...truck,
-        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
-        status: truck.status || (truck.active ? 'active' : 'inactive')
+        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+        status: truck.active ? 'active' : 'inactive' // Derive from active field
       }));
 
       const schedules = generateDailyTruckSchedule(enhancedTrucks, allocations || [], input.date);
@@ -981,8 +1002,8 @@ export const trucksRouter = router({
       // Enhance trucks with capacity info
       const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => ({
         ...truck,
-        capacity_kg: truck.capacity_kg || truck.capacity_cylinders * 27,
-        status: truck.status || (truck.active ? 'active' : 'inactive')
+        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+        status: truck.active ? 'active' : 'inactive' // Derive from active field
       }));
 
       const result = optimizeTruckAllocations(

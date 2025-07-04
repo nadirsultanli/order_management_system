@@ -154,10 +154,20 @@ export const formatDate = (dateString: string): string => {
 
 // Format currency
 export const formatCurrency = (amount: number): string => {
-  return `Ksh ${amount.toLocaleString('en-KE', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  // Handle invalid input gracefully
+  if (typeof amount !== 'number' || isNaN(amount) || !isFinite(amount)) {
+    return 'Ksh 0.00';
+  }
+  
+  try {
+    return `Ksh ${amount.toLocaleString('en-KE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  } catch (error) {
+    // Fallback if locale string fails
+    return `Ksh ${amount.toFixed(2)}`;
+  }
 };
 
 // Check if order is editable

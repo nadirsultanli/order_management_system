@@ -288,13 +288,24 @@ export class PricingService {
    * Format currency
    */
   formatCurrency(amount: number, currencyCode: string = 'KES'): string {
-    // Always use Ksh for Kenyan Shilling
-    const symbol = currencyCode === 'KES' ? 'Ksh' : currencyCode;
-    const formattedAmount = amount.toLocaleString('en-KE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return `${symbol} ${formattedAmount}`;
+    // Handle invalid input gracefully
+    if (typeof amount !== 'number' || isNaN(amount) || !isFinite(amount)) {
+      return 'Ksh 0.00';
+    }
+    
+    try {
+      // Always use Ksh for Kenyan Shilling
+      const symbol = currencyCode === 'KES' ? 'Ksh' : currencyCode;
+      const formattedAmount = amount.toLocaleString('en-KE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+      return `${symbol} ${formattedAmount}`;
+    } catch (error) {
+      // Fallback if locale string fails
+      const symbol = currencyCode === 'KES' ? 'Ksh' : currencyCode;
+      return `${symbol} ${amount.toFixed(2)}`;
+    }
   }
 
   /**
