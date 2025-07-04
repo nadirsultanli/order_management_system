@@ -25,7 +25,7 @@ const ProductFiltersSchema = z.object({
   created_after: z.string().optional(),
   updated_after: z.string().optional(),
   page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
+  limit: z.number().min(1).max(1000).default(50),
   sort_by: z.enum(['created_at', 'name', 'sku', 'capacity_kg', 'inventory_level', 'last_sold']).default('created_at'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
   show_obsolete: z.boolean().default(false),
