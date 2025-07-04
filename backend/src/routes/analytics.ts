@@ -261,11 +261,11 @@ export const analyticsRouter = router({
       }
 
       const totalOrders = orders?.length || 0;
-      const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+      const totalRevenue = orders?.reduce((sum, order) => sum + ((order as any).total_amount || 0), 0) || 0;
       
       // Group by status
       const statusBreakdown = orders?.reduce((acc, order) => {
-        acc[order.status] = (acc[order.status] || 0) + 1;
+        acc[(order as any).status] = (acc[(order as any).status] || 0) + 1;
         return acc;
       }, {} as Record<string, number>) || {};
       
@@ -273,8 +273,8 @@ export const analyticsRouter = router({
       
       if (input.group_by === 'customer') {
         groupedData = orders?.reduce((acc, order) => {
-          const customerId = order.customer?.id || 'unknown';
-          const customerName = order.customer?.name || 'Unknown Customer';
+          const customerId = (order as any).customer?.id || 'unknown';
+          const customerName = (order as any).customer?.name || 'Unknown Customer';
           
           if (!acc[customerId]) {
             acc[customerId] = {
@@ -286,7 +286,7 @@ export const analyticsRouter = router({
           }
           
           acc[customerId].orders += 1;
-          acc[customerId].revenue += order.total_amount || 0;
+          acc[customerId].revenue += (order as any).total_amount || 0;
           
           return acc;
         }, {} as Record<string, any>) || {};
@@ -294,7 +294,7 @@ export const analyticsRouter = router({
         const productData: Record<string, any> = {};
         
         orders?.forEach(order => {
-          order.order_lines?.forEach((line: any) => {
+          (order as any).order_lines?.forEach((line: any) => {
             const productId = line.product?.id || 'unknown';
             const productName = line.product?.name || 'Unknown Product';
             const productSku = line.product?.sku || '';
@@ -409,8 +409,8 @@ export const analyticsRouter = router({
           if (!acc[customerId]) {
             acc[customerId] = {
               customer_id: customerId,
-              customer_name: order.customer?.name || 'Unknown',
-              customer_email: order.customer?.email || '',
+              customer_name: (order as any).customer?.name || 'Unknown',
+              customer_email: (order as any).customer?.email || '',
               total_spent: 0,
               order_count: 0,
             };
@@ -469,8 +469,8 @@ export const analyticsRouter = router({
           if (!acc.find(c => c.customer_id === order.customer_id)) {
             acc.push({
               customer_id: order.customer_id,
-              customer_name: order.customer?.name || 'Unknown',
-              customer_email: order.customer?.email || '',
+              customer_name: (order as any).customer?.name || 'Unknown',
+              customer_email: (order as any).customer?.email || '',
             });
           }
           return acc;
@@ -653,7 +653,7 @@ export const analyticsRouter = router({
       // Calculate top customers
       const customerData = ordersData.reduce((acc, order) => {
         const customerId = order.customer_id;
-        const customerName = order.customer?.name || 'Unknown Customer';
+        const customerName = (order as any).customer?.name || 'Unknown Customer';
         
         if (!acc[customerId]) {
           acc[customerId] = {
@@ -740,7 +740,7 @@ export const analyticsRouter = router({
 
       // Calculate regional breakdown
       const regionData = ordersData.reduce((acc, order) => {
-        const region = order.delivery_address?.city || 'Unknown';
+        const region = (order as any).delivery_address?.city || 'Unknown';
         
         if (!acc[region]) {
           acc[region] = { order_count: 0, revenue: 0 };

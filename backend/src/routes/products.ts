@@ -178,27 +178,28 @@ export const productsRouter = router({
       const { data, error, count } = await query;
 
       if (error) {
+        const errorObj = error as any;
         ctx.logger.error('Error fetching products:', {
           error,
-          errorMessage: error.message,
-          errorCode: error.code,
-          errorDetails: error.details,
-          errorHint: error.hint,
+          errorMessage: errorObj.message,
+          errorCode: errorObj.code,
+          errorDetails: errorObj.details,
+          errorHint: errorObj.hint,
           filters: input
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to fetch products: ${error.message}`,
+          message: `Failed to fetch products: ${errorObj.message}`,
         });
       }
 
-      let products = (data || []).map(product => {
-        const inventoryData = product.inventory_balance || [];
+      let products = (data || []).map((product: any) => {
+        const inventoryData = (product as any).inventory_balance || [];
         const totalStock = inventoryData.reduce((sum: number, inv: any) => sum + inv.qty_full, 0);
         const totalAvailable = inventoryData.reduce((sum: number, inv: any) => sum + (inv.qty_full - inv.qty_reserved), 0);
         
         return {
-          ...product,
+          ...(product as any),
           inventory_summary: input.include_inventory_data ? {
             total_stock: totalStock,
             total_available: totalAvailable,
@@ -914,7 +915,7 @@ export const productsRouter = router({
           const totalStock = inventory.reduce((sum, inv) => sum + inv.qty_full, 0);
           warnings.push(`Product has ${totalStock} units in stock across ${inventory.length} warehouses`);
           
-          const warehouseNames = inventory.map(inv => inv.warehouse?.name).join(', ');
+          const warehouseNames = inventory.map((inv: any) => inv.warehouse?.name || 'Unknown').filter(Boolean).join(', ');
           warnings.push(`Stock locations: ${warehouseNames}`);
         }
 
