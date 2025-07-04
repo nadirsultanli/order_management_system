@@ -1,12 +1,12 @@
 import { createTRPCReact } from '@trpc/react-query';
-import { httpBatchLink } from '@trpc/client';
+import { httpLink } from '@trpc/client';
 import type { AppRouter } from '../../backend/src/routes';
 
 export const trpc = createTRPCReact<AppRouter>();
 
 export const trpcClient = trpc.createClient({
   links: [
-    httpBatchLink({
+    httpLink({
       url: import.meta.env.VITE_BACKEND_URL || 
            (import.meta.env.PROD ? 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc' : 'http://localhost:3001/api/v1/trpc'),
       headers: async () => {
