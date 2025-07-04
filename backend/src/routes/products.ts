@@ -92,7 +92,11 @@ export const productsRouter = router({
         
         ctx.logger.info('Fetching products with advanced filters:', input);
       
+      // Start with basic product fields
       let selectClause = 'products.*';
+      
+      // Only include inventory data if explicitly requested
+      // This complex join might be causing issues
       if (input.include_inventory_data) {
         selectClause += ', inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, warehouse:warehouses(name))';
       }
