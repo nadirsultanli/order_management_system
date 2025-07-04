@@ -74,16 +74,35 @@ export const getPriceListStatus = async (startDate: string, endDate?: string): P
   }
 };
 
-// UI-only placeholder - NO business logic
+// Synchronous fallback for backward compatibility
 export const getPriceListStatusSync = (startDate: string, endDate?: string): {
   status: 'active' | 'future' | 'expired';
   label: string;
   color: string;
 } => {
-  // This is a placeholder for build compatibility only
-  // Real status logic MUST use getPriceListStatus() async API
-  console.warn('getPriceListStatusSync is deprecated - use getPriceListStatus() API instead');
-  return { status: 'active', label: 'Loading...', color: 'bg-gray-100 text-gray-800' };
+  const today = new Date().toISOString().split('T')[0];
+  
+  if (startDate > today) {
+    return {
+      status: 'future',
+      label: 'Future',
+      color: 'bg-blue-100 text-blue-800 border-blue-200',
+    };
+  }
+  
+  if (endDate && endDate < today) {
+    return {
+      status: 'expired',
+      label: 'Expired',
+      color: 'bg-red-100 text-red-800 border-red-200',
+    };
+  }
+  
+  return {
+    status: 'active',
+    label: 'Active',
+    color: 'bg-green-100 text-green-800 border-green-200',
+  };
 };
 
 export const validateDateRange = async (startDate: string, endDate?: string): Promise<boolean> => {
@@ -106,10 +125,13 @@ export const isExpiringSoon = async (endDate?: string, days: number = 30): Promi
   }
 };
 
-// UI-only placeholder - NO business logic
+// Synchronous fallback for backward compatibility
 export const isExpiringSoonSync = (endDate?: string, days: number = 30): boolean => {
-  // This is a placeholder for build compatibility only
-  // Real expiration logic MUST use isExpiringSoon() async API
-  console.warn('isExpiringSoonSync is deprecated - use isExpiringSoon() API instead');
-  return false; // Default to not expiring for UI placeholder
+  if (!endDate) return false;
+  
+  const today = new Date();
+  const expiry = new Date(endDate);
+  const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  
+  return daysUntilExpiry <= days && daysUntilExpiry >= 0;
 };

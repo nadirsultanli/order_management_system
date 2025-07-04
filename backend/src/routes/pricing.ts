@@ -107,11 +107,13 @@ export const pricingRouter = router({
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const processedLists = (data || []).map((list: any) => {
         const statusInfo = pricingService.getPriceListStatus(list.start_date, list.end_date);
+        const isExpiringSoon = pricingService.isExpiringSoon(list.end_date);
         return {
           ...list,
           product_count: list.price_list_item?.[0]?.count || 0,
           status: statusInfo.status,
           statusInfo,
+          isExpiringSoon,
         };
       }).filter((list: any) => {
         if (input.status) {
@@ -606,11 +608,13 @@ export const pricingRouter = router({
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const processedLists = (data || []).map((list: any) => {
         const statusInfo = pricingService.getPriceListStatus(list.start_date, list.end_date);
+        const isExpiringSoon = pricingService.isExpiringSoon(list.end_date);
         return {
           ...list,
           product_count: list.price_list_item?.[0]?.count || 0,
           status: statusInfo.status,
           statusInfo,
+          isExpiringSoon,
         };
       }).filter((list: any) => {
         if (input.status) {

@@ -1,10 +1,10 @@
 import React from 'react';
 import { Edit, Copy, Star, Trash2, Loader2, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 import { PriceList } from '../../types/pricing';
-import { formatDateRange, getPriceListStatusSync, formatCurrencySync, isExpiringSoonSync } from '../../utils/pricing';
+import { formatDateRange, formatCurrencySync } from '../../utils/pricing';
 
 interface PriceListTableProps {
-  priceLists: (PriceList & { product_count?: number; status?: string })[];
+  priceLists: (PriceList & { product_count?: number; status?: string; statusInfo?: { status: string; label: string; color: string }; isExpiringSoon?: boolean })[];
   loading?: boolean;
   onView: (priceList: PriceList) => void;
   onEdit: (priceList: PriceList) => void;
@@ -96,8 +96,13 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {priceLists.map((priceList) => {
-              const statusInfo = getPriceListStatusSync(priceList.start_date, priceList.end_date);
-              const expiringSoon = isExpiringSoonSync(priceList.end_date);
+              // Use pre-computed values from backend instead of deprecated sync functions
+              const statusInfo = priceList.statusInfo || { 
+                status: 'active', 
+                label: 'Active', 
+                color: 'bg-green-100 text-green-800 border-green-200' 
+              };
+              const expiringSoon = priceList.isExpiringSoon || false;
 
               return (
                 <tr key={priceList.id} className="hover:bg-gray-50">
