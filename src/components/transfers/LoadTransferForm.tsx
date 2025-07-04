@@ -23,6 +23,7 @@ interface LoadTransferFormProps {
 export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess }) => {
   const [selectedTruck, setSelectedTruck] = useState<string>('');
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
+  const [selectedDestinationWarehouse, setSelectedDestinationWarehouse] = useState<string>('');
   const [lines, setLines] = useState<TransferLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -50,7 +51,13 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         throw new Error('Please select a truck');
       }
       if (!selectedWarehouse) {
-        throw new Error('Please select a warehouse');
+        throw new Error('Please select a source warehouse');
+      }
+      if (!selectedDestinationWarehouse) {
+        throw new Error('Please select a destination warehouse');
+      }
+      if (selectedWarehouse === selectedDestinationWarehouse) {
+        throw new Error('Source and destination warehouses must be different');
       }
       if (lines.length === 0) {
         throw new Error('Please add at least one product');
@@ -87,7 +94,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
 
       const transfer = await createTransferMutation.mutateAsync({
         source_warehouse_id: transferData.warehouse_id,
-        destination_warehouse_id: '', // This would need to be selected, for now leave empty
+        destination_warehouse_id: selectedDestinationWarehouse,
         transfer_date: new Date().toISOString().split('T')[0],
         items: transferData.lines.map(line => ({
           product_id: line.product_id,
@@ -99,6 +106,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       // Reset form
       setSelectedTruck('');
       setSelectedWarehouse('');
+      setSelectedDestinationWarehouse('');
       setLines([]);
       setShowConfirm(false);
 
@@ -165,8 +173,8 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       )}
 
       <div className="bg-white shadow rounded-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Warehouse Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Source Warehouse Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Source Warehouse
@@ -174,11 +182,39 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
             <div className="relative">
               <select
                 value={selectedWarehouse}
-                onChange={(e) => setSelectedWarehouse(e.target.value)}
+                onChange={(e) => {
+                  setSelectedWarehouse(e.target.value);
+                  // Clear destination warehouse if it's the same as source
+                  if (selectedDestinationWarehouse === e.target.value) {
+                    setSelectedDestinationWarehouse('');
+                  }
+                }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">Select a warehouse...</option>
+                <option value="">Select source warehouse...</option>
                 {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name}
+                  </option>
+                ))}
+              </select>
+              <Warehouse className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Destination Warehouse Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Destination Warehouse
+            </label>
+            <div className="relative">
+              <select
+                value={selectedDestinationWarehouse}
+                onChange={(e) => setSelectedDestinationWarehouse(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Select destination warehouse...</option>
+                {warehouses.filter(w => w.id !== selectedWarehouse).map((warehouse) => (
                   <option key={warehouse.id} value={warehouse.id}>
                     {warehouse.name}
                   </option>
@@ -338,7 +374,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          disabled={loading || !selectedTruck || !selectedWarehouse || lines.length === 0}
+          disabled={loading || !selectedTruck || !selectedWarehouse || !selectedDestinationWarehouse || lines.length === 0}
           className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Create Transfer
@@ -350,7 +386,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
         title="Confirm Transfer"
-        message="Are you sure you want to create this transfer? This will move inventory from the warehouse to the truck."
+        message="Are you sure you want to create this transfer? This will move inventory from the source warehouse to the destination warehouse."
         confirmText="Create Transfer"
         type="info"
         loading={loading}
