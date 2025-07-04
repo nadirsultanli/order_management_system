@@ -33,12 +33,25 @@ export const formatDeliveryWindow = (start?: string, end?: string): string => {
   return `${formatTime(start)} - ${formatTime(end)}`;
 };
 
-// UI-only placeholder - NO business validation logic
+// Improved delivery window validation for UI feedback
 export const validateDeliveryWindow = (start?: string, end?: string): boolean => {
-  // This is a placeholder for build compatibility only
-  // Real validation MUST use backend API validation
-  console.warn('validateDeliveryWindow is deprecated - use backend API validation instead');
-  return true; // Default to valid for UI placeholder
+  if (!start || !end) return true; // Allow empty values
+  
+  try {
+    // Parse time strings (format: "HH:MM")
+    const [startHour, startMin] = start.split(':').map(Number);
+    const [endHour, endMin] = end.split(':').map(Number);
+    
+    // Convert to minutes for easier comparison
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    
+    // End time must be after start time
+    return endMinutes > startMinutes;
+  } catch (error) {
+    console.error('Error validating delivery window:', error);
+    return false;
+  }
 };
 
 // Export the country options from the new countries utility

@@ -35,6 +35,8 @@ export const CreateOrderPage: React.FC = () => {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split('T')[0]);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
   const [orderLines, setOrderLines] = useState<OrderLineItem[]>([]);
   const [notes, setNotes] = useState('');
   const [taxPercent, setTaxPercent] = useState(0);
@@ -128,6 +130,9 @@ export const CreateOrderPage: React.FC = () => {
   const handleCustomerChange = (customerId: string) => {
     setSelectedCustomerId(customerId);
     setSelectedAddressId(''); // Reset address when customer changes
+    
+    // Clear order lines when customer changes to reset pricing
+    setOrderLines([]);
   };
 
   // Auto-select primary address when customer is selected
@@ -136,6 +141,9 @@ export const CreateOrderPage: React.FC = () => {
       const primaryAddress = addresses.find((a: Address) => a.is_primary);
       if (primaryAddress) {
         setSelectedAddressId(primaryAddress.id);
+      } else {
+        // If no primary address, select the first one
+        setSelectedAddressId(addresses[0].id);
       }
     }
   }, [selectedCustomerId, addresses, selectedAddressId]);
@@ -227,18 +235,46 @@ export const CreateOrderPage: React.FC = () => {
     if (!selectedCustomerId || !selectedAddressId || orderLines.length === 0) {
       return;
     }
+    
+    // Validate customer account status
+    if (selectedCustomer?.account_status === 'closed') {
+      alert('Cannot create order for a closed customer account.');
+      return;
+    }
+    
+    if (selectedCustomer?.account_status === 'credit_hold') {
+      const confirmed = confirm(
+        'This customer is on credit hold. Are you sure you want to create this order? ' +
+        'Please verify with management before proceeding.'
+      );
+      if (!confirmed) return;
+    }
 
     try {
-      // Create the order
-      const orderData: CreateOrderData = {
+      // Validate scheduled delivery for scheduled service
+      if (serviceType === 'scheduled' && (!scheduledDate || !scheduledTime)) {
+        alert('Please select both date and time for scheduled delivery.');
+        return;
+      }
+      
+      // Create scheduled_date if needed
+      const scheduledDateTime = serviceType === 'scheduled' && scheduledDate && scheduledTime 
+        ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+        : undefined;
+      
+      // Create the order with order lines
+      const orderData = {
         customer_id: selectedCustomerId,
         delivery_address_id: selectedAddressId,
         order_date: orderDate,
-        status: 'draft',
+        scheduled_date: scheduledDateTime,
         notes,
-        tax_percent: taxPercent,
-        tax_amount: taxAmount,
-        total_amount: grandTotal,
+        // Include order lines for proper backend processing
+        order_lines: orderLines.map(line => ({
+          product_id: line.product_id,
+          quantity: line.quantity,
+          unit_price: line.unit_price,
+        })),
         // Order type fields
         order_type: orderType,
         service_type: serviceType,
@@ -248,9 +284,6 @@ export const CreateOrderPage: React.FC = () => {
 
       const order = await createOrder.mutateAsync(orderData);
 
-      // Note: Order lines functionality disabled
-      // TODO: Implement order lines when useCreateOrderLine is available
-
       // Navigate to the created order
       navigate(`/orders/${order.id}`);
     } catch (error) {
@@ -258,8 +291,10 @@ export const CreateOrderPage: React.FC = () => {
     }
   };
 
-  const canProceedToStep2 = selectedCustomerId && selectedAddressId;
-  const canCreateOrder = canProceedToStep2 && orderLines.length > 0;
+  const canProceedToStep2 = selectedCustomerId && selectedAddressId && 
+    (!selectedCustomer || selectedCustomer.account_status !== 'closed');
+  const canCreateOrder = canProceedToStep2 && orderLines.length > 0 && 
+    (serviceType !== 'scheduled' || (scheduledDate && scheduledTime));
 
   const getStockInfo = (productId: string) => {
     // Note: Stock availability checking disabled
@@ -281,11 +316,19 @@ export const CreateOrderPage: React.FC = () => {
 
   const handleAddressSubmit = async (addressData: CreateAddressData) => {
     try {
+      console.log('Creating address from order page:', addressData);
       const newAddress = await createAddress.mutateAsync(addressData);
+      console.log('Address created successfully:', newAddress);
+      
+      // Auto-select the newly created address
       setSelectedAddressId(newAddress.id);
       setIsAddressFormOpen(false);
+      
+      // Show success feedback
+      console.log('Address added and selected for order');
     } catch (error) {
-      // Error handling is done in the hook
+      console.error('Failed to create address:', error);
+      // Error handling is done in the hook, but add local feedback
     }
   };
 
@@ -339,8 +382,8 @@ export const CreateOrderPage: React.FC = () => {
             {/* Order Type Selection */}
             <div className="mb-6">
               <OrderTypeSelector
-                selectedOrderType={orderType}
-                selectedServiceType={serviceType}
+                orderType={orderType}
+                serviceType={serviceType}
                 exchangeEmptyQty={exchangeEmptyQty}
                 requiresPickup={requiresPickup}
                 onOrderTypeChange={setOrderType}
@@ -375,9 +418,42 @@ export const CreateOrderPage: React.FC = () => {
                   type="date"
                   value={orderDate}
                   onChange={(e) => setOrderDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+              
+              {/* Scheduled Date/Time (for scheduled service type) */}
+              {serviceType === 'scheduled' && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Calendar className="inline h-4 w-4 mr-1" />
+                    Scheduled Delivery Date & Time *
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      min={orderDate}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Select date"
+                    />
+                    <input
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Select time"
+                    />
+                  </div>
+                  {scheduledDate && scheduledTime && (
+                    <p className="mt-1 text-sm text-gray-600">
+                      Scheduled for: {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Address Selection */}
@@ -387,20 +463,85 @@ export const CreateOrderPage: React.FC = () => {
                   <MapPin className="inline h-4 w-4 mr-1" />
                   Delivery Address *
                 </label>
+                
+                {/* Show customer info */}
+                {selectedCustomer && (
+                  <div className={`mb-3 p-3 rounded-lg ${
+                    selectedCustomer.account_status === 'active' ? 'bg-green-50 border border-green-200' :
+                    selectedCustomer.account_status === 'credit_hold' ? 'bg-yellow-50 border border-yellow-200' :
+                    'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="text-sm">
+                      <div className={`font-medium ${
+                        selectedCustomer.account_status === 'active' ? 'text-green-900' :
+                        selectedCustomer.account_status === 'credit_hold' ? 'text-yellow-900' :
+                        'text-red-900'
+                      }`}>{selectedCustomer.name}</div>
+                      <div className={`${
+                        selectedCustomer.account_status === 'active' ? 'text-green-700' :
+                        selectedCustomer.account_status === 'credit_hold' ? 'text-yellow-700' :
+                        'text-red-700'
+                      }`}>
+                        Account Status: <span className="font-medium">
+                          {selectedCustomer.account_status === 'active' ? 'Active' :
+                           selectedCustomer.account_status === 'credit_hold' ? 'Credit Hold' :
+                           selectedCustomer.account_status === 'closed' ? 'Closed' : 
+                           selectedCustomer.account_status || 'Unknown'}
+                        </span>
+                      </div>
+                      {selectedCustomer.email && (
+                        <div className={`${
+                          selectedCustomer.account_status === 'active' ? 'text-green-600' :
+                          selectedCustomer.account_status === 'credit_hold' ? 'text-yellow-600' :
+                          'text-red-600'
+                        }`}>{selectedCustomer.email}</div>
+                      )}
+                      {selectedCustomer.phone && (
+                        <div className={`${
+                          selectedCustomer.account_status === 'active' ? 'text-green-600' :
+                          selectedCustomer.account_status === 'credit_hold' ? 'text-yellow-600' :
+                          'text-red-600'
+                        }`}>{selectedCustomer.phone}</div>
+                      )}
+                      
+                      {/* Account status warnings */}
+                      {selectedCustomer.account_status === 'credit_hold' && (
+                        <div className="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-yellow-800 text-xs">
+                          <strong>Warning:</strong> This customer is on credit hold. Please review before creating orders.
+                        </div>
+                      )}
+                      {selectedCustomer.account_status === 'closed' && (
+                        <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-red-800 text-xs">
+                          <strong>Account Closed:</strong> This customer account is closed. Orders cannot be created.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {addresses.length > 0 ? (
                   <div className="space-y-3">
-                    <select
-                      value={selectedAddressId}
-                      onChange={(e) => setSelectedAddressId(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      <option value="">Choose a delivery address...</option>
-                      {addresses.map((address) => (
-                        <option key={address.id} value={address.id}>
-                          {formatAddressForSelect(address)}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex items-center space-x-2">
+                      <select
+                        value={selectedAddressId}
+                        onChange={(e) => setSelectedAddressId(e.target.value)}
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">Choose a delivery address...</option>
+                        {addresses.map((address) => (
+                          <option key={address.id} value={address.id}>
+                            {formatAddressForSelect(address)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleAddAddressForCustomer}
+                        className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                        title="Add new address"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </div>
                     
                     {/* Selected Address Details */}
                     {selectedAddress && (
@@ -457,6 +598,7 @@ export const CreateOrderPage: React.FC = () => {
                 onClick={() => setStep(2)}
                 disabled={!canProceedToStep2}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!canProceedToStep2 ? 'Please select a customer and delivery address to continue' : ''}
               >
                 Next: Add Products
               </button>
@@ -498,6 +640,9 @@ export const CreateOrderPage: React.FC = () => {
                     const hasNoPricing = unitPrice === 0;
                     const isLowStock = stockAvailable > 0 && stockAvailable <= 5;
                     const cannotAddProduct = isOutOfStock || hasNoPricing || !canAddMore;
+                    
+                    // Check if pricing is loading
+                    const isPricingLoading = productPrices === undefined && selectedCustomerId;
                     
                     return (
                       <div
@@ -546,7 +691,12 @@ export const CreateOrderPage: React.FC = () => {
 
                             {/* Pricing Status with Enhanced Visual Indicators */}
                             <div className="flex items-center space-x-2 mb-3">
-                              {hasNoPricing ? (
+                              {isPricingLoading ? (
+                                <div className="flex items-center space-x-1 text-gray-500">
+                                  <DollarSign className="h-4 w-4 animate-pulse" />
+                                  <span className="text-sm">Loading price...</span>
+                                </div>
+                              ) : hasNoPricing ? (
                                 <div className="flex items-center space-x-1 text-red-600">
                                   <DollarSign className="h-4 w-4" />
                                   <span className="text-sm font-medium">
@@ -565,15 +715,22 @@ export const CreateOrderPage: React.FC = () => {
                             </div>
 
                             {/* Warning Messages for Unavailable Products */}
-                            {cannotAddProduct && (
-                              <div className="bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+                            {(cannotAddProduct || isPricingLoading) && (
+                              <div className={`border rounded p-2 mt-2 ${
+                                isPricingLoading ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'
+                              }`}>
                                 <div className="flex items-start space-x-2">
-                                  <Info className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-                                  <div className="text-sm text-yellow-800">
-                                    {isOutOfStock && "This product is out of stock and cannot be added to orders."}
-                                    {hasNoPricing && !isOutOfStock && (
+                                  <Info className={`h-4 w-4 flex-shrink-0 mt-0.5 ${
+                                    isPricingLoading ? 'text-blue-600' : 'text-yellow-600'
+                                  }`} />
+                                  <div className={`text-sm ${
+                                    isPricingLoading ? 'text-blue-800' : 'text-yellow-800'
+                                  }`}>
+                                    {isPricingLoading && "Loading pricing information..."}
+                                    {!isPricingLoading && isOutOfStock && "This product is out of stock and cannot be added to orders."}
+                                    {!isPricingLoading && hasNoPricing && !isOutOfStock && (
                                       <>
-                                        No pricing configured for this product. 
+                                        No pricing configured for this product{selectedCustomerId ? ' for this customer' : ''}. 
                                         <button
                                           onClick={() => window.open(`/pricing`, '_blank')}
                                           className="ml-1 text-blue-600 hover:text-blue-800 underline"
@@ -582,7 +739,7 @@ export const CreateOrderPage: React.FC = () => {
                                         </button>
                                       </>
                                     )}
-                                    {!canAddMore && !isOutOfStock && !hasNoPricing && 
+                                    {!isPricingLoading && !canAddMore && !isOutOfStock && !hasNoPricing && 
                                       `Maximum quantity (${stockAvailable}) already in order.`}
                                   </div>
                                 </div>
@@ -594,19 +751,21 @@ export const CreateOrderPage: React.FC = () => {
                           <div className="ml-4 flex-shrink-0">
                             <button
                               onClick={() => handleAddProduct(product.id)}
-                              disabled={cannotAddProduct}
+                              disabled={cannotAddProduct || isPricingLoading}
                               title={
-                                cannotAddProduct 
-                                  ? isOutOfStock 
-                                    ? "Out of stock" 
-                                    : hasNoPricing 
-                                      ? "No price set" 
-                                      : "Maximum quantity reached"
-                                  : "Add to order"
+                                isPricingLoading
+                                  ? "Loading pricing..."
+                                  : cannotAddProduct 
+                                    ? isOutOfStock 
+                                      ? "Out of stock" 
+                                      : hasNoPricing 
+                                        ? "No price set" 
+                                        : "Maximum quantity reached"
+                                    : "Add to order"
                               }
                               className={`
                                 flex items-center justify-center w-10 h-10 rounded-lg text-sm font-medium transition-all
-                                ${cannotAddProduct
+                                ${cannotAddProduct || isPricingLoading
                                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                   : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
                                 }

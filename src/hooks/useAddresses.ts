@@ -9,14 +9,21 @@ export const useAddresses = (customerId: string) => {
       enabled: !!customerId && customerId !== 'null' && customerId !== 'undefined',
       retry: 1,
       staleTime: 30000,
+      // Refetch when customerId changes
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
     }
   );
 };
 
 export const useCreateAddress = () => {
+  const utils = trpc.useContext();
+  
   return trpc.customers.createAddress.useMutation({
     onSuccess: (data) => {
       console.log('Address created successfully:', data);
+      // Invalidate the addresses query for the customer
+      utils.customers.getAddresses.invalidate({ customer_id: data.customer_id });
       toast.success('Address created successfully');
     },
     onError: (error: Error) => {
@@ -27,9 +34,13 @@ export const useCreateAddress = () => {
 };
 
 export const useUpdateAddress = () => {
+  const utils = trpc.useContext();
+  
   return trpc.customers.updateAddress.useMutation({
     onSuccess: (data) => {
       console.log('Address updated successfully:', data);
+      // Invalidate the addresses query for the customer
+      utils.customers.getAddresses.invalidate({ customer_id: data.customer_id });
       toast.success('Address updated successfully');
     },
     onError: (error: Error) => {
@@ -40,9 +51,13 @@ export const useUpdateAddress = () => {
 };
 
 export const useDeleteAddress = () => {
+  const utils = trpc.useContext();
+  
   return trpc.customers.deleteAddress.useMutation({
     onSuccess: (_, variables) => {
       console.log('Address deleted successfully:', variables.address_id);
+      // Invalidate all customer addresses queries since we don't have customer_id in variables
+      utils.customers.getAddresses.invalidate();
       toast.success('Address deleted successfully');
     },
     onError: (error: Error) => {
@@ -53,9 +68,18 @@ export const useDeleteAddress = () => {
 };
 
 export const useSetPrimaryAddress = () => {
+  const utils = trpc.useContext();
+  
   return trpc.customers.setPrimaryAddress.useMutation({
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       console.log('Primary address set successfully:', variables.address_id);
+      // Invalidate addresses for the customer
+      if (data?.customer_id) {
+        utils.customers.getAddresses.invalidate({ customer_id: data.customer_id });
+      } else {
+        // Fallback to invalidate all if customer_id not available
+        utils.customers.getAddresses.invalidate();
+      }
       toast.success('Primary address updated successfully');
     },
     onError: (error: Error) => {

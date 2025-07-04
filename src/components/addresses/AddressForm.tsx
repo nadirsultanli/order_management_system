@@ -126,7 +126,11 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     // Validate delivery window only if both times are provided
     if (data.delivery_window_start && data.delivery_window_end) {
       if (!validateDeliveryWindow(data.delivery_window_start, data.delivery_window_end)) {
-        alert('End time must be after start time');
+        // Use better error handling instead of alert
+        const errorMessage = 'End time must be after start time';
+        console.error('Delivery window validation error:', errorMessage);
+        // For now use alert, but this should be replaced with a proper error state
+        alert(errorMessage);
         return;
       }
     }
@@ -139,6 +143,8 @@ export const AddressForm: React.FC<AddressFormProps> = ({
       data.delivery_window_start = undefined;
     }
 
+    // Log for debugging
+    console.log('Submitting address form:', data);
     onSubmit(data);
   };
 

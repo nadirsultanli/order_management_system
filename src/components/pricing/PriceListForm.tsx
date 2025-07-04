@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { PriceList, CreatePriceListData } from '../../types/pricing';
-import { validateDateRange } from '../../utils/pricing';
+import { validateDateRangeSync } from '../../utils/pricing';
 
 interface PriceListFormProps {
   isOpen: boolean;
@@ -76,7 +76,7 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
     onSubmit(cleanedData);
   };
 
-  const dateRangeValid = !endDate || validateDateRange(startDate, endDate);
+  const dateRangeValid = !endDate || validateDateRangeSync(startDate, endDate);
 
   if (!isOpen) return null;
 

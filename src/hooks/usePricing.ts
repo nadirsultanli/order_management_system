@@ -237,6 +237,49 @@ export const useCreatePriceListItemNew = () => {
   });
 };
 
+// Hook for deleting price lists
+export const useDeletePriceListNew = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.pricing.delete.useMutation({
+    onSuccess: () => {
+      console.log('Price list deleted successfully');
+      
+      // Invalidate price lists to refetch
+      utils.pricing.listPriceLists.invalidate();
+      utils.pricing.getStats.invalidate();
+      
+      toast.success('Price list deleted successfully');
+    },
+    onError: (error) => {
+      console.error('Delete price list error:', error);
+      toast.error(error.message || 'Failed to delete price list');
+    },
+  });
+};
+
+// Hook for setting default price list
+export const useSetDefaultPriceListNew = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.pricing.setDefault.useMutation({
+    onSuccess: (updatedPriceList) => {
+      console.log('Default price list set successfully:', updatedPriceList);
+      
+      // Invalidate queries to refetch updated data
+      utils.pricing.listPriceLists.invalidate();
+      utils.pricing.getPriceList.invalidate({ price_list_id: updatedPriceList.id });
+      utils.pricing.getStats.invalidate();
+      
+      toast.success('Default price list set successfully');
+    },
+    onError: (error) => {
+      console.error('Set default price list error:', error);
+      toast.error(error.message || 'Failed to set default price list');
+    },
+  });
+};
+
 // Utility hook to get pricing context
 export const usePricingContext = () => {
   return trpc.useContext().pricing;

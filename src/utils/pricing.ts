@@ -115,6 +115,12 @@ export const validateDateRange = async (startDate: string, endDate?: string): Pr
   }
 };
 
+// Synchronous fallback for immediate validation in forms
+export const validateDateRangeSync = (startDate: string, endDate?: string): boolean => {
+  if (!endDate) return true;
+  return new Date(startDate) <= new Date(endDate);
+};
+
 export const isExpiringSoon = async (endDate?: string, days: number = 30): Promise<boolean> => {
   try {
     const result = await trpc.pricing.isExpiringSoon.query({ endDate, days });

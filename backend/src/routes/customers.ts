@@ -379,6 +379,7 @@ export const customersRouter = router({
           .update({
             ...address,
             updated_at: new Date().toISOString(),
+            updated_by: user.id,
           })
           .eq('id', addressData.id)
           ;
@@ -915,6 +916,7 @@ export const customersRouter = router({
         .update({
           ...updateData,
           updated_at: new Date().toISOString(),
+          updated_by: user.id,
         })
         .eq('id', address_id)
         
@@ -1002,6 +1004,7 @@ export const customersRouter = router({
         .update({ 
           is_primary: true,
           updated_at: new Date().toISOString(),
+          updated_by: user.id,
         })
         .eq('id', input.address_id)
         

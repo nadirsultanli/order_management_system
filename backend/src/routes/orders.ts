@@ -467,11 +467,17 @@ export const ordersRouter = router({
     .input(z.object({
       customer_id: z.string().uuid(),
       delivery_address_id: z.string().uuid().optional(),
+      order_date: z.string().optional(),
       scheduled_date: z.string().datetime().optional(),
       notes: z.string().optional(),
       idempotency_key: z.string().optional(),
       validate_pricing: z.boolean().default(true),
       skip_inventory_check: z.boolean().default(false),
+      // Order type fields
+      order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']).default('delivery'),
+      service_type: z.enum(['standard', 'express', 'scheduled']).default('standard'),
+      exchange_empty_qty: z.number().min(0).default(0),
+      requires_pickup: z.boolean().default(false),
       order_lines: z.array(z.object({
         product_id: z.string().uuid(),
         quantity: z.number().positive(),
@@ -737,9 +743,14 @@ export const ordersRouter = router({
           scheduled_date: input.scheduled_date,
           notes: input.notes,
           status: 'draft' as const,
-          order_date: new Date().toISOString(),
+          order_date: input.order_date || new Date().toISOString().split('T')[0],
           total_amount: totalAmount,
           created_by: user.id,
+          // Order type fields
+          order_type: input.order_type,
+          service_type: input.service_type,
+          exchange_empty_qty: input.exchange_empty_qty,
+          requires_pickup: input.requires_pickup,
         };
 
         const { data: order, error: orderError } = await ctx.supabase
@@ -764,6 +775,12 @@ export const ordersRouter = router({
           unit_price: line.unit_price,
           subtotal: line.subtotal,
         }));
+        
+        ctx.logger.info('Creating order lines:', {
+          order_id: order.id,
+          line_count: orderLinesData.length,
+          lines: orderLinesData
+        });
 
         const { error: linesError } = await ctx.supabase
           .from('order_lines')
@@ -1358,6 +1375,182 @@ export const ordersRouter = router({
         recommendation: result.is_valid ? 
           'Truck capacity is sufficient for the assigned orders' : 
           'Truck capacity exceeded - consider reassigning some orders'
+      };
+    }),
+
+  // =====================================================================
+  // TRUCK ALLOCATION ENDPOINTS
+  // =====================================================================
+
+  // POST /orders/allocate-to-truck - Allocate order to truck
+  allocateToTruck: protectedProcedure
+    .input(z.object({
+      order_id: z.string().uuid(),
+      truck_id: z.string().uuid().optional(),
+      allocation_date: z.string(),
+      force_allocation: z.boolean().default(false),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Allocating order to truck:', input);
+      
+      const { OrderAllocationService } = await import('../lib/order-allocation');
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      
+      const result = await allocationService.allocateOrder(input, user.user_id);
+      
+      return result;
+    }),
+
+  // GET /orders/:id/allocation-suggestions - Get truck allocation suggestions for order
+  getAllocationSuggestions: protectedProcedure
+    .input(z.object({
+      order_id: z.string().uuid(),
+      allocation_date: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Getting allocation suggestions for order:', input.order_id);
+      
+      const { OrderAllocationService } = await import('../lib/order-allocation');
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      
+      const suggestions = await allocationService.findBestTrucks(input.order_id, input.allocation_date);
+      const orderWeight = await allocationService.calculateOrderWeight(input.order_id);
+      
+      return {
+        order_id: input.order_id,
+        order_weight_kg: orderWeight,
+        suggestions,
+      };
+    }),
+
+  // GET /orders/:id/calculate-weight - Calculate order weight
+  calculateOrderWeight: protectedProcedure
+    .input(z.object({
+      order_id: z.string().uuid(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Calculating order weight:', input.order_id);
+      
+      const { OrderAllocationService } = await import('../lib/order-allocation');
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      
+      const weight = await allocationService.calculateOrderWeight(input.order_id);
+      
+      return {
+        order_id: input.order_id,
+        total_weight_kg: weight,
+      };
+    }),
+
+  // DELETE /orders/allocations/:id - Remove truck allocation
+  removeAllocation: protectedProcedure
+    .input(z.object({
+      allocation_id: z.string().uuid(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Removing truck allocation:', input.allocation_id);
+      
+      const { OrderAllocationService } = await import('../lib/order-allocation');
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      
+      await allocationService.removeAllocation(input.allocation_id);
+      
+      return { success: true };
+    }),
+
+  // GET /orders/schedule/:date - Get daily order schedule
+  getDailySchedule: protectedProcedure
+    .input(z.object({
+      date: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Getting daily order schedule for:', input.date);
+      
+      const { OrderAllocationService } = await import('../lib/order-allocation');
+      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger, user.tenant_id);
+      
+      const schedule = await allocationService.getDailySchedule(input.date);
+      
+      return {
+        date: input.date,
+        trucks: schedule,
+        summary: {
+          total_trucks: schedule.length,
+          active_trucks: schedule.filter(s => s.total_orders > 0).length,
+          total_orders: schedule.reduce((sum, s) => sum + s.total_orders, 0),
+          avg_utilization: schedule.length > 0 
+            ? schedule.reduce((sum, s) => sum + s.capacity_info.utilization_percentage, 0) / schedule.length 
+            : 0,
+        },
+      };
+    }),
+
+  // POST /orders/:id/process-refill - Process refill order with stock movements
+  processRefillOrder: protectedProcedure
+    .input(z.object({
+      order_id: z.string().uuid(),
+      warehouse_id: z.string().uuid().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireTenantAccess(ctx);
+      
+      ctx.logger.info('Processing refill order:', input.order_id);
+      
+      // Verify order exists and is a refill type
+      const { data: order, error: orderError } = await ctx.supabase
+        .from('orders')
+        .select('id, order_type, status')
+        .eq('id', input.order_id)
+        .single();
+
+      if (orderError || !order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found',
+        });
+      }
+
+      if (order.order_type !== 'refill' && order.order_type !== 'exchange') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Order must be of type refill or exchange',
+        });
+      }
+
+      if (order.status !== 'delivered') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Order must be delivered before processing refill movements',
+        });
+      }
+
+      // Call the database function to process refill order
+      const { data, error } = await ctx.supabase.rpc('process_refill_order', {
+        p_order_id: input.order_id
+      });
+
+      if (error) {
+        ctx.logger.error('Error processing refill order:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to process refill order stock movements',
+        });
+      }
+
+      return { 
+        success: true,
+        order_id: input.order_id,
+        message: 'Refill order processed successfully'
       };
     }),
 });

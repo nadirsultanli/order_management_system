@@ -7,6 +7,7 @@ import { CustomerFilters } from '../components/customers/CustomerFilters';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { CustomerForm } from '../components/customers/CustomerForm';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { ErrorBoundary, useErrorHandler } from '../components/ui/ErrorBoundary';
 import { Customer, CustomerFilters as FilterType, CreateCustomerData } from '../types/customer';
 
 export const CustomersPage: React.FC = () => {
@@ -14,6 +15,7 @@ export const CustomersPage: React.FC = () => {
   const [filters, setFilters] = useState<FilterType>({ page: 1 });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
+  const handleError = useErrorHandler();
 
   const { data, isLoading, error, refetch } = useCustomers(filters);
   const createCustomer = useCreateCustomer();
@@ -41,26 +43,21 @@ export const CustomersPage: React.FC = () => {
     navigate(`/customers/${customer.id}`);
   };
 
-  const handleDeleteCustomer = async (customer: Customer) => {
-    if (window.confirm('Are you sure you want to delete this customer?')) {
-      try {
-        await deleteCustomer(customer.id);
-        setDeletingCustomer(null);
-      } catch (error) {
-        console.error('Error deleting customer:', error);
-        alert('Failed to delete customer. Please try again.');
-      }
-    }
+  const handleDeleteCustomer = (customer: Customer) => {
+    console.log('Initiating customer deletion:', customer);
+    setDeletingCustomer(customer);
   };
 
   const handleStatusChange = async (customer: Customer, newStatus: 'active' | 'credit_hold' | 'closed') => {
     try {
+      console.log('Updating customer status:', { customerId: customer.id, newStatus });
       await updateCustomer.mutateAsync({
         id: customer.id,
         account_status: newStatus
       });
     } catch (error) {
       console.error('Error updating customer status:', error);
+      handleError(error as Error, { customerId: customer.id, newStatus });
       // Error handling is done in the useUpdateCustomer hook
     }
   };
@@ -72,6 +69,7 @@ export const CustomersPage: React.FC = () => {
       setIsFormOpen(false);
     } catch (error) {
       console.error('Form submit error:', error);
+      handleError(error as Error, { formData: data });
       // Error handling is done in the hooks
     }
   };
@@ -80,10 +78,11 @@ export const CustomersPage: React.FC = () => {
     if (deletingCustomer) {
       console.log('Confirming delete:', deletingCustomer);
       try {
-        await deleteCustomer.mutateAsync(deletingCustomer.id);
+        await deleteCustomer.mutateAsync({ customer_id: deletingCustomer.id });
         setDeletingCustomer(null);
       } catch (error) {
         console.error('Delete error:', error);
+        handleError(error as Error, { customerId: deletingCustomer.id });
         // Error handling is done in the hooks
       }
     }
@@ -100,7 +99,8 @@ export const CustomersPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
@@ -171,6 +171,7 @@ export const CustomersPage: React.FC = () => {
         type="danger"
         loading={deleteCustomer.isPending}
       />
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
