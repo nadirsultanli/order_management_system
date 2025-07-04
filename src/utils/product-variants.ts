@@ -107,32 +107,84 @@ export const calculateExchangeQuantity = async (order: CreateOrderData): Promise
   }
 };
 
-export const shouldRequirePickup = async (orderType: string): Promise<boolean> => {
-  try {
-    const result = await trpc.products.shouldRequirePickup.mutate({
-      order_type: orderType as 'delivery' | 'refill' | 'exchange' | 'pickup',
-    });
-    return result.requires_pickup;
-  } catch (error) {
-    console.error('Failed to check pickup requirement via API:', error);
-    throw new Error('Pickup requirement check failed. Please try again.');
+export const shouldRequirePickup = (orderType: string): boolean => {
+  // Simple business logic: exchanges and pickups require empty cylinder pickup
+  return orderType === 'exchange' || orderType === 'pickup';
+};
+
+export const getOrderTypeBusinessRules = (orderType: string) => {
+  switch (orderType) {
+    case 'delivery':
+      return {
+        requiresPickup: false,
+        allowsExchangeQty: false,
+        description: 'Standard delivery of full cylinders to customer',
+        deliveryRequired: true,
+        pickupRequired: false,
+      };
+    case 'refill':
+      return {
+        requiresPickup: true,
+        allowsExchangeQty: true,
+        description: 'Deliver full cylinders and collect empty cylinders for refill',
+        deliveryRequired: true,
+        pickupRequired: true,
+      };
+    case 'exchange':
+      return {
+        requiresPickup: true,
+        allowsExchangeQty: true,
+        description: 'Exchange customer empty cylinders for full cylinders',
+        deliveryRequired: true,
+        pickupRequired: true,
+      };
+    case 'pickup':
+      return {
+        requiresPickup: true,
+        allowsExchangeQty: false,
+        description: 'Collect empty cylinders only - no delivery',
+        deliveryRequired: false,
+        pickupRequired: true,
+      };
+    default:
+      return {
+        requiresPickup: false,
+        allowsExchangeQty: false,
+        description: 'Standard delivery',
+        deliveryRequired: true,
+        pickupRequired: false,
+      };
   }
 };
 
-export const validateOrderType = async (order: CreateOrderData): Promise<{ valid: boolean; errors: string[] }> => {
-  try {
-    const result = await trpc.products.validateOrderType.mutate({
-      order: {
-        order_type: order.order_type,
-        exchange_empty_qty: order.exchange_empty_qty || 0,
-        requires_pickup: order.requires_pickup || false,
-      },
-    });
-    return result;
-  } catch (error) {
-    console.error('Failed to validate order type via API:', error);
-    throw new Error('Order type validation failed. Please try again.');
+export const validateOrderType = (order: CreateOrderData): { valid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  const businessRules = getOrderTypeBusinessRules(order.order_type);
+
+  // Validate exchange quantity for order types that require it
+  if (businessRules.pickupRequired && businessRules.allowsExchangeQty) {
+    if (!order.exchange_empty_qty || order.exchange_empty_qty <= 0) {
+      errors.push(`${order.order_type} orders require specifying the number of empty cylinders to ${order.order_type === 'pickup' ? 'collect' : 'exchange'}`);
+    }
   }
+
+  // Validate that pickup-only orders don't have delivery products
+  if (order.order_type === 'pickup') {
+    // For pickup orders, we mainly care about the exchange_empty_qty
+    if (!order.exchange_empty_qty || order.exchange_empty_qty <= 0) {
+      errors.push('Pickup orders must specify the number of empty cylinders to collect');
+    }
+  }
+
+  // Validate requires_pickup setting
+  if (businessRules.requiresPickup && !order.requires_pickup) {
+    errors.push(`${order.order_type} orders automatically require pickup - this cannot be disabled`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+  };
 };
 
 // Inventory movement calculations
