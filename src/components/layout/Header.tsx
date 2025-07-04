@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
             <User className="h-4 w-4" />
             <div className="flex flex-col items-end">
               <span className="font-medium text-gray-900">{adminUser?.name}</span>
-              <span className="text-xs capitalize">{adminUser?.role}</span>
+              <span className="text-xs text-gray-500">{adminUser?.email}</span>
             </div>
           </div>
         </div>
