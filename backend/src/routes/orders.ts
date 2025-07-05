@@ -494,12 +494,11 @@ export const ordersRouter = router({
       // Generate hash for idempotency if key provided
       let idempotencyKeyId: string | null = null;
       if (input.idempotency_key) {
-        const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${'00000000-0000-0000-0000-000000000001'}`).toString('base64');
+        const keyHash = Buffer.from(`order_create_${input.idempotency_key}`).toString('base64');
         
         // Check idempotency
         const { data: idempotencyData, error: idempotencyError } = await ctx.supabase
           .rpc('check_idempotency_key', {
-            p_tenant_id: '00000000-0000-0000-0000-000000000001',
             p_key_hash: keyHash,
             p_operation_type: 'order_create',
             p_request_data: input
@@ -579,7 +578,6 @@ export const ordersRouter = router({
           if (address.latitude && address.longitude) {
             const { data: serviceZoneData, error: serviceZoneError } = await ctx.supabase
               .rpc('validate_address_in_service_zone', {
-                p_tenant_id: '00000000-0000-0000-0000-000000000001',
                 p_latitude: address.latitude,
                 p_longitude: address.longitude
               });
@@ -795,10 +793,10 @@ export const ordersRouter = router({
         }
 
         // Calculate and update order total (includes tax calculation)
-        await calculateOrderTotal(ctx, order.id, user.id);
+        await calculateOrderTotal(ctx, order.id);
 
         // Get complete order with relations
-        const completeOrder = await getOrderById(ctx, order.id, user.id);
+        const completeOrder = await getOrderById(ctx, order.id);
         
         // Complete idempotency if used
         if (idempotencyKeyId) {
@@ -850,7 +848,7 @@ export const ordersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
       
-      return await calculateOrderTotal(ctx, input.order_id, user.id);
+      return await calculateOrderTotal(ctx, input.order_id);
     }),
 
   // POST /orders/{id}/status - Update order status
@@ -962,7 +960,7 @@ export const ordersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireTenantAccess(ctx);
       
-      return await updateOrderTax(ctx, input.order_id, input.tax_percent, user.id);
+      return await updateOrderTax(ctx, input.order_id, input.tax_percent);
     }),
 
   // Workflow endpoints
@@ -1349,7 +1347,6 @@ export const ordersRouter = router({
       // Use the database function to validate capacity
       const { data: capacityValidation, error: validationError } = await ctx.supabase
         .rpc('validate_truck_capacity', {
-          p_tenant_id: '00000000-0000-0000-0000-000000000001',
           p_truck_id: input.truck_id,
           p_order_ids: input.order_ids
         });
@@ -1562,7 +1559,7 @@ export const ordersRouter = router({
 });
 
 // Helper function to calculate order total
-async function calculateOrderTotal(ctx: any, orderId: string, tenantId: string) {
+async function calculateOrderTotal(ctx: any, orderId: string) {
   ctx.logger.info('Calculating order total for:', orderId);
 
   // Get order lines with quantity and unit_price
@@ -1637,7 +1634,7 @@ async function calculateOrderTotal(ctx: any, orderId: string, tenantId: string) 
 }
 
 // Helper function to update order tax and recalculate total
-async function updateOrderTax(ctx: any, orderId: string, taxPercent: number, tenantId: string) {
+async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
   ctx.logger.info('Updating order tax:', { orderId, taxPercent });
 
   // Get order lines with quantity and unit_price
@@ -1696,7 +1693,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number, ten
 }
 
 // Helper function to get order by ID with all relations
-async function getOrderById(ctx: any, orderId: string, tenantId: string) {
+async function getOrderById(ctx: any, orderId: string) {
   const { data, error } = await ctx.supabase
     .from('orders')
     .select(`
