@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import {
   validateMultiSkuTransfer,
@@ -184,7 +184,7 @@ export const transfersRouter = router({
   list: protectedProcedure
     .input(TransferFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching transfers with filters:', input);
       
@@ -269,7 +269,7 @@ export const transfersRouter = router({
       transfer_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching transfer:', input.transfer_id);
       
@@ -312,7 +312,7 @@ export const transfersRouter = router({
   validate: protectedProcedure
     .input(ValidateTransferSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating transfer:', input);
 
@@ -439,7 +439,7 @@ export const transfersRouter = router({
   create: protectedProcedure
     .input(CreateTransferSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating transfer:', input);
 
@@ -583,7 +583,7 @@ export const transfersRouter = router({
   updateStatus: protectedProcedure
     .input(UpdateTransferStatusSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Updating transfer status:', input);
 
@@ -698,7 +698,7 @@ export const transfersRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching warehouse stock info:', input);
       
@@ -778,7 +778,7 @@ export const transfersRouter = router({
       transfer_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching transfer cost analysis:', input.transfer_id);
       
@@ -868,7 +868,7 @@ export const transfersRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Searching products for transfer:', input);
       
@@ -927,7 +927,7 @@ export const transfersRouter = router({
       priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating multi-SKU transfer:', input);
 
@@ -1000,7 +1000,7 @@ export const transfersRouter = router({
       items: z.array(TransferItemSchema).min(1),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Calculating transfer details:', input);
 
@@ -1056,7 +1056,7 @@ export const transfersRouter = router({
       warehouse_capacity_kg: z.number().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating transfer capacity:', input);
 
@@ -1096,7 +1096,7 @@ export const transfersRouter = router({
       items: z.array(TransferItemSchema).min(1),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating inventory availability:', input);
 
@@ -1123,7 +1123,7 @@ export const transfersRouter = router({
       items: z.array(TransferItemSchema).min(1),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Checking transfer conflicts:', input);
 
@@ -1186,7 +1186,7 @@ export const transfersRouter = router({
       estimated_distance_km: z.number().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Estimating transfer duration:', input);
 
@@ -1216,7 +1216,7 @@ export const transfersRouter = router({
       }),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Formatting validation errors:', input);
 

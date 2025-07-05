@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { PricingService } from '../lib/pricing';
 
@@ -66,7 +66,7 @@ export const pricingRouter = router({
       limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching price lists with filters:', input);
       
@@ -135,7 +135,7 @@ export const pricingRouter = router({
       price_list_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching price list:', input.price_list_id);
       
@@ -160,7 +160,7 @@ export const pricingRouter = router({
   createPriceList: protectedProcedure
     .input(CreatePriceListSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating price list:', input);
       
@@ -222,7 +222,7 @@ export const pricingRouter = router({
   updatePriceList: protectedProcedure
     .input(UpdatePriceListSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Updating price list:', input.id);
       
@@ -306,7 +306,7 @@ export const pricingRouter = router({
       limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching price list items:', input.price_list_id);
       
@@ -364,7 +364,7 @@ export const pricingRouter = router({
   createPriceListItem: protectedProcedure
     .input(CreatePriceListItemSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating price list item:', input);
       
@@ -426,7 +426,7 @@ export const pricingRouter = router({
       surchargePercent: z.number().optional(),
     }))
     .query(({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         finalPrice: pricingService.calculateFinalPrice(input.unitPrice, input.surchargePercent)
@@ -439,7 +439,7 @@ export const pricingRouter = router({
       endDate: z.string().optional(),
     }))
     .query(({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return pricingService.getPriceListStatus(input.startDate, input.endDate);
     }),
@@ -450,7 +450,7 @@ export const pricingRouter = router({
       endDate: z.string().optional(),
     }))
     .query(({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         valid: pricingService.validateDateRange(input.startDate, input.endDate)
@@ -463,7 +463,7 @@ export const pricingRouter = router({
       days: z.number().optional().default(30),
     }))
     .query(({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         expiringSoon: pricingService.isExpiringSoon(input.endDate, input.days)
@@ -477,7 +477,7 @@ export const pricingRouter = router({
       date: z.string().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const price = await pricingService.getProductPrice(input.productId, input.customerId, input.date);
       return price;
@@ -490,7 +490,7 @@ export const pricingRouter = router({
       date: z.string().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       const prices = await pricingService.getProductPrices(input.productIds, input.customerId, input.date);
       return Object.fromEntries(prices);
@@ -506,7 +506,7 @@ export const pricingRouter = router({
       taxPercent: z.number().default(0),
     }))
     .mutation(({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       // Ensure required properties are present
       const validatedLines = input.lines.map(line => ({
@@ -525,7 +525,7 @@ export const pricingRouter = router({
       priceListId: z.string().uuid().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return await pricingService.validateProductPricing(
         input.productId,
@@ -540,7 +540,7 @@ export const pricingRouter = router({
       date: z.string().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return await pricingService.getActivePriceLists(input.date);
     }),
@@ -551,7 +551,7 @@ export const pricingRouter = router({
       currencyCode: z.string().default('KES'),
     }))
     .mutation(({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       return {
         formatted: pricingService.formatCurrency(input.amount, input.currencyCode)
@@ -567,7 +567,7 @@ export const pricingRouter = router({
       limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching price lists with filters:', input);
       
@@ -637,7 +637,7 @@ export const pricingRouter = router({
       id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching price list:', input.id);
       
@@ -663,7 +663,7 @@ export const pricingRouter = router({
   create: protectedProcedure
     .input(CreatePriceListSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating price list:', input);
       
@@ -726,7 +726,7 @@ export const pricingRouter = router({
   update: protectedProcedure
     .input(UpdatePriceListSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Updating price list:', input.id);
       
@@ -808,7 +808,7 @@ export const pricingRouter = router({
       id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Deleting price list:', input.id);
       
@@ -851,7 +851,7 @@ export const pricingRouter = router({
       id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Setting default price list:', input.id);
       
@@ -892,7 +892,7 @@ export const pricingRouter = router({
       limit: z.number().min(1).max(1000).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching price list items:', input.price_list_id);
       
@@ -951,7 +951,7 @@ export const pricingRouter = router({
   createItem: protectedProcedure
     .input(CreatePriceListItemSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating price list item:', input);
       
@@ -1010,7 +1010,7 @@ export const pricingRouter = router({
   updateItem: protectedProcedure
     .input(UpdatePriceListItemSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Updating price list item:', input.id);
       
@@ -1061,7 +1061,7 @@ export const pricingRouter = router({
       id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Deleting price list item:', input.id);
       
@@ -1104,7 +1104,7 @@ export const pricingRouter = router({
   bulkAddProducts: protectedProcedure
     .input(BulkPricingSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Bulk adding products:', input);
       
@@ -1213,7 +1213,7 @@ export const pricingRouter = router({
   // GET /pricing/stats - Get pricing statistics
   getStats: protectedProcedure
     .query(async ({ ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching pricing statistics');
       
@@ -1264,7 +1264,7 @@ export const pricingRouter = router({
       pricing_date: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Calculating dynamic pricing:', input);
       
@@ -1383,7 +1383,7 @@ export const pricingRouter = router({
       })),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating price list:', input.price_list_id);
       
@@ -1464,7 +1464,7 @@ export const pricingRouter = router({
       })),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Bulk updating prices for list:', input.price_list_id);
       
@@ -1540,7 +1540,7 @@ export const pricingRouter = router({
       customer_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching customer pricing tiers:', input.customer_id);
       

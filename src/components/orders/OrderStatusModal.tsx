@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Order, OrderStatusChange } from '../../types/order';
@@ -21,6 +21,11 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
   newStatus,
   loading = false,
 }) => {
+  const [statusInfo, setStatusInfo] = useState<any>(null);
+  const [currentStatusInfo, setCurrentStatusInfo] = useState<any>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -47,34 +52,66 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
     });
   }, [order.id, newStatus, reset]);
 
+  // Fetch status info when modal opens or status changes
+  useEffect(() => {
+    const fetchStatusInfo = async () => {
+      try {
+        const [newStatusInfo, orderStatusInfo] = await Promise.all([
+          getOrderStatusInfo(newStatus as any),
+          getOrderStatusInfo(order.status as any)
+        ]);
+        setStatusInfo(newStatusInfo);
+        setCurrentStatusInfo(orderStatusInfo);
+      } catch (error) {
+        console.error('Failed to fetch status info:', error);
+      }
+    };
+
+    if (isOpen) {
+      fetchStatusInfo();
+    }
+  }, [isOpen, newStatus, order.status]);
+
+  // Validate order when status info is loaded or form data changes
+  useEffect(() => {
+    const validateOrder = async () => {
+      if (!statusInfo || !isOpen) return;
+
+      setIsValidating(true);
+      const errors: string[] = [];
+
+      try {
+        if (newStatus === 'confirmed') {
+          const validation = await validateOrderForConfirmation(order);
+          errors.push(...validation.errors);
+        } else if (newStatus === 'scheduled') {
+          if (!watchedScheduledDate) {
+            errors.push('Scheduled date is required');
+          }
+          if (!order.delivery_address) {
+            errors.push('Delivery address is required');
+          }
+          const validation = await validateOrderForScheduling(order);
+          errors.push(...validation.errors);
+        }
+      } catch (error) {
+        console.error('Validation error:', error);
+        errors.push('Unable to validate order. Please try again.');
+      }
+
+      setValidationErrors(errors);
+      setIsValidating(false);
+    };
+
+    validateOrder();
+  }, [statusInfo, newStatus, order, watchedScheduledDate, isOpen]);
+
   const handleFormSubmit = (data: OrderStatusChange) => {
     onSubmit(data);
   };
 
-  const statusInfo = getOrderStatusInfo(newStatus as any);
   const requiresScheduledDate = newStatus === 'scheduled';
-
-  // Validation based on new status
-  const getValidationErrors = () => {
-    const errors: string[] = [];
-
-    if (newStatus === 'confirmed') {
-      const validation = validateOrderForConfirmation(order);
-      errors.push(...validation.errors);
-    } else if (newStatus === 'scheduled') {
-      if (!watchedScheduledDate) {
-        errors.push('Scheduled date is required');
-      }
-      if (!order.delivery_address) {
-        errors.push('Delivery address is required');
-      }
-    }
-
-    return errors;
-  };
-
-  const validationErrors = getValidationErrors();
-  const canProceed = validationErrors.length === 0;
+  const canProceed = validationErrors.length === 0 && !isValidating;
 
   if (!isOpen) return null;
 
@@ -104,18 +141,18 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-gray-700">Current Status:</span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getOrderStatusInfo(order.status as any).color}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${currentStatusInfo?.color || 'border-gray-300'}`}>
                       {order.status.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">New Status:</span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusInfo.color}`}>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusInfo?.color || 'border-gray-300'}`}>
                       {newStatus.replace('_', ' ').toUpperCase()}
                     </span>
                   </div>
                   <div className="mt-2 text-sm text-gray-600">
-                    {statusInfo.description}
+                    {statusInfo?.description || 'Loading...'}
                   </div>
                 </div>
 
@@ -211,7 +248,7 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
                     <span>Updating...</span>
                   </div>
                 ) : (
-                  `Change to ${statusInfo.label}`
+                  `Change to ${statusInfo?.label || newStatus}`
                 )}
               </button>
               <button

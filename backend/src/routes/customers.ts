@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import axios from 'axios';
 
@@ -83,7 +83,7 @@ export const customersRouter = router({
   list: protectedProcedure
     .input(CustomerFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching customers with filters:', input);
       
@@ -145,7 +145,6 @@ export const customersRouter = router({
       let queryWithoutAddress = ctx.supabase
         .from('customers')
         .select('*', { count: 'exact' })
-        
         .order('created_at', { ascending: false });
 
       // Exclude customers that already have primary addresses
@@ -196,7 +195,7 @@ export const customersRouter = router({
       customer_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching customer:', input.customer_id);
       
@@ -223,7 +222,6 @@ export const customersRouter = router({
           )
         `)
         .eq('id', input.customer_id)
-        
         .eq('addresses.is_primary', true)
         .single();
 
@@ -248,7 +246,7 @@ export const customersRouter = router({
   create: protectedProcedure
     .input(CreateCustomerSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating customer with address:', input);
       
@@ -279,7 +277,6 @@ export const customersRouter = router({
       
       // Call the RPC for atomic customer + address creation
       const { data, error } = await ctx.supabase.rpc('create_customer_with_address', {
-        
         p_name: customerFields.name,
         p_external_id: customerFields.external_id,
         p_tax_id: customerFields.tax_id,
@@ -319,7 +316,7 @@ export const customersRouter = router({
   update: protectedProcedure
     .input(UpdateCustomerSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Updating customer:', input.id);
       
@@ -334,7 +331,6 @@ export const customersRouter = router({
           updated_by: user.id,
         })
         .eq('id', id)
-        
         .select()
         .single();
 
@@ -361,7 +357,6 @@ export const customersRouter = router({
           .from('addresses')
           .select('id')
           .eq('customer_id', id)
-          
           .eq('is_primary', true)
           .single();
 
@@ -403,15 +398,14 @@ export const customersRouter = router({
       customer_id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Deleting customer:', input.customer_id);
       
       const { error } = await ctx.supabase
         .from('customers')
         .delete()
-        .eq('id', input.customer_id)
-        ;
+        .eq('id', input.customer_id);
 
       if (error) {
         ctx.logger.error('Delete customer error:', error);
@@ -434,16 +428,14 @@ export const customersRouter = router({
       status: z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']).optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching customer order history:', input);
       
-      // Verify customer belongs to user's tenant
       const { data: customer, error: customerError } = await ctx.supabase
         .from('customers')
         .select('id')
         .eq('id', input.customer_id)
-        
         .single();
 
       if (customerError || !customer) {
@@ -469,7 +461,6 @@ export const customersRouter = router({
           )
         `, { count: 'exact' })
         .eq('customer_id', input.customer_id)
-        
         .order('created_at', { ascending: false });
 
       // Apply status filter
@@ -504,16 +495,14 @@ export const customersRouter = router({
       period: z.enum(['month', 'quarter', 'year']).default('year'),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching customer analytics:', input);
       
-      // Verify customer belongs to user's tenant
       const { data: customer, error: customerError } = await ctx.supabase
         .from('customers')
         .select('id, name, created_at')
         .eq('id', input.customer_id)
-        
         .single();
 
       if (customerError || !customer) {
@@ -537,7 +526,6 @@ export const customersRouter = router({
         .from('orders')
         .select('status, total_amount, order_date')
         .eq('customer_id', input.customer_id)
-        
         .gte('order_date', startDate.toISOString());
 
       if (orderStatsError) {
@@ -562,7 +550,6 @@ export const customersRouter = router({
         .from('orders')
         .select('id, status, total_amount, order_date')
         .eq('customer_id', input.customer_id)
-        
         .order('order_date', { ascending: false })
         .limit(5);
 
@@ -602,7 +589,7 @@ export const customersRouter = router({
       exclude_id: z.string().uuid().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating customer data:', input);
       
@@ -614,8 +601,7 @@ export const customersRouter = router({
         let emailQuery = ctx.supabase
           .from('customers')
           .select('id, name')
-          .eq('email', input.email)
-          ;
+          .eq('email', input.email);
         
         if (input.exclude_id) {
           emailQuery = emailQuery.neq('id', input.exclude_id);
@@ -633,8 +619,7 @@ export const customersRouter = router({
         let externalIdQuery = ctx.supabase
           .from('customers')
           .select('id, name')
-          .eq('external_id', input.external_id)
-          ;
+          .eq('external_id', input.external_id);
         
         if (input.exclude_id) {
           externalIdQuery = externalIdQuery.neq('id', input.exclude_id);
@@ -652,8 +637,7 @@ export const customersRouter = router({
         let taxIdQuery = ctx.supabase
           .from('customers')
           .select('id, name')
-          .eq('tax_id', input.tax_id)
-          ;
+          .eq('tax_id', input.tax_id);
         
         if (input.exclude_id) {
           taxIdQuery = taxIdQuery.neq('id', input.exclude_id);
@@ -681,7 +665,7 @@ export const customersRouter = router({
       customer_id: z.string().uuid().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const errors: string[] = [];
       const warnings: string[] = [];
@@ -739,16 +723,14 @@ export const customersRouter = router({
       customer_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching addresses for customer:', input.customer_id);
       
-      // Verify customer belongs to user's tenant
       const { data: customer, error: customerError } = await ctx.supabase
         .from('customers')
         .select('id')
         .eq('id', input.customer_id)
-        
         .single();
 
       if (customerError || !customer) {
@@ -762,7 +744,6 @@ export const customersRouter = router({
         .from('addresses')
         .select('*')
         .eq('customer_id', input.customer_id)
-        
         .order('is_primary', { ascending: false })
         .order('created_at', { ascending: true });
 
@@ -781,16 +762,14 @@ export const customersRouter = router({
   createAddress: protectedProcedure
     .input(AddressSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating address:', input);
       
-      // Verify customer belongs to user's tenant
       const { data: customer, error: customerError } = await ctx.supabase
         .from('customers')
         .select('id')
         .eq('id', input.customer_id)
-        
         .single();
 
       if (customerError || !customer) {
@@ -841,7 +820,6 @@ export const customersRouter = router({
           ...input,
           latitude,
           longitude,
-          
           created_by: user.id,
         }])
         .select()
@@ -879,18 +857,16 @@ export const customersRouter = router({
       instructions: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Updating address:', input.address_id);
       
       const { address_id, customer_id, ...updateData } = input;
       
-      // Verify address belongs to user's tenant
       const { data: address, error: addressError } = await ctx.supabase
         .from('addresses')
         .select('customer_id')
         .eq('id', address_id)
-        
         .single();
 
       if (addressError || !address) {
@@ -906,7 +882,6 @@ export const customersRouter = router({
           .from('addresses')
           .update({ is_primary: false })
           .eq('customer_id', customer_id)
-          
           .eq('is_primary', true)
           .neq('id', address_id);
       }
@@ -919,7 +894,6 @@ export const customersRouter = router({
           updated_by: user.id,
         })
         .eq('id', address_id)
-        
         .select()
         .single();
 
@@ -941,15 +915,14 @@ export const customersRouter = router({
       address_id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Deleting address:', input.address_id);
       
       const { error } = await ctx.supabase
         .from('addresses')
         .delete()
-        .eq('id', input.address_id)
-        ;
+        .eq('id', input.address_id);
 
       if (error) {
         ctx.logger.error('Delete address error:', error);
@@ -970,17 +943,15 @@ export const customersRouter = router({
       customer_id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Setting primary address:', input);
       
-      // Verify address belongs to user's tenant and customer
       const { data: address, error: addressError } = await ctx.supabase
         .from('addresses')
         .select('id, customer_id')
         .eq('id', input.address_id)
         .eq('customer_id', input.customer_id)
-        
         .single();
 
       if (addressError || !address) {
@@ -995,7 +966,6 @@ export const customersRouter = router({
         .from('addresses')
         .update({ is_primary: false })
         .eq('customer_id', input.customer_id)
-        
         .eq('is_primary', true);
 
       // Then set this address as primary
@@ -1007,7 +977,6 @@ export const customersRouter = router({
           updated_by: user.id,
         })
         .eq('id', input.address_id)
-        
         .select()
         .single();
 
@@ -1034,7 +1003,7 @@ export const customersRouter = router({
       postal_code: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Geocoding address:', input);
       
@@ -1089,7 +1058,7 @@ export const customersRouter = router({
       postal_code: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating address:', input);
       
@@ -1144,7 +1113,7 @@ export const customersRouter = router({
       delivery_window_end: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const errors: string[] = [];
       const warnings: string[] = [];

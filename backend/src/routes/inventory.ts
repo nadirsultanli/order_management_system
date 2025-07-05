@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
 // Validation schemas
@@ -62,7 +62,7 @@ export const inventoryRouter = router({
   list: protectedProcedure
     .input(InventoryFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching inventory with advanced filters:', input);
       
@@ -178,7 +178,7 @@ export const inventoryRouter = router({
       warehouse_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching warehouse inventory:', input.warehouse_id);
       
@@ -209,7 +209,7 @@ export const inventoryRouter = router({
       product_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching product inventory:', input.product_id);
       
@@ -240,7 +240,7 @@ export const inventoryRouter = router({
       warehouse_id: z.string().uuid().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching inventory statistics');
       
@@ -280,7 +280,7 @@ export const inventoryRouter = router({
   adjustStock: protectedProcedure
     .input(StockAdjustmentSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Adjusting stock:', input);
 
@@ -356,7 +356,7 @@ export const inventoryRouter = router({
   transferStock: protectedProcedure
     .input(StockTransferSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Transferring stock:', input);
 
@@ -526,7 +526,7 @@ export const inventoryRouter = router({
   create: protectedProcedure
     .input(CreateInventoryBalanceSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating inventory balance:', input);
 
@@ -605,7 +605,7 @@ export const inventoryRouter = router({
   reserve: protectedProcedure
     .input(ReservationSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Reserving inventory:', input);
 
@@ -703,7 +703,7 @@ export const inventoryRouter = router({
       product_id: z.string().uuid().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching recent stock movements');
       
@@ -723,7 +723,7 @@ export const inventoryRouter = router({
       adjustment_type: z.enum(['received_full', 'received_empty', 'physical_count', 'damage_loss', 'other']),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const errors: string[] = [];
       const warnings: string[] = [];
@@ -839,7 +839,7 @@ export const inventoryRouter = router({
       include_seasonal: z.boolean().default(true),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching low stock items:', input);
       
@@ -920,7 +920,7 @@ export const inventoryRouter = router({
       priority: z.enum(['normal', 'high', 'urgent']).default('normal'),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Checking product availability:', input);
       

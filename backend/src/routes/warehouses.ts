@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
 // Validation schemas
@@ -40,7 +40,7 @@ export const warehousesRouter = router({
   list: protectedProcedure
     .input(WarehouseFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching warehouses with filters:', input);
       
@@ -96,7 +96,7 @@ export const warehousesRouter = router({
   get: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching warehouse:', input.id);
       
@@ -135,7 +135,7 @@ export const warehousesRouter = router({
   // GET /warehouses/stats - Get warehouse statistics
   getStats: protectedProcedure
     .query(async ({ ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching warehouse statistics');
       
@@ -168,7 +168,7 @@ export const warehousesRouter = router({
   // GET /warehouses/options - Get warehouse options for dropdowns
   getOptions: protectedProcedure
     .query(async ({ ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching warehouse options');
       
@@ -202,7 +202,7 @@ export const warehousesRouter = router({
   create: protectedProcedure
     .input(CreateWarehouseSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating warehouse:', input);
       
@@ -291,7 +291,7 @@ export const warehousesRouter = router({
   update: protectedProcedure
     .input(UpdateWarehouseSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const { id, ...updateData } = input;
       
@@ -419,7 +419,7 @@ export const warehousesRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Deleting warehouse:', input.id);
       

@@ -19,6 +19,7 @@ import { AddressForm } from '../components/addresses/AddressForm';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 import { trpc } from '../lib/trpc-client';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
+import { useInventoryNew } from '../hooks/useInventory';
 
 interface OrderLineItem {
   product_id: string;
@@ -65,6 +66,9 @@ export const CreateOrderPage: React.FC = () => {
   // Get product prices from backend
   const productIds = products.map(p => p.id);
   const { data: productPrices } = useProductPrices(productIds, selectedCustomerId || undefined);
+  
+  // Get inventory data for real stock checking
+  const { data: inventoryData } = useInventoryNew({});
   
   // Get active price lists (not expired)
   const today = new Date().toISOString().split('T')[0];
@@ -297,8 +301,23 @@ export const CreateOrderPage: React.FC = () => {
     (serviceType !== 'scheduled' || (scheduledDate && scheduledTime));
 
   const getStockInfo = (productId: string) => {
-    // Note: Stock availability checking disabled
-    return 999; // Return high number to allow orders
+    // Get real stock availability from inventory data
+    if (!inventoryData?.inventory_balance) return 0;
+    
+    // Find the product's inventory records
+    const productInventory = inventoryData.inventory_balance.filter(
+      (inv: any) => inv.product_id === productId || inv.product_variant_id === productId
+    );
+    
+    if (productInventory.length === 0) return 0;
+    
+    // Sum available stock across all warehouses for this product
+    const totalAvailable = productInventory.reduce(
+      (sum: number, inv: any) => sum + (inv.quantity_available || 0), 
+      0
+    );
+    
+    return totalAvailable;
   };
 
   const getStockStatusClass = (available: number) => {

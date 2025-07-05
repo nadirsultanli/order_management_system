@@ -17,7 +17,6 @@ export interface StockValidationResult {
  */
 export async function validateStockAvailability(
   supabase: SupabaseClient,
-  tenantId: string,
   warehouseId: string,
   productId: string,
   requestedQuantity: number
@@ -59,11 +58,10 @@ export async function validateStockAvailability(
 }
 
 /**
- * Ensure warehouse belongs to tenant
+ * Validate warehouse exists
  */
-export async function validateWarehouseTenant(
+export async function validateWarehouse(
   supabase: SupabaseClient,
-  tenantId: string,
   warehouseId: string
 ): Promise<boolean> {
   const { data, error } = await supabase
@@ -76,11 +74,10 @@ export async function validateWarehouseTenant(
 }
 
 /**
- * Ensure product belongs to tenant
+ * Validate product exists
  */
-export async function validateProductTenant(
+export async function validateProduct(
   supabase: SupabaseClient,
-  tenantId: string,
   productId: string
 ): Promise<boolean> {
   const { data, error } = await supabase
@@ -97,7 +94,6 @@ export async function validateProductTenant(
  */
 export async function createStockMovement(
   supabase: SupabaseClient,
-  tenantId: string,
   data: {
     inventory_id: string;
     movement_type: 'adjustment' | 'transfer_in' | 'transfer_out' | 'order_reserve' | 'order_fulfill';
@@ -111,7 +107,6 @@ export async function createStockMovement(
   // This would create a record in a stock_movements table
   // For now, we'll just log it since the table might not exist
   console.log('Stock movement:', {
-    tenant_id: tenantId,
     ...data,
     created_at: new Date().toISOString()
   });
@@ -167,7 +162,6 @@ export function validateStockAdjustment(
  */
 export async function batchValidateStock(
   supabase: SupabaseClient,
-  tenantId: string,
   items: Array<{
     warehouse_id: string;
     product_id: string;
@@ -179,7 +173,6 @@ export async function batchValidateStock(
   for (const item of items) {
     const validation = await validateStockAvailability(
       supabase,
-      tenantId,
       item.warehouse_id,
       item.product_id,
       item.quantity
@@ -199,7 +192,6 @@ export async function batchValidateStock(
  */
 export async function getWarehouseInventorySummary(
   supabase: SupabaseClient,
-  tenantId: string,
   warehouseId: string
 ) {
   const { data, error } = await supabase
@@ -233,7 +225,6 @@ export async function getWarehouseInventorySummary(
  */
 export async function atomicStockUpdate(
   supabase: SupabaseClient,
-  tenantId: string,
   inventoryId: string,
   updateFn: (current: any) => any,
   maxRetries: number = 3

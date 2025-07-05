@@ -75,15 +75,14 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
     
     try {
       await updateOrderTax.mutateAsync({
-        id: order.id,
+        order_id: order.id,
         tax_percent: taxPercent,
-        tax_amount: taxAmount,
-        total_amount: grandTotal,
-        notes,
       });
+      toast.success('Order updated successfully');
       onClose();
     } catch (error) {
       console.error('Error updating order:', error);
+      toast.error('Failed to update order');
     }
   };
 
@@ -158,7 +157,10 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
               type="button"
               onClick={async () => {
                 try {
-                  await updateOrderTax(order.id, taxPercent);
+                  await updateOrderTax.mutateAsync({
+                order_id: order.id,
+                tax_percent: taxPercent,
+              });
                   toast.success('Total amount recalculated');
                 } catch (error) {
                   console.error('Error recalculating total:', error);
@@ -178,11 +180,11 @@ export const OrderEditModal: React.FC<OrderEditModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={updateOrder.isPending}
+              disabled={updateOrderTax.isPending}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
               <Save className="h-4 w-4" />
-              <span>{updateOrder.isPending ? 'Saving...' : 'Save Changes'}</span>
+              <span>{updateOrderTax.isPending ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </div>
         </form>

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
 // Validation schemas
@@ -50,7 +50,7 @@ export const stockMovementsRouter = router({
   list: protectedProcedure
     .input(StockMovementFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching stock movements with filters:', input);
       
@@ -143,7 +143,7 @@ export const stockMovementsRouter = router({
   get: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching stock movement:', input.id);
       
@@ -195,7 +195,7 @@ export const stockMovementsRouter = router({
   create: protectedProcedure
     .input(CreateStockMovementSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating stock movement:', input);
       
@@ -210,7 +210,6 @@ export const stockMovementsRouter = router({
 
       const movementData = {
         ...input,
-        tenant_id: user.tenant_id,
         created_by_user_id: user.user_id,
         created_at: new Date().toISOString(),
       };
@@ -239,13 +238,12 @@ export const stockMovementsRouter = router({
   createBulk: protectedProcedure
     .input(BulkMovementSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating bulk stock movements:', input.movements.length);
       
       const movementsData = input.movements.map(movement => ({
         ...movement,
-        tenant_id: user.tenant_id,
         created_by_user_id: user.user_id,
         created_at: new Date().toISOString(),
       }));
@@ -275,7 +273,7 @@ export const stockMovementsRouter = router({
   processRefillOrder: protectedProcedure
     .input(RefillOrderProcessSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Processing refill order stock movements:', input.order_id);
       
@@ -305,7 +303,7 @@ export const stockMovementsRouter = router({
       truck_id: z.string().uuid().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching stock movement summary:', input);
       
@@ -436,7 +434,6 @@ async function updateInventoryFromMovement(ctx: any, movement: any) {
       qty_empty: Math.max(0, newQtyEmpty),
       qty_reserved: currentQtyReserved,
       updated_at: new Date().toISOString(),
-      tenant_id: movement.tenant_id,
     };
 
     if (currentInventory) {

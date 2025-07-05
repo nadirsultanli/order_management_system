@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
 // Validation schemas
@@ -88,7 +88,7 @@ export const productsRouter = router({
     .input(ProductFiltersSchema)
     .query(async ({ input, ctx }) => {
       try {
-        const user = requireTenantAccess(ctx);
+        const user = requireAuth(ctx);
         
         ctx.logger.info('Fetching products with advanced filters:', input);
       
@@ -293,7 +293,7 @@ export const productsRouter = router({
   getById: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching product:', input.id);
       
@@ -301,7 +301,6 @@ export const productsRouter = router({
         .from('products')
         .select('*')
         .eq('id', input.id)
-        
         .single();
 
       if (error) {
@@ -318,14 +317,13 @@ export const productsRouter = router({
   // GET /products/stats - Get product statistics
   getStats: protectedProcedure
     .query(async ({ ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching product statistics');
       
       const { data, error } = await ctx.supabase
         .from('products')
-        .select('status, unit_of_measure')
-        ;
+        .select('status, unit_of_measure');
 
       if (error) {
         ctx.logger.error('Error fetching product stats:', error);
@@ -354,7 +352,7 @@ export const productsRouter = router({
       include_variants: z.boolean().default(true),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching product options');
       
@@ -393,7 +391,7 @@ export const productsRouter = router({
   create: protectedProcedure
     .input(CreateProductSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating product:', input);
       
@@ -402,7 +400,6 @@ export const productsRouter = router({
         .from('products')
         .select('id')
         .eq('sku', input.sku)
-        
         .single();
 
       if (existingSku) {
@@ -433,7 +430,6 @@ export const productsRouter = router({
         .from('products')
         .insert([{
           ...input,
-          
           created_at: new Date().toISOString(),
         }])
         .select()
@@ -454,7 +450,7 @@ export const productsRouter = router({
   update: protectedProcedure
     .input(UpdateProductSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const { id, ...updateData } = input;
       
@@ -503,7 +499,7 @@ export const productsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Deleting product:', input.id);
       
@@ -548,7 +544,7 @@ export const productsRouter = router({
   getVariants: protectedProcedure
     .input(z.object({ parent_product_id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const { data, error } = await ctx.supabase
         .from('products')
@@ -573,7 +569,7 @@ export const productsRouter = router({
   createVariant: protectedProcedure
     .input(CreateVariantSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating product variant:', input);
       
@@ -582,7 +578,6 @@ export const productsRouter = router({
         .from('products')
         .select('id')
         .eq('sku', input.sku)
-        
         .single();
 
       if (existingSku) {
@@ -639,7 +634,7 @@ export const productsRouter = router({
   bulkUpdateStatus: protectedProcedure
     .input(BulkStatusUpdateSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Bulk updating product status:', input);
       
@@ -671,7 +666,7 @@ export const productsRouter = router({
   reactivate: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Reactivating product:', input.id);
       
@@ -704,7 +699,7 @@ export const productsRouter = router({
       exclude_id: z.string().uuid().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const errors: string[] = [];
       const warnings: string[] = [];
@@ -752,7 +747,7 @@ export const productsRouter = router({
       exclude_id: z.string().uuid().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const errors: string[] = [];
       const warnings: string[] = [];
@@ -815,7 +810,7 @@ export const productsRouter = router({
       unit_of_measure: UnitOfMeasureEnum,
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const errors: string[] = [];
       const warnings: string[] = [];
@@ -873,7 +868,7 @@ export const productsRouter = router({
       new_status: ProductStatusEnum,
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const errors: string[] = [];
       const warnings: string[] = [];
@@ -948,7 +943,7 @@ export const productsRouter = router({
       min_quantity: z.number().min(0).default(1),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching product availability matrix:', input);
       
@@ -1010,7 +1005,7 @@ export const productsRouter = router({
       }),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Calculating inventory movements for order:', input.order.id);
       
@@ -1111,7 +1106,7 @@ export const productsRouter = router({
       }),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating order type:', input.order.order_type);
       
@@ -1156,7 +1151,7 @@ export const productsRouter = router({
       }),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Calculating exchange quantity for order type:', input.order.order_type);
       
@@ -1176,7 +1171,7 @@ export const productsRouter = router({
       order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Checking pickup requirement for order type:', input.order_type);
       
@@ -1188,7 +1183,7 @@ export const productsRouter = router({
   // GET /products/standard-cylinder-variants - Get standard cylinder variants
   getStandardCylinderVariants: protectedProcedure
     .query(async ({ ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching standard cylinder variants');
       
@@ -1207,7 +1202,7 @@ export const productsRouter = router({
       variant_name: z.string().min(1),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Generating variant SKU for:', input.parent_sku, input.variant_name);
       
@@ -1229,7 +1224,7 @@ export const productsRouter = router({
       description: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating variant data for parent product:', input.parent_product.id);
       

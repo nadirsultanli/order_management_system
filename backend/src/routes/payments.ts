@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
 // Zod schemas for input validation
@@ -45,7 +45,7 @@ export const paymentsRouter = router({
   create: protectedProcedure
     .input(RecordPaymentSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Recording payment for order:', input.order_id);
 
@@ -53,8 +53,7 @@ export const paymentsRouter = router({
       const { data: validation, error: validationError } = await ctx.supabase
         .rpc('validate_payment_for_order', {
           p_order_id: input.order_id,
-          p_amount: input.amount,
-          p_tenant_id: user.id
+          p_amount: input.amount
         });
 
       if (validationError) {
@@ -84,7 +83,6 @@ export const paymentsRouter = router({
         reference_number: input.reference_number,
         notes: input.notes,
         metadata: input.metadata || {},
-        tenant_id: user.id,
         created_by: user.id,
       };
 
@@ -129,7 +127,7 @@ export const paymentsRouter = router({
   list: protectedProcedure
     .input(PaymentFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching payments with filters:', input);
 
@@ -252,7 +250,7 @@ export const paymentsRouter = router({
       payment_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching payment:', input.payment_id);
 
@@ -296,7 +294,7 @@ export const paymentsRouter = router({
       include_summary: z.boolean().default(true),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching payments for order:', input.order_id);
 
@@ -375,7 +373,7 @@ export const paymentsRouter = router({
   updateStatus: protectedProcedure
     .input(UpdatePaymentStatusSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Updating payment status:', input.payment_id);
 
@@ -449,7 +447,7 @@ export const paymentsRouter = router({
       payment_method: PaymentMethodEnum.optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching payment summary:', input);
 
@@ -488,7 +486,7 @@ export const paymentsRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching overdue payment orders:', input);
 

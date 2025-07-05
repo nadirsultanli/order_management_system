@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import {
   getOrderWorkflow,
@@ -57,7 +57,7 @@ export const ordersRouter = router({
       limit: z.number().min(1).max(100).default(50),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching orders with advanced filters:', input);
       
@@ -237,7 +237,7 @@ export const ordersRouter = router({
       order_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching order:', input.order_id);
       
@@ -267,7 +267,6 @@ export const ordersRouter = router({
           )
         `)
         .eq('id', input.order_id)
-        
         .single();
 
       if (error) {
@@ -303,7 +302,7 @@ export const ordersRouter = router({
       priority_filter: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching overdue orders with criteria:', input);
       
@@ -367,7 +366,7 @@ export const ordersRouter = router({
       optimize_routes: z.boolean().default(false),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching delivery calendar:', input);
       
@@ -487,19 +486,18 @@ export const ordersRouter = router({
       })).min(1, 'At least one order line is required'),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating order for customer:', input.customer_id);
       
       // Generate hash for idempotency if key provided
       let idempotencyKeyId: string | null = null;
       if (input.idempotency_key) {
-        const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${'00000000-0000-0000-0000-000000000001'}`).toString('base64');
+        const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${user.id}`).toString('base64');
         
         // Check idempotency
         const { data: idempotencyData, error: idempotencyError } = await ctx.supabase
           .rpc('check_idempotency_key', {
-            p_tenant_id: '00000000-0000-0000-0000-000000000001',
             p_key_hash: keyHash,
             p_operation_type: 'order_create',
             p_request_data: input
@@ -579,7 +577,6 @@ export const ordersRouter = router({
           if (address.latitude && address.longitude) {
             const { data: serviceZoneData, error: serviceZoneError } = await ctx.supabase
               .rpc('validate_address_in_service_zone', {
-                p_tenant_id: '00000000-0000-0000-0000-000000000001',
                 p_latitude: address.latitude,
                 p_longitude: address.longitude
               });
@@ -795,10 +792,10 @@ export const ordersRouter = router({
         }
 
         // Calculate and update order total (includes tax calculation)
-        await calculateOrderTotal(ctx, order.id, user.id);
+        await calculateOrderTotal(ctx, order.id);
 
         // Get complete order with relations
-        const completeOrder = await getOrderById(ctx, order.id, user.id);
+        const completeOrder = await getOrderById(ctx, order.id);
         
         // Complete idempotency if used
         if (idempotencyKeyId) {
@@ -848,9 +845,9 @@ export const ordersRouter = router({
       order_id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
-      return await calculateOrderTotal(ctx, input.order_id, user.id);
+      return await calculateOrderTotal(ctx, input.order_id);
     }),
 
   // POST /orders/{id}/status - Update order status
@@ -863,7 +860,7 @@ export const ordersRouter = router({
       metadata: z.record(z.any()).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Changing order status:', input);
 
@@ -875,7 +872,6 @@ export const ordersRouter = router({
           order_lines(product_id, quantity)
         `)
         .eq('id', input.order_id)
-        
         .single();
 
       if (orderError || !currentOrder) {
@@ -892,8 +888,7 @@ export const ordersRouter = router({
           for (const line of currentOrder.order_lines) {
             await ctx.supabase.rpc('reserve_stock', {
               p_product_id: line.product_id,
-              p_quantity: line.quantity,
-              
+              p_quantity: line.quantity
             });
           }
         }
@@ -904,8 +899,7 @@ export const ordersRouter = router({
           for (const line of currentOrder.order_lines) {
             await ctx.supabase.rpc('fulfill_order_line', {
               p_product_id: line.product_id,
-              p_quantity: line.quantity,
-              
+              p_quantity: line.quantity
             });
           }
         }
@@ -915,8 +909,7 @@ export const ordersRouter = router({
           for (const line of currentOrder.order_lines) {
             await ctx.supabase.rpc('release_reserved_stock', {
               p_product_id: line.product_id,
-              p_quantity: line.quantity,
-              
+              p_quantity: line.quantity
             });
           }
         }
@@ -937,7 +930,6 @@ export const ordersRouter = router({
         .from('orders')
         .update(updateData)
         .eq('id', input.order_id)
-        
         .select()
         .single();
 
@@ -960,9 +952,9 @@ export const ordersRouter = router({
       tax_percent: z.number().min(0).max(100),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
-      return await updateOrderTax(ctx, input.order_id, input.tax_percent, user.id);
+      return await updateOrderTax(ctx, input.order_id, input.tax_percent);
     }),
 
   // Workflow endpoints
@@ -970,7 +962,7 @@ export const ordersRouter = router({
   // GET /orders/workflow - Get order workflow steps
   getWorkflow: protectedProcedure
     .query(async ({ ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       ctx.logger.info('Fetching order workflow');
       
@@ -981,7 +973,7 @@ export const ordersRouter = router({
   validateTransition: protectedProcedure
     .input(StatusTransitionSchema)
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       ctx.logger.info('Validating status transition:', input);
       
@@ -992,7 +984,7 @@ export const ordersRouter = router({
   calculateTotals: protectedProcedure
     .input(CalculateTotalsSchema)
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       ctx.logger.info('Calculating order totals:', input);
       
@@ -1012,7 +1004,7 @@ export const ordersRouter = router({
       order: z.any(), // We'll validate the structure in the function
     }))
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       ctx.logger.info('Validating order for confirmation:', input.order.id);
       
@@ -1025,7 +1017,7 @@ export const ordersRouter = router({
       order: z.any(), // We'll validate the structure in the function
     }))
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       ctx.logger.info('Validating order for scheduling:', input.order.id);
       
@@ -1038,7 +1030,7 @@ export const ordersRouter = router({
       order: z.any(), // We'll validate the structure in the function
     }))
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       ctx.logger.info('Validating order delivery window:', input.order.id);
       
@@ -1051,7 +1043,7 @@ export const ordersRouter = router({
       order_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Getting workflow info for order:', input.order_id);
       
@@ -1099,7 +1091,7 @@ export const ordersRouter = router({
       order_id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       return {
         formatted_id: formatOrderId(input.order_id),
@@ -1112,7 +1104,7 @@ export const ordersRouter = router({
       amount: z.number(),
     }))
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       return {
         formatted_amount: formatCurrency(input.amount),
@@ -1125,7 +1117,7 @@ export const ordersRouter = router({
       date: z.string().datetime(),
     }))
     .mutation(async ({ input, ctx }) => {
-      requireTenantAccess(ctx);
+      requireAuth(ctx);
       
       return {
         formatted_date: formatDate(input.date),
@@ -1144,7 +1136,7 @@ export const ordersRouter = router({
       })).min(1),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating order pricing for customer:', input.customer_id);
       
@@ -1328,7 +1320,7 @@ export const ordersRouter = router({
       order_ids: z.array(z.string().uuid()).min(1),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating truck capacity:', input);
       
@@ -1349,7 +1341,6 @@ export const ordersRouter = router({
       // Use the database function to validate capacity
       const { data: capacityValidation, error: validationError } = await ctx.supabase
         .rpc('validate_truck_capacity', {
-          p_tenant_id: '00000000-0000-0000-0000-000000000001',
           p_truck_id: input.truck_id,
           p_order_ids: input.order_ids
         });
@@ -1391,7 +1382,7 @@ export const ordersRouter = router({
       force_allocation: z.boolean().default(false),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Allocating order to truck:', input);
       
@@ -1416,7 +1407,7 @@ export const ordersRouter = router({
       allocation_date: z.string(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Getting allocation suggestions for order:', input.order_id);
       
@@ -1439,7 +1430,7 @@ export const ordersRouter = router({
       order_id: z.string().uuid(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Calculating order weight:', input.order_id);
       
@@ -1460,7 +1451,7 @@ export const ordersRouter = router({
       allocation_id: z.string().uuid(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Removing truck allocation:', input.allocation_id);
       
@@ -1478,7 +1469,7 @@ export const ordersRouter = router({
       date: z.string(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Getting daily order schedule for:', input.date);
       
@@ -1508,7 +1499,7 @@ export const ordersRouter = router({
       warehouse_id: z.string().uuid().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Processing refill order:', input.order_id);
       
@@ -1562,7 +1553,7 @@ export const ordersRouter = router({
 });
 
 // Helper function to calculate order total
-async function calculateOrderTotal(ctx: any, orderId: string, tenantId: string) {
+async function calculateOrderTotal(ctx: any, orderId: string) {
   ctx.logger.info('Calculating order total for:', orderId);
 
   // Get order lines with quantity and unit_price
@@ -1637,7 +1628,7 @@ async function calculateOrderTotal(ctx: any, orderId: string, tenantId: string) 
 }
 
 // Helper function to update order tax and recalculate total
-async function updateOrderTax(ctx: any, orderId: string, taxPercent: number, tenantId: string) {
+async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
   ctx.logger.info('Updating order tax:', { orderId, taxPercent });
 
   // Get order lines with quantity and unit_price
@@ -1696,7 +1687,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number, ten
 }
 
 // Helper function to get order by ID with all relations
-async function getOrderById(ctx: any, orderId: string, tenantId: string) {
+async function getOrderById(ctx: any, orderId: string) {
   const { data, error } = await ctx.supabase
     .from('orders')
     .select(`

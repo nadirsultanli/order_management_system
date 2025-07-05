@@ -285,7 +285,6 @@ export class OrderAllocationService {
         status: 'planned',
         allocated_by_user_id: user_id,
         allocated_at: new Date().toISOString(),
-        tenant_id: '00000000-0000-0000-0000-000000000000', // Hardcoded since we removed tenant concept
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

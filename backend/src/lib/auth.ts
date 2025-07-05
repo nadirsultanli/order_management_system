@@ -11,11 +11,6 @@ export const requireAuth = (ctx: Context) => {
   return ctx.user;
 };
 
-export const requireTenantAccess = (ctx: Context) => {
-  // Since we removed tenant concept, just require auth
-  const user = requireAuth(ctx);
-  return user;
-};
 
 export const requireRole = (ctx: Context, requiredRole: string) => {
   const user = requireAuth(ctx);

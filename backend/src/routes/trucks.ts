@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import {
   calculateOrderWeight,
@@ -117,7 +117,7 @@ export const trucksRouter = router({
   list: protectedProcedure
     .input(TruckFiltersSchema)
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching trucks with filters:', input);
       
@@ -180,7 +180,7 @@ export const trucksRouter = router({
   get: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching truck:', input.id);
       
@@ -260,7 +260,7 @@ export const trucksRouter = router({
   create: protectedProcedure
     .input(CreateTruckSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating truck:', input);
       
@@ -301,7 +301,7 @@ export const trucksRouter = router({
   update: protectedProcedure
     .input(UpdateTruckSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const { id, capacity_kg, status, maintenance_interval_days, ...updateData } = input;
       
@@ -335,7 +335,7 @@ export const trucksRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Deleting truck:', input.id);
       
@@ -363,7 +363,7 @@ export const trucksRouter = router({
       truck_id: z.string().uuid().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const targetDate = input.date || new Date().toISOString().split('T')[0];
       
@@ -394,7 +394,7 @@ export const trucksRouter = router({
   allocateOrder: protectedProcedure
     .input(TruckAllocationSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating truck allocation:', input);
       
@@ -424,7 +424,7 @@ export const trucksRouter = router({
   updateAllocation: protectedProcedure
     .input(UpdateTruckAllocationSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const { id, ...updateData } = input;
       
@@ -456,7 +456,7 @@ export const trucksRouter = router({
       date: z.string().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const targetDate = input.date || new Date().toISOString().split('T')[0];
       
@@ -487,7 +487,7 @@ export const trucksRouter = router({
   createRoute: protectedProcedure
     .input(CreateTruckRouteSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Creating truck route:', input);
       
@@ -518,7 +518,7 @@ export const trucksRouter = router({
   updateRoute: protectedProcedure
     .input(UpdateTruckRouteSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const { id, ...updateData } = input;
       
@@ -550,7 +550,7 @@ export const trucksRouter = router({
   getMaintenance: protectedProcedure
     .input(z.object({ truck_id: z.string().uuid().optional() }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       let query = ctx.supabase
         .from('truck_maintenance')
@@ -579,7 +579,7 @@ export const trucksRouter = router({
   scheduleMaintenance: protectedProcedure
     .input(CreateMaintenanceSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Scheduling truck maintenance:', input);
       
@@ -610,7 +610,7 @@ export const trucksRouter = router({
   updateMaintenance: protectedProcedure
     .input(UpdateMaintenanceSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       const { id, ...updateData } = input;
       
@@ -651,7 +651,7 @@ export const trucksRouter = router({
       product_ids: z.array(z.string()).optional()
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Calculating order weight for order lines:', input.order_lines.length);
       
@@ -682,7 +682,7 @@ export const trucksRouter = router({
       date: z.string()
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Calculating truck capacity:', input.truck_id, input.date);
       
@@ -733,7 +733,7 @@ export const trucksRouter = router({
       target_date: z.string()
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Finding best truck allocation for order:', input.order_id);
       
@@ -806,7 +806,7 @@ export const trucksRouter = router({
       target_date: z.string()
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Validating truck allocation:', input.truck_id, input.order_id);
       
@@ -876,7 +876,7 @@ export const trucksRouter = router({
       date: z.string()
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Generating daily truck schedule for:', input.date);
       
@@ -930,7 +930,7 @@ export const trucksRouter = router({
       target_date: z.string()
     }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Optimizing truck allocations for orders:', input.order_ids.length);
       

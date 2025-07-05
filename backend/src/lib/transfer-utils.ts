@@ -247,7 +247,6 @@ export function validateWarehouseCapacity(
  */
 export async function checkTransferConflicts(
   supabase: SupabaseClient,
-  tenantId: string,
   newTransfer: any
 ): Promise<{ has_conflicts: boolean; conflicts: string[] }> {
   const conflicts: string[] = [];
@@ -335,7 +334,6 @@ export function validateStatusTransition(
  */
 export async function createTransferHistory(
   supabase: SupabaseClient,
-  tenantId: string,
   data: {
     transfer_id: string;
     action: 'created' | 'updated' | 'approved' | 'started' | 'completed' | 'cancelled';
@@ -349,7 +347,6 @@ export async function createTransferHistory(
   // This would create a record in a transfer_history table
   // For now, we'll just log it since the table might not exist
   console.log('Transfer history:', {
-    tenant_id: tenantId,
     action_date: new Date().toISOString(),
     ...data
   });

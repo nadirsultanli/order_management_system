@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock } from 'lucide-react';
 import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { OrderEditModal } from '../components/orders/OrderEditModal';
-import { getOrderStatusInfo, getNextPossibleStatuses } from '../utils/order';
+import { getOrderStatusInfo, getNextPossibleStatuses, formatOrderId } from '../utils/order';
 import { formatCurrencySync } from '../utils/pricing';
 import { Order, OrderStatusChange } from '../types/order';
 
@@ -15,9 +15,37 @@ export const OrderDetailPage: React.FC = () => {
   const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [statusInfo, setStatusInfo] = useState<any>(null);
+  const [nextStatuses, setNextStatuses] = useState<string[]>([]);
+  const [formattedOrderId, setFormattedOrderId] = useState<string>('');
 
   const { data: order, isLoading, error } = useOrderNew(id!);
   const changeOrderStatus = useUpdateOrderStatusNew();
+
+  // Fetch order status info when order is loaded
+  useEffect(() => {
+    const fetchOrderInfo = async () => {
+      if (!order) return;
+      
+      try {
+        const [statusData, nextStatusData, formattedId] = await Promise.all([
+          getOrderStatusInfo(order.status as any),
+          getNextPossibleStatuses(order.status as any),
+          formatOrderId(order.id)
+        ]);
+        
+        setStatusInfo(statusData);
+        setNextStatuses(nextStatusData);
+        setFormattedOrderId(formattedId);
+      } catch (error) {
+        console.error('Failed to fetch order info:', error);
+        // Fallback to local function
+        setFormattedOrderId(formatOrderIdSyncSync(order.id));
+      }
+    };
+
+    fetchOrderInfo();
+  }, [order]);
 
   const handleChangeStatus = (newStatus: string) => {
     if (order) {
@@ -96,8 +124,7 @@ export const OrderDetailPage: React.FC = () => {
     );
   }
 
-  const statusInfo = getOrderStatusInfo(order.status as any);
-  const nextStatuses = getNextPossibleStatuses(order.status as any);
+  // Status info is now handled by state in useEffect
 
   // Mock status history for timeline
   const statusHistory = [
@@ -136,7 +163,7 @@ export const OrderDetailPage: React.FC = () => {
           </button>
           <div className="text-gray-400">/</div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Order {formatOrderIdSync(order.id)}
+            Order {formattedOrderId || formatOrderIdSyncSync(order.id)}
           </h1>
         </div>
         <div className="flex items-center space-x-3">
@@ -181,13 +208,13 @@ export const OrderDetailPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Order {formatOrderIdSync(order.id)}
+                  Order {formattedOrderId || formatOrderIdSyncSync(order.id)}
                 </h2>
                 <p className="text-gray-600">
                   Created on {formatDate(order.created_at)}
                 </p>
               </div>
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${statusInfo.color}`}>
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${statusInfo?.color || 'border-gray-300'}`}>
                 {order.status.replace('_', ' ').toUpperCase()}
               </span>
             </div>

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
-import { requireTenantAccess } from '../lib/auth';
+import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
 export const analyticsRouter = router({
@@ -10,7 +10,7 @@ export const analyticsRouter = router({
       period: z.enum(['today', 'week', 'month', 'quarter', 'year']).default('month'),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching dashboard statistics:', input);
       
@@ -136,7 +136,7 @@ export const analyticsRouter = router({
       breakdown_by: z.enum(['day', 'week', 'month']).default('day'),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching revenue analytics:', input);
       
@@ -223,7 +223,7 @@ export const analyticsRouter = router({
       group_by: z.enum(['status', 'customer', 'product']).optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching order analytics:', input);
       
@@ -334,7 +334,7 @@ export const analyticsRouter = router({
       breakdown_by: z.enum(['new', 'returning', 'top_spending']).default('new'),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching customer analytics:', input);
       
@@ -491,7 +491,7 @@ export const analyticsRouter = router({
       warehouse_id: z.string().uuid().optional(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching inventory analytics:', input);
       
@@ -579,7 +579,7 @@ export const analyticsRouter = router({
       end_date: z.string(),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching comprehensive order analytics:', input);
       
@@ -789,7 +789,7 @@ export const analyticsRouter = router({
       period: z.enum(['today', 'week', 'month', 'quarter', 'year']).default('month'),
     }))
     .query(async ({ input, ctx }) => {
-      const user = requireTenantAccess(ctx);
+      const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching order statistics:', input);
       
