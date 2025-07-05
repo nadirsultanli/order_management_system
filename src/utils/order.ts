@@ -1,5 +1,5 @@
 import { OrderStatus, OrderWorkflowStep } from '../types/order';
-import { trpc } from '../lib/trpc-client';
+import { trpcClient } from '../lib/trpc-client';
 
 // Note: Business logic has been moved to backend. 
 // These functions now use backend APIs for consistency and centralized logic.
@@ -64,7 +64,8 @@ export const calculateOrderTotalWithTax = async (
   taxPercent: number = 0
 ): Promise<{ subtotal: number; taxAmount: number; grandTotal: number }> => {
   try {
-    const result = await trpc.orders.calculateTotals.mutate({
+    // Use the tRPC client directly for mutations
+    const result = await trpcClient.orders.calculateTotals.mutate({
       lines,
       tax_percent: taxPercent,
     });
@@ -77,7 +78,7 @@ export const calculateOrderTotalWithTax = async (
 
 export const formatDate = async (dateString: string): Promise<string> => {
   try {
-    const result = await trpc.orders.formatDate.mutate({ date: dateString });
+    const result = await trpcClient.orders.formatDate.mutate({ date: dateString });
     return result.formatted_date;
   } catch (error) {
     console.error('Failed to format date via API:', error);

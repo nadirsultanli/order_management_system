@@ -4,20 +4,18 @@ import { ArrowLeft, Plus, Trash2, ShoppingCart, User, MapPin, Calendar, Package,
 import { useCustomers } from '../hooks/useCustomers';
 import { useAddresses, useCreateAddress } from '../hooks/useAddresses';
 import { useProducts } from '../hooks/useProducts';
-import { useCreateOrderNew } from '../hooks/useOrders';
+import { useCreateOrderNew, useCalculateOrderTotals } from '../hooks/useOrders';
 import { usePriceListsNew } from '../hooks/usePricing';
 import { CreateOrderData, CreateOrderLineData } from '../types/order';
 import { CreateAddressData, Address } from '../types/address';
 import { Customer } from '../types/customer';
 import { Product } from '../types/product';
 import { PriceList } from '../types/pricing';
-import { calculateOrderTotalWithTax } from '../utils/order';
 import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
-import { trpc } from '../lib/trpc-client';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 
@@ -56,6 +54,7 @@ export const CreateOrderPage: React.FC = () => {
   const { data: productsData } = useProducts({ limit: 1000 });
   const { data: priceListsData } = usePriceListsNew({ limit: 1000 });
   const createOrder = useCreateOrderNew();
+  const calculateOrderTotals = useCalculateOrderTotals();
   // Note: useCreateOrderLine not available - order line functionality disabled
   const createAddress = useCreateAddress();
 
@@ -113,7 +112,10 @@ export const CreateOrderPage: React.FC = () => {
 
       setCalculatingTotals(true);
       try {
-        const result = await calculateOrderTotalWithTax(orderLines, taxPercent);
+        const result = await calculateOrderTotals.mutateAsync({
+          lines: orderLines,
+          tax_percent: taxPercent,
+        });
         setOrderCalculations(result);
       } catch (error) {
         console.error('Failed to calculate order totals:', error);
@@ -153,16 +155,14 @@ export const CreateOrderPage: React.FC = () => {
   }, [selectedCustomerId, addresses, selectedAddressId]);
 
   const getProductPrice = async (productId: string): Promise<number> => {
-    try {
-      const priceData = await trpc.pricing.getProductPrice.query({ 
-        productId,
-        customerId: selectedCustomerId || undefined
-      });
-      return priceData?.finalPrice || 0;
-    } catch (error) {
-      console.error('Failed to fetch product price:', error);
-      return 0;
+    // Try to use cached data from the useProductPrices hook first
+    if (productPrices && productPrices[productId]) {
+      return productPrices[productId].finalPrice || 0;
     }
+    
+    // Fallback: return 0 and let the component rerender when prices load
+    console.warn('Product price not found in cache for product:', productId);
+    return 0;
   };
 
   // Synchronous version for immediate UI feedback

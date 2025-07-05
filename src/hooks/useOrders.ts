@@ -138,6 +138,16 @@ export const useUpdateOrderTaxNew = () => {
   });
 };
 
+// Hook for calculating order totals
+export const useCalculateOrderTotals = () => {
+  return trpc.orders.calculateTotals.useMutation({
+    onError: (error) => {
+      console.error('Calculate order totals error:', error);
+      toast.error('Failed to calculate order totals');
+    },
+  });
+};
+
 // Utility hook to get tRPC context for manual invalidations
 export const useOrdersContext = () => {
   return trpc.useContext().orders;
