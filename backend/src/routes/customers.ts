@@ -199,11 +199,12 @@ export const customersRouter = router({
       
       ctx.logger.info('Fetching customer:', input.customer_id);
       
+      // First, try to get customer with primary address
       const { data, error } = await ctx.supabase
         .from('customers')
         .select(`
           *,
-          primary_address:addresses!inner(
+          primary_address:addresses!left(
             id,
             line1,
             line2,
@@ -223,15 +224,9 @@ export const customersRouter = router({
         `)
         .eq('id', input.customer_id)
         .eq('addresses.is_primary', true)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Customer not found'
-          });
-        }
         ctx.logger.error('Customer fetch error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -239,7 +234,34 @@ export const customersRouter = router({
         });
       }
 
-      return data;
+      // If customer found with primary address, return it
+      if (data) {
+        return data;
+      }
+
+      // If no customer found with primary address, try without address constraint
+      const { data: customerOnly, error: customerOnlyError } = await ctx.supabase
+        .from('customers')
+        .select('*')
+        .eq('id', input.customer_id)
+        .single();
+
+      if (customerOnlyError) {
+        if (customerOnlyError.code === 'PGRST116') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Customer not found'
+          });
+        }
+        ctx.logger.error('Customer-only fetch error:', customerOnlyError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: customerOnlyError.message
+        });
+      }
+
+      // Return customer without primary address
+      return { ...customerOnly, primary_address: null };
     }),
 
   // POST /customers - Create new customer with address
