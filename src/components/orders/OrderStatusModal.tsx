@@ -155,7 +155,6 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
       delete submissionData.scheduled_date;
     }
     
-    console.log('Submitting order status change:', submissionData);
     onSubmit(submissionData);
   };
 

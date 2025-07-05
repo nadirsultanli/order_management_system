@@ -920,7 +920,7 @@ export const ordersRouter = router({
       const updateData: any = {
         status: input.new_status,
         updated_at: new Date().toISOString(),
-        updated_by: user.id,
+        // Note: orders table doesn't have updated_by column, only created_by_user_id
       };
 
       if (input.scheduled_date) {
