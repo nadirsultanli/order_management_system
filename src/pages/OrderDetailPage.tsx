@@ -5,7 +5,7 @@ import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { OrderEditModal } from '../components/orders/OrderEditModal';
-import { getOrderStatusInfo, getNextPossibleStatuses, formatOrderId, formatDateSync } from '../utils/order';
+import { formatDateSync } from '../utils/order';
 import { formatCurrencySync } from '../utils/pricing';
 import { Order, OrderStatusChange } from '../types/order';
 
@@ -24,27 +24,16 @@ export const OrderDetailPage: React.FC = () => {
 
   // Fetch order status info when order is loaded
   useEffect(() => {
-    const fetchOrderInfo = async () => {
-      if (!order) return;
-      
-      try {
-        const [statusData, nextStatusData, formattedId] = await Promise.all([
-          getOrderStatusInfo(order.status as any),
-          getNextPossibleStatuses(order.status as any),
-          formatOrderId(order.id)
-        ]);
-        
-        setStatusInfo(statusData);
-        setNextStatuses(nextStatusData);
-        setFormattedOrderId(formattedId);
-      } catch (error) {
-        console.error('Failed to fetch order info:', error);
-        // Fallback to local function
-        setFormattedOrderId(formatOrderIdSyncSync(order.id));
-      }
-    };
-
-    fetchOrderInfo();
+    if (!order) return;
+    
+    // Use synchronous fallback functions instead of async tRPC calls
+    const statusData = getOrderStatusInfoSync(order.status as any);
+    const nextStatusData = getNextPossibleStatusesSync(order.status as any);
+    const formattedId = formatOrderIdSync(order.id);
+    
+    setStatusInfo(statusData);
+    setNextStatuses(nextStatusData);
+    setFormattedOrderId(formattedId);
   }, [order]);
 
   const handleChangeStatus = (newStatus: string) => {
@@ -63,7 +52,32 @@ export const OrderDetailPage: React.FC = () => {
   };
 
 
-  const formatOrderIdSyncSync = (id: string) => {
+  // Synchronous fallback functions for order status operations
+  const getOrderStatusInfoSync = (status: string) => {
+    const statusMap: Record<string, { label: string; color: string; description: string }> = {
+      'draft': { label: 'Draft', color: 'bg-gray-100 text-gray-800 border-gray-300', description: 'Order is being prepared' },
+      'confirmed': { label: 'Confirmed', color: 'bg-blue-100 text-blue-800 border-blue-300', description: 'Order has been confirmed' },
+      'scheduled': { label: 'Scheduled', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Order is scheduled for delivery' },
+      'en_route': { label: 'En Route', color: 'bg-orange-100 text-orange-800 border-orange-300', description: 'Order is out for delivery' },
+      'delivered': { label: 'Delivered', color: 'bg-green-100 text-green-800 border-green-300', description: 'Order has been delivered' },
+      'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-300', description: 'Order has been cancelled' },
+    };
+    return statusMap[status] || statusMap['draft'];
+  };
+
+  const getNextPossibleStatusesSync = (currentStatus: string): string[] => {
+    const transitions: Record<string, string[]> = {
+      'draft': ['confirmed', 'cancelled'],
+      'confirmed': ['scheduled', 'cancelled'],
+      'scheduled': ['en_route', 'cancelled'],
+      'en_route': ['delivered', 'cancelled'],
+      'delivered': [],
+      'cancelled': [],
+    };
+    return transitions[currentStatus] || [];
+  };
+
+  const formatOrderIdSync = (id: string) => {
     // Simple formatting - take first 8 characters and add prefix
     return `ORD-${id.substring(0, 8).toUpperCase()}`;
   };
@@ -154,7 +168,7 @@ export const OrderDetailPage: React.FC = () => {
           </button>
           <div className="text-gray-400">/</div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Order {formattedOrderId || formatOrderIdSyncSync(order.id)}
+            Order {formattedOrderId || formatOrderIdSync(order.id)}
           </h1>
         </div>
         <div className="flex items-center space-x-3">
@@ -199,7 +213,7 @@ export const OrderDetailPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Order {formattedOrderId || formatOrderIdSyncSync(order.id)}
+                  Order {formattedOrderId || formatOrderIdSync(order.id)}
                 </h2>
                 <p className="text-gray-600">
                   Created on {formatDateSync(order.created_at)}
@@ -459,8 +473,8 @@ export const OrderDetailPage: React.FC = () => {
               )}
               
               <button
-                onClick={() => handleChangeStatus(getNextPossibleStatuses(order.status)[0])}
-                disabled={getNextPossibleStatuses(order.status).length === 0}
+                onClick={() => handleChangeStatus(getNextPossibleStatusesSync(order.status)[0])}
+                disabled={getNextPossibleStatusesSync(order.status).length === 0}
                 className="w-full flex items-center justify-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Clock className="h-4 w-4" />
