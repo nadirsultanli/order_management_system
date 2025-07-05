@@ -1,0 +1,11 @@
+{
+  "name": "oms-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for Order Management System maintenance",
+  "scripts": {
+    "fix-tenant": "node fix-tenant-references.js"
+  },
+  "dependencies": {
+    "glob": "^8.1.0"
+  }
+}
