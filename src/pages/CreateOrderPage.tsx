@@ -65,7 +65,7 @@ export const CreateOrderPage: React.FC = () => {
   
   // Get product prices from backend
   const productIds = products.map(p => p.id);
-  const { data: productPrices } = useProductPrices(productIds, selectedCustomerId || undefined);
+  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(productIds, selectedCustomerId || undefined);
   
   // Get inventory data for real stock checking
   const { data: inventoryData } = useInventoryNew({});
@@ -171,7 +171,13 @@ export const CreateOrderPage: React.FC = () => {
     if (productPrices && productPrices[productId]) {
       return productPrices[productId].finalPrice;
     }
+    // Return 0 if no pricing data available
     return 0;
+  };
+
+  // Check if we have pricing data for a product
+  const hasProductPricing = (productId: string): boolean => {
+    return !!(productPrices && productPrices[productId] && productPrices[productId].finalPrice > 0);
   };
 
   const handleAddProduct = async (productId: string) => {
@@ -302,18 +308,26 @@ export const CreateOrderPage: React.FC = () => {
 
   const getStockInfo = (productId: string) => {
     // Get real stock availability from inventory data
-    if (!inventoryData?.inventory_balance) return 0;
+    if (!inventoryData?.inventory) {
+      return 0;
+    }
     
-    // Find the product's inventory records
-    const productInventory = inventoryData.inventory_balance.filter(
-      (inv: any) => inv.product_id === productId || inv.product_variant_id === productId
+    // Find the product's inventory records across all warehouses
+    const productInventory = inventoryData.inventory.filter(
+      (inv: any) => inv.product_id === productId
     );
     
     if (productInventory.length === 0) return 0;
     
     // Sum available stock across all warehouses for this product
+    // Available stock = qty_full - qty_reserved (never negative)
     const totalAvailable = productInventory.reduce(
-      (sum: number, inv: any) => sum + (inv.quantity_available || 0), 
+      (sum: number, inv: any) => {
+        const qtyFull = Number(inv.qty_full) || 0;
+        const qtyReserved = Number(inv.qty_reserved) || 0;
+        const available = Math.max(0, qtyFull - qtyReserved);
+        return sum + available;
+      }, 
       0
     );
     
@@ -321,7 +335,6 @@ export const CreateOrderPage: React.FC = () => {
   };
 
   const getStockStatusClass = (available: number) => {
-    console.log('Stock status for quantity', available);
     if (available === 0) return "text-red-600";
     if (available <= 10) return "text-yellow-600";
     return "text-green-600";
@@ -640,6 +653,34 @@ export const CreateOrderPage: React.FC = () => {
               </div>
             )}
 
+            {/* Debug Information for Pricing Issues */}
+            {(isPricesLoading || pricesError || !productPrices) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Info className="h-5 w-5 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-800">Pricing Debug Information</span>
+                </div>
+                <div className="text-sm text-blue-700 space-y-1">
+                  <div>Products to fetch prices: {productIds.length}</div>
+                  <div>Selected customer: {selectedCustomerId || 'None'}</div>
+                  <div>Prices loading: {isPricesLoading ? 'Yes' : 'No'}</div>
+                  <div>Prices data: {productPrices ? `${Object.keys(productPrices).length} products` : 'None'}</div>
+                  {pricesError && (
+                    <div className="text-red-600">
+                      Error: {pricesError instanceof Error ? pricesError.message : String(pricesError)}
+                    </div>
+                  )}
+                  {productPrices && Object.keys(productPrices).length > 0 && (
+                    <div>
+                      Sample pricing: {Object.entries(productPrices).slice(0, 2).map(([id, price]) => 
+                        `${id.slice(0, 8)}... = ${price?.finalPrice || 'N/A'}`
+                      ).join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Product Selection */}
               <div>
@@ -656,12 +697,12 @@ export const CreateOrderPage: React.FC = () => {
                     
                     // Determine product availability and warning states
                     const isOutOfStock = stockAvailable === 0;
-                    const hasNoPricing = unitPrice === 0;
+                    const hasNoPricing = !hasProductPricing(product.id) && !isPricingLoading;
                     const isLowStock = stockAvailable > 0 && stockAvailable <= 5;
                     const cannotAddProduct = isOutOfStock || hasNoPricing || !canAddMore;
                     
-                    // Check if pricing is loading
-                    const isPricingLoading = productPrices === undefined && selectedCustomerId;
+                    // Check if pricing is loading - now uses proper loading state
+                    const isPricingLoading = isPricesLoading || (productPrices === undefined && productIds.length > 0);
                     
                     return (
                       <div

@@ -31,7 +31,7 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
           tokenLength: token?.length
         });
       } else {
-        // Check if user is admin
+        // First check if user is an admin user
         const { data: adminUser, error: adminError } = await supabaseAdmin
           .from('admin_users')
           .select('*')
@@ -39,12 +39,8 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
           .eq('active', true)
           .single();
 
-        if (adminError || !adminUser) {
-          logger.warn('User is not an active admin:', userData.user.email, { 
-            adminError: adminError?.message,
-            userEmail: userData.user.email 
-          });
-        } else {
+        if (adminUser) {
+          // User is an admin
           user = {
             id: userData.user.id,
             email: userData.user.email!,
@@ -55,7 +51,36 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
           // Create user-scoped Supabase client
           userSupabase = createUserSupabaseClient(token);
           
-          logger.info(`User authenticated: ${user.email} (role: ${user.role})`);
+          logger.info(`Admin user authenticated: ${user.email} (role: ${user.role})`);
+        } else {
+          // Check if user is a regular user
+          const { data: regularUser, error: userError } = await supabaseAdmin
+            .from('users')
+            .select('*')
+            .eq('email', userData.user.email!)
+            .eq('active', true)
+            .single();
+
+          if (regularUser) {
+            // User is a regular user  
+            user = {
+              id: userData.user.id,
+              email: userData.user.email!,
+              role: regularUser.user_type || 'user',
+              user_id: userData.user.id
+            };
+
+            // Create user-scoped Supabase client
+            userSupabase = createUserSupabaseClient(token);
+            
+            logger.info(`Regular user authenticated: ${user.email} (type: ${user.role})`);
+          } else {
+            logger.warn('User not found in admin_users or users table:', userData.user.email, { 
+              adminError: adminError?.message,
+              userError: userError?.message,
+              userEmail: userData.user.email 
+            });
+          }
         }
       }
     } catch (error) {

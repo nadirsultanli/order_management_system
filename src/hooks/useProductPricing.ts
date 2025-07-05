@@ -18,10 +18,42 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
     queryKey: ['productPrices', productIds.sort().join(','), customerId],
     queryFn: async () => {
       if (!productIds.length) return {};
-      return await trpc.pricing.getProductPrices.query({ productIds, customerId });
+      
+      console.log('useProductPrices: Fetching prices for products:', {
+        productIds: productIds.slice(0, 3), // Log first 3 to avoid spam
+        customerId,
+        productCount: productIds.length
+      });
+      
+      try {
+        const result = await trpc.pricing.getProductPrices.query({ productIds, customerId });
+        console.log('useProductPrices: Success:', {
+          resultKeys: Object.keys(result || {}),
+          hasResults: !!(result && Object.keys(result).length > 0)
+        });
+        return result;
+      } catch (error) {
+        console.error('useProductPrices: Error fetching product prices:', {
+          error,
+          productIds: productIds.slice(0, 3),
+          customerId
+        });
+        throw error;
+      }
     },
     enabled: !!(enabled && productIds.length > 0),
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 3, // Retry failed requests
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    onError: (error) => {
+      console.error('useProductPrices: Query failed:', error);
+    },
+    onSuccess: (data) => {
+      console.log('useProductPrices: Query succeeded with data:', {
+        dataKeys: Object.keys(data || {}),
+        sampleData: data ? Object.entries(data).slice(0, 2) : []
+      });
+    }
   });
 };
 
