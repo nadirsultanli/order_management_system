@@ -741,7 +741,7 @@ export const ordersRouter = router({
           status: 'draft' as const,
           order_date: input.order_date || new Date().toISOString().split('T')[0],
           total_amount: totalAmount,
-          created_by: user.id,
+          created_by_user_id: user.id,
           // Order type fields
           order_type: input.order_type,
           service_type: input.service_type,
@@ -770,6 +770,8 @@ export const ordersRouter = router({
           quantity: line.quantity,
           unit_price: line.unit_price,
           subtotal: line.subtotal,
+          qty_tagged: 0, // Default to 0, will be updated during fulfillment
+          qty_untagged: line.quantity, // Start with all quantity untagged
         }));
         
         ctx.logger.info('Creating order lines:', {
