@@ -1,7 +1,6 @@
 import React from 'react';
 import { CheckCircle, Clock, AlertCircle, User, MessageSquare, Calendar } from 'lucide-react';
 import { OrderStatusHistory, OrderStatus } from '../../types/order';
-import { getOrderStatusInfo } from '../../utils/order';
 
 interface OrderTimelineProps {
   statusHistory: OrderStatusHistory[];
@@ -24,8 +23,6 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
   };
 
   const getStatusIcon = (status: OrderStatus, isCompleted: boolean) => {
-    const statusInfo = getOrderStatusInfo(status);
-    
     if (isCompleted) {
       return <CheckCircle className="h-5 w-5 text-green-600" />;
     } else if (status === currentStatus) {
@@ -33,6 +30,19 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
     } else {
       return <div className="h-5 w-5 rounded-full border-2 border-gray-300 bg-white" />;
     }
+  };
+
+  const getOrderStatusInfoSync = (status: string) => {
+    const statusMap: Record<string, { label: string; color: string; description: string }> = {
+      'draft': { label: 'Draft', color: 'bg-gray-100 text-gray-800 border-gray-300', description: 'Order is being prepared' },
+      'confirmed': { label: 'Confirmed', color: 'bg-blue-100 text-blue-800 border-blue-300', description: 'Order has been confirmed' },
+      'scheduled': { label: 'Scheduled', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Order is scheduled for delivery' },
+      'en_route': { label: 'En Route', color: 'bg-orange-100 text-orange-800 border-orange-300', description: 'Order is out for delivery' },
+      'delivered': { label: 'Delivered', color: 'bg-green-100 text-green-800 border-green-300', description: 'Order has been delivered' },
+      'invoiced': { label: 'Invoiced', color: 'bg-purple-100 text-purple-800 border-purple-300', description: 'Order has been invoiced' },
+      'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-300', description: 'Order has been cancelled' },
+    };
+    return statusMap[status] || statusMap['draft'];
   };
 
   const getTimelineItemClass = (status: OrderStatus, isCompleted: boolean) => {
@@ -56,7 +66,7 @@ export const OrderTimeline: React.FC<OrderTimelineProps> = ({
         {allStatuses.map((status, index) => {
           const isCompleted = index < currentStatusIndex || (status === currentStatus && currentStatus !== 'cancelled');
           const isCurrent = status === currentStatus;
-          const statusInfo = getOrderStatusInfo(status);
+          const statusInfo = getOrderStatusInfoSync(status);
           const historyItem = statusHistory.find(h => h.status === status);
           const estimatedDate = estimatedDates[status];
 

@@ -131,9 +131,14 @@ export const OrderDetailPage: React.FC = () => {
 
   // Status info is now handled by state in useEffect
 
-  // Mock status history for timeline
-  const statusHistory = [
-    {
+  // Generate status history based on current order status
+  const generateStatusHistory = () => {
+    const history = [];
+    const statuses = ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced'];
+    const currentStatusIndex = statuses.indexOf(order.status);
+    
+    // Always add draft status (order creation)
+    history.push({
       id: '1',
       order_id: order.id,
       status: 'draft' as const,
@@ -141,18 +146,63 @@ export const OrderDetailPage: React.FC = () => {
       changed_at: order.created_at,
       user_name: 'System',
       notes: 'Order created',
-    },
-    // Add more status history items based on current status
-    ...(order.status !== 'draft' ? [{
-      id: '2',
-      order_id: order.id,
-      status: 'confirmed' as const,
-      changed_by: 'admin',
-      changed_at: new Date(new Date(order.created_at).getTime() + 3600000).toISOString(),
-      user_name: 'Admin User',
-      notes: 'Order confirmed and inventory reserved',
-    }] : []),
-  ];
+    });
+    
+    // Add status history for statuses that have been completed
+    for (let i = 1; i <= currentStatusIndex; i++) {
+      const status = statuses[i];
+      const baseTime = new Date(order.created_at).getTime();
+      const statusTime = new Date(baseTime + (i * 3600000)).toISOString(); // Add 1 hour per status
+      
+      let notes = '';
+      let userName = 'Admin User';
+      
+      switch (status) {
+        case 'confirmed':
+          notes = 'Order confirmed and inventory reserved';
+          break;
+        case 'scheduled':
+          notes = order.scheduled_date ? `Scheduled for delivery on ${new Date(order.scheduled_date).toLocaleDateString()}` : 'Scheduled for delivery';
+          break;
+        case 'en_route':
+          notes = 'Order is out for delivery';
+          break;
+        case 'delivered':
+          notes = 'Order successfully delivered to customer';
+          break;
+        case 'invoiced':
+          notes = 'Invoice generated and sent to customer';
+          break;
+      }
+      
+      history.push({
+        id: (i + 1).toString(),
+        order_id: order.id,
+        status: status as const,
+        changed_by: 'admin',
+        changed_at: statusTime,
+        user_name: userName,
+        notes: notes,
+      });
+    }
+    
+    // Handle cancelled status separately
+    if (order.status === 'cancelled') {
+      history.push({
+        id: 'cancelled',
+        order_id: order.id,
+        status: 'cancelled' as const,
+        changed_by: 'admin',
+        changed_at: order.updated_at || new Date().toISOString(),
+        user_name: 'Admin User',
+        notes: 'Order cancelled',
+      });
+    }
+    
+    return history;
+  };
+  
+  const statusHistory = generateStatusHistory();
 
   return (
     <div className="space-y-6">
