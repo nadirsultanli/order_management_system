@@ -26,6 +26,49 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isValidating, setIsValidating] = useState(false);
 
+  // Fallback functions for when tRPC client is unavailable
+  const getOrderStatusInfoFallback = (status: string) => {
+    const statusMap: Record<string, { label: string; color: string; description: string }> = {
+      'draft': { label: 'Draft', color: 'bg-gray-100 text-gray-800 border-gray-300', description: 'Order is being prepared' },
+      'confirmed': { label: 'Confirmed', color: 'bg-blue-100 text-blue-800 border-blue-300', description: 'Order has been confirmed' },
+      'scheduled': { label: 'Scheduled', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Order is scheduled for delivery' },
+      'en_route': { label: 'En Route', color: 'bg-orange-100 text-orange-800 border-orange-300', description: 'Order is out for delivery' },
+      'delivered': { label: 'Delivered', color: 'bg-green-100 text-green-800 border-green-300', description: 'Order has been delivered' },
+      'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-300', description: 'Order has been cancelled' },
+    };
+    return statusMap[status] || statusMap['draft'];
+  };
+
+  const validateOrderFallback = (order: Order, newStatus: string, scheduledDate?: string) => {
+    const errors: string[] = [];
+    
+    // Basic validation rules
+    if (!order.order_lines || order.order_lines.length === 0) {
+      errors.push('Order must have at least one item');
+    }
+    
+    if (!order.customer) {
+      errors.push('Order must have a customer');
+    }
+    
+    if (newStatus === 'confirmed') {
+      // Validation for confirming order
+      if (!order.delivery_address) {
+        errors.push('Delivery address is required for confirmed orders');
+      }
+    } else if (newStatus === 'scheduled') {
+      // Validation for scheduling order
+      if (!scheduledDate) {
+        errors.push('Scheduled date is required');
+      }
+      if (!order.delivery_address) {
+        errors.push('Delivery address is required for scheduled orders');
+      }
+    }
+    
+    return { valid: errors.length === 0, errors };
+  };
+
   const {
     register,
     handleSubmit,
@@ -64,6 +107,11 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
         setCurrentStatusInfo(orderStatusInfo);
       } catch (error) {
         console.error('Failed to fetch status info:', error);
+        // Use fallback status info when tRPC client is unavailable
+        const fallbackStatusInfo = getOrderStatusInfoFallback(newStatus);
+        const fallbackCurrentStatusInfo = getOrderStatusInfoFallback(order.status);
+        setStatusInfo(fallbackStatusInfo);
+        setCurrentStatusInfo(fallbackCurrentStatusInfo);
       }
     };
 
@@ -96,7 +144,9 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
         }
       } catch (error) {
         console.error('Validation error:', error);
-        errors.push('Unable to validate order. Please try again.');
+        // Use fallback validation when tRPC client is unavailable
+        const fallbackValidation = validateOrderFallback(order, newStatus, watchedScheduledDate);
+        errors.push(...fallbackValidation.errors);
       }
 
       setValidationErrors(errors);

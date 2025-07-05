@@ -114,7 +114,7 @@ export const CreateOrderPage: React.FC = () => {
       try {
         const result = await calculateOrderTotals.mutateAsync({
           lines: orderLines,
-          tax_percent: taxPercent,
+          tax_percent: taxPercent, // Frontend stores as percentage (0-100), backend expects percentage format
         });
         setOrderCalculations(result);
       } catch (error) {
@@ -931,8 +931,15 @@ export const CreateOrderPage: React.FC = () => {
                           type="number"
                           min="0"
                           max="100"
+                          step="0.01"
                           value={taxPercent}
-                          onChange={e => setTaxPercent(Number(e.target.value))}
+                          onChange={e => {
+                            const value = Number(e.target.value);
+                            // Ensure value is within valid range (0-100)
+                            if (value >= 0 && value <= 100) {
+                              setTaxPercent(value);
+                            }
+                          }}
                           className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right"
                         />
                       </div>

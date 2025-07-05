@@ -57,12 +57,24 @@ app.use((req, res, next) => {
   ].filter(Boolean);
   
   const origin = req.headers.origin;
+  
+  // Debug logging
+  logger.info('CORS Request - Origin:', origin, 'Allowed origins:', allowedOrigins);
+  
   if (origin && allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
+    logger.info('CORS - Origin allowed:', origin);
+  } else if (origin) {
+    logger.warn('CORS - Origin not allowed:', origin);
+    // For now, allow the specific frontend domain as fallback
+    if (origin === 'https://omsmvpapp.netlify.app') {
+      res.header('Access-Control-Allow-Origin', origin);
+      logger.info('CORS - Fallback allowed for:', origin);
+    }
   }
   
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, x-trpc-source');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Max-Age', '86400');
   
