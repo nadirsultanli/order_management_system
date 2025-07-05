@@ -13,7 +13,7 @@ export const getOrderWorkflow = async (): Promise<OrderWorkflowStep[]> => {
   }
   
   try {
-    const workflow = await trpc.orders.getWorkflow.query();
+    const workflow = await trpcClient.orders.getWorkflow.query();
     workflowCache = workflow;
     return workflow;
   } catch (error) {
@@ -32,7 +32,7 @@ export const getOrderStatusInfo = async (status: OrderStatus): Promise<OrderWork
 
 export const canTransitionTo = async (currentStatus: OrderStatus, newStatus: OrderStatus): Promise<boolean> => {
   try {
-    const result = await trpc.orders.validateTransition.mutate({
+    const result = await trpcClient.orders.validateTransition.mutate({
       current_status: currentStatus,
       new_status: newStatus,
     });
@@ -45,7 +45,7 @@ export const canTransitionTo = async (currentStatus: OrderStatus, newStatus: Ord
 
 export const formatOrderId = async (id: string): Promise<string> => {
   try {
-    const result = await trpc.orders.formatOrderId.mutate({ order_id: id });
+    const result = await trpcClient.orders.formatOrderId.mutate({ order_id: id });
     return result.formatted_id;
   } catch (error) {
     console.error('Failed to format order ID via API:', error);
@@ -106,7 +106,7 @@ export const formatDateSync = (dateString: string): string => {
 
 export const formatCurrency = async (amount: number): Promise<string> => {
   try {
-    const result = await trpc.orders.formatCurrency.mutate({ amount });
+    const result = await trpcClient.orders.formatCurrency.mutate({ amount });
     return result.formatted_amount;
   } catch (error) {
     console.error('Failed to format currency via API:', error);
@@ -149,7 +149,7 @@ export const getNextPossibleStatuses = async (currentStatus: OrderStatus): Promi
 
 export const validateOrderForConfirmation = async (order: any): Promise<{ valid: boolean; errors: string[] }> => {
   try {
-    const result = await trpc.orders.validateForConfirmation.mutate({ order });
+    const result = await trpcClient.orders.validateForConfirmation.mutate({ order });
     return result;
   } catch (error) {
     console.error('Failed to validate order for confirmation via API:', error);
@@ -159,7 +159,7 @@ export const validateOrderForConfirmation = async (order: any): Promise<{ valid:
 
 export const validateOrderForScheduling = async (order: any): Promise<{ valid: boolean; errors: string[] }> => {
   try {
-    const result = await trpc.orders.validateForScheduling.mutate({ order });
+    const result = await trpcClient.orders.validateForScheduling.mutate({ order });
     return result;
   } catch (error) {
     console.error('Failed to validate order for scheduling via API:', error);
@@ -169,7 +169,7 @@ export const validateOrderForScheduling = async (order: any): Promise<{ valid: b
 
 export const validateOrderDeliveryWindow = async (order: any): Promise<{ valid: boolean; errors: string[] }> => {
   try {
-    const result = await trpc.orders.validateDeliveryWindow.mutate({ order });
+    const result = await trpcClient.orders.validateDeliveryWindow.mutate({ order });
     return result;
   } catch (error) {
     console.error('Failed to validate order delivery window via API:', error);
@@ -180,7 +180,7 @@ export const validateOrderDeliveryWindow = async (order: any): Promise<{ valid: 
 // Additional utility function to get comprehensive workflow info for an order
 export const getOrderWorkflowInfo = async (orderId: string) => {
   try {
-    const result = await trpc.orders.getWorkflowInfo.query({ order_id: orderId });
+    const result = await trpcClient.orders.getWorkflowInfo.query({ order_id: orderId });
     return result;
   } catch (error) {
     console.error('Failed to get order workflow info:', error);

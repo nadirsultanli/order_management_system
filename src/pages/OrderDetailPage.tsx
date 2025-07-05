@@ -237,15 +237,25 @@ export const OrderDetailPage: React.FC = () => {
                   <h3 className="font-medium text-gray-900">Delivery Address</h3>
                   {order.delivery_address ? (
                     <div className="text-gray-600">
-                      <p>{order.delivery_address.line1}</p>
-                      {order.delivery_address.line2 && <p>{order.delivery_address.line2}</p>}
-                      <p>
-                        {order.delivery_address.city}, {order.delivery_address.state} {order.delivery_address.postal_code}
-                      </p>
-                      {order.delivery_address.instructions && (
-                        <p className="text-sm text-gray-500 mt-1">
-                          Note: {order.delivery_address.instructions}
-                        </p>
+                      {order.delivery_address.line1 ? (
+                        <div>
+                          <p>{order.delivery_address.line1}</p>
+                          {order.delivery_address.line2 && <p>{order.delivery_address.line2}</p>}
+                          <p>
+                            {[
+                              order.delivery_address.city,
+                              order.delivery_address.state,
+                              order.delivery_address.postal_code
+                            ].filter(Boolean).join(', ')}
+                          </p>
+                          {order.delivery_address.instructions && (
+                            <p className="text-sm text-gray-500 mt-1">
+                              Note: {order.delivery_address.instructions}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500">Address details not provided</p>
                       )}
                     </div>
                   ) : (
