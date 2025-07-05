@@ -253,7 +253,7 @@ export const ordersRouter = router({
             quantity,
             unit_price,
             subtotal,
-            product:products(id, sku, name, unit_of_measure, weight, volume)
+            product:products(id, sku, name, unit_of_measure, capacity_kg, tare_weight_kg)
           ),
           payments(
             id,
@@ -379,7 +379,7 @@ export const ordersRouter = router({
             id,
             product_id,
             quantity,
-            product:products(id, sku, name, weight, volume)
+            product:products(id, sku, name, capacity_kg, tare_weight_kg)
           )
         `)
         .gte('scheduled_date', input.date_from)
@@ -608,7 +608,7 @@ export const ordersRouter = router({
           // Verify product exists and is active
           const { data: product, error: productError } = await ctx.supabase
             .from('products')
-            .select('id, sku, name, status, weight_kg, volume_m3')
+            .select('id, sku, name, status, capacity_kg, tare_weight_kg')
             .eq('id', line.product_id)
             .single();
             
