@@ -695,14 +695,14 @@ export const CreateOrderPage: React.FC = () => {
                     const stockStatusClass = getStockStatusClass(stockAvailable);
                     const canAddMore = currentOrderQuantity < stockAvailable;
                     
+                    // Check if pricing is loading - must be defined before usage
+                    const isPricingLoading = isPricesLoading || (productPrices === undefined && productIds.length > 0);
+                    
                     // Determine product availability and warning states
                     const isOutOfStock = stockAvailable === 0;
                     const hasNoPricing = !hasProductPricing(product.id) && !isPricingLoading;
                     const isLowStock = stockAvailable > 0 && stockAvailable <= 5;
                     const cannotAddProduct = isOutOfStock || hasNoPricing || !canAddMore;
-                    
-                    // Check if pricing is loading - now uses proper loading state
-                    const isPricingLoading = isPricesLoading || (productPrices === undefined && productIds.length > 0);
                     
                     return (
                       <div
