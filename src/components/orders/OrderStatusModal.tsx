@@ -122,34 +122,14 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
 
   // Validate order when status info is loaded or form data changes
   useEffect(() => {
-    const validateOrder = async () => {
+    const validateOrder = () => {
       if (!statusInfo || !isOpen) return;
 
       setIsValidating(true);
-      const errors: string[] = [];
-
-      try {
-        if (newStatus === 'confirmed') {
-          const validation = await validateOrderForConfirmation(order);
-          errors.push(...validation.errors);
-        } else if (newStatus === 'scheduled') {
-          if (!watchedScheduledDate) {
-            errors.push('Scheduled date is required');
-          }
-          if (!order.delivery_address) {
-            errors.push('Delivery address is required');
-          }
-          const validation = await validateOrderForScheduling(order);
-          errors.push(...validation.errors);
-        }
-      } catch (error) {
-        console.error('Validation error:', error);
-        // Use fallback validation when tRPC client is unavailable
-        const fallbackValidation = validateOrderFallback(order, newStatus, watchedScheduledDate);
-        errors.push(...fallbackValidation.errors);
-      }
-
-      setValidationErrors(errors);
+      
+      // Use fallback validation directly instead of trying tRPC first
+      const fallbackValidation = validateOrderFallback(order, newStatus, watchedScheduledDate);
+      setValidationErrors(fallbackValidation.errors);
       setIsValidating(false);
     };
 
@@ -157,6 +137,11 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
   }, [statusInfo, newStatus, order, watchedScheduledDate, isOpen]);
 
   const handleFormSubmit = (data: OrderStatusChange) => {
+    // Convert date to proper datetime format if needed
+    if (data.scheduled_date && data.scheduled_date.length === 10) {
+      // If it's a YYYY-MM-DD format, convert to ISO datetime
+      data.scheduled_date = new Date(data.scheduled_date + 'T00:00:00.000Z').toISOString();
+    }
     onSubmit(data);
   };
 
