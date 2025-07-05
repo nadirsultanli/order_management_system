@@ -8,6 +8,7 @@ import { Warehouse as WarehouseType, CreateWarehouseData } from '../types/wareho
 import { formatAddress } from '../utils/address';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { formatDateSync } from '../utils/order';
 
 export const WarehouseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,15 +32,6 @@ export const WarehouseDetailPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const formatCapacity = (capacity?: number) => {
     if (!capacity) return 'Not specified';
@@ -279,7 +271,7 @@ export const WarehouseDetailPage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span className="text-sm text-gray-900">
-                    {formatDate(warehouse.created_at)}
+                    {formatDateSync(warehouse.created_at)}
                   </span>
                 </div>
               </div>

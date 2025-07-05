@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Calendar } from 'lucide-react';
 import { Order } from '../../types/order';
-import { formatDate } from '../../utils/order';
+import { formatDateSync } from '../../utils/order';
 
 interface CustomerRecentOrdersProps {
   orders: Order[];
@@ -51,7 +51,7 @@ export const CustomerRecentOrders: React.FC<CustomerRecentOrdersProps> = ({ orde
                 <p className="font-medium">Order #{order.id}</p>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   <Calendar className="h-4 w-4" />
-                  <span>{formatDate(order.order_date)}</span>
+                  <span>{formatDateSync(order.order_date)}</span>
                 </div>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${

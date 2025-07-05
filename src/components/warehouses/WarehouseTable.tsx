@@ -2,6 +2,7 @@ import React from 'react';
 import { Eye, Edit, Trash2, Loader2, Warehouse, MapPin } from 'lucide-react';
 import { Warehouse as WarehouseType } from '../../types/warehouse';
 import { formatAddress } from '../../utils/address';
+import { formatDateSync } from '../../utils/order';
 
 interface WarehouseTableProps {
   warehouses: WarehouseType[];
@@ -18,13 +19,6 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   const formatCapacity = (capacity?: number) => {
     if (!capacity) return '-';
@@ -127,7 +121,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
                   {formatCapacity(warehouse.capacity_cylinders)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDate(warehouse.created_at)}
+                  {formatDateSync(warehouse.created_at)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex items-center justify-end space-x-2">

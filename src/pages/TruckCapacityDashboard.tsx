@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Calendar, Truck, AlertTriangle, TrendingUp, Package, Plus } from 'lucide-react';
 import { TruckCapacityCard } from '../components/trucks/TruckCapacityCard';
 import { TruckAllocationSelector } from '../components/trucks/TruckAllocationSelector';
+import { formatDateSync } from '../utils/order';
 
 interface FleetUtilization {
   total_capacity_kg: number;
@@ -37,13 +38,6 @@ export const TruckCapacityDashboard: React.FC = () => {
     return `${kg}kg`;
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
 
   const getUtilizationColor = (percentage: number) => {
     if (percentage > 90) return 'text-red-600 bg-red-100';
@@ -164,7 +158,7 @@ export const TruckCapacityDashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              Fleet Capacity for {formatDate(selectedDate)}
+              Fleet Capacity for {formatDateSync(selectedDate)}
             </h3>
             <div className="text-sm text-gray-600">
               {formatWeight(fleetUtilization.total_allocated_kg)} allocated of {formatWeight(fleetUtilization.total_capacity_kg)} total capacity
@@ -230,7 +224,7 @@ export const TruckCapacityDashboard: React.FC = () => {
           ) : (
             <div className="text-center py-12">
               <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">No truck schedules for {formatDate(selectedDate)}</p>
+              <p className="text-gray-600 mb-2">No truck schedules for {formatDateSync(selectedDate)}</p>
               <p className="text-sm text-gray-500">
                 Try selecting a different date or ensure trucks are properly configured
               </p>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Package, Edit, ArrowRightLeft, Loader2, AlertTriangle } from 'lucide-react';
 import { InventoryBalance } from '../../types/inventory';
+import { formatDateSync } from '../../utils/order';
 
 interface InventoryTableProps {
   inventory: InventoryBalance[];
@@ -15,15 +16,6 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
   onAdjustStock,
   onTransferStock,
 }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const getAvailabilityColor = (available: number) => {
     if (available === 0) return 'text-red-600 bg-red-50';
@@ -149,7 +141,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(item.updated_at)}
+                    {formatDateSync(item.updated_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">

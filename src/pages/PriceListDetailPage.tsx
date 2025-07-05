@@ -9,6 +9,7 @@ import { EditPriceListItemModal } from '../components/pricing/EditPriceListItemM
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { formatDateRange, getPriceListStatusSync, formatCurrencySync, calculateFinalPriceSync } from '../utils/pricing';
 import { PriceList, PriceListItem, CreatePriceListData } from '../types/pricing';
+import { formatDateSync } from '../utils/order';
 
 export const PriceListDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -79,13 +80,6 @@ export const PriceListDetailPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  };
 
   const calculateFinalPrice = (unitPrice: number, surchargeRate?: number) => {
     return calculateFinalPriceSync(unitPrice, surchargeRate);
@@ -236,7 +230,7 @@ export const PriceListDetailPage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span className="text-sm text-gray-900">
-                    {formatDate(priceList.created_at)}
+                    {formatDateSync(priceList.created_at)}
                   </span>
                 </div>
               </div>

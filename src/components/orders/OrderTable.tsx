@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Eye, Edit, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar } from 'lucide-react';
 import { Order } from '../../types/order';
 import { formatCurrencySync } from '../../utils/pricing';
+import { formatDateSync } from '../../utils/order';
 
 interface OrderTableProps {
   orders: Order[];
@@ -24,13 +25,6 @@ export const OrderTable: React.FC<OrderTableProps> = ({
 }) => {
   const [selectAll, setSelectAll] = useState(false);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   const getStatusColorSync = (status: string) => {
     switch (status) {
@@ -269,10 +263,10 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      <div>Order: {formatDate(order.order_date)}</div>
+                      <div>Order: {formatDateSync(order.order_date)}</div>
                       {order.scheduled_date && (
                         <div className="text-gray-500">
-                          Scheduled: {formatDate(order.scheduled_date)}
+                          Scheduled: {formatDateSync(order.scheduled_date)}
                         </div>
                       )}
                     </div>

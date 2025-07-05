@@ -8,6 +8,7 @@ import { AddressList } from '../components/addresses/AddressList';
 import { CustomerRecentOrders } from '../components/orders/CustomerRecentOrders';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Customer, CreateCustomerData } from '../types/customer';
+import { formatDateSync } from '../utils/order';
 
 export const CustomerDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,15 +30,6 @@ export const CustomerDetailPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   if (isLoading) {
     return (
@@ -214,7 +206,7 @@ export const CustomerDetailPage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span className="text-sm text-gray-900">
-                    {formatDate(customer.created_at)}
+                    {formatDateSync(customer.created_at)}
                   </span>
                 </div>
               </div>
@@ -226,7 +218,7 @@ export const CustomerDetailPage: React.FC = () => {
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-4 w-4 text-gray-400" />
                   <span className="text-sm text-gray-900">
-                    {formatDate(customer.updated_at)}
+                    {formatDateSync(customer.updated_at)}
                   </span>
                 </div>
               </div>

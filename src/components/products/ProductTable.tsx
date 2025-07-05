@@ -3,6 +3,7 @@ import { Eye, Edit, Trash2, Loader2, Package, Cylinder, Weight, RotateCcw } from
 import { Product } from '../../types/product';
 import { StatusBadge } from '../ui/StatusBadge';
 import { useReactivateProduct } from '../../hooks/useProducts';
+import { formatDateSync } from '../../utils/order';
 
 interface ProductTableProps {
   products: Product[];
@@ -26,13 +27,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
   const [selectAll, setSelectAll] = useState(false);
   const reactivateProduct = useReactivateProduct();
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   const formatWeight = (weight?: number) => {
     if (!weight) return '-';
@@ -219,7 +213,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                     </StatusBadge>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(product.created_at)}
+                    {formatDateSync(product.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">

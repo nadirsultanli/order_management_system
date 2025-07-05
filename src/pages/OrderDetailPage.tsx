@@ -5,7 +5,7 @@ import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { OrderEditModal } from '../components/orders/OrderEditModal';
-import { getOrderStatusInfo, getNextPossibleStatuses, formatOrderId } from '../utils/order';
+import { getOrderStatusInfo, getNextPossibleStatuses, formatOrderId, formatDateSync } from '../utils/order';
 import { formatCurrencySync } from '../utils/pricing';
 import { Order, OrderStatusChange } from '../types/order';
 
@@ -62,15 +62,6 @@ export const OrderDetailPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const formatOrderIdSyncSync = (id: string) => {
     // Simple formatting - take first 8 characters and add prefix
@@ -211,7 +202,7 @@ export const OrderDetailPage: React.FC = () => {
                   Order {formattedOrderId || formatOrderIdSyncSync(order.id)}
                 </h2>
                 <p className="text-gray-600">
-                  Created on {formatDate(order.created_at)}
+                  Created on {formatDateSync(order.created_at)}
                 </p>
               </div>
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${statusInfo?.color || 'border-gray-300'}`}>
@@ -276,7 +267,7 @@ export const OrderDetailPage: React.FC = () => {
                       <p>Scheduled: {new Date(order.scheduled_date).toLocaleDateString()}</p>
                     )}
                     <p className="text-sm text-gray-500">
-                      Updated: {formatDate(order.updated_at)}
+                      Updated: {formatDateSync(order.updated_at)}
                     </p>
                   </div>
                 </div>

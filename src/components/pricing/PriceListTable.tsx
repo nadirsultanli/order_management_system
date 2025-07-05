@@ -2,6 +2,7 @@ import React from 'react';
 import { Edit, Copy, Star, Trash2, Loader2, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 import { PriceList } from '../../types/pricing';
 import { formatDateRange, formatCurrencySync } from '../../utils/pricing';
+import { formatDateSync } from '../../utils/order';
 
 interface PriceListTableProps {
   priceLists: (PriceList & { product_count?: number; status?: string; statusInfo?: { status: string; label: string; color: string }; isExpiringSoon?: boolean })[];
@@ -22,13 +23,6 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
   onSetDefault,
   onDelete,
 }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
 
   if (loading) {
     return (
@@ -156,7 +150,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(priceList.created_at)}
+                    {formatDateSync(priceList.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">

@@ -85,6 +85,21 @@ export const formatDate = async (dateString: string): Promise<string> => {
   }
 };
 
+// Synchronous date formatter for simple UI display
+export const formatDateSync = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch (error) {
+    console.error('Failed to format date:', error);
+    return 'Invalid Date';
+  }
+};
+
 // Removed local business logic to achieve 100% UI purity.
 // Use formatDate() async function instead.
 
