@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Edit, Plus, DollarSign } from 'lucide-react';
-import { usePriceListsNew, useCreatePriceListItemNew } from '../../hooks/usePricing';
+import { usePriceListsNew, useCreatePriceListItemNew, useProductPriceListItemsNew } from '../../hooks/usePricing';
 import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
 import { formatCurrencySync, calculateFinalPriceSync, getPriceListStatusSync } from '../../utils/pricing';
 import { PriceListItemForm } from '../pricing/PriceListItemForm';
@@ -19,12 +19,17 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
   const { data: priceLists = { priceLists: [] } } = usePriceListsNew();
   const allPriceLists = priceLists.priceLists || [];
   
-  // Create a map to store price list items by price list ID
-  // Note: useMultiplePriceListItems was removed - this functionality needs to be reimplemented
-  const productPricesMap: { [key: string]: PriceListItem[] } = {};
+  // Get price list items for this specific product
+  const { data: productPriceListItems = [], isLoading, error } = useProductPriceListItemsNew(productId);
   
-  // TODO: Implement fetching price list items for this product
-  // This would need to use usePriceListItemsNew for each price list
+  // Create a map to store price list items by price list ID for easier lookup
+  const productPricesMap: { [key: string]: PriceListItem[] } = {};
+  productPriceListItems.forEach((item: any) => {
+    if (!productPricesMap[item.price_list_id]) {
+      productPricesMap[item.price_list_id] = [];
+    }
+    productPricesMap[item.price_list_id].push(item);
+  });
   
   // Mutation hooks
   const createPriceListItem = useCreatePriceListItemNew();
@@ -60,8 +65,9 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
   };
 
   // Get price lists where this product doesn't have a price yet
+  const usedPriceListIds = productPriceListItems.map((item: any) => item.price_list_id);
   const availablePriceLists = allPriceLists.filter(
-    list => !Object.keys(productPricesMap).includes(list.id)
+    list => !usedPriceListIds.includes(list.id)
   );
 
   const today = new Date().toISOString().split('T')[0];
@@ -70,9 +76,9 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
     return status.status === 'active';
   });
 
-  const hasNoPrices = Object.keys(productPricesMap).length === 0;
-  const hasNoActivePrices = !activePriceLists.some(list => 
-    Object.keys(productPricesMap).includes(list.id)
+  const hasNoPrices = productPriceListItems.length === 0;
+  const hasNoActivePrices = !productPriceListItems.some((item: any) => 
+    item.price_list.status === 'active'
   );
 
   return (
@@ -121,7 +127,12 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
           )}
         </div>
 
-        {Object.keys(productPricesMap).length === 0 ? (
+        {isLoading ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading pricing information...</p>
+          </div>
+        ) : productPriceListItems.length === 0 ? (
           <div className="p-8 text-center">
             <DollarSign className="h-12 w-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 mb-4">No pricing defined for this product</p>
@@ -163,16 +174,12 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {Object.entries(productPricesMap).map(([priceListId, items]) => {
-                  const priceList = allPriceLists.find(list => list.id === priceListId);
-                  if (!priceList || !items.length) return null;
-                  
-                  const item = items[0]; // There should only be one item per price list for a product
-                  const statusInfo = getPriceListStatusSync(priceList.start_date, priceList.end_date);
+                {productPriceListItems.map((item: any) => {
+                  const priceList = item.price_list;
                   const finalPrice = calculateFinalPriceSync(item.unit_price, item.surcharge_pct);
                   
                   return (
-                    <tr key={priceListId} className="hover:bg-gray-50">
+                    <tr key={item.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-gray-900">
@@ -186,8 +193,8 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusInfo.color}`}>
-                          {statusInfo.label}
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${priceList.statusInfo.color}`}>
+                          {priceList.statusInfo.label}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">

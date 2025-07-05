@@ -216,6 +216,21 @@ export const usePriceListItemsNew = (priceListId: string, filters: {
   });
 };
 
+// Hook for getting price list items for a specific product
+export const useProductPriceListItemsNew = (productId: string) => {
+  return trpc.pricing.getProductPriceListItems.useQuery({
+    productId,
+  }, {
+    enabled: !!productId && productId !== 'null' && productId !== 'undefined',
+    staleTime: 30000,
+    retry: 1,
+    onError: (error) => {
+      console.error('Product price list items fetch error:', error);
+      toast.error('Failed to load product pricing');
+    }
+  });
+};
+
 // Hook for creating price list items
 export const useCreatePriceListItemNew = () => {
   const utils = trpc.useContext();
@@ -227,6 +242,11 @@ export const useCreatePriceListItemNew = () => {
       // Invalidate price list items
       utils.pricing.getPriceListItems.invalidate({ price_list_id: newItem.price_list_id });
       utils.pricing.getPriceList.invalidate({ price_list_id: newItem.price_list_id });
+      
+      // Invalidate product pricing to refresh the product view
+      utils.pricing.getProductPriceListItems.invalidate({ productId: newItem.product_id });
+      utils.pricing.getProductPrices.invalidate();
+      utils.pricing.getProductPrice.invalidate({ productId: newItem.product_id });
       
       toast.success('Price list item created successfully');
     },

@@ -496,6 +496,65 @@ export const pricingRouter = router({
       return Object.fromEntries(prices);
     }),
 
+  getProductPriceListItems: protectedProcedure
+    .input(z.object({
+      productId: z.string().uuid(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching price list items for product:', input.productId);
+      
+      const { data, error } = await ctx.supabase
+        .from('price_list_item')
+        .select(`
+          *,
+          price_list:price_list!price_list_item_price_list_id_fkey(
+            id,
+            name,
+            start_date,
+            end_date,
+            is_default,
+            currency_code
+          ),
+          product:products!price_list_item_product_id_fkey(
+            id,
+            name,
+            sku
+          )
+        `)
+        .eq('product_id', input.productId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        ctx.logger.error('Error fetching product price list items:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch product price list items'
+        });
+      }
+
+      // Add status information to each price list
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      const enrichedData = (data || []).map((item: any) => {
+        const statusInfo = pricingService.getPriceListStatus(
+          item.price_list.start_date, 
+          item.price_list.end_date
+        );
+        
+        return {
+          ...item,
+          price_list: {
+            ...item.price_list,
+            status: statusInfo.status,
+            statusInfo,
+          }
+        };
+      });
+
+      return enrichedData;
+    }),
+
   calculateOrderTotals: protectedProcedure
     .input(z.object({
       lines: z.array(z.object({
