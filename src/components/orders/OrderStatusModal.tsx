@@ -137,12 +137,26 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
   }, [statusInfo, newStatus, order, watchedScheduledDate, isOpen]);
 
   const handleFormSubmit = (data: OrderStatusChange) => {
-    // Convert date to proper datetime format if needed
-    if (data.scheduled_date && data.scheduled_date.length === 10) {
-      // If it's a YYYY-MM-DD format, convert to ISO datetime
-      data.scheduled_date = new Date(data.scheduled_date + 'T00:00:00.000Z').toISOString();
+    // Clean up the data before submission
+    const submissionData = { ...data };
+    
+    // Handle scheduled_date field properly
+    if (newStatus === 'scheduled') {
+      if (submissionData.scheduled_date && submissionData.scheduled_date.length === 10) {
+        // Convert YYYY-MM-DD to proper ISO datetime
+        const date = new Date(submissionData.scheduled_date + 'T00:00:00.000Z');
+        submissionData.scheduled_date = date.toISOString();
+      } else if (!submissionData.scheduled_date) {
+        // Remove empty scheduled_date to avoid validation errors
+        delete submissionData.scheduled_date;
+      }
+    } else {
+      // Remove scheduled_date for non-scheduled statuses
+      delete submissionData.scheduled_date;
     }
-    onSubmit(data);
+    
+    console.log('Submitting order status change:', submissionData);
+    onSubmit(submissionData);
   };
 
   const requiresScheduledDate = newStatus === 'scheduled';
