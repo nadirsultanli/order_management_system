@@ -51,7 +51,7 @@ export const CreateOrderPage: React.FC = () => {
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
-  const { data: productsData } = useProducts({ limit: 1000 });
+  const { data: productsData, isLoading: isProductsLoading } = useProducts({ limit: 1000 });
   const { data: priceListsData } = usePriceListsNew({ limit: 1000 });
   const createOrder = useCreateOrderNew();
   const calculateOrderTotals = useCalculateOrderTotals();
@@ -182,7 +182,11 @@ export const CreateOrderPage: React.FC = () => {
 
   const handleAddProduct = async (productId: string) => {
     const product = products.find((p: Product) => p.id === productId);
-    if (!product) return;
+    if (!product) {
+      console.error('Product not found in products list:', productId);
+      console.log('Available products:', products.map(p => ({ id: p.id, name: p.name })));
+      return;
+    }
 
     const existingLine = orderLines.find((line: OrderLineItem) => line.product_id === productId);
     const unitPrice = await getProductPrice(productId);
@@ -292,6 +296,28 @@ export const CreateOrderPage: React.FC = () => {
         requires_pickup: requiresPickup,
       };
 
+      console.log('Creating order with data:', orderData);
+      console.log('Order lines product IDs:', orderLines.map(l => l.product_id));
+      console.log('Products available:', products.map(p => ({ id: p.id, name: p.name, status: p.status })));
+
+      // Check if products are still loading
+      if (isProductsLoading) {
+        alert('Products are still loading. Please wait a moment and try again.');
+        return;
+      }
+
+      // Validate all products exist before creating order
+      const invalidProducts = orderLines.filter(line => 
+        !products.find(p => p.id === line.product_id)
+      );
+      
+      if (invalidProducts.length > 0) {
+        console.error('Invalid products found in order lines:', invalidProducts);
+        console.error('Available products:', products.map(p => ({ id: p.id, name: p.name })));
+        alert('Some products in your order are no longer available. Please refresh the page and try again.');
+        return;
+      }
+
       const order = await createOrder.mutateAsync(orderData);
 
       // Navigate to the created order
@@ -304,7 +330,8 @@ export const CreateOrderPage: React.FC = () => {
   const canProceedToStep2 = selectedCustomerId && selectedAddressId && 
     (!selectedCustomer || selectedCustomer.account_status !== 'closed');
   const canCreateOrder = canProceedToStep2 && orderLines.length > 0 && 
-    (serviceType !== 'scheduled' || (scheduledDate && scheduledTime));
+    (serviceType !== 'scheduled' || (scheduledDate && scheduledTime)) &&
+    !isProductsLoading && !createOrder.isPending;
 
   const getStockInfo = (productId: string) => {
     // Get real stock availability from inventory data
