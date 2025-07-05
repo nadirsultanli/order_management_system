@@ -77,21 +77,29 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
   }, [item, priceListId, reset]);
 
   const handleFormSubmit = (data: CreatePriceListItemData) => {
+    // Ensure numeric conversion for all price fields
+    const numericData = {
+      ...data,
+      unit_price: parseFloat(data.unit_price.toString()),
+      min_qty: parseInt(data.min_qty?.toString() || '1'),
+      surcharge_pct: parseFloat(data.surcharge_pct?.toString() || '0'),
+    };
+
     if (item) {
       // Single item edit
-      onSubmit(data);
+      onSubmit(numericData);
     } else if (selectedProducts.length > 0) {
       // Bulk add
       selectedProducts.forEach(productId => {
         onSubmit({
-          ...data,
+          ...numericData,
           product_id: productId,
-          unit_price: useBulkPrice ? bulkPrice : data.unit_price,
+          unit_price: useBulkPrice ? parseFloat(bulkPrice.toString()) : numericData.unit_price,
         });
       });
     } else {
       // Single item add
-      onSubmit(data);
+      onSubmit(numericData);
     }
   };
 
@@ -225,6 +233,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                       {...register('unit_price', { 
                         required: 'Unit price is required',
                         min: { value: 0, message: 'Price must be positive' },
+                        valueAsNumber: true,
                       })}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="0.00"
@@ -247,6 +256,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                       {...register('min_qty', { 
                         required: 'Minimum quantity is required',
                         min: { value: 1, message: 'Minimum quantity must be at least 1' },
+                        valueAsNumber: true,
                       })}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     />
@@ -266,6 +276,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                       step="0.1"
                       {...register('surcharge_pct', { 
                         min: { value: 0, message: 'Surcharge must be positive' },
+                        valueAsNumber: true,
                       })}
                       className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       placeholder="0.0"
