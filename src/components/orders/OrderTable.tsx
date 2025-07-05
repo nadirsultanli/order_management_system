@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, Edit, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar } from 'lucide-react';
+import { Eye, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar } from 'lucide-react';
 import { Order } from '../../types/order';
 import { formatCurrencySync } from '../../utils/pricing';
 import { formatDateSync } from '../../utils/order';
@@ -8,7 +8,6 @@ interface OrderTableProps {
   orders: Order[];
   loading?: boolean;
   onView: (order: Order) => void;
-  onEdit: (order: Order) => void;
   onChangeStatus: (order: Order, newStatus: string) => void;
   selectedOrders?: string[];
   onSelectionChange?: (orderIds: string[]) => void;
@@ -18,7 +17,6 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   orders,
   loading = false,
   onView,
-  onEdit,
   onChangeStatus,
   selectedOrders = [],
   onSelectionChange,
@@ -286,19 +284,10 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                       <button
                         onClick={() => onView(order)}
                         className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                        title="View order"
+                        title="View order details"
                       >
                         <Eye className="h-4 w-4" />
                       </button>
-                      {['draft', 'confirmed'].includes(order.status) && (
-                        <button
-                          onClick={() => onEdit(order)}
-                          className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
-                          title="Edit order"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                      )}
                       {quickActions.slice(0, 2).map((action, index) => (
                         <button
                           key={index}

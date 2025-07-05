@@ -41,11 +41,6 @@ export const OrdersPage: React.FC = () => {
     navigate(`/orders/${order.id}`);
   };
 
-  const handleEditOrder = (order: Order) => {
-    console.log('Editing order:', order);
-    navigate(`/orders/${order.id}/edit`);
-  };
-
   const handleChangeStatus = (order: Order, newStatus: string) => {
     console.log('Changing order status:', order, newStatus);
     setStatusChangeOrder({ order, newStatus });
@@ -211,7 +206,6 @@ export const OrdersPage: React.FC = () => {
         orders={data?.orders || []}
         loading={isLoading}
         onView={handleViewOrder}
-        onEdit={handleEditOrder}
         onChangeStatus={handleChangeStatus}
         selectedOrders={selectedOrders}
         onSelectionChange={handleSelectionChange}

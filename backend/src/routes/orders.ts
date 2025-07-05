@@ -245,8 +245,7 @@ export const ordersRouter = router({
         .from('orders')
         .select(`
           *,
-          customer:customers(id, name, email, phone, account_status, credit_terms_days, 
-            billing_address:addresses!customers_billing_address_id_fkey(id, line1, line2, city, state, postal_code, country)),
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
           order_lines(
             id,
