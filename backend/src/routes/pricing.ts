@@ -509,7 +509,7 @@ export const pricingRouter = router({
         .from('price_list_item')
         .select(`
           *,
-          price_list:price_list!price_list_item_price_list_id_fkey(
+          price_list:price_list(
             id,
             name,
             start_date,
@@ -517,14 +517,13 @@ export const pricingRouter = router({
             is_default,
             currency_code
           ),
-          product:products!price_list_item_product_id_fkey(
+          product:products(
             id,
             name,
             sku
           )
         `)
-        .eq('product_id', input.productId)
-        .order('created_at', { ascending: false });
+        .eq('product_id', input.productId);
 
       if (error) {
         ctx.logger.error('Error fetching product price list items:', error);
