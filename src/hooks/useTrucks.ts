@@ -53,10 +53,15 @@ export const useTruck = (id: string) => {
 };
 
 export const useCreateTruck = () => {
+  const utils = trpc.useContext();
+  
   return trpc.trucks.create.useMutation({
     onSuccess: (data) => {
       console.log('Truck created successfully:', data);
       toast.success('Truck created successfully');
+      
+      // Invalidate trucks queries to refresh data
+      utils.trucks.list.invalidate();
     },
     onError: (error: Error) => {
       console.error('Create truck mutation error:', error);
@@ -66,10 +71,16 @@ export const useCreateTruck = () => {
 };
 
 export const useUpdateTruck = () => {
+  const utils = trpc.useContext();
+  
   return trpc.trucks.update.useMutation({
     onSuccess: (data) => {
       console.log('Truck updated successfully:', data);
       toast.success('Truck updated successfully');
+      
+      // Invalidate trucks queries to refresh data
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
     },
     onError: (error: Error) => {
       console.error('Update truck mutation error:', error);
@@ -79,10 +90,15 @@ export const useUpdateTruck = () => {
 };
 
 export const useDeleteTruck = () => {
+  const utils = trpc.useContext();
+  
   return trpc.trucks.delete.useMutation({
     onSuccess: (_, variables) => {
       console.log('Truck deleted successfully:', variables.id);
       toast.success('Truck deleted successfully');
+      
+      // Invalidate trucks queries to refresh data
+      utils.trucks.list.invalidate();
     },
     onError: (error: Error) => {
       console.error('Delete truck mutation error:', error);
@@ -106,6 +122,12 @@ export const useTruckCapacity = (date?: string) => {
   const allocateOrderToTruck = trpc.trucks.allocateOrder.useMutation({
     onSuccess: () => {
       toast.success('Order allocated to truck successfully');
+      
+      // Invalidate truck queries to refresh data
+      const utils = trpc.useContext();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
+      utils.trucks.getAllocations.invalidate();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to allocate order to truck');
@@ -115,6 +137,12 @@ export const useTruckCapacity = (date?: string) => {
   const updateAllocation = trpc.trucks.updateAllocation.useMutation({
     onSuccess: () => {
       toast.success('Truck allocation updated successfully');
+      
+      // Invalidate truck queries to refresh data
+      const utils = trpc.useContext();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
+      utils.trucks.getAllocations.invalidate();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update truck allocation');
@@ -143,6 +171,12 @@ export const useTruckRoutes = (truckId?: string, date?: string) => {
   const createRoute = trpc.trucks.createRoute.useMutation({
     onSuccess: () => {
       toast.success('Truck route created successfully');
+      
+      // Invalidate truck queries to refresh data
+      const utils = trpc.useContext();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
+      utils.trucks.getRoutes.invalidate();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to create truck route');
@@ -152,6 +186,12 @@ export const useTruckRoutes = (truckId?: string, date?: string) => {
   const updateRoute = trpc.trucks.updateRoute.useMutation({
     onSuccess: () => {
       toast.success('Truck route updated successfully');
+      
+      // Invalidate truck queries to refresh data
+      const utils = trpc.useContext();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
+      utils.trucks.getRoutes.invalidate();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update truck route');
@@ -175,6 +215,12 @@ export const useTruckMaintenance = (truckId?: string) => {
   const scheduleMaintenience = trpc.trucks.scheduleMaintenance.useMutation({
     onSuccess: () => {
       toast.success('Maintenance scheduled successfully');
+      
+      // Invalidate truck queries to refresh data
+      const utils = trpc.useContext();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
+      utils.trucks.getMaintenance.invalidate();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to schedule maintenance');
@@ -184,6 +230,12 @@ export const useTruckMaintenance = (truckId?: string) => {
   const updateMaintenance = trpc.trucks.updateMaintenance.useMutation({
     onSuccess: () => {
       toast.success('Maintenance updated successfully');
+      
+      // Invalidate truck queries to refresh data
+      const utils = trpc.useContext();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
+      utils.trucks.getMaintenance.invalidate();
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to update maintenance');

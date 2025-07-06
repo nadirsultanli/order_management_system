@@ -33,9 +33,10 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
 
-  // Use tRPC to get trucks
+  // Use tRPC to get trucks, create transfer, and context for invalidation
   const { data: trucksData } = trpc.trucks.list.useQuery({ active: true });
   const trucks = trucksData?.trucks || [];
+  const utils = trpc.useContext();
   
   // Use tRPC to create transfer
   const createTransferMutation = trpc.transfers.create.useMutation();
@@ -107,6 +108,14 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       const totalItems = totalFull + totalEmpty;
       
       toast.success(`Successfully returned ${totalItems} cylinders (${totalFull} full, ${totalEmpty} empty) to warehouse`);
+
+      // Invalidate relevant queries to refresh inventory data
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
+      utils.transfers.list.invalidate();
 
       // Reset form
       setSelectedTruck('');

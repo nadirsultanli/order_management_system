@@ -18,7 +18,7 @@ interface TruckInventoryProps {
 
 export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
   // Use tRPC to get truck details with inventory
-  const { data: truck, isLoading: loading, error: truckError } = trpc.trucks.get.useQuery({ id: truckId });
+  const { data: truck, isLoading: loading, error: truckError, refetch } = trpc.trucks.get.useQuery({ id: truckId });
   
   const error = truckError?.message || null;
   const inventory = truck?.inventory || [];

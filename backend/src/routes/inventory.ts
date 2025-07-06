@@ -189,7 +189,6 @@ export const inventoryRouter = router({
           product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
         `)
         .eq('warehouse_id', input.warehouse_id)
-        
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -220,7 +219,6 @@ export const inventoryRouter = router({
           warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name)
         `)
         .eq('product_id', input.product_id)
-        
         .order('updated_at', { ascending: false });
 
       if (error) {
@@ -284,12 +282,11 @@ export const inventoryRouter = router({
       
       ctx.logger.info('Adjusting stock:', input);
 
-      // Validate inventory exists and belongs to tenant
+      // Validate inventory exists
       const { data: currentInventory, error: fetchError } = await ctx.supabase
         .from('inventory_balance')
         .select('*')
         .eq('id', input.inventory_id)
-        
         .single();
 
       if (fetchError || !currentInventory) {
@@ -328,7 +325,6 @@ export const inventoryRouter = router({
           updated_at: new Date().toISOString(),
         })
         .eq('id', input.inventory_id)
-        
         .select(`
           *,
           warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
@@ -368,11 +364,10 @@ export const inventoryRouter = router({
         });
       }
 
-      // Validate both warehouses belong to tenant
+      // Validate both warehouses exist
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
         .select('id')
-        
         .in('id', [input.from_warehouse_id, input.to_warehouse_id]);
 
       if (warehouseError || warehouses.length !== 2) {
@@ -388,7 +383,6 @@ export const inventoryRouter = router({
         .select('*')
         .eq('warehouse_id', input.from_warehouse_id)
         .eq('product_id', input.product_id)
-        
         .single();
 
       if (sourceError) {
@@ -427,7 +421,6 @@ export const inventoryRouter = router({
         .select('*')
         .eq('warehouse_id', input.to_warehouse_id)
         .eq('product_id', input.product_id)
-        
         .single();
 
       if (destError && destError.code === 'PGRST116') {
@@ -437,7 +430,6 @@ export const inventoryRouter = router({
           .insert([{
             warehouse_id: input.to_warehouse_id,
             product_id: input.product_id,
-            
             qty_full: 0,
             qty_empty: 0,
             qty_reserved: 0,
@@ -531,12 +523,11 @@ export const inventoryRouter = router({
       
       ctx.logger.info('Creating inventory balance:', input);
 
-      // Validate warehouse and product belong to tenant
+      // Validate warehouse exists
       const { data: warehouse, error: warehouseError } = await ctx.supabase
         .from('warehouses')
         .select('id')
         .eq('id', input.warehouse_id)
-        
         .single();
 
       if (warehouseError || !warehouse) {
@@ -550,7 +541,6 @@ export const inventoryRouter = router({
         .from('products')
         .select('id')
         .eq('id', input.product_id)
-        
         .single();
 
       if (productError || !product) {
@@ -566,7 +556,6 @@ export const inventoryRouter = router({
         .select('id')
         .eq('warehouse_id', input.warehouse_id)
         .eq('product_id', input.product_id)
-        
         .single();
 
       if (existing) {
@@ -579,8 +568,11 @@ export const inventoryRouter = router({
       const { data, error } = await ctx.supabase
         .from('inventory_balance')
         .insert([{
-          ...input,
-          
+          warehouse_id: input.warehouse_id,
+          product_id: input.product_id,
+          qty_full: input.qty_full,
+          qty_empty: input.qty_empty,
+          qty_reserved: input.qty_reserved,
           updated_at: new Date().toISOString(),
         }])
         .select(`
@@ -618,7 +610,6 @@ export const inventoryRouter = router({
           .from('inventory_balance')
           .select('*')
           .eq('product_id', reservation.product_id)
-          
           .gt('qty_full', 0); // Only consider records with stock
 
         if (reservation.warehouse_id) {
@@ -663,7 +654,6 @@ export const inventoryRouter = router({
               updated_at: new Date().toISOString(),
             })
             .eq('id', inventory.id)
-            
             .eq('qty_reserved', inventory.qty_reserved) // Optimistic locking
             .select()
             .single();

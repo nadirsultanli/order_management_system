@@ -5,6 +5,7 @@ import { MultiSkuTransferForm } from '../components/transfers/MultiSkuTransferFo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { Card } from '../components/ui/Card';
 import { Truck, ArrowLeftRight, Package, AlertCircle } from 'lucide-react';
+import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
 // Error Boundary Component
@@ -58,20 +59,44 @@ class TransferErrorBoundary extends React.Component<
 
 export const TransfersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('load');
+  const utils = trpc.useContext();
 
   const handleTransferSuccess = (transferId: string) => {
     console.log('Transfer created successfully:', transferId);
     toast.success('Transfer created successfully!');
+    
+    // Invalidate all relevant queries to refresh data
+    utils.inventory.list.invalidate();
+    utils.inventory.getByWarehouse.invalidate();
+    utils.inventory.getStats.invalidate();
+    utils.trucks.list.invalidate();
+    utils.trucks.get.invalidate();
+    utils.transfers.list.invalidate();
   };
 
   const handleLoadTransferSuccess = () => {
     console.log('Load transfer completed successfully');
     toast.success('Truck loaded successfully!');
+    
+    // Invalidate all relevant queries to refresh data
+    utils.inventory.list.invalidate();
+    utils.inventory.getByWarehouse.invalidate();
+    utils.inventory.getStats.invalidate();
+    utils.trucks.list.invalidate();
+    utils.trucks.get.invalidate();
   };
 
   const handleReturnTransferSuccess = () => {
     console.log('Return transfer completed successfully');
     toast.success('Return transfer completed successfully!');
+    
+    // Invalidate all relevant queries to refresh data
+    utils.inventory.list.invalidate();
+    utils.inventory.getByWarehouse.invalidate();
+    utils.inventory.getStats.invalidate();
+    utils.trucks.list.invalidate();
+    utils.trucks.get.invalidate();
+    utils.transfers.list.invalidate();
   };
 
   return (

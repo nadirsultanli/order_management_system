@@ -7,7 +7,7 @@ interface WarehouseInventoryProps {
 }
 
 export const WarehouseInventory: React.FC<WarehouseInventoryProps> = ({ warehouseId }) => {
-  const { data: inventory = [], isLoading, error } = useInventoryByWarehouseNew(warehouseId);
+  const { data: inventory = [], isLoading, error, refetch } = useInventoryByWarehouseNew(warehouseId);
 
   if (!warehouseId) {
     return null;

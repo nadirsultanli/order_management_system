@@ -654,31 +654,37 @@ export const transfersRouter = router({
                                await isTruckDestination(ctx.supabase, currentTransfer.destination_warehouse_id);
               
               let transferResult;
+              let transferError;
+              
               if (isToTruck) {
                 // Transfer to truck
-                transferResult = await ctx.supabase.rpc('transfer_stock_to_truck', {
+                const { data, error } = await ctx.supabase.rpc('transfer_stock_to_truck', {
                   p_from_warehouse_id: currentTransfer.source_warehouse_id,
                   p_to_truck_id: currentTransfer.destination_warehouse_id,
                   p_product_id: item.product_id,
                   p_qty_full: item.quantity_full,
                   p_qty_empty: item.quantity_empty,
                 });
+                transferResult = data;
+                transferError = error;
               } else {
                 // Standard warehouse-to-warehouse transfer
-                transferResult = await ctx.supabase.rpc('transfer_stock', {
+                const { data, error } = await ctx.supabase.rpc('transfer_stock', {
                   p_from_warehouse_id: currentTransfer.source_warehouse_id,
                   p_to_warehouse_id: currentTransfer.destination_warehouse_id,
                   p_product_id: item.product_id,
                   p_qty_full: item.quantity_full,
                   p_qty_empty: item.quantity_empty,
                 });
+                transferResult = data;
+                transferError = error;
               }
               
-              if (transferResult.error) {
-                throw transferResult.error;
+              if (transferError) {
+                throw transferError;
               }
               
-              ctx.logger.info('Stock transfer executed successfully:', transferResult.data);
+              ctx.logger.info('Stock transfer executed successfully:', transferResult);
             } catch (error) {
               ctx.logger.error('Stock transfer execution failed:', error);
               const errorMessage = error instanceof Error ? error.message : String(error);

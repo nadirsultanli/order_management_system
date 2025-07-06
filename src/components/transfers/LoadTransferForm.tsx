@@ -33,9 +33,10 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
 
-  // Use tRPC to get trucks
+  // Use tRPC to get trucks and context for invalidation
   const { data: trucksData } = trpc.trucks.list.useQuery({ active: true });
   const trucks = trucksData?.trucks || [];
+  const utils = trpc.useContext();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +102,13 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       const totalItems = totalFull + totalEmpty;
       
       toast.success(`Successfully loaded ${totalItems} cylinders (${totalFull} full, ${totalEmpty} empty) onto truck`);
+
+      // Invalidate relevant queries to refresh inventory data
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
 
       // Reset form
       setSelectedTruck('');

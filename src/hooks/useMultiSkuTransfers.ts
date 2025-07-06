@@ -24,6 +24,7 @@ import toast from 'react-hot-toast';
 // Hook for managing multi-SKU transfers using backend tRPC APIs
 export const useMultiSkuTransfers = (filters?: TransferFilters) => {
   const [error, setError] = useState<string | null>(null);
+  const utils = trpc.useContext();
 
   // Use tRPC query for fetching transfers
   const { data: transfersData, isLoading: loading, refetch } = trpc.transfers.list.useQuery({
@@ -93,6 +94,13 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
     onSuccess: () => {
       toast.success('Transfer created successfully');
       refetch(); // Refresh transfers list
+      
+      // Invalidate inventory and truck queries to refresh data
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
     },
     onError: (error) => {
       setError(error.message);
@@ -105,6 +113,13 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
     onSuccess: () => {
       toast.success('Transfer status updated');
       refetch(); // Refresh transfers list
+      
+      // Invalidate inventory and truck queries to refresh data
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      utils.trucks.list.invalidate();
+      utils.trucks.get.invalidate();
     },
     onError: (error) => {
       setError(error.message);

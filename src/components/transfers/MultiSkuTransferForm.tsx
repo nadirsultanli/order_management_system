@@ -23,6 +23,7 @@ import {
 } from '../../types/transfer';
 import { Product, WarehouseStockInfo } from '../../types';
 import { generateTransferReference } from '../../utils/transfer-validation';
+import { trpc } from '../../lib/trpc-client';
 import toast from 'react-hot-toast';
 
 interface MultiSkuTransferFormProps {
@@ -56,6 +57,7 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
   const { data: warehousesData } = useWarehouses();
   const warehouses = warehousesData?.warehouses || [];
   const { createTransfer, loading: creating } = useMultiSkuTransfers();
+  const utils = trpc.useContext();
   const { 
     selectedItems,
     validationResult,
@@ -178,6 +180,14 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
 
       const transfer = await createTransfer(transferData);
       if (transfer) {
+        // Explicitly invalidate queries to ensure fresh data
+        utils.inventory.list.invalidate();
+        utils.inventory.getByWarehouse.invalidate();
+        utils.inventory.getStats.invalidate();
+        utils.trucks.list.invalidate();
+        utils.trucks.get.invalidate();
+        utils.transfers.list.invalidate();
+        
         // Reset form to initial state
         setFormData({
           source_warehouse_id: '',
