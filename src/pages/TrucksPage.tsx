@@ -5,10 +5,10 @@ import { TruckTable } from '../components/trucks/TruckTable';
 import { useTrucks, useUpdateTruck } from '../hooks/useTrucks';
 
 export const TrucksPage: React.FC = () => {
-  const { data: trucksData, isLoading: loading, error } = useTrucks();
+  const { data, isLoading: loading, error } = useTrucks();
   const updateTruck = useUpdateTruck();
 
-  const trucks = trucksData?.trucks || [];
+  const trucks = data?.trucks || [];
 
   const handleStatusChange = async (truck: any, newStatus: boolean) => {
     try {
