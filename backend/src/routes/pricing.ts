@@ -1079,7 +1079,7 @@ export const pricingRouter = router({
         .from('price_list_item')
         .select(`
           id,
-          price_list:price_list(tenant_id)
+          price_list:price_list(*)
         `)
         .eq('id', id)
         .single();
@@ -1129,7 +1129,7 @@ export const pricingRouter = router({
         .select(`
           id,
           price_list_id,
-          price_list:price_list(tenant_id)
+          price_list:price_list(*)
         `)
         .eq('id', input.id)
         .single();
