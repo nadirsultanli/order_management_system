@@ -133,7 +133,12 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         console.log('Transfer verification completed successfully');
       } catch (verificationError) {
         console.warn('Transfer verification failed:', verificationError);
-        toast.warning('Transfer completed but verification failed. Please check inventory manually.');
+        toast('Transfer completed but verification failed. Please check inventory manually.', {
+          icon: '⚠️',
+          style: {
+            borderLeft: '4px solid #f59e0b',
+          },
+        });
       } finally {
         setVerifying(false);
       }
