@@ -482,7 +482,7 @@ app.get('/openapi.json', (req, res) => {
         }
       },
 
-      // Order Management Module (19 endpoints)
+      // Order Management Module (26 endpoints)
       '/orders.list': {
         get: {
           summary: 'List Orders',
@@ -657,6 +657,99 @@ app.get('/openapi.json', (req, res) => {
         post: {
           summary: 'Format Date',
           description: '💡 Format dates consistently (moved from frontend)',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/orders.validateOrderPricing': {
+        post: {
+          summary: 'Validate Order Pricing',
+          description: 'Validate order pricing constraints and business rules',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/orders.validateTruckCapacity': {
+        post: {
+          summary: 'Validate Truck Capacity',
+          description: 'Validate truck capacity for order allocation',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/orders.allocateToTruck': {
+        post: {
+          summary: 'Allocate Order to Truck',
+          description: 'Allocate order to specific truck for delivery',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    orderId: { type: 'string', format: 'uuid' },
+                    truckId: { type: 'string', format: 'uuid' },
+                    deliveryDate: { type: 'string', format: 'date' }
+                  },
+                  required: ['orderId', 'truckId', 'deliveryDate']
+                }
+              }
+            }
+          }
+        }
+      },
+      '/orders.getAllocationSuggestions': {
+        post: {
+          summary: 'Get Allocation Suggestions',
+          description: 'Get AI-powered truck allocation suggestions for optimal routing',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/orders.calculateOrderWeight': {
+        post: {
+          summary: 'Calculate Order Weight',
+          description: 'Calculate total weight of order items for capacity planning',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/orders.removeAllocation': {
+        post: {
+          summary: 'Remove Order Allocation',
+          description: 'Remove order allocation from truck',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/orders.getDailySchedule': {
+        get: {
+          summary: 'Get Daily Schedule',
+          description: 'Get daily order schedule with truck assignments',
+          tags: ['📦 Order Management'],
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'input',
+              in: 'query',
+              schema: {
+                type: 'object',
+                properties: {
+                  date: { type: 'string', format: 'date' }
+                },
+                required: ['date']
+              }
+            }
+          ]
+        }
+      },
+      '/orders.processRefillOrder': {
+        post: {
+          summary: 'Process Refill Order',
+          description: 'Process refill order with stock movements and inventory updates',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -848,7 +941,7 @@ app.get('/openapi.json', (req, res) => {
         }
       },
 
-      // Fleet Management Module (21 endpoints)
+      // Fleet Management Module (23 endpoints)
       '/trucks.list': {
         get: {
           summary: 'List Trucks',
@@ -1022,6 +1115,72 @@ app.get('/openapi.json', (req, res) => {
           description: 'Validate truck assignment business rules',
           tags: ['🚛 Fleet Management'],
           security: [{ bearerAuth: [] }]
+        }
+      },
+      '/trucks.loadInventory': {
+        post: {
+          summary: 'Load Inventory to Truck',
+          description: 'Load inventory from warehouse to truck for delivery',
+          tags: ['🚛 Fleet Management'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    truckId: { type: 'string', format: 'uuid' },
+                    warehouseId: { type: 'string', format: 'uuid' },
+                    items: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          productId: { type: 'string', format: 'uuid' },
+                          quantity: { type: 'number' }
+                        }
+                      }
+                    }
+                  },
+                  required: ['truckId', 'warehouseId', 'items']
+                }
+              }
+            }
+          }
+        }
+      },
+      '/trucks.unloadInventory': {
+        post: {
+          summary: 'Unload Inventory from Truck',
+          description: 'Unload inventory from truck to warehouse after delivery',
+          tags: ['🚛 Fleet Management'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    truckId: { type: 'string', format: 'uuid' },
+                    warehouseId: { type: 'string', format: 'uuid' },
+                    items: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          productId: { type: 'string', format: 'uuid' },
+                          quantity: { type: 'number' }
+                        }
+                      }
+                    }
+                  },
+                  required: ['truckId', 'warehouseId', 'items']
+                }
+              }
+            }
+          }
         }
       },
 
@@ -1586,7 +1745,184 @@ app.get('/openapi.json', (req, res) => {
         }
       },
 
-      // System Administration Module (7 endpoints)
+      // Payment Management Module (7 endpoints)
+      '/payments.create': {
+        post: {
+          summary: 'Record Payment',
+          description: 'Record payment for an order',
+          tags: ['💳 Payment Management'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    order_id: { type: 'string', format: 'uuid' },
+                    amount: { type: 'number' },
+                    payment_method: { type: 'string', enum: ['cash', 'bank_transfer', 'card', 'mobile_money'] },
+                    reference_number: { type: 'string' },
+                    notes: { type: 'string' }
+                  },
+                  required: ['order_id', 'amount', 'payment_method']
+                }
+              }
+            }
+          }
+        }
+      },
+      '/payments.list': {
+        get: {
+          summary: 'List Payments',
+          description: 'Get paginated list of payments with filtering',
+          tags: ['💳 Payment Management'],
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'input',
+              in: 'query',
+              schema: {
+                type: 'object',
+                properties: {
+                  page: { type: 'integer', minimum: 1, default: 1 },
+                  limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+                  status: { type: 'string', enum: ['pending', 'completed', 'failed', 'refunded'] },
+                  startDate: { type: 'string', format: 'date' },
+                  endDate: { type: 'string', format: 'date' }
+                }
+              }
+            }
+          ]
+        }
+      },
+      '/payments.getById': {
+        get: {
+          summary: 'Get Payment Details',
+          description: 'Get single payment with complete details',
+          tags: ['💳 Payment Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/payments.getByOrderId': {
+        get: {
+          summary: 'Get Payments by Order',
+          description: 'Get all payments for a specific order',
+          tags: ['💳 Payment Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/payments.updateStatus': {
+        put: {
+          summary: 'Update Payment Status',
+          description: 'Update payment status with validation',
+          tags: ['💳 Payment Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/payments.getSummary': {
+        get: {
+          summary: 'Payment Summary',
+          description: 'Get payment summary statistics',
+          tags: ['💳 Payment Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/payments.getOverdueOrders': {
+        get: {
+          summary: 'Get Overdue Orders',
+          description: 'Get orders with overdue payments',
+          tags: ['💳 Payment Management'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+
+      // Stock Movements Module (6 endpoints)
+      '/stockMovements.list': {
+        get: {
+          summary: 'List Stock Movements',
+          description: 'Get stock movements with filtering',
+          tags: ['📈 Stock Movements'],
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            {
+              name: 'input',
+              in: 'query',
+              schema: {
+                type: 'object',
+                properties: {
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                  product_id: { type: 'string', format: 'uuid' },
+                  movement_type: { type: 'string', enum: ['adjustment', 'transfer', 'order', 'return'] },
+                  startDate: { type: 'string', format: 'date' },
+                  endDate: { type: 'string', format: 'date' }
+                }
+              }
+            }
+          ]
+        }
+      },
+      '/stockMovements.get': {
+        get: {
+          summary: 'Get Movement Details',
+          description: 'Get stock movement details',
+          tags: ['📈 Stock Movements'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/stockMovements.create': {
+        post: {
+          summary: 'Create Stock Movement',
+          description: 'Create new stock movement record',
+          tags: ['📈 Stock Movements'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    warehouse_id: { type: 'string', format: 'uuid' },
+                    product_id: { type: 'string', format: 'uuid' },
+                    quantity: { type: 'number' },
+                    movement_type: { type: 'string', enum: ['adjustment', 'transfer', 'order', 'return'] },
+                    reason: { type: 'string' },
+                    reference_id: { type: 'string' }
+                  },
+                  required: ['warehouse_id', 'product_id', 'quantity', 'movement_type']
+                }
+              }
+            }
+          }
+        }
+      },
+      '/stockMovements.createBulk': {
+        post: {
+          summary: 'Bulk Create Movements',
+          description: 'Create multiple stock movements in batch',
+          tags: ['📈 Stock Movements'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/stockMovements.processRefillOrder': {
+        post: {
+          summary: 'Process Refill Order',
+          description: 'Process refill order with stock movements',
+          tags: ['📈 Stock Movements'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+      '/stockMovements.getSummary': {
+        get: {
+          summary: 'Movement Summary',
+          description: 'Get stock movement summary statistics',
+          tags: ['📈 Stock Movements'],
+          security: [{ bearerAuth: [] }]
+        }
+      },
+
+      // System Administration Module (2 endpoints)
       '/admin.healthCheck': {
         get: {
           summary: 'System Health Check',
@@ -1595,10 +1931,10 @@ app.get('/openapi.json', (req, res) => {
           security: [{ bearerAuth: [] }]
         }
       },
-      '/admin.getSystemStats': {
+      '/admin.healthCheck': {
         get: {
-          summary: 'System Statistics',
-          description: 'Get system performance and usage statistics',
+          summary: 'System Health Check',
+          description: 'Comprehensive system health and security validation',
           tags: ['⚙️ System Administration'],
           security: [{ bearerAuth: [] }]
         }
@@ -1607,22 +1943,6 @@ app.get('/openapi.json', (req, res) => {
         get: {
           summary: 'Test Security Policies',
           description: 'Test Row Level Security policies for data isolation',
-          tags: ['⚙️ System Administration'],
-          security: [{ bearerAuth: [] }]
-        }
-      },
-      '/admin.validateRLSStatus': {
-        get: {
-          summary: 'Validate Security Status',
-          description: 'Validate security status across all database tables',
-          tags: ['⚙️ System Administration'],
-          security: [{ bearerAuth: [] }]
-        }
-      },
-      '/admin.getRLSViolations': {
-        get: {
-          summary: 'Get Security Violations',
-          description: 'Get Row Level Security policy violations',
           tags: ['⚙️ System Administration'],
           security: [{ bearerAuth: [] }]
         }
