@@ -169,11 +169,45 @@ export const trucksRouter = router({
         });
       }
 
-      // Enhance trucks with calculated fields
+      // Get inventory data for all trucks to calculate current load
+      const truckIds = (data || []).map(truck => truck.id);
+      const { data: inventoryData } = await ctx.supabase
+        .from('truck_inventory')
+        .select(`
+          truck_id,
+          product_id,
+          qty_full,
+          qty_empty,
+          product:product_id (
+            name,
+            sku,
+            variant_name
+          )
+        `)
+        .in('truck_id', truckIds);
+
+      // Group inventory by truck_id
+      const inventoryByTruck = (inventoryData || []).reduce((acc: any, item: any) => {
+        if (!acc[item.truck_id]) {
+          acc[item.truck_id] = [];
+        }
+        acc[item.truck_id].push({
+          product_id: item.product_id,
+          product_name: item.product?.name || 'Unknown Product',
+          product_sku: item.product?.sku || '',
+          product_variant_name: item.product?.variant_name,
+          qty_full: item.qty_full,
+          qty_empty: item.qty_empty,
+        });
+        return acc;
+      }, {});
+
+      // Enhance trucks with calculated fields and inventory
       const enhancedTrucks = (data || []).map(truck => ({
         ...truck,
         capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
         status: truck.active ? 'active' : 'inactive', // Derive from active field
+        inventory: inventoryByTruck[truck.id] || [], // Add inventory data
       }));
 
       return {
