@@ -154,10 +154,17 @@ export const trucksRouter = router({
       const { data, error, count } = await query;
 
       if (error) {
-        ctx.logger.error('Error fetching trucks:', error);
+        ctx.logger.error('Error fetching trucks:', {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          filters: input
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch trucks',
+          message: `Failed to fetch trucks: ${error.message}`,
         });
       }
 
@@ -287,10 +294,17 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error creating truck:', error);
+        ctx.logger.error('Error creating truck:', {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          truck_data: truckData
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create truck',
+          message: `Failed to create truck: ${error.message}`,
         });
       }
 

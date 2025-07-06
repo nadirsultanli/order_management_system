@@ -78,10 +78,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     setShowObsoleteWarning(watchedStatus === 'obsolete');
   }, [watchedStatus]);
 
+  const validateSKU = trpc.products.validateSku.useMutation();
+  const validateWeight = trpc.products.validateWeight.useMutation();
+
   const validateSKUAndWeight = async (data: CreateProductData) => {
     // Validate SKU using backend
     try {
-      const skuResult = await trpc.products.validateSku.mutate({ 
+      const skuResult = await validateSKU.mutateAsync({ 
         sku: data.sku, 
         exclude_id: product?.id 
       });
@@ -103,7 +106,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     // Validate weights if it's a cylinder
     if (data.unit_of_measure === 'cylinder' && (data.capacity_kg || data.tare_weight_kg)) {
       try {
-        const weightResult = await trpc.products.validateWeight.mutate({ 
+        const weightResult = await validateWeight.mutateAsync({ 
           capacity_kg: data.capacity_kg, 
           tare_weight_kg: data.tare_weight_kg, 
           unit_of_measure: data.unit_of_measure
@@ -129,16 +132,22 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
   const handleFormSubmit = async (data: CreateProductData) => {
     try {
+      // Ensure SKU is uppercase before validation and submission
+      const processedData = {
+        ...data,
+        sku: data.sku.toUpperCase()
+      };
+
       // Validate using backend
-      const isValid = await validateSKUAndWeight(data);
+      const isValid = await validateSKUAndWeight(processedData);
       if (!isValid) {
         return; // Validation failed, errors logged to console
       }
 
       // Clean up data based on unit of measure
-      const cleanedData = { ...data };
+      const cleanedData = { ...processedData };
       
-      if (data.unit_of_measure !== 'cylinder') {
+      if (processedData.unit_of_measure !== 'cylinder') {
         cleanedData.capacity_kg = undefined;
         cleanedData.tare_weight_kg = undefined;
         cleanedData.valve_type = undefined;
@@ -146,8 +155,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
 
       // Remove empty strings
       Object.keys(cleanedData).forEach(key => {
-        if (cleanedData[key as keyof CreateProductData] === '') {
-          cleanedData[key as keyof CreateProductData] = undefined as any;
+        const typedKey = key as keyof CreateProductData;
+        if (cleanedData[typedKey] === '') {
+          delete cleanedData[typedKey];
         }
       });
 
@@ -205,10 +215,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                           maxLength: {
                             value: 50,
                             message: 'SKU must be 50 characters or less'
+                          },
+                          onChange: (e) => {
+                            // Transform to uppercase as user types
+                            e.target.value = e.target.value.toUpperCase();
                           }
                         })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase"
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         placeholder="CYL-50KG-S"
+                        style={{ textTransform: 'uppercase' }}
                       />
                       {errors.sku && (
                         <p className="mt-1 text-sm text-red-600">{errors.sku.message}</p>

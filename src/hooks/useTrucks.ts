@@ -21,15 +21,24 @@ export const useTrucks = (filters: any = {}) => {
     retry: 1,
     staleTime: 30000,
     select: (data) => {
+      // Debug logging
+      console.log('Raw trucks data from API:', data);
+      
       // Transform the data to match the expected format
-      return {
-        trucks: data.trucks,
+      const result = {
+        trucks: data?.trucks || [],
         isLoading: false,
         error: null,
-        totalCount: data.totalCount,
-        totalPages: data.totalPages,
-        currentPage: data.currentPage,
+        totalCount: data?.totalCount || 0,
+        totalPages: data?.totalPages || 0,
+        currentPage: data?.currentPage || 1,
       };
+      
+      console.log('Transformed trucks data:', result);
+      return result;
+    },
+    onError: (error) => {
+      console.error('useTrucks query error:', error);
     }
   });
 };
