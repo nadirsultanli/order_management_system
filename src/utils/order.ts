@@ -21,7 +21,8 @@ export const getOrderWorkflow = async (): Promise<OrderWorkflowStep[]> => {
         { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order has been confirmed', color: 'blue', allowedTransitions: ['scheduled', 'cancelled'] },
         { status: 'scheduled' as OrderStatus, label: 'Scheduled', description: 'Order is scheduled for delivery', color: 'yellow', allowedTransitions: ['en_route', 'cancelled'] },
         { status: 'en_route' as OrderStatus, label: 'En Route', description: 'Order is out for delivery', color: 'orange', allowedTransitions: ['delivered', 'cancelled'] },
-        { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Order has been delivered', color: 'green', allowedTransitions: [] },
+        { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Order has been delivered', color: 'green', allowedTransitions: ['invoiced'] },
+        { status: 'invoiced' as OrderStatus, label: 'Invoiced', description: 'Order has been invoiced', color: 'purple', allowedTransitions: [] },
         { status: 'cancelled' as OrderStatus, label: 'Cancelled', description: 'Order has been cancelled', color: 'red', allowedTransitions: [] },
       ];
       workflowCache = fallbackWorkflow;
@@ -39,7 +40,8 @@ export const getOrderWorkflow = async (): Promise<OrderWorkflowStep[]> => {
       { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order has been confirmed', color: 'blue', allowedTransitions: ['scheduled', 'cancelled'] },
       { status: 'scheduled' as OrderStatus, label: 'Scheduled', description: 'Order is scheduled for delivery', color: 'yellow', allowedTransitions: ['en_route', 'cancelled'] },
       { status: 'en_route' as OrderStatus, label: 'En Route', description: 'Order is out for delivery', color: 'orange', allowedTransitions: ['delivered', 'cancelled'] },
-      { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Order has been delivered', color: 'green', allowedTransitions: [] },
+      { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Order has been delivered', color: 'green', allowedTransitions: ['invoiced'] },
+      { status: 'invoiced' as OrderStatus, label: 'Invoiced', description: 'Order has been invoiced', color: 'purple', allowedTransitions: [] },
       { status: 'cancelled' as OrderStatus, label: 'Cancelled', description: 'Order has been cancelled', color: 'red', allowedTransitions: [] },
     ];
     workflowCache = fallbackWorkflow;

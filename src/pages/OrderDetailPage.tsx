@@ -60,6 +60,7 @@ export const OrderDetailPage: React.FC = () => {
       'scheduled': { label: 'Scheduled', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Order is scheduled for delivery' },
       'en_route': { label: 'En Route', color: 'bg-orange-100 text-orange-800 border-orange-300', description: 'Order is out for delivery' },
       'delivered': { label: 'Delivered', color: 'bg-green-100 text-green-800 border-green-300', description: 'Order has been delivered' },
+      'invoiced': { label: 'Invoiced', color: 'bg-purple-100 text-purple-800 border-purple-300', description: 'Order has been invoiced' },
       'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-300', description: 'Order has been cancelled' },
     };
     return statusMap[status] || statusMap['draft'];
@@ -71,7 +72,8 @@ export const OrderDetailPage: React.FC = () => {
       'confirmed': ['scheduled', 'cancelled'],
       'scheduled': ['en_route', 'cancelled'],
       'en_route': ['delivered', 'cancelled'],
-      'delivered': [],
+      'delivered': ['invoiced'],
+      'invoiced': [],
       'cancelled': [],
     };
     return transitions[currentStatus] || [];
