@@ -4,9 +4,11 @@ import { LogOut, Menu, User } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick: () => void;
+  onMenuHover?: () => void;
+  onMenuLeave?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+export const Header: React.FC<HeaderProps> = ({ onMenuClick, onMenuHover, onMenuLeave }) => {
   const { adminUser, signOut } = useAuth();
 
   const handleSignOut = async () => {
@@ -22,9 +24,12 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
       <div className="flex items-center space-x-4">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-md hover:bg-gray-100 transition-colors"
+          onMouseEnter={onMenuHover}
+          onMouseLeave={onMenuLeave}
+          className="p-2 rounded-md hover:bg-gray-100 transition-colors group"
+          title="Hover to show menu"
         >
-          <Menu className="h-6 w-6 text-gray-600" />
+          <Menu className="h-6 w-6 text-gray-600 group-hover:text-gray-900 transition-colors" />
         </button>
         <h1 className="text-xl font-semibold text-gray-900">
           LPG Order Management

@@ -17,6 +17,8 @@ import {
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 const navigation = [
@@ -32,7 +34,7 @@ const navigation = [
   { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight }
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onMouseEnter, onMouseLeave }) => {
   return (
     <>
       {/* Mobile backdrop */}
@@ -45,10 +47,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <aside
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         className={`
           fixed top-0 left-0 z-50 h-full w-64 bg-gray-900 transform transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0
+          lg:fixed lg:z-50
         `}
       >
         {/* Mobile header */}
