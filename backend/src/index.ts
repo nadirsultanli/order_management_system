@@ -1931,14 +1931,6 @@ app.get('/openapi.json', (req, res) => {
           security: [{ bearerAuth: [] }]
         }
       },
-      '/admin.healthCheck': {
-        get: {
-          summary: 'System Health Check',
-          description: 'Comprehensive system health and security validation',
-          tags: ['⚙️ System Administration'],
-          security: [{ bearerAuth: [] }]
-        }
-      },
       '/admin.testRLSPolicies': {
         get: {
           summary: 'Test Security Policies',
