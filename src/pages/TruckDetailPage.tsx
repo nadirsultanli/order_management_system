@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Truck, Package, Edit, ArrowLeft } from 'lucide-react';
 import { TruckForm } from '../components/trucks/TruckForm';
+import { TruckInventoryTransfer } from '../components/trucks/TruckInventoryTransfer';
 import { useTruck } from '../hooks/useTrucks';
 
 export const TruckDetailPage: React.FC = () => {
@@ -9,7 +10,7 @@ export const TruckDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
 
-  const { data: truck, isLoading: loading, error } = useTruck(id || '');
+  const { data: truck, isLoading: loading, error, refetch } = useTruck(id || '');
 
   if (loading) {
     return (
@@ -49,7 +50,7 @@ export const TruckDetailPage: React.FC = () => {
           initialData={truck}
           onSuccess={() => {
             setIsEditing(false);
-            loadTruckDetails();
+            refetch(); // Use refetch instead of undefined loadTruckDetails
           }}
         />
       </div>
@@ -58,6 +59,10 @@ export const TruckDetailPage: React.FC = () => {
 
   const totalCylinders = truck.inventory.reduce(
     (sum, item) => sum + (item.qty_full || 0) + (item.qty_empty || 0),
+    0
+  );
+  const totalWeight = truck.inventory.reduce(
+    (sum, item) => sum + (item.weight_kg || 0),
     0
   );
   const capacityPercentage = (totalCylinders / truck.capacity_cylinders) * 100;
@@ -121,17 +126,27 @@ export const TruckDetailPage: React.FC = () => {
           <div>
             <h2 className="text-xl font-semibold mb-4">Current Load</h2>
             <div className="space-y-4">
-              <p className="text-lg font-medium">
-                {totalCylinders} / {truck.capacity_cylinders} cylinders
-              </p>
+              <div>
+                <p className="text-lg font-medium">
+                  {totalCylinders} / {truck.capacity_cylinders} cylinders
+                </p>
+                <p className="text-sm text-gray-600">
+                  Total weight: {totalWeight.toFixed(1)} kg
+                </p>
+              </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div
-                  className="bg-blue-600 h-2.5 rounded-full"
+                  className={`h-2.5 rounded-full ${isOverloaded ? 'bg-red-600' : 'bg-blue-600'}`}
                   style={{
-                    width: `${(totalCylinders / (truck.capacity_cylinders || 1)) * 100}%`
+                    width: `${Math.min((totalCylinders / (truck.capacity_cylinders || 1)) * 100, 100)}%`
                   }}
                 ></div>
               </div>
+              {isOverloaded && (
+                <p className="text-sm text-red-600 font-medium">
+                  ⚠️ Truck is overloaded ({capacityPercentage.toFixed(1)}% capacity)
+                </p>
+              )}
             </div>
 
             <div className="bg-gray-50 rounded-lg p-4">
@@ -155,6 +170,11 @@ export const TruckDetailPage: React.FC = () => {
                           <span className="text-xs text-gray-500">
                             Empty: {item.qty_empty || 0}
                           </span>
+                          {item.weight_kg && (
+                            <span className="text-xs text-gray-500">
+                              Weight: {item.weight_kg.toFixed(1)}kg
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -164,6 +184,15 @@ export const TruckDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Quick Transfer Component */}
+      <div className="mt-8">
+        <TruckInventoryTransfer 
+          truckId={truck.id} 
+          truckName={truck.fleet_number}
+          onSuccess={() => refetch()}
+        />
       </div>
     </div>
   );

@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Warehouse, MapPin, Calendar, Package, Activity } from 'lucide-react';
+import { ArrowLeft, Edit, Warehouse, MapPin, Calendar, Package } from 'lucide-react';
 import { useWarehouse, useUpdateWarehouse } from '../hooks/useWarehouses';
 import { useInventoryByWarehouseNew } from '../hooks/useInventory';
 import { WarehouseForm } from '../components/warehouses/WarehouseForm';
-import { Warehouse as WarehouseType, CreateWarehouseData } from '../types/warehouse';
-import { formatAddress } from '../utils/address';
+import { CreateWarehouseData } from '../types/warehouse';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { formatDateSync } from '../utils/order';
@@ -26,7 +25,7 @@ export const WarehouseDetailPage: React.FC = () => {
       try {
         await updateWarehouse.mutateAsync({ id: warehouse.id, ...data });
         setIsEditFormOpen(false);
-      } catch (error) {
+      } catch {
         // Error handling is done in the hook
       }
     }
@@ -38,9 +37,28 @@ export const WarehouseDetailPage: React.FC = () => {
     return capacity.toLocaleString() + ' cylinders';
   };
 
+  // Validate coordinates and return valid lat/lng or defaults
+  const getValidCoordinates = (lat?: number, lng?: number) => {
+    // Default coordinates (San Francisco, CA)
+    const defaultLat = 37.7749;
+    const defaultLng = -122.4194;
+
+    // Validate latitude: must be between -90 and 90
+    const validLat = typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90 ? lat : defaultLat;
+    
+    // Validate longitude: must be between -180 and 180
+    const validLng = typeof lng === 'number' && !isNaN(lng) && lng >= -180 && lng <= 180 ? lng : defaultLng;
+
+    return {
+      latitude: validLat,
+      longitude: validLng,
+      isValid: validLat === lat && validLng === lng
+    };
+  };
+
   // Initialize map when warehouse data is loaded
   useEffect(() => {
-    if (!warehouse?.address?.latitude || !warehouse?.address?.longitude || !mapContainer.current) {
+    if (!warehouse?.address || !mapContainer.current) {
       return;
     }
 
@@ -48,6 +66,20 @@ export const WarehouseDetailPage: React.FC = () => {
     if (!accessToken) {
       console.warn('Mapbox access token not found');
       return;
+    }
+
+    // Get valid coordinates with fallback to defaults
+    const { latitude, longitude, isValid } = getValidCoordinates(
+      warehouse.address.latitude,
+      warehouse.address.longitude
+    );
+
+    // Log warning if using default coordinates
+    if (!isValid) {
+      console.warn('Invalid warehouse coordinates detected, using default location:', {
+        original: { lat: warehouse.address.latitude, lng: warehouse.address.longitude },
+        fallback: { lat: latitude, lng: longitude }
+      });
     }
 
     // Clean up existing map first
@@ -65,14 +97,19 @@ export const WarehouseDetailPage: React.FC = () => {
       const newMap = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mapbox/streets-v11',
-        center: [warehouse.address.longitude, warehouse.address.latitude],
-        zoom: 14,
+        center: [longitude, latitude],
+        zoom: isValid ? 14 : 10, // Lower zoom if using default coordinates
       });
 
       newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-      new mapboxgl.Marker({ anchor: 'center' })
-        .setLngLat([warehouse.address.longitude, warehouse.address.latitude])
+      // Create marker with appropriate color based on validity
+      const markerColor = isValid ? '#3B82F6' : '#EF4444'; // Blue for valid, red for fallback
+      new mapboxgl.Marker({ 
+        color: markerColor,
+        anchor: 'center' 
+      })
+        .setLngLat([longitude, latitude])
         .addTo(newMap);
 
       newMap.on('load', () => {
@@ -231,18 +268,27 @@ export const WarehouseDetailPage: React.FC = () => {
                 </div>
 
                 {/* Map */}
-                {warehouse.address.latitude && warehouse.address.longitude && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-2">
-                      Map Location
-                    </label>
-                    <div 
-                      ref={mapContainer}
-                      className="w-full h-64 rounded-lg border border-gray-300"
-                      style={{ minHeight: '256px' }}
-                    />
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-2">
+                    Map Location
+                  </label>
+                  {(() => {
+                    const { isValid } = getValidCoordinates(
+                      warehouse.address.latitude,
+                      warehouse.address.longitude
+                    );
+                    return !isValid && (
+                      <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                        Warning: Invalid coordinates detected. Showing default location (San Francisco, CA).
+                      </div>
+                    );
+                  })()}
+                  <div 
+                    ref={mapContainer}
+                    className="w-full h-64 rounded-lg border border-gray-300"
+                    style={{ minHeight: '256px' }}
+                  />
+                </div>
 
                 {warehouse.address.instructions && (
                   <div>

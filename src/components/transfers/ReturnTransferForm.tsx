@@ -38,8 +38,8 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
   const trucks = trucksData?.trucks || [];
   const utils = trpc.useContext();
   
-  // Use tRPC to create transfer
-  const createTransferMutation = trpc.transfers.create.useMutation();
+  // Use tRPC for truck unloading
+  const unloadTruckMutation = trpc.trucks.unloadInventory.useMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,33 +74,23 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         throw new Error('Each line must have at least one full or empty cylinder');
       }
 
-      // For return transfers, we need to find the truck's associated warehouse
-      // Since trucks don't have direct warehouse associations, we'll use the destination warehouse
-      // as both source and destination, with a special transfer type to indicate this is a return
-      const transferData = {
+      // Prepare items for the API call
+      const items = lines.map(line => ({
+        product_id: line.product_id,
+        qty_full: Number(line.qty_full) || 0,
+        qty_empty: Number(line.qty_empty) || 0,
+      })).filter(item => item.qty_full > 0 || item.qty_empty > 0);
+
+      console.log('Unloading truck inventory:', { selectedTruck, selectedWarehouse, items });
+
+      // Call the truck unloading API
+      const result = await unloadTruckMutation.mutateAsync({
         truck_id: selectedTruck,
         warehouse_id: selectedWarehouse,
-        lines: lines.map(line => ({
-          product_id: line.product_id,
-          qty_full: line.qty_full || 0,
-          qty_empty: line.qty_empty || 0
-        }))
-      };
-
-      console.log('Creating return transfer with data:', transferData);
-
-      const transfer = await createTransferMutation.mutateAsync({
-        source_warehouse_id: selectedWarehouse, // Set to destination warehouse (truck returns to this warehouse)
-        destination_warehouse_id: selectedWarehouse, // Same as source for return operations
-        transfer_date: new Date().toISOString().split('T')[0],
-        reason: 'Return from truck',
-        notes: `Return transfer from truck ${trucks.find(t => t.id === selectedTruck)?.fleet_number || selectedTruck}`,
-        items: transferData.lines.map(line => ({
-          product_id: line.product_id,
-          quantity_to_transfer: (line.qty_full || 0) + (line.qty_empty || 0)
-        }))
+        items: items,
       });
-      console.log('Transfer created successfully:', transfer);
+      
+      console.log('Truck unloading completed successfully:', result);
 
       // Show success message
       const totalFull = lines.reduce((sum, line) => sum + (Number(line.qty_full) || 0), 0);
@@ -115,7 +105,6 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       utils.inventory.getStats.invalidate();
       utils.trucks.list.invalidate();
       utils.trucks.get.invalidate();
-      utils.transfers.list.invalidate();
 
       // Reset form
       setSelectedTruck('');
@@ -368,7 +357,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           disabled={loading || !selectedTruck || !selectedWarehouse || lines.length === 0}
           className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Create Return Transfer
+          Unload Truck
         </button>
       </div>
 
@@ -376,9 +365,9 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
-        title="Confirm Return Transfer"
-        message="Are you sure you want to create this return transfer? This will move inventory from the selected truck back to the warehouse."
-        confirmText="Create Return Transfer"
+        title="Confirm Truck Unloading"
+        message="Are you sure you want to unload this truck? This will move inventory from the selected truck back to the warehouse."
+        confirmText="Unload Truck"
         type="info"
         loading={loading}
       />

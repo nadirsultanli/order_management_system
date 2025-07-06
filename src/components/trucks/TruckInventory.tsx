@@ -70,6 +70,9 @@ export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
             <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
               Empty Cylinders
             </th>
+            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Weight (kg)
+            </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Last Updated
             </th>
@@ -80,6 +83,9 @@ export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
             <tr key={item.product_id}>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm font-medium text-gray-900">{item.product_name}</div>
+                {item.product_variant_name && (
+                  <div className="text-xs text-gray-500">{item.product_variant_name}</div>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm text-gray-500">{item.product_sku}</div>
@@ -89,6 +95,11 @@ export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right">
                 <div className="text-sm text-gray-900">{item.qty_empty}</div>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-right">
+                <div className="text-sm text-gray-900">
+                  {item.weight_kg ? `${item.weight_kg.toFixed(1)}` : '0.0'}
+                </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="text-sm text-gray-500">

@@ -37,6 +37,9 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   const { data: trucksData } = trpc.trucks.list.useQuery({ active: true });
   const trucks = trucksData?.trucks || [];
   const utils = trpc.useContext();
+  
+  // Use tRPC for truck loading
+  const loadTruckMutation = trpc.trucks.loadInventory.useMutation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,27 +77,21 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       // Load transfer: move inventory from warehouse to truck
       console.log('Loading truck with products from warehouse');
       
-      // Process each line and validate quantities
-      for (const line of lines) {
-        const qtyFull = Number(line.qty_full) || 0;
-        const qtyEmpty = Number(line.qty_empty) || 0;
-        
-        if (qtyFull > 0 || qtyEmpty > 0) {
-          // For now, this is a placeholder for the actual truck loading logic
-          // TODO: Implement backend endpoint for truck loading that:
-          // 1. Validates warehouse stock availability
-          // 2. Decreases warehouse inventory
-          // 3. Increases truck inventory
-          // 4. Creates audit trail
-          
-          console.log(`Loading ${qtyFull} full and ${qtyEmpty} empty ${line.product_name} to truck`);
-        }
-      }
+      // Prepare items for the API call
+      const items = lines.map(line => ({
+        product_id: line.product_id,
+        qty_full: Number(line.qty_full) || 0,
+        qty_empty: Number(line.qty_empty) || 0,
+      })).filter(item => item.qty_full > 0 || item.qty_empty > 0);
+
+      // Call the truck loading API
+      const result = await loadTruckMutation.mutateAsync({
+        truck_id: selectedTruck,
+        warehouse_id: selectedWarehouse,
+        items: items,
+      });
       
-      // Simulate the loading operation
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Truck loading completed successfully');
+      console.log('Truck loading completed successfully:', result);
 
       // Show success message
       const totalFull = lines.reduce((sum, line) => sum + (Number(line.qty_full) || 0), 0);

@@ -327,11 +327,28 @@ export const transfersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Validating transfer:', input);
+      // Enhanced logging with step tracking
+      const transferId = `validation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      ctx.logger.info(`[${transferId}] 🔍 STEP 1: Starting transfer validation`, {
+        transferId,
+        sourceWarehouseId: input.source_warehouse_id,
+        destinationWarehouseId: input.destination_warehouse_id,
+        itemCount: input.items.length,
+        transferDate: input.transfer_date,
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      });
 
       // For single-item transfers, use atomic validation function
       if (input.items.length === 1) {
         const item = input.items[0];
+        
+        ctx.logger.info(`[${transferId}] 🔍 STEP 2: Single-item atomic validation`, {
+          transferId,
+          productId: item.product_id,
+          requestedQuantity: item.quantity_to_transfer,
+          validationMethod: 'atomic_database_function'
+        });
         
         const { data: validationResult, error: validationError } = await ctx.supabase.rpc('validate_transfer_request', {
           p_from_warehouse_id: input.source_warehouse_id,
@@ -342,7 +359,17 @@ export const transfersRouter = router({
         });
 
         if (validationError) {
-          ctx.logger.error('Validation function error:', validationError);
+          ctx.logger.error(`[${transferId}] ❌ STEP 2 FAILED: Database validation error`, {
+            transferId,
+            error: validationError,
+            function: 'validate_transfer_request',
+            parameters: {
+              from_warehouse: input.source_warehouse_id,
+              to_warehouse: input.destination_warehouse_id,
+              product: item.product_id,
+              qty_full: item.quantity_to_transfer
+            }
+          });
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: `Validation failed: ${validationError.message}`
@@ -360,24 +387,61 @@ export const transfersRouter = router({
           source_stock: validationResult.source_stock
         };
 
-        ctx.logger.info('Atomic validation result:', result);
+        ctx.logger.info(`[${transferId}] ✅ STEP 2 COMPLETE: Atomic validation result`, {
+          transferId,
+          isValid: result.is_valid,
+          errorCount: result.errors.length,
+          warningCount: result.warnings.length,
+          blockedItems: result.blocked_items.length,
+          sourceStock: result.source_stock,
+          validationDuration: Date.now() - parseInt(transferId.split('_')[1])
+        });
         return result;
       }
 
       // For multi-item transfers, use existing validation logic
+      ctx.logger.info(`[${transferId}] 🔍 STEP 2: Multi-item validation`, {
+        transferId,
+        itemCount: input.items.length,
+        validationMethod: 'multi_item_validation'
+      });
+      
       const basicValidation = validateTransferBasics(input);
       let errors = [...basicValidation.errors];
       let warnings = [...basicValidation.warnings];
       const blocked_items: string[] = [];
 
+      ctx.logger.info(`[${transferId}] 🔍 STEP 2.1: Basic validation complete`, {
+        transferId,
+        basicErrors: basicValidation.errors,
+        basicWarnings: basicValidation.warnings
+      });
+
       // Validate warehouses exist
+      ctx.logger.info(`[${transferId}] 🔍 STEP 2.2: Validating warehouses`, {
+        transferId,
+        sourceWarehouseId: input.source_warehouse_id,
+        destinationWarehouseId: input.destination_warehouse_id
+      });
+      
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
         .select('id, name')
         .in('id', [input.source_warehouse_id, input.destination_warehouse_id]);
 
       if (warehouseError || warehouses.length !== 2) {
+        ctx.logger.error(`[${transferId}] ❌ STEP 2.2 FAILED: Warehouse validation error`, {
+          transferId,
+          error: warehouseError,
+          warehousesFound: warehouses?.length || 0,
+          expectedWarehouses: 2
+        });
         errors.push('One or both warehouses not found');
+      } else {
+        ctx.logger.info(`[${transferId}] ✅ STEP 2.2 COMPLETE: Warehouses validated`, {
+          transferId,
+          warehouses: warehouses.map(w => ({ id: w.id, name: w.name }))
+        });
       }
 
       // Get stock information for all items
@@ -452,7 +516,16 @@ export const transfersRouter = router({
         estimated_cost: estimated_cost > 0 ? estimated_cost : undefined
       };
 
-      ctx.logger.info('Multi-item validation result:', result);
+      ctx.logger.info(`[${transferId}] ✅ STEP 2 COMPLETE: Multi-item validation result`, {
+        transferId,
+        isValid: result.is_valid,
+        errorCount: result.errors.length,
+        warningCount: result.warnings.length,
+        blockedItems: result.blocked_items.length,
+        totalWeightKg: result.total_weight_kg,
+        estimatedCost: result.estimated_cost,
+        validationDuration: Date.now() - parseInt(transferId.split('_')[1])
+      });
       return result;
     }),
 
@@ -462,7 +535,19 @@ export const transfersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Creating transfer:', input);
+      // Enhanced logging with step tracking for transfer creation
+      const transferId = `create_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      ctx.logger.info(`[${transferId}] 🚀 STEP 1: Starting transfer creation`, {
+        transferId,
+        sourceWarehouseId: input.source_warehouse_id,
+        destinationWarehouseId: input.destination_warehouse_id,
+        itemCount: input.items.length,
+        transferDate: input.transfer_date,
+        priority: input.priority,
+        transferReference: input.transfer_reference,
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      });
 
       // Validate first using inline validation
       const basicValidation = validateTransferBasics(input);
@@ -568,14 +653,31 @@ export const transfersRouter = router({
         .single();
 
       if (transferError) {
-        ctx.logger.error('Transfer creation error:', transferError);
+        ctx.logger.error(`[${transferId}] ❌ STEP 4 FAILED: Transfer creation error`, {
+          transferId,
+          error: transferError,
+          transferData: transferData
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: transferError.message
         });
       }
 
+      ctx.logger.info(`[${transferId}] ✅ STEP 4 COMPLETE: Transfer record created`, {
+        transferId,
+        createdTransferId: transfer.id,
+        transferReference: transfer.transfer_reference,
+        status: transfer.status
+      });
+
       // Create transfer items
+      ctx.logger.info(`[${transferId}] 🚀 STEP 5: Creating transfer items`, {
+        transferId,
+        transferDbId: transfer.id,
+        itemCount: input.items.length
+      });
+      
       const transferItems = input.items.map(item => ({
         transfer_id: transfer.id,
         product_id: item.product_id,
@@ -589,14 +691,27 @@ export const transfersRouter = router({
         .insert(transferItems);
 
       if (itemsError) {
-        ctx.logger.error('Transfer items creation error:', itemsError);
+        ctx.logger.error(`[${transferId}] ❌ STEP 5 FAILED: Transfer items creation error`, {
+          transferId,
+          error: itemsError,
+          transferItems: transferItems
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: itemsError.message
         });
       }
 
-      ctx.logger.info('Transfer created successfully:', transfer);
+      ctx.logger.info(`[${transferId}] 🎉 TRANSFER CREATION COMPLETE`, {
+        transferId,
+        createdTransferId: transfer.id,
+        transferReference: transfer.transfer_reference,
+        itemCount: transferItems.length,
+        totalQuantity: summary.total_quantity,
+        totalWeight: summary.total_weight_kg,
+        creationDuration: Date.now() - parseInt(transferId.split('_')[1]),
+        status: 'success'
+      });
       return transfer;
     }),
 
@@ -606,7 +721,15 @@ export const transfersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Updating transfer status:', input);
+      // Enhanced logging with step tracking for status updates
+      const updateId = `status_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      ctx.logger.info(`[${updateId}] 🔄 STEP 1: Starting transfer status update`, {
+        updateId,
+        transferId: input.transfer_id,
+        newStatus: input.new_status,
+        userId: user.id,
+        timestamp: new Date().toISOString()
+      });
 
       // Get current transfer
       const { data: currentTransfer, error: transferError } = await ctx.supabase
@@ -645,19 +768,57 @@ export const transfersRouter = router({
 
       // Handle inventory updates based on status change
       if (input.new_status === 'completed' && currentTransfer.status === 'in_transit') {
+        ctx.logger.info(`[${updateId}] 🚀 STEP 3: Executing stock transfer completion`, {
+          updateId,
+          transferId: currentTransfer.id,
+          itemCount: currentTransfer.items?.length || 0,
+          sourceWarehouse: currentTransfer.source_warehouse_id,
+          destinationWarehouse: currentTransfer.destination_warehouse_id
+        });
+        
         // Execute the actual stock transfer
-        if (currentTransfer.items) {
-          for (const item of currentTransfer.items) {
+        if (currentTransfer.items && currentTransfer.items.length > 0) {
+          const transferResults: any[] = [];
+          let completedItems = 0;
+          let failedItems = 0;
+          
+          for (const [index, item] of currentTransfer.items.entries()) {
             try {
+              ctx.logger.info(`[${updateId}] 🔄 STEP 3.${index + 1}: Processing item ${index + 1}/${currentTransfer.items.length}`, {
+                updateId,
+                itemIndex: index + 1,
+                totalItems: currentTransfer.items.length,
+                productId: item.product_id,
+                qtyFull: item.quantity_full,
+                qtyEmpty: item.quantity_empty
+              });
+              
               // Determine transfer type and use appropriate function
               const isToTruck = currentTransfer.destination_warehouse_id && 
                                await isTruckDestination(ctx.supabase, currentTransfer.destination_warehouse_id);
+              
+              ctx.logger.info(`[${updateId}] 🎯 Determined transfer type: ${isToTruck ? 'truck' : 'warehouse'}`, {
+                updateId,
+                destinationType: isToTruck ? 'truck' : 'warehouse',
+                destinationId: currentTransfer.destination_warehouse_id
+              });
               
               let transferResult;
               let transferError;
               
               if (isToTruck) {
                 // Transfer to truck
+                ctx.logger.info(`[${updateId}] 🚛 Executing warehouse-to-truck transfer`, {
+                  updateId,
+                  function: 'transfer_stock_to_truck',
+                  parameters: {
+                    from_warehouse: currentTransfer.source_warehouse_id,
+                    to_truck: currentTransfer.destination_warehouse_id,
+                    product: item.product_id,
+                    qty_full: item.quantity_full,
+                    qty_empty: item.quantity_empty
+                  }
+                });
                 const { data, error } = await ctx.supabase.rpc('transfer_stock_to_truck', {
                   p_from_warehouse_id: currentTransfer.source_warehouse_id,
                   p_to_truck_id: currentTransfer.destination_warehouse_id,
@@ -669,6 +830,17 @@ export const transfersRouter = router({
                 transferError = error;
               } else {
                 // Standard warehouse-to-warehouse transfer
+                ctx.logger.info(`[${updateId}] 🏢 Executing warehouse-to-warehouse transfer`, {
+                  updateId,
+                  function: 'transfer_stock',
+                  parameters: {
+                    from_warehouse: currentTransfer.source_warehouse_id,
+                    to_warehouse: currentTransfer.destination_warehouse_id,
+                    product: item.product_id,
+                    qty_full: item.quantity_full,
+                    qty_empty: item.quantity_empty
+                  }
+                });
                 const { data, error } = await ctx.supabase.rpc('transfer_stock', {
                   p_from_warehouse_id: currentTransfer.source_warehouse_id,
                   p_to_warehouse_id: currentTransfer.destination_warehouse_id,
@@ -681,19 +853,64 @@ export const transfersRouter = router({
               }
               
               if (transferError) {
+                ctx.logger.error('Database function returned error:', transferError);
                 throw transferError;
               }
               
-              ctx.logger.info('Stock transfer executed successfully:', transferResult);
-            } catch (error) {
-              ctx.logger.error('Stock transfer execution failed:', error);
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              throw new TRPCError({
-                code: 'INTERNAL_SERVER_ERROR',
-                message: `Failed to execute stock transfer for product ${item.product_id}: ${errorMessage}`
+              if (!transferResult) {
+                ctx.logger.error('Database function returned null result');
+                throw new Error('Transfer function returned null result');
+              }
+              
+              if (!transferResult.success) {
+                ctx.logger.error('Transfer function reported failure:', transferResult);
+                throw new Error(`Transfer function failed: ${transferResult.error || 'Unknown error'}`);
+              }
+              
+              transferResults.push({
+                product_id: item.product_id,
+                success: true,
+                result: transferResult
               });
+              
+              completedItems++;
+              ctx.logger.info(`Stock transfer executed successfully for product ${item.product_id}:`, transferResult);
+              
+            } catch (error) {
+              failedItems++;
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              ctx.logger.error(`Stock transfer execution failed for product ${item.product_id}:`, errorMessage);
+              
+              transferResults.push({
+                product_id: item.product_id,
+                success: false,
+                error: errorMessage
+              });
+              
+              // Continue with other items but track the failure
+              ctx.logger.warn('Continuing with remaining transfer items despite failure');
             }
           }
+          
+          ctx.logger.info(`Transfer completion summary: ${completedItems} completed, ${failedItems} failed out of ${currentTransfer.items.length} total items`);
+          
+          // If any items failed, don't mark the transfer as completed
+          if (failedItems > 0) {
+            const failureDetails = transferResults
+              .filter(r => !r.success)
+              .map(r => `Product ${r.product_id}: ${r.error}`)
+              .join('; ');
+              
+            ctx.logger.error('Transfer completion failed due to item failures:', failureDetails);
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Transfer completion failed. ${failedItems} of ${currentTransfer.items.length} items failed: ${failureDetails}`
+            });
+          }
+          
+          ctx.logger.info('All transfer items completed successfully, proceeding with status update');
+        } else {
+          ctx.logger.warn('No items found in transfer, proceeding with status update anyway');
         }
       }
 

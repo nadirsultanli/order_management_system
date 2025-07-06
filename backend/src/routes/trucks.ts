@@ -1114,4 +1114,191 @@ export const trucksRouter = router({
       
       return result;
     }),
+
+  // Truck Inventory Transfer Endpoints
+  loadInventory: protectedProcedure
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      warehouse_id: z.string().uuid(),
+      items: z.array(z.object({
+        product_id: z.string().uuid(),
+        qty_full: z.number().min(0),
+        qty_empty: z.number().min(0),
+      })).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Loading truck inventory:', input);
+
+      // Validate truck exists and is active
+      const { data: truck, error: truckError } = await ctx.supabase
+        .from('truck')
+        .select('id, fleet_number, active')
+        .eq('id', input.truck_id)
+        .single();
+
+      if (truckError || !truck) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Truck not found',
+        });
+      }
+
+      if (!truck.active) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot load inactive truck',
+        });
+      }
+
+      // Validate warehouse exists
+      const { data: warehouse, error: warehouseError } = await ctx.supabase
+        .from('warehouses')
+        .select('id, name')
+        .eq('id', input.warehouse_id)
+        .single();
+
+      if (warehouseError || !warehouse) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Warehouse not found',
+        });
+      }
+
+      const results = [];
+      
+      // Process each item using the atomic transfer function
+      for (const item of input.items) {
+        if (item.qty_full === 0 && item.qty_empty === 0) {
+          continue; // Skip empty items
+        }
+
+        try {
+          const { data: transferResult, error: transferError } = await ctx.supabase.rpc('transfer_stock_to_truck', {
+            p_from_warehouse_id: input.warehouse_id,
+            p_to_truck_id: input.truck_id,
+            p_product_id: item.product_id,
+            p_qty_full: item.qty_full,
+            p_qty_empty: item.qty_empty,
+          });
+
+          if (transferError) {
+            throw transferError;
+          }
+
+          results.push(transferResult);
+          ctx.logger.info('Item transferred successfully:', transferResult);
+        } catch (error) {
+          ctx.logger.error('Item transfer failed:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to transfer ${item.product_id}: ${errorMessage}`,
+          });
+        }
+      }
+
+      ctx.logger.info('Truck loading completed successfully');
+      return {
+        success: true,
+        truck_id: input.truck_id,
+        warehouse_id: input.warehouse_id,
+        items_transferred: results.length,
+        results
+      };
+    }),
+
+  unloadInventory: protectedProcedure
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      warehouse_id: z.string().uuid(),
+      items: z.array(z.object({
+        product_id: z.string().uuid(),
+        qty_full: z.number().min(0),
+        qty_empty: z.number().min(0),
+      })).min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Unloading truck inventory:', input);
+
+      // Validate truck exists and is active
+      const { data: truck, error: truckError } = await ctx.supabase
+        .from('truck')
+        .select('id, fleet_number, active')
+        .eq('id', input.truck_id)
+        .single();
+
+      if (truckError || !truck) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Truck not found',
+        });
+      }
+
+      if (!truck.active) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot unload inactive truck',
+        });
+      }
+
+      // Validate warehouse exists
+      const { data: warehouse, error: warehouseError } = await ctx.supabase
+        .from('warehouses')
+        .select('id, name')
+        .eq('id', input.warehouse_id)
+        .single();
+
+      if (warehouseError || !warehouse) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Warehouse not found',
+        });
+      }
+
+      const results = [];
+      
+      // Process each item using the atomic transfer function
+      for (const item of input.items) {
+        if (item.qty_full === 0 && item.qty_empty === 0) {
+          continue; // Skip empty items
+        }
+
+        try {
+          const { data: transferResult, error: transferError } = await ctx.supabase.rpc('transfer_stock_from_truck', {
+            p_from_truck_id: input.truck_id,
+            p_to_warehouse_id: input.warehouse_id,
+            p_product_id: item.product_id,
+            p_qty_full: item.qty_full,
+            p_qty_empty: item.qty_empty,
+          });
+
+          if (transferError) {
+            throw transferError;
+          }
+
+          results.push(transferResult);
+          ctx.logger.info('Item transferred successfully:', transferResult);
+        } catch (error) {
+          ctx.logger.error('Item transfer failed:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to transfer ${item.product_id}: ${errorMessage}`,
+          });
+        }
+      }
+
+      ctx.logger.info('Truck unloading completed successfully');
+      return {
+        success: true,
+        truck_id: input.truck_id,
+        warehouse_id: input.warehouse_id,
+        items_transferred: results.length,
+        results
+      };
+    }),
 });
