@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
+import { formatErrorMessage } from '../lib/logger';
 import { TRPCError } from '@trpc/server';
 
 // Validation schemas

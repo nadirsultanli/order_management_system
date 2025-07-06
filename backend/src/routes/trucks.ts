@@ -1591,11 +1591,9 @@ export const trucksRouter = router({
           results.push(transferResult);
           ctx.logger.info('Item transferred successfully:', transferResult);
         } catch (error) {
+          const errorMessage = formatErrorMessage(error);
           ctx.logger.error('Item transfer failed:', {
-            error: formatErrorMessage(error),
-            code: error?.code,
-            details: error?.details,
-            hint: error?.hint,
+            error: errorMessage,
             user_id: user.id,
             truck_id: input.truck_id,
             warehouse_id: input.warehouse_id,
@@ -1605,7 +1603,6 @@ export const trucksRouter = router({
               qty_empty: item.qty_empty
             }
           });
-          const errorMessage = formatErrorMessage(error);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: `Failed to transfer ${item.product_id}: ${errorMessage}`,
