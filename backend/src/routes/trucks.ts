@@ -714,6 +714,21 @@ export const trucksRouter = router({
         });
       }
 
+      // CRITICAL FIX: Get truck inventory for proper capacity calculation
+      const { data: inventoryData } = await ctx.supabase
+        .from('truck_inventory')
+        .select(`
+          *,
+          product:product_id (
+            name,
+            sku,
+            variant_name,
+            capacity_kg,
+            tare_weight_kg
+          )
+        `)
+        .eq('truck_id', input.truck_id);
+
       // Get truck allocations for the date
       const { data: allocations, error: allocError } = await ctx.supabase
         .from('truck_allocations')
@@ -729,10 +744,36 @@ export const trucksRouter = router({
         });
       }
 
+      // Process inventory with weight calculations
+      const inventory = (inventoryData || []).map((item: any) => {
+        const product = item.product;
+        let weight_kg = 0;
+        
+        if (product && product.capacity_kg && product.tare_weight_kg) {
+          weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
+                     (item.qty_empty * product.tare_weight_kg);
+        } else {
+          // Use default weights if product details not available
+          weight_kg = (item.qty_full * 27) + (item.qty_empty * 14);
+        }
+
+        return {
+          product_id: item.product_id,
+          product_name: product?.name || 'Unknown Product',
+          product_sku: product?.sku || '',
+          product_variant_name: product?.variant_name,
+          qty_full: item.qty_full,
+          qty_empty: item.qty_empty,
+          weight_kg,
+          updated_at: item.updated_at
+        };
+      });
+
       const truckWithCapacity: TruckWithInventory = {
         ...truck,
         capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
-        status: truck.active ? 'active' : 'inactive' // Derive from active field
+        status: truck.active ? 'active' : 'inactive', // Derive from active field
+        inventory // Include actual inventory for capacity calculation
       };
 
       const result = calculateTruckCapacity(truckWithCapacity, allocations || [], input.date);
@@ -908,6 +949,20 @@ export const trucksRouter = router({
         });
       }
 
+      // CRITICAL FIX: Get all truck inventories for proper capacity calculation
+      const { data: allInventoryData } = await ctx.supabase
+        .from('truck_inventory')
+        .select(`
+          *,
+          product:product_id (
+            name,
+            sku,
+            variant_name,
+            capacity_kg,
+            tare_weight_kg
+          )
+        `);
+
       // Get all allocations for the date
       const { data: allocations, error: allocError } = await ctx.supabase
         .from('truck_allocations')
@@ -922,12 +977,42 @@ export const trucksRouter = router({
         });
       }
 
-      // Enhance trucks with capacity info
-      const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => ({
-        ...truck,
-        capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
-        status: truck.active ? 'active' : 'inactive' // Derive from active field
-      }));
+      // Enhance trucks with capacity info and inventory
+      const enhancedTrucks: TruckWithInventory[] = (trucks || []).map(truck => {
+        // Get inventory for this truck
+        const truckInventoryData = (allInventoryData || []).filter(item => item.truck_id === truck.id);
+        
+        const inventory = truckInventoryData.map((item: any) => {
+          const product = item.product;
+          let weight_kg = 0;
+          
+          if (product && product.capacity_kg && product.tare_weight_kg) {
+            weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
+                       (item.qty_empty * product.tare_weight_kg);
+          } else {
+            // Use default weights if product details not available
+            weight_kg = (item.qty_full * 27) + (item.qty_empty * 14);
+          }
+
+          return {
+            product_id: item.product_id,
+            product_name: product?.name || 'Unknown Product',
+            product_sku: product?.sku || '',
+            product_variant_name: product?.variant_name,
+            qty_full: item.qty_full,
+            qty_empty: item.qty_empty,
+            weight_kg,
+            updated_at: item.updated_at
+          };
+        });
+
+        return {
+          ...truck,
+          capacity_kg: truck.capacity_cylinders * 27, // Calculate from capacity_cylinders
+          status: truck.active ? 'active' : 'inactive', // Derive from active field
+          inventory // Include inventory for proper capacity calculation
+        };
+      });
 
       const schedules = generateDailyTruckSchedule(enhancedTrucks, allocations || [], input.date);
       const fleetUtilization = calculateFleetUtilization(schedules);

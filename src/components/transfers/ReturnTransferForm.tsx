@@ -5,6 +5,7 @@ import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
 import { ProductSelector } from '../products/ProductSelector';
 import { trpc } from '../../lib/trpc-client';
+import toast from 'react-hot-toast';
 
 // Define types locally since they were removed from lib/transfers
 interface TransferLine {
@@ -100,6 +101,13 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       });
       console.log('Transfer created successfully:', transfer);
 
+      // Show success message
+      const totalFull = lines.reduce((sum, line) => sum + (Number(line.qty_full) || 0), 0);
+      const totalEmpty = lines.reduce((sum, line) => sum + (Number(line.qty_empty) || 0), 0);
+      const totalItems = totalFull + totalEmpty;
+      
+      toast.success(`Successfully returned ${totalItems} cylinders (${totalFull} full, ${totalEmpty} empty) to warehouse`);
+
       // Reset form
       setSelectedTruck('');
       setSelectedWarehouse('');
@@ -111,7 +119,9 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       }
     } catch (err: any) {
       console.error('Transfer creation error:', err);
-      setError(err.message || 'Failed to create transfer');
+      const errorMessage = err.message || 'Failed to create transfer';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

@@ -160,6 +160,7 @@ export function calculateOrderWeight(
 
 /**
  * Calculate truck capacity information for a given date
+ * FIXED: Now includes actual truck inventory in addition to allocations
  */
 export function calculateTruckCapacity(
   truck: TruckWithInventory,
@@ -170,10 +171,34 @@ export function calculateTruckCapacity(
     a => a.allocation_date === date && a.status !== 'cancelled'
   );
 
-  const allocated_weight_kg = dateAllocations.reduce(
+  // Calculate weight from order allocations
+  const allocation_weight_kg = dateAllocations.reduce(
     (sum, allocation) => sum + allocation.estimated_weight_kg, 
     0
   );
+
+  // CRITICAL FIX: Calculate actual inventory weight on the truck
+  const inventory_weight_kg = (truck.inventory || []).reduce((sum, item) => {
+    // Calculate weight based on actual inventory
+    // Use product weight information if available, otherwise use default weights
+    let item_weight = 0;
+    
+    if (item.weight_kg) {
+      // Use pre-calculated weight if available
+      item_weight = item.weight_kg;
+    } else {
+      // Calculate weight based on cylinder type and quantities
+      // For full cylinders: assume 27kg each (13kg gas + 14kg tare)
+      // For empty cylinders: assume 14kg each (tare weight only)
+      item_weight = (item.qty_full * 27) + (item.qty_empty * 14);
+    }
+    
+    return sum + item_weight;
+  }, 0);
+
+  // Use the MAXIMUM of allocated weight or actual inventory weight
+  // This ensures we account for both planned orders and actual transferred inventory
+  const allocated_weight_kg = Math.max(allocation_weight_kg, inventory_weight_kg);
 
   const total_capacity_kg = truck.capacity_kg;
   const available_weight_kg = Math.max(0, total_capacity_kg - allocated_weight_kg);

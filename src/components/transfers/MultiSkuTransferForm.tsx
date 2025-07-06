@@ -23,6 +23,7 @@ import {
 } from '../../types/transfer';
 import { Product, WarehouseStockInfo } from '../../types';
 import { generateTransferReference } from '../../utils/transfer-validation';
+import toast from 'react-hot-toast';
 
 interface MultiSkuTransferFormProps {
   onTransferCreated?: (transferId: string) => void;
@@ -122,17 +123,17 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
   const handleNextStep = () => {
     if (currentStep === 'setup') {
       if (!formData.source_warehouse_id || !formData.destination_warehouse_id) {
-        alert('Please select both source and destination warehouses');
+        toast.error('Please select both source and destination warehouses');
         return;
       }
       if (formData.source_warehouse_id === formData.destination_warehouse_id) {
-        alert('Source and destination warehouses must be different');
+        toast.error('Source and destination warehouses must be different');
         return;
       }
       setCurrentStep('products');
     } else if (currentStep === 'products') {
       if (selectedItems.length === 0) {
-        alert('Please select at least one product for transfer');
+        toast.error('Please select at least one product for transfer');
         return;
       }
       setCurrentStep('review');
@@ -149,7 +150,7 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
 
   const handleSubmitTransfer = async () => {
     if (!validationResult?.is_valid) {
-      alert('Please fix validation errors before submitting');
+      toast.error('Please fix validation errors before submitting');
       return;
     }
 
@@ -176,11 +177,35 @@ export const MultiSkuTransferForm: React.FC<MultiSkuTransferFormProps> = ({
       };
 
       const transfer = await createTransfer(transferData);
-      if (transfer && onTransferCreated) {
-        onTransferCreated(transfer.id);
+      if (transfer) {
+        // Reset form to initial state
+        setFormData({
+          source_warehouse_id: '',
+          destination_warehouse_id: '',
+          transfer_date: new Date().toISOString().split('T')[0],
+          priority: 'normal',
+          transfer_reference: '',
+          reason: '',
+          notes: '',
+          instructions: '',
+          selected_items: []
+        });
+        setCurrentStep('setup');
+        
+        // Call success callback if provided
+        if (onTransferCreated) {
+          onTransferCreated(transfer.id);
+        }
+        
+        // Call cancel callback to close modal/form if provided
+        if (onCancel) {
+          onCancel();
+        }
       }
     } catch (error) {
       console.error('Error submitting transfer:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create transfer';
+      toast.error(errorMessage);
     }
   };
 

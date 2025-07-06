@@ -59,6 +59,7 @@ export const InventoryPage: React.FC = () => {
     try {
       await adjustStock.mutateAsync(data);
       setAdjustingInventory(null);
+      refetch(); // Refresh inventory data
     } catch (error) {
       console.error('Adjustment error:', error);
       // Error handling is done in the hook
@@ -70,6 +71,7 @@ export const InventoryPage: React.FC = () => {
     try {
       await transferStock.mutateAsync(data);
       setTransferringInventory(null);
+      refetch(); // Refresh inventory data
     } catch (error) {
       console.error('Transfer error:', error);
       // Error handling is done in the hook
@@ -81,6 +83,7 @@ export const InventoryPage: React.FC = () => {
     try {
       await createInventoryBalance.mutateAsync(data);
       setShowAddStockModal(false);
+      refetch(); // Refresh inventory data
     } catch (error) {
       console.error('Add stock error:', error);
       // Error handling is done in the hook

@@ -5,6 +5,7 @@ import { MultiSkuTransferForm } from '../components/transfers/MultiSkuTransferFo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { Card } from '../components/ui/Card';
 import { Truck, ArrowLeftRight, Package, AlertCircle } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // Error Boundary Component
 class TransferErrorBoundary extends React.Component<
@@ -58,6 +59,21 @@ class TransferErrorBoundary extends React.Component<
 export const TransfersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('load');
 
+  const handleTransferSuccess = (transferId: string) => {
+    console.log('Transfer created successfully:', transferId);
+    toast.success('Transfer created successfully!');
+  };
+
+  const handleLoadTransferSuccess = () => {
+    console.log('Load transfer completed successfully');
+    toast.success('Truck loaded successfully!');
+  };
+
+  const handleReturnTransferSuccess = () => {
+    console.log('Return transfer completed successfully');
+    toast.success('Return transfer completed successfully!');
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
@@ -89,7 +105,7 @@ export const TransfersPage: React.FC = () => {
               <div className="p-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Load Truck</h2>
                 <TransferErrorBoundary>
-                  <LoadTransferForm />
+                  <LoadTransferForm onSuccess={handleLoadTransferSuccess} />
                 </TransferErrorBoundary>
               </div>
             </Card>
@@ -100,7 +116,7 @@ export const TransfersPage: React.FC = () => {
               <div className="p-6">
                 <h2 className="text-lg font-medium text-gray-900 mb-4">Return to Warehouse</h2>
                 <TransferErrorBoundary>
-                  <ReturnTransferForm />
+                  <ReturnTransferForm onSuccess={handleReturnTransferSuccess} />
                 </TransferErrorBoundary>
               </div>
             </Card>
@@ -109,10 +125,7 @@ export const TransfersPage: React.FC = () => {
           <TabsContent value="multi-sku">
             <TransferErrorBoundary>
               <MultiSkuTransferForm
-                onTransferCreated={(transferId) => {
-                  console.log('Transfer created:', transferId);
-                  // Could navigate to transfer details or show success message
-                }}
+                onTransferCreated={handleTransferSuccess}
               />
             </TransferErrorBoundary>
           </TabsContent>
