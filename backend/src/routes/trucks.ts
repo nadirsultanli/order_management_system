@@ -30,14 +30,14 @@ const CreateTruckSchema = z.object({
   license_plate: z.string().min(1),
   capacity_cylinders: z.number().positive(),
   capacity_kg: z.number().positive().optional(), // Not in database, for calculations only
-  driver_name: z.string().optional(),
+  driver_name: z.string().nullable().optional(),
   active: z.boolean().default(true),
   status: TruckStatusEnum.default('active').optional(), // Not in database
-  last_maintenance_date: z.string().optional(),
-  next_maintenance_due: z.string().optional(),
+  last_maintenance_date: z.string().nullable().optional(),
+  next_maintenance_due: z.string().nullable().optional(),
   maintenance_interval_days: z.number().positive().optional(), // Not in database
-  fuel_capacity_liters: z.number().positive().optional(),
-  avg_fuel_consumption: z.number().positive().optional(),
+  fuel_capacity_liters: z.number().positive().nullable().optional(),
+  avg_fuel_consumption: z.number().positive().nullable().optional(),
 });
 
 const UpdateTruckSchema = z.object({
@@ -46,14 +46,14 @@ const UpdateTruckSchema = z.object({
   license_plate: z.string().min(1).optional(),
   capacity_cylinders: z.number().positive().optional(),
   capacity_kg: z.number().positive().optional(), // Not in database, for calculations only
-  driver_name: z.string().optional(),
+  driver_name: z.string().nullable().optional(),
   active: z.boolean().optional(),
   status: TruckStatusEnum.optional(), // Not in database
-  last_maintenance_date: z.string().optional(),
-  next_maintenance_due: z.string().optional(),
+  last_maintenance_date: z.string().nullable().optional(),
+  next_maintenance_due: z.string().nullable().optional(),
   maintenance_interval_days: z.number().positive().optional(), // Not in database
-  fuel_capacity_liters: z.number().positive().optional(),
-  avg_fuel_consumption: z.number().positive().optional(),
+  fuel_capacity_liters: z.number().positive().nullable().optional(),
+  avg_fuel_consumption: z.number().positive().nullable().optional(),
 });
 
 const TruckFiltersSchema = z.object({
