@@ -885,34 +885,90 @@ export const ordersRouter = router({
 
       // Handle inventory updates based on status change
       if (input.new_status === 'confirmed' && currentOrder.status === 'draft') {
-        // Reserve inventory
+        // Reserve inventory when order is confirmed
         if (currentOrder.order_lines) {
           for (const line of currentOrder.order_lines) {
-            await ctx.supabase.rpc('reserve_stock', {
+            // Get the primary warehouse for this product
+            const { data: inventory, error: inventoryError } = await ctx.supabase
+              .from('inventory_balance')
+              .select('warehouse_id, qty_full, qty_reserved')
+              .eq('product_id', line.product_id)
+              .gt('qty_full', 0)
+              .order('qty_full', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (inventoryError || !inventory) {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: `No available inventory for product ${line.product_id}`
+              });
+            }
+
+            const availableStock = inventory.qty_full - inventory.qty_reserved;
+            if (availableStock < line.quantity) {
+              throw new TRPCError({
+                code: 'BAD_REQUEST',
+                message: `Insufficient stock for product ${line.product_id}. Available: ${availableStock}, Requested: ${line.quantity}`
+              });
+            }
+
+            const { error: reserveError } = await ctx.supabase.rpc('reserve_stock', {
               p_product_id: line.product_id,
-              p_quantity: line.quantity
+              p_quantity: line.quantity,
+              p_warehouse_id: inventory.warehouse_id
             });
+
+            if (reserveError) {
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to reserve stock for product ${line.product_id}: ${reserveError.message}`
+              });
+            }
           }
         }
-      } else if (input.new_status === 'delivered' && 
-                 ['confirmed', 'scheduled', 'en_route'].includes(currentOrder.status)) {
-        // Deduct actual stock and release reserved
+      } else if (input.new_status === 'en_route' && 
+                 ['confirmed', 'scheduled'].includes(currentOrder.status)) {
+        // When order goes en route, fulfill the reserved inventory (remove from warehouse)
         if (currentOrder.order_lines) {
           for (const line of currentOrder.order_lines) {
-            await ctx.supabase.rpc('fulfill_order_line', {
+            const { error: fulfillError } = await ctx.supabase.rpc('fulfill_order_line', {
               p_product_id: line.product_id,
               p_quantity: line.quantity
             });
+
+            if (fulfillError) {
+              ctx.logger.error('Failed to fulfill order line:', {
+                error: formatErrorMessage(fulfillError),
+                product_id: line.product_id,
+                quantity: line.quantity,
+                order_id: input.order_id
+              });
+              // Don't throw error here as the order status change should still proceed
+            }
           }
         }
-      } else if (input.new_status === 'cancelled' && currentOrder.status === 'confirmed') {
-        // Release reserved stock
+      } else if (input.new_status === 'delivered' && currentOrder.status === 'en_route') {
+        // Order delivered - no inventory changes needed as stock was already removed when en_route
+        ctx.logger.info('Order delivered - inventory already fulfilled when went en_route');
+      } else if (input.new_status === 'cancelled' && ['confirmed', 'scheduled'].includes(currentOrder.status)) {
+        // Release reserved stock when order is cancelled
         if (currentOrder.order_lines) {
           for (const line of currentOrder.order_lines) {
-            await ctx.supabase.rpc('release_reserved_stock', {
+            const { error: releaseError } = await ctx.supabase.rpc('release_reserved_stock', {
               p_product_id: line.product_id,
               p_quantity: line.quantity
             });
+
+            if (releaseError) {
+              ctx.logger.error('Failed to release reserved stock:', {
+                error: formatErrorMessage(releaseError),
+                product_id: line.product_id,
+                quantity: line.quantity,
+                order_id: input.order_id
+              });
+              // Don't throw error here as the order cancellation should still proceed
+            }
           }
         }
       }

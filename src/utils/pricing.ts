@@ -35,12 +35,11 @@ export const calculateFinalPrice = async (unitPrice: number, surchargePercent?: 
   }
 };
 
-// UI-only placeholder - NO business logic, returns input for display
+// UI-only calculation for display purposes
 export const calculateFinalPriceSync = (unitPrice: number, surchargePercent?: number): number => {
-  // This is a placeholder for build compatibility only
-  // Real calculations MUST use calculateFinalPrice() async API
-  console.warn('calculateFinalPriceSync is deprecated - use calculateFinalPrice() API instead');
-  return unitPrice; // Return base price only, no calculations
+  // Calculate final price with surcharge for UI display
+  const surcharge = surchargePercent ? (unitPrice * surchargePercent / 100) : 0;
+  return unitPrice + surcharge;
 };
 
 export const formatDateRange = (startDate: string, endDate?: string): string => {

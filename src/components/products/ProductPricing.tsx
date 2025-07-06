@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Edit, Plus, DollarSign } from 'lucide-react';
-import { usePriceListsNew, useCreatePriceListItemNew, useProductPriceListItemsNew } from '../../hooks/usePricing';
+import { usePriceListsNew, useCreatePriceListItemNew, useUpdatePriceListItemNew, useProductPriceListItemsNew } from '../../hooks/usePricing';
 import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
 import { formatCurrencySync, calculateFinalPriceSync, getPriceListStatusSync } from '../../utils/pricing';
 import { PriceListItemForm } from '../pricing/PriceListItemForm';
@@ -33,7 +33,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
   
   // Mutation hooks
   const createPriceListItem = useCreatePriceListItemNew();
-  // Note: useUpdatePriceListItem doesn't exist - update functionality is disabled for now
+  const updatePriceListItem = useUpdatePriceListItemNew();
 
   // After all hooks are called, we can use conditional logic
   const handleAddPrice = (priceListId: string) => {
@@ -51,9 +51,10 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
   const handlePriceSubmit = async (data: CreatePriceListItemData) => {
     try {
       if (editingItem) {
-        // TODO: Implement update functionality when useUpdatePriceListItem is available
-        alert('Edit functionality is temporarily disabled');
-        return;
+        await updatePriceListItem.mutateAsync({ 
+          id: editingItem.id, 
+          ...data 
+        });
       } else {
         await createPriceListItem.mutateAsync({ ...data, product_id: productId });
       }

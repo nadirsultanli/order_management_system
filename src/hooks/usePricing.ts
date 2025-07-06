@@ -257,6 +257,32 @@ export const useCreatePriceListItemNew = () => {
   });
 };
 
+// Hook for updating price list items
+export const useUpdatePriceListItemNew = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.pricing.updateItem.useMutation({
+    onSuccess: (updatedItem) => {
+      console.log('Price list item updated successfully:', updatedItem);
+      
+      // Invalidate price list items
+      utils.pricing.getPriceListItems.invalidate({ price_list_id: updatedItem.price_list_id });
+      utils.pricing.getPriceList.invalidate({ price_list_id: updatedItem.price_list_id });
+      
+      // Invalidate product pricing to refresh the product view
+      utils.pricing.getProductPriceListItems.invalidate({ productId: updatedItem.product_id });
+      utils.pricing.getProductPrices.invalidate();
+      utils.pricing.getProductPrice.invalidate({ productId: updatedItem.product_id });
+      
+      toast.success('Price list item updated successfully');
+    },
+    onError: (error) => {
+      console.error('Update price list item error:', error);
+      toast.error(error.message || 'Failed to update price list item');
+    },
+  });
+};
+
 // Hook for deleting price lists
 export const useDeletePriceListNew = () => {
   const utils = trpc.useContext();
