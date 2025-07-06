@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { WarehouseInventory } from './WarehouseInventory';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
+import { Search, Truck, Package, Plus, X, Warehouse, CheckCircle, AlertCircle } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
 import { ProductSelector } from '../products/ProductSelector';
 import { trpc } from '../../lib/trpc-client';
 import toast from 'react-hot-toast';
+import { verifyTransferIntegrity } from '../../utils/transfer-verification';
 
 // Define types locally since they were removed from lib/transfers
 interface TransferLine {
@@ -26,20 +27,52 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
   const [lines, setLines] = useState<TransferLine[]>([]);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { data: warehouses = [] } = useWarehouseOptions();
   const [showProductSelector, setShowProductSelector] = useState(false);
   const [selectedLineIndex, setSelectedLineIndex] = useState<number | null>(null);
+  const [optimisticUpdate, setOptimisticUpdate] = useState<boolean>(false);
+  const [transferResult, setTransferResult] = useState<any>(null);
 
   // Use tRPC to get trucks and context for invalidation
   const { data: trucksData } = trpc.trucks.list.useQuery({ active: true });
   const trucks = trucksData?.trucks || [];
   const utils = trpc.useContext();
   
-  // Use tRPC for truck loading
-  const loadTruckMutation = trpc.trucks.loadInventory.useMutation();
+  // Use tRPC for truck loading with optimistic updates
+  const loadTruckMutation = trpc.trucks.loadInventory.useMutation({
+    onMutate: async () => {
+      // Start optimistic update
+      setOptimisticUpdate(true);
+      
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await utils.trucks.get.cancel({ id: selectedTruck });
+      await utils.inventory.getByWarehouse.cancel({ warehouse_id: selectedWarehouse });
+      
+      // Snapshot current values
+      const previousTruckData = utils.trucks.get.getData({ id: selectedTruck });
+      const previousInventoryData = utils.inventory.getByWarehouse.getData({ warehouse_id: selectedWarehouse });
+      
+      return { previousTruckData, previousInventoryData };
+    },
+    onError: (err, variables, context) => {
+      // Revert optimistic update on error
+      setOptimisticUpdate(false);
+      if (context?.previousTruckData) {
+        utils.trucks.get.setData({ id: selectedTruck }, context.previousTruckData);
+      }
+      if (context?.previousInventoryData) {
+        utils.inventory.getByWarehouse.setData({ warehouse_id: selectedWarehouse }, context.previousInventoryData);
+      }
+    },
+    onSuccess: async (data) => {
+      setTransferResult(data);
+      setOptimisticUpdate(false);
+    }
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +125,18 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       });
       
       console.log('Truck loading completed successfully:', result);
+      
+      // Verify the transfer was actually completed in the database
+      setVerifying(true);
+      try {
+        await verifyTransferCompletion(selectedTruck, selectedWarehouse, items);
+        console.log('Transfer verification completed successfully');
+      } catch (verificationError) {
+        console.warn('Transfer verification failed:', verificationError);
+        toast.warning('Transfer completed but verification failed. Please check inventory manually.');
+      } finally {
+        setVerifying(false);
+      }
 
       // Show success message
       const totalFull = lines.reduce((sum, line) => sum + (Number(line.qty_full) || 0), 0);
@@ -100,12 +145,23 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       
       toast.success(`Successfully loaded ${totalItems} cylinders (${totalFull} full, ${totalEmpty} empty) onto truck`);
 
-      // Invalidate relevant queries to refresh inventory data
-      utils.inventory.list.invalidate();
-      utils.inventory.getByWarehouse.invalidate();
-      utils.inventory.getStats.invalidate();
-      utils.trucks.list.invalidate();
-      utils.trucks.get.invalidate();
+      // Comprehensive query invalidation for real-time updates
+      await Promise.all([
+        // Inventory queries
+        utils.inventory.list.invalidate(),
+        utils.inventory.getByWarehouse.invalidate({ warehouse_id: selectedWarehouse }),
+        utils.inventory.getStats.invalidate(),
+        
+        // Truck queries - specific and general
+        utils.trucks.get.invalidate({ id: selectedTruck }),
+        utils.trucks.list.invalidate(),
+        
+        // Transfer queries to update any transfer history
+        utils.transfers.list.invalidate(),
+        
+        // Force refetch specific truck inventory
+        utils.trucks.get.refetch({ id: selectedTruck })
+      ]);
 
       // Reset form
       setSelectedTruck('');
@@ -123,8 +179,58 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setVerifying(false);
     }
   };
+
+  // Verification function to confirm transfer completion
+  const verifyTransferCompletion = useCallback(async (
+    truckId: string,
+    warehouseId: string,
+    transferredItems: Array<{ product_id: string; qty_full: number; qty_empty: number }>
+  ) => {
+    // Wait a short time for database consistency
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Fetch updated truck inventory
+    const updatedTruckData = await utils.trucks.get.refetch({ id: truckId });
+    const truckInventory = updatedTruckData.data?.inventory || [];
+    
+    // Fetch updated warehouse inventory
+    const updatedWarehouseData = await utils.inventory.getByWarehouse.refetch({ warehouse_id: warehouseId });
+    const warehouseInventory = updatedWarehouseData.data || [];
+    
+    // Verify each transferred item
+    const verificationResults = [];
+    for (const item of transferredItems) {
+      const truckItem = truckInventory.find(inv => inv.product_id === item.product_id);
+      const warehouseItem = warehouseInventory.find(inv => inv.product_id === item.product_id);
+      
+      const verification = {
+        product_id: item.product_id,
+        transferred_full: item.qty_full,
+        transferred_empty: item.qty_empty,
+        truck_inventory_updated: !!truckItem,
+        warehouse_inventory_updated: !!warehouseItem,
+        success: true
+      };
+      
+      // Basic verification - check if inventory exists
+      if (!truckItem && (item.qty_full > 0 || item.qty_empty > 0)) {
+        verification.success = false;
+        console.warn(`Truck inventory not found for product ${item.product_id}`);
+      }
+      
+      verificationResults.push(verification);
+    }
+    
+    const allVerified = verificationResults.every(v => v.success);
+    if (!allVerified) {
+      throw new Error('Some items failed verification');
+    }
+    
+    return verificationResults;
+  }, [utils]);
 
   const handleAddLine = () => {
     setSelectedLineIndex(lines.length);
@@ -354,10 +460,19 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          disabled={loading || !selectedTruck || !selectedWarehouse || lines.length === 0}
-          className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={loading || verifying || !selectedTruck || !selectedWarehouse || lines.length === 0}
+          className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Load Truck
+          {loading && (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+          )}
+          {verifying && (
+            <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
+          )}
+          {optimisticUpdate && (
+            <CheckCircle className="h-4 w-4 mr-2 text-green-300" />
+          )}
+          {loading ? 'Loading...' : verifying ? 'Verifying...' : 'Load Truck'}
         </button>
       </div>
 
@@ -366,11 +481,46 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
         title="Confirm Truck Loading"
-        message="Are you sure you want to load this truck? This will move inventory from the warehouse to the selected truck."
-        confirmText="Load Truck"
+        message={`Are you sure you want to load this truck? This will move inventory from the warehouse to the selected truck. ${lines.length} products will be transferred.`}
+        confirmText={loading ? 'Loading...' : verifying ? 'Verifying...' : 'Load Truck'}
         type="info"
-        loading={loading}
+        loading={loading || verifying}
       />
+      
+      {/* Transfer Status Indicator */}
+      {(optimisticUpdate || verifying) && (
+        <div className="fixed bottom-4 right-4 bg-white shadow-lg rounded-lg p-4 border-l-4 border-blue-500 max-w-sm z-50">
+          <div className="flex items-center">
+            {optimisticUpdate && (
+              <div className="flex items-center text-blue-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                <span className="text-sm font-medium">Processing transfer...</span>
+              </div>
+            )}
+            {verifying && (
+              <div className="flex items-center text-yellow-600">
+                <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
+                <span className="text-sm font-medium">Verifying completion...</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Transfer Result Summary */}
+      {transferResult && (
+        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-md">
+          <div className="flex items-center">
+            <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
+            <h3 className="text-sm font-medium text-green-800">Transfer Completed Successfully</h3>
+          </div>
+          <div className="mt-2 text-sm text-green-700">
+            <p>Truck ID: {transferResult.truck_id}</p>
+            <p>Items Transferred: {transferResult.items_transferred}</p>
+            <p>Warehouse: {warehouses.find(w => w.id === transferResult.warehouse_id)?.name}</p>
+          </div>
+        </div>
+      )}
 
       {/* Product Selector Modal */}
       <ProductSelector

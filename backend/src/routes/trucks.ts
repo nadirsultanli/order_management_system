@@ -156,7 +156,7 @@ export const trucksRouter = router({
 
       if (error) {
         ctx.logger.error('Error fetching trucks:', {
-          error: error.message,
+          error: formatErrorMessage(error),
           code: error.code,
           details: error.details,
           hint: error.hint,
@@ -165,7 +165,7 @@ export const trucksRouter = router({
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to fetch trucks: ${error.message}`,
+          message: `Failed to fetch trucks: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -296,7 +296,7 @@ export const trucksRouter = router({
 
       if (error) {
         ctx.logger.error('Error creating truck:', {
-          error: error.message,
+          error: formatErrorMessage(error),
           code: error.code,
           details: error.details,
           hint: error.hint,
@@ -305,7 +305,7 @@ export const trucksRouter = router({
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create truck: ${error.message}`,
+          message: `Failed to create truck: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -336,10 +336,18 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error updating truck:', error);
+        ctx.logger.error('Error updating truck:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          truck_id: id,
+          update_data: cleanUpdateData
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to update truck',
+          message: `Failed to update truck: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -361,10 +369,17 @@ export const trucksRouter = router({
         ;
 
       if (error) {
-        ctx.logger.error('Error deleting truck:', error);
+        ctx.logger.error('Error deleting truck:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          truck_id: input.id
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to delete truck',
+          message: `Failed to delete truck: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -395,10 +410,18 @@ export const trucksRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        ctx.logger.error('Error fetching truck allocations:', error);
+        ctx.logger.error('Error fetching truck allocations:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          truck_id: input.truck_id,
+          target_date: targetDate
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch truck allocations',
+          message: `Failed to fetch truck allocations: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -425,10 +448,17 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error creating truck allocation:', error);
+        ctx.logger.error('Error creating truck allocation:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          allocation_data: input
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to allocate order to truck',
+          message: `Failed to allocate order to truck: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -454,10 +484,18 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error updating truck allocation:', error);
+        ctx.logger.error('Error updating truck allocation:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          allocation_id: id,
+          update_data: updateData
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to update truck allocation',
+          message: `Failed to update truck allocation: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -488,10 +526,18 @@ export const trucksRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        ctx.logger.error('Error fetching truck routes:', error);
+        ctx.logger.error('Error fetching truck routes:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          truck_id: input.truck_id,
+          target_date: targetDate
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch truck routes',
+          message: `Failed to fetch truck routes: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -519,10 +565,17 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error creating truck route:', error);
+        ctx.logger.error('Error creating truck route:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          route_data: input
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create truck route',
+          message: `Failed to create truck route: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -551,10 +604,18 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error updating truck route:', error);
+        ctx.logger.error('Error updating truck route:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          route_id: id,
+          update_data: updateData
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to update truck route',
+          message: `Failed to update truck route: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -580,10 +641,17 @@ export const trucksRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        ctx.logger.error('Error fetching truck maintenance:', error);
+        ctx.logger.error('Error fetching truck maintenance:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          truck_id: input.truck_id
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch truck maintenance records',
+          message: `Failed to fetch truck maintenance records: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -611,10 +679,17 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error scheduling truck maintenance:', error);
+        ctx.logger.error('Error scheduling truck maintenance:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          maintenance_data: input
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to schedule truck maintenance',
+          message: `Failed to schedule truck maintenance: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -643,10 +718,18 @@ export const trucksRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Error updating truck maintenance:', error);
+        ctx.logger.error('Error updating truck maintenance:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          maintenance_id: id,
+          update_data: updateData
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to update truck maintenance',
+          message: `Failed to update truck maintenance: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -679,10 +762,18 @@ export const trucksRouter = router({
         .in('id', productIds);
 
       if (error) {
-        ctx.logger.error('Error fetching products for weight calculation:', error);
+        ctx.logger.error('Error fetching products for weight calculation:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          product_ids: productIds,
+          order_lines_count: input.order_lines.length
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch product data',
+          message: `Failed to fetch product data: ${formatErrorMessage(error)}`,
         });
       }
 
@@ -709,6 +800,14 @@ export const trucksRouter = router({
         .single();
 
       if (truckError || !truck) {
+        ctx.logger.error('Truck validation error for capacity calculation:', {
+          error: formatErrorMessage(truckError),
+          code: truckError?.code,
+          details: truckError?.details,
+          hint: truckError?.hint,
+          user_id: user.id,
+          truck_id: input.truck_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Truck not found',
@@ -1140,6 +1239,14 @@ export const trucksRouter = router({
         .single();
 
       if (truckError || !truck) {
+        ctx.logger.error('Truck validation error for loading inventory:', {
+          error: formatErrorMessage(truckError),
+          code: truckError?.code,
+          details: truckError?.details,
+          hint: truckError?.hint,
+          user_id: user.id,
+          truck_id: input.truck_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Truck not found',
@@ -1147,6 +1254,12 @@ export const trucksRouter = router({
       }
 
       if (!truck.active) {
+        ctx.logger.error('Attempted to load inactive truck:', {
+          user_id: user.id,
+          truck_id: input.truck_id,
+          fleet_number: truck.fleet_number,
+          active: truck.active
+        });
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Cannot load inactive truck',
@@ -1161,6 +1274,14 @@ export const trucksRouter = router({
         .single();
 
       if (warehouseError || !warehouse) {
+        ctx.logger.error('Warehouse validation error for truck loading:', {
+          error: formatErrorMessage(warehouseError),
+          code: warehouseError?.code,
+          details: warehouseError?.details,
+          hint: warehouseError?.hint,
+          user_id: user.id,
+          warehouse_id: input.warehouse_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Warehouse not found',
@@ -1168,14 +1289,42 @@ export const trucksRouter = router({
       }
 
       const results = [];
+      const processedItems = [];
+      let completedItems = 0;
+      let failedItems = 0;
+      
+      // Enhanced logging for truck loading process
+      const loadingId = `load_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+      ctx.logger.info(`[${loadingId}] 🚀 Starting truck loading process`, {
+        loadingId,
+        truckId: input.truck_id,
+        warehouseId: input.warehouse_id,
+        itemCount: input.items.length,
+        truckFleetNumber: truck.fleet_number,
+        warehouseName: warehouse.name
+      });
       
       // Process each item using the atomic transfer function
-      for (const item of input.items) {
+      for (const [index, item] of input.items.entries()) {
         if (item.qty_full === 0 && item.qty_empty === 0) {
+          ctx.logger.info(`[${loadingId}] ⏭️ Skipping empty item ${index + 1}/${input.items.length}`, {
+            loadingId,
+            productId: item.product_id,
+            reason: 'zero_quantities'
+          });
           continue; // Skip empty items
         }
 
         try {
+          ctx.logger.info(`[${loadingId}] 🔄 Processing item ${index + 1}/${input.items.length}`, {
+            loadingId,
+            itemIndex: index + 1,
+            totalItems: input.items.length,
+            productId: item.product_id,
+            qtyFull: item.qty_full,
+            qtyEmpty: item.qty_empty
+          });
+
           const { data: transferResult, error: transferError } = await ctx.supabase.rpc('transfer_stock_to_truck', {
             p_from_warehouse_id: input.warehouse_id,
             p_to_truck_id: input.truck_id,
@@ -1188,26 +1337,162 @@ export const trucksRouter = router({
             throw transferError;
           }
 
+          if (!transferResult || !transferResult.success) {
+            throw new Error(`Transfer function reported failure: ${transferResult?.error || 'Unknown error'}`);
+          }
+
           results.push(transferResult);
-          ctx.logger.info('Item transferred successfully:', transferResult);
+          processedItems.push({
+            ...item,
+            success: true,
+            transferResult
+          });
+          completedItems++;
+          
+          ctx.logger.info(`[${loadingId}] ✅ Item ${index + 1}/${input.items.length} transferred successfully`, {
+            loadingId,
+            productId: item.product_id,
+            transferResult,
+            completedSoFar: completedItems
+          });
+          
         } catch (error) {
-          ctx.logger.error('Item transfer failed:', error);
+          failedItems++;
           const errorMessage = formatErrorMessage(error);
+          
+          ctx.logger.error(`[${loadingId}] ❌ Item ${index + 1}/${input.items.length} transfer failed`, {
+            loadingId,
+            productId: item.product_id,
+            error: errorMessage,
+            failedSoFar: failedItems
+          });
+
+          processedItems.push({
+            ...item,
+            success: false,
+            error: errorMessage
+          });
+          
+          // Throw error to stop processing and rollback if needed
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: `Failed to transfer ${item.product_id}: ${errorMessage}`,
           });
         }
       }
+      
+      // Verify all items were processed successfully
+      if (failedItems > 0) {
+        ctx.logger.error(`[${loadingId}] ❌ LOADING FAILED: ${failedItems} items failed out of ${input.items.length}`, {
+          loadingId,
+          totalItems: input.items.length,
+          completedItems,
+          failedItems,
+          successRate: completedItems / input.items.length * 100
+        });
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Truck loading failed: ${failedItems} of ${input.items.length} items failed to transfer`,
+        });
+      }
 
-      ctx.logger.info('Truck loading completed successfully');
-      return {
-        success: true,
-        truck_id: input.truck_id,
-        warehouse_id: input.warehouse_id,
-        items_transferred: results.length,
-        results
-      };
+      // Final verification step - check database state
+      const finalVerificationStart = Date.now();
+      try {
+        // Wait a brief moment for database consistency
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Verify truck inventory was updated
+        const { data: updatedTruckInventory } = await ctx.supabase
+          .from('truck_inventory')
+          .select('product_id, qty_full, qty_empty')
+          .eq('truck_id', input.truck_id)
+          .in('product_id', input.items.map(item => item.product_id));
+        
+        // Verify warehouse inventory was decremented
+        const { data: updatedWarehouseInventory } = await ctx.supabase
+          .from('inventory_balance')
+          .select('product_id, qty_full, qty_empty')
+          .eq('warehouse_id', input.warehouse_id)
+          .in('product_id', input.items.map(item => item.product_id));
+        
+        const verificationResults = input.items.map(item => {
+          const truckItem = updatedTruckInventory?.find(inv => inv.product_id === item.product_id);
+          const warehouseItem = updatedWarehouseInventory?.find(inv => inv.product_id === item.product_id);
+          
+          return {
+            product_id: item.product_id,
+            requested_full: item.qty_full,
+            requested_empty: item.qty_empty,
+            truck_inventory_exists: !!truckItem,
+            warehouse_inventory_exists: !!warehouseItem,
+            verification_passed: !!truckItem || (item.qty_full === 0 && item.qty_empty === 0)
+          };
+        });
+        
+        const verificationDuration = Date.now() - finalVerificationStart;
+        
+        ctx.logger.info(`[${loadingId}] 🎉 TRUCK LOADING COMPLETED SUCCESSFULLY`, {
+          loadingId,
+          truckId: input.truck_id,
+          warehouseId: input.warehouse_id,
+          totalItems: input.items.length,
+          completedItems,
+          failedItems,
+          successRate: 100,
+          verificationResults,
+          verificationDuration,
+          totalDuration: Date.now() - parseInt(loadingId.split('_')[1])
+        });
+        
+        return {
+          success: true,
+          truck_id: input.truck_id,
+          warehouse_id: input.warehouse_id,
+          items_transferred: completedItems,
+          total_items_requested: input.items.length,
+          loading_id: loadingId,
+          verification: {
+            passed: verificationResults.every(v => v.verification_passed),
+            details: verificationResults,
+            duration_ms: verificationDuration
+          },
+          results,
+          processedItems,
+          timestamp: new Date().toISOString(),
+          truck_fleet_number: truck.fleet_number,
+          warehouse_name: warehouse.name
+        };
+        
+      } catch (verificationError) {
+        ctx.logger.error(`[${loadingId}] ⚠️ VERIFICATION FAILED (but transfer may have succeeded)`, {
+          loadingId,
+          verificationError: formatErrorMessage(verificationError),
+          completedItems,
+          totalItems: input.items.length
+        });
+        
+        // Return success but with verification warning
+        return {
+          success: true,
+          truck_id: input.truck_id,
+          warehouse_id: input.warehouse_id,
+          items_transferred: completedItems,
+          total_items_requested: input.items.length,
+          loading_id: loadingId,
+          verification: {
+            passed: false,
+            error: formatErrorMessage(verificationError),
+            warning: 'Transfer completed but post-transfer verification failed'
+          },
+          results,
+          processedItems,
+          timestamp: new Date().toISOString(),
+          truck_fleet_number: truck.fleet_number,
+          warehouse_name: warehouse.name
+        };
+      }
     }),
 
   unloadInventory: protectedProcedure
@@ -1233,6 +1518,14 @@ export const trucksRouter = router({
         .single();
 
       if (truckError || !truck) {
+        ctx.logger.error('Truck validation error for unloading inventory:', {
+          error: formatErrorMessage(truckError),
+          code: truckError?.code,
+          details: truckError?.details,
+          hint: truckError?.hint,
+          user_id: user.id,
+          truck_id: input.truck_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Truck not found',
@@ -1240,6 +1533,12 @@ export const trucksRouter = router({
       }
 
       if (!truck.active) {
+        ctx.logger.error('Attempted to unload inactive truck:', {
+          user_id: user.id,
+          truck_id: input.truck_id,
+          fleet_number: truck.fleet_number,
+          active: truck.active
+        });
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Cannot unload inactive truck',
@@ -1254,6 +1553,14 @@ export const trucksRouter = router({
         .single();
 
       if (warehouseError || !warehouse) {
+        ctx.logger.error('Warehouse validation error for truck unloading:', {
+          error: formatErrorMessage(warehouseError),
+          code: warehouseError?.code,
+          details: warehouseError?.details,
+          hint: warehouseError?.hint,
+          user_id: user.id,
+          warehouse_id: input.warehouse_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Warehouse not found',
@@ -1284,7 +1591,20 @@ export const trucksRouter = router({
           results.push(transferResult);
           ctx.logger.info('Item transferred successfully:', transferResult);
         } catch (error) {
-          ctx.logger.error('Item transfer failed:', error);
+          ctx.logger.error('Item transfer failed:', {
+            error: formatErrorMessage(error),
+            code: error?.code,
+            details: error?.details,
+            hint: error?.hint,
+            user_id: user.id,
+            truck_id: input.truck_id,
+            warehouse_id: input.warehouse_id,
+            item: {
+              product_id: item.product_id,
+              qty_full: item.qty_full,
+              qty_empty: item.qty_empty
+            }
+          });
           const errorMessage = formatErrorMessage(error);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',

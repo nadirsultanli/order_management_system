@@ -109,10 +109,17 @@ export const inventoryRouter = router({
       const { data, error, count } = await query;
 
       if (error) {
-        ctx.logger.error('Inventory listing error:', error);
+        ctx.logger.error('Inventory listing error:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          filters: input
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: `Failed to fetch inventory: ${formatErrorMessage(error)}`
         });
       }
 
@@ -186,16 +193,24 @@ export const inventoryRouter = router({
         .from('inventory_balance')
         .select(`
           *,
+          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
           product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
         `)
         .eq('warehouse_id', input.warehouse_id)
         .order('updated_at', { ascending: false });
 
       if (error) {
-        ctx.logger.error('Warehouse inventory error:', error);
+        ctx.logger.error('Warehouse inventory error:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          warehouse_id: input.warehouse_id
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: `Failed to fetch warehouse inventory: ${formatErrorMessage(error)}`
         });
       }
 
@@ -222,10 +237,17 @@ export const inventoryRouter = router({
         .order('updated_at', { ascending: false });
 
       if (error) {
-        ctx.logger.error('Product inventory error:', error);
+        ctx.logger.error('Product inventory error:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          product_id: input.product_id
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: `Failed to fetch product inventory: ${formatErrorMessage(error)}`
         });
       }
 
@@ -254,10 +276,17 @@ export const inventoryRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        ctx.logger.error('Inventory stats error:', error);
+        ctx.logger.error('Inventory stats error:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          warehouse_id: input.warehouse_id
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: `Failed to fetch inventory stats: ${formatErrorMessage(error)}`
         });
       }
 
@@ -290,6 +319,14 @@ export const inventoryRouter = router({
         .single();
 
       if (fetchError || !currentInventory) {
+        ctx.logger.error('Inventory record not found for adjustment:', {
+          error: formatErrorMessage(fetchError),
+          code: fetchError?.code,
+          details: fetchError?.details,
+          hint: fetchError?.hint,
+          user_id: user.id,
+          inventory_id: input.inventory_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Inventory record not found'
@@ -333,10 +370,22 @@ export const inventoryRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Stock adjustment error:', error);
+        ctx.logger.error('Stock adjustment error:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          inventory_id: input.inventory_id,
+          adjustment_data: {
+            qty_full_change: input.qty_full_change,
+            qty_empty_change: input.qty_empty_change,
+            reason: input.reason
+          }
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: `Failed to adjust stock: ${formatErrorMessage(error)}`
         });
       }
 
@@ -371,6 +420,16 @@ export const inventoryRouter = router({
         .in('id', [input.from_warehouse_id, input.to_warehouse_id]);
 
       if (warehouseError || warehouses.length !== 2) {
+        ctx.logger.error('Warehouse validation error for stock transfer:', {
+          error: formatErrorMessage(warehouseError),
+          code: warehouseError?.code,
+          details: warehouseError?.details,
+          hint: warehouseError?.hint,
+          user_id: user.id,
+          from_warehouse_id: input.from_warehouse_id,
+          to_warehouse_id: input.to_warehouse_id,
+          found_warehouses: warehouses?.length || 0
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'One or both warehouses not found'
@@ -386,6 +445,15 @@ export const inventoryRouter = router({
         .single();
 
       if (sourceError) {
+        ctx.logger.error('Source inventory not found for transfer:', {
+          error: formatErrorMessage(sourceError),
+          code: sourceError?.code,
+          details: sourceError?.details,
+          hint: sourceError?.hint,
+          user_id: user.id,
+          from_warehouse_id: input.from_warehouse_id,
+          product_id: input.product_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Source inventory not found'
@@ -439,19 +507,35 @@ export const inventoryRouter = router({
           .single();
 
         if (createError) {
-          ctx.logger.error('Destination inventory creation error:', createError);
+          ctx.logger.error('Destination inventory creation error:', {
+            error: formatErrorMessage(createError),
+            code: createError?.code,
+            details: createError?.details,
+            hint: createError?.hint,
+            user_id: user.id,
+            to_warehouse_id: input.to_warehouse_id,
+            product_id: input.product_id
+          });
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: createError.message
+            message: `Failed to create destination inventory: ${formatErrorMessage(createError)}`
           });
         }
 
         destInventory = newDestInventory;
       } else if (destError) {
-        ctx.logger.error('Destination inventory error:', destError);
+        ctx.logger.error('Destination inventory error:', {
+          error: formatErrorMessage(destError),
+          code: destError?.code,
+          details: destError?.details,
+          hint: destError?.hint,
+          user_id: user.id,
+          to_warehouse_id: input.to_warehouse_id,
+          product_id: input.product_id
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: destError.message
+          message: `Failed to access destination inventory: ${formatErrorMessage(destError)}`
         });
       }
 
@@ -465,10 +549,23 @@ export const inventoryRouter = router({
       });
 
       if (transferError) {
-        ctx.logger.error('Atomic transfer failed:', transferError);
+        ctx.logger.error('Atomic transfer failed:', {
+          error: formatErrorMessage(transferError),
+          code: transferError?.code,
+          details: transferError?.details,
+          hint: transferError?.hint,
+          user_id: user.id,
+          transfer_params: {
+            from_warehouse_id: input.from_warehouse_id,
+            to_warehouse_id: input.to_warehouse_id,
+            product_id: input.product_id,
+            qty_full: input.qty_full,
+            qty_empty: input.qty_empty
+          }
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Transfer failed: ${transferError.message}`
+          message: `Transfer failed: ${formatErrorMessage(transferError)}`
         });
       }
 
@@ -531,6 +628,14 @@ export const inventoryRouter = router({
         .single();
 
       if (warehouseError || !warehouse) {
+        ctx.logger.error('Warehouse validation error for inventory creation:', {
+          error: formatErrorMessage(warehouseError),
+          code: warehouseError?.code,
+          details: warehouseError?.details,
+          hint: warehouseError?.hint,
+          user_id: user.id,
+          warehouse_id: input.warehouse_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Warehouse not found'
@@ -544,6 +649,14 @@ export const inventoryRouter = router({
         .single();
 
       if (productError || !product) {
+        ctx.logger.error('Product validation error for inventory creation:', {
+          error: formatErrorMessage(productError),
+          code: productError?.code,
+          details: productError?.details,
+          hint: productError?.hint,
+          user_id: user.id,
+          product_id: input.product_id
+        });
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Product not found'
@@ -583,10 +696,23 @@ export const inventoryRouter = router({
         .single();
 
       if (error) {
-        ctx.logger.error('Inventory creation error:', error);
+        ctx.logger.error('Inventory creation error:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          inventory_data: {
+            warehouse_id: input.warehouse_id,
+            product_id: input.product_id,
+            qty_full: input.qty_full,
+            qty_empty: input.qty_empty,
+            qty_reserved: input.qty_reserved
+          }
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: `Failed to create inventory: ${formatErrorMessage(error)}`
         });
       }
 
@@ -621,10 +747,18 @@ export const inventoryRouter = router({
         const { data: inventoryRecords, error } = await query;
 
         if (error) {
-          ctx.logger.error('Inventory reservation query error:', error);
+          ctx.logger.error('Inventory reservation query error:', {
+            error: formatErrorMessage(error),
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+            user_id: user.id,
+            product_id: reservation.product_id,
+            warehouse_id: reservation.warehouse_id
+          });
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: error.message
+            message: `Failed to query inventory for reservation: ${formatErrorMessage(error)}`
           });
         }
 
@@ -659,7 +793,19 @@ export const inventoryRouter = router({
             .single();
 
           if (updateError) {
-            ctx.logger.error('Inventory reservation update error:', updateError);
+            ctx.logger.error('Inventory reservation update error:', {
+              error: formatErrorMessage(updateError),
+              code: updateError?.code,
+              details: updateError?.details,
+              hint: updateError?.hint,
+              user_id: user.id,
+              inventory_id: inventory.id,
+              reservation_attempt: {
+                product_id: reservation.product_id,
+                quantity: toReserve,
+                new_reserved: newReserved
+              }
+            });
             // Continue to next inventory record if this update failed due to concurrency
             continue;
           }
@@ -731,6 +877,14 @@ export const inventoryRouter = router({
         .single();
 
       if (inventoryError || !inventory) {
+        ctx.logger.error('Inventory validation error:', {
+          error: formatErrorMessage(inventoryError),
+          code: inventoryError?.code,
+          details: inventoryError?.details,
+          hint: inventoryError?.hint,
+          user_id: user.id,
+          inventory_id: input.inventory_id
+        });
         errors.push('Inventory record not found');
         return { valid: false, errors, warnings };
       }
@@ -852,10 +1006,18 @@ export const inventoryRouter = router({
       const { data, error } = await query;
 
       if (error) {
-        ctx.logger.error('Low stock query error:', error);
+        ctx.logger.error('Low stock query error:', {
+          error: formatErrorMessage(error),
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user_id: user.id,
+          warehouse_id: input.warehouse_id,
+          urgency_level: input.urgency_level
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: `Failed to fetch low stock items: ${formatErrorMessage(error)}`
         });
       }
 
@@ -935,10 +1097,18 @@ export const inventoryRouter = router({
         const { data, error } = await query;
 
         if (error) {
-          ctx.logger.error('Availability check error:', error);
+          ctx.logger.error('Availability check error:', {
+            error: formatErrorMessage(error),
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+            user_id: user.id,
+            product_id: productRequest.product_id,
+            warehouse_preference: productRequest.warehouse_preference
+          });
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: error.message
+            message: `Failed to check product availability: ${formatErrorMessage(error)}`
           });
         }
 

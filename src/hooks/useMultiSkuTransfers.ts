@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   MultiSkuTransfer, 
   MultiSkuTransferItem, 
@@ -18,12 +18,16 @@ import {
   checkTransferConflicts,
   generateTransferReference
 } from '../utils/transfer-validation';
+import { verifyTransferIntegrity, monitorTransferWorkflow } from '../utils/transfer-verification';
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
 // Hook for managing multi-SKU transfers using backend tRPC APIs
 export const useMultiSkuTransfers = (filters?: TransferFilters) => {
   const [error, setError] = useState<string | null>(null);
+  const [transferMonitoring, setTransferMonitoring] = useState<Record<string, any>>({});
+  const [realTimeUpdates, setRealTimeUpdates] = useState<boolean>(true);
+  const monitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const utils = trpc.useContext();
 
   // Use tRPC query for fetching transfers
@@ -89,18 +93,25 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
     }
   });
 
-  // Create transfer
+  // Create transfer with real-time monitoring
   const createTransferMutation = trpc.transfers.create.useMutation({
-    onSuccess: () => {
+    onSuccess: async (data) => {
       toast.success('Transfer created successfully');
-      refetch(); // Refresh transfers list
       
-      // Invalidate inventory and truck queries to refresh data
-      utils.inventory.list.invalidate();
-      utils.inventory.getByWarehouse.invalidate();
-      utils.inventory.getStats.invalidate();
-      utils.trucks.list.invalidate();
-      utils.trucks.get.invalidate();
+      // Start monitoring the new transfer
+      if (data.id && realTimeUpdates) {
+        startTransferMonitoring(data.id);
+      }
+      
+      // Comprehensive cache invalidation
+      await Promise.all([
+        refetch(), // Refresh transfers list
+        utils.inventory.list.invalidate(),
+        utils.inventory.getByWarehouse.invalidate(),
+        utils.inventory.getStats.invalidate(),
+        utils.trucks.list.invalidate(),
+        utils.trucks.get.invalidate(),
+      ]);
     },
     onError: (error) => {
       setError(error.message);
@@ -108,18 +119,25 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
     }
   });
 
-  // Update transfer status
+  // Update transfer status with monitoring
   const updateStatusMutation = trpc.transfers.updateStatus.useMutation({
-    onSuccess: () => {
+    onSuccess: async (data) => {
       toast.success('Transfer status updated');
-      refetch(); // Refresh transfers list
       
-      // Invalidate inventory and truck queries to refresh data
-      utils.inventory.list.invalidate();
-      utils.inventory.getByWarehouse.invalidate();
-      utils.inventory.getStats.invalidate();
-      utils.trucks.list.invalidate();
-      utils.trucks.get.invalidate();
+      // Update monitoring if this transfer is being tracked
+      if (data.id && transferMonitoring[data.id]) {
+        await updateTransferMonitoring(data.id);
+      }
+      
+      // Comprehensive cache invalidation
+      await Promise.all([
+        refetch(), // Refresh transfers list
+        utils.inventory.list.invalidate(),
+        utils.inventory.getByWarehouse.invalidate(),
+        utils.inventory.getStats.invalidate(),
+        utils.trucks.list.invalidate(),
+        utils.trucks.get.invalidate(),
+      ]);
     },
     onError: (error) => {
       setError(error.message);
@@ -173,6 +191,91 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
     enabled: false, // Enable when needed
   });
 
+  // Transfer monitoring functions
+  const startTransferMonitoring = useCallback(async (transferId: string) => {
+    try {
+      const workflow = await monitorTransferWorkflow(transferId);
+      setTransferMonitoring(prev => ({
+        ...prev,
+        [transferId]: {
+          ...workflow,
+          lastUpdated: new Date().toISOString(),
+          isMonitoring: true
+        }
+      }));
+    } catch (error) {
+      console.warn('Failed to start transfer monitoring:', error);
+    }
+  }, []);
+
+  const updateTransferMonitoring = useCallback(async (transferId: string) => {
+    try {
+      const workflow = await monitorTransferWorkflow(transferId);
+      setTransferMonitoring(prev => ({
+        ...prev,
+        [transferId]: {
+          ...workflow,
+          lastUpdated: new Date().toISOString(),
+          isMonitoring: true
+        }
+      }));
+    } catch (error) {
+      console.warn('Failed to update transfer monitoring:', error);
+    }
+  }, []);
+
+  const stopTransferMonitoring = useCallback((transferId: string) => {
+    setTransferMonitoring(prev => {
+      const updated = { ...prev };
+      if (updated[transferId]) {
+        updated[transferId].isMonitoring = false;
+      }
+      return updated;
+    });
+  }, []);
+
+  const verifyTransferIntegrityCallback = useCallback(async (transferId: string) => {
+    try {
+      const result = await verifyTransferIntegrity(transferId);
+      return result;
+    } catch (error) {
+      console.error('Transfer integrity verification failed:', error);
+      throw error;
+    }
+  }, []);
+
+  // Cleanup monitoring on unmount
+  useEffect(() => {
+    return () => {
+      if (monitoringIntervalRef.current) {
+        clearInterval(monitoringIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Auto-refresh monitoring data for active transfers
+  useEffect(() => {
+    if (!realTimeUpdates) return;
+
+    const activeTransfers = Object.keys(transferMonitoring).filter(
+      id => transferMonitoring[id]?.isMonitoring
+    );
+
+    if (activeTransfers.length > 0) {
+      monitoringIntervalRef.current = setInterval(() => {
+        activeTransfers.forEach(transferId => {
+          updateTransferMonitoring(transferId);
+        });
+      }, 30000); // Update every 30 seconds
+    }
+
+    return () => {
+      if (monitoringIntervalRef.current) {
+        clearInterval(monitoringIntervalRef.current);
+      }
+    };
+  }, [transferMonitoring, realTimeUpdates, updateTransferMonitoring]);
+
   return {
     transfers,
     totalCount,
@@ -186,6 +289,15 @@ export const useMultiSkuTransfers = (filters?: TransferFilters) => {
     createTransfer,
     updateTransferStatus,
     costAnalysis,
+    
+    // Real-time monitoring
+    transferMonitoring,
+    realTimeUpdates,
+    setRealTimeUpdates,
+    startTransferMonitoring,
+    stopTransferMonitoring,
+    updateTransferMonitoring,
+    verifyTransferIntegrity: verifyTransferIntegrityCallback,
     
     // Mutation states for UI feedback
     isValidating: validateTransferMutation.isLoading,
