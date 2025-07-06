@@ -6,7 +6,7 @@
  */
 
 import { ContractTestSetup } from './contract/setup';
-import { logger } from '../lib/logger';
+import { logger, formatErrorMessage } from '../lib/logger';
 
 interface TestSuite {
   name: string;
@@ -101,7 +101,7 @@ export class ContractTestRunner {
             total: 0,
             passed: 0,
             failed: 1,
-            error: error instanceof Error ? error.message : String(error),
+            error: formatErrorMessage(error),
             duration: 0
           };
           

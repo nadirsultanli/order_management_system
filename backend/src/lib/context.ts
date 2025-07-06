@@ -2,7 +2,7 @@ import { inferAsyncReturnType } from '@trpc/server';
 import { CreateExpressContextOptions } from '@trpc/server/adapters/express';
 import jwt from 'jsonwebtoken';
 import { createUserSupabaseClient, supabaseAdmin } from './supabase';
-import { logger } from './logger';
+import { logger, formatErrorMessage } from './logger';
 
 export interface AuthenticatedUser {
   id: string;
@@ -85,7 +85,7 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
       }
     } catch (error) {
       logger.warn('Context creation error:', {
-        error: error instanceof Error ? error.message : String(error),
+        error: formatErrorMessage(error),
         tokenPresent: !!token,
         tokenLength: token?.length
       });

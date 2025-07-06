@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
+import { formatErrorMessage } from '../lib/logger';
 import {
   calculateOrderWeight,
   calculateTruckCapacity,
@@ -1191,7 +1192,7 @@ export const trucksRouter = router({
           ctx.logger.info('Item transferred successfully:', transferResult);
         } catch (error) {
           ctx.logger.error('Item transfer failed:', error);
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = formatErrorMessage(error);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: `Failed to transfer ${item.product_id}: ${errorMessage}`,
@@ -1284,7 +1285,7 @@ export const trucksRouter = router({
           ctx.logger.info('Item transferred successfully:', transferResult);
         } catch (error) {
           ctx.logger.error('Item transfer failed:', error);
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage = formatErrorMessage(error);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
             message: `Failed to transfer ${item.product_id}: ${errorMessage}`,

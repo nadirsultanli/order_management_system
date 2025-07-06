@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
+import { formatErrorMessage } from '../lib/logger';
 import {
   validateMultiSkuTransfer,
   validateTransferItem,
@@ -253,7 +254,7 @@ export const transfersRouter = router({
 
       if (error) {
         ctx.logger.error('Transfer listing error:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = formatErrorMessage(error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: errorMessage
@@ -311,7 +312,7 @@ export const transfersRouter = router({
           });
         }
         ctx.logger.error('Transfer fetch error:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = formatErrorMessage(error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: errorMessage
@@ -878,7 +879,7 @@ export const transfersRouter = router({
               
             } catch (error) {
               failedItems++;
-              const errorMessage = error instanceof Error ? error.message : String(error);
+              const errorMessage = formatErrorMessage(error);
               ctx.logger.error(`Stock transfer execution failed for product ${item.product_id}:`, errorMessage);
               
               transferResults.push({
@@ -1001,7 +1002,7 @@ export const transfersRouter = router({
 
       if (error) {
         ctx.logger.error('Warehouse stock fetch error:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = formatErrorMessage(error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: errorMessage
@@ -1072,7 +1073,7 @@ export const transfersRouter = router({
             message: 'Transfer not found'
           });
         }
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = formatErrorMessage(error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: errorMessage
@@ -1164,7 +1165,7 @@ export const transfersRouter = router({
 
       if (error) {
         ctx.logger.error('Product search error:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = formatErrorMessage(error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: errorMessage

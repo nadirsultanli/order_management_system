@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
+import { formatErrorMessage } from '../lib/logger';
 import {
   getOrderWorkflow,
   getOrderStatusInfo,
@@ -832,7 +833,7 @@ export const ordersRouter = router({
         if (idempotencyKeyId) {
           await ctx.supabase.rpc('complete_idempotency_key', {
             p_key_id: idempotencyKeyId,
-            p_response_data: { error: error instanceof Error ? error.message : String(error) },
+            p_response_data: { error: formatErrorMessage(error) },
             p_status: 'failed'
           });
         }
@@ -1281,7 +1282,7 @@ export const ordersRouter = router({
           
         } catch (error) {
           ctx.logger.error(`Error validating line ${i + 1}:`, error);
-          errors.push(`Error validating line ${i + 1}: ${error instanceof Error ? error.message : String(error)}`);
+          errors.push(`Error validating line ${i + 1}: ${formatErrorMessage(error)}`);
           results.push({
             product_id: line.product_id,
             quantity: line.quantity,
