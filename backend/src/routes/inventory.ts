@@ -463,63 +463,64 @@ export const inventoryRouter = router({
         });
       }
 
-      // Try using RPC for atomic transfer first
-      const { error: transferError } = await ctx.supabase.rpc('transfer_stock', {
+      // Execute transfer using atomic RPC function
+      const { data: transferResult, error: transferError } = await ctx.supabase.rpc('transfer_stock', {
         p_from_warehouse_id: input.from_warehouse_id,
         p_to_warehouse_id: input.to_warehouse_id,
         p_product_id: input.product_id,
         p_qty_full: input.qty_full,
         p_qty_empty: input.qty_empty,
-        
       });
 
       if (transferError) {
-        // Fallback to manual transaction if RPC doesn't exist
-        ctx.logger.warn('RPC transfer failed, using manual transaction:', transferError);
-        
-        // Update source inventory
-        const { error: sourceUpdateError } = await ctx.supabase
-          .from('inventory_balance')
-          .update({
-            qty_full: sourceInventory.qty_full - input.qty_full,
-            qty_empty: sourceInventory.qty_empty - input.qty_empty,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', sourceInventory.id)
-          ;
-
-        if (sourceUpdateError) {
-          ctx.logger.error('Source inventory update error:', sourceUpdateError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: sourceUpdateError.message
-          });
-        }
-
-        // Update destination inventory
-        const { error: destUpdateError } = await ctx.supabase
-          .from('inventory_balance')
-          .update({
-            qty_full: destInventory.qty_full + input.qty_full,
-            qty_empty: destInventory.qty_empty + input.qty_empty,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', destInventory.id)
-          ;
-
-        if (destUpdateError) {
-          ctx.logger.error('Destination inventory update error:', destUpdateError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: destUpdateError.message
-          });
-        }
+        ctx.logger.error('Atomic transfer failed:', transferError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Transfer failed: ${transferError.message}`
+        });
       }
 
-      // Note: Stock movement audit trail would be implemented here for transfer operations
+      ctx.logger.info('Atomic transfer completed successfully:', transferResult);
 
-      ctx.logger.info('Stock transferred successfully');
-      return { success: true };
+      // Get updated inventory records for response
+      const { data: updatedSourceInventory } = await ctx.supabase
+        .from('inventory_balance')
+        .select(`
+          *,
+          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
+          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
+        `)
+        .eq('id', sourceInventory.id)
+        .single();
+
+      const { data: updatedDestInventory } = await ctx.supabase
+        .from('inventory_balance')
+        .select(`
+          *,
+          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
+          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
+        `)
+        .eq('id', destInventory.id)
+        .single();
+
+      const response = {
+        success: true,
+        transfer_result: transferResult,
+        transfer: {
+          from_warehouse_id: input.from_warehouse_id,
+          to_warehouse_id: input.to_warehouse_id,
+          product_id: input.product_id,
+          qty_full: input.qty_full,
+          qty_empty: input.qty_empty,
+          notes: input.notes,
+          timestamp: new Date().toISOString(),
+        },
+        source_inventory: updatedSourceInventory,
+        destination_inventory: updatedDestInventory,
+      };
+
+      ctx.logger.info('Stock transferred successfully:', response);
+      return response;
     }),
 
   // POST /inventory/create - Create new inventory balance record

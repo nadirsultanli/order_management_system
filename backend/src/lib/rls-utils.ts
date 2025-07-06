@@ -184,7 +184,7 @@ export async function validateRLSStatus(
     'orders', 
     'order_lines',
     'products',
-    'inventory',
+    'inventory_balance',
     'warehouses',
     'transfers',
     'transfer_items',

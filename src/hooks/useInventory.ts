@@ -87,7 +87,16 @@ export const useTransferStockNew = () => {
       utils.inventory.getByWarehouse.invalidate();
       utils.inventory.getStats.invalidate();
       
-      toast.success('Stock transferred successfully');
+      // Show detailed success message
+      if (transferResult.success && transferResult.transfer) {
+        const { qty_full, qty_empty } = transferResult.transfer;
+        const totalTransferred = qty_full + qty_empty;
+        toast.success(
+          `Successfully transferred ${totalTransferred} cylinders (${qty_full} full, ${qty_empty} empty)`
+        );
+      } else {
+        toast.success('Stock transferred successfully');
+      }
     },
     onError: (error) => {
       console.error('Stock transfer error:', error);

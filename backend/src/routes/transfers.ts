@@ -73,6 +73,17 @@ const UpdateTransferStatusSchema = z.object({
   completed_items: z.array(z.string().uuid()).optional(),
 });
 
+// Helper function to check if destination is a truck
+async function isTruckDestination(supabase: any, destinationId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('truck')
+    .select('id')
+    .eq('id', destinationId)
+    .single();
+  
+  return !error && !!data;
+}
+
 // Helper function to convert transfer item schema to MultiSkuTransferItem
 function createTransferItem(item: any): MultiSkuTransferItem {
   return {
@@ -308,7 +319,7 @@ export const transfersRouter = router({
       return data;
     }),
 
-  // POST /transfers/validate - Validate transfer request
+  // POST /transfers/validate - Validate transfer request using atomic validation
   validate: protectedProcedure
     .input(ValidateTransferSchema)
     .mutation(async ({ input, ctx }) => {
@@ -316,17 +327,51 @@ export const transfersRouter = router({
       
       ctx.logger.info('Validating transfer:', input);
 
-      // Basic validation
+      // For single-item transfers, use atomic validation function
+      if (input.items.length === 1) {
+        const item = input.items[0];
+        
+        const { data: validationResult, error: validationError } = await ctx.supabase.rpc('validate_transfer_request', {
+          p_from_warehouse_id: input.source_warehouse_id,
+          p_to_warehouse_id: input.destination_warehouse_id,
+          p_product_id: item.product_id,
+          p_qty_full: item.quantity_to_transfer,
+          p_qty_empty: 0, // Default to 0 for now, could be extended
+        });
+
+        if (validationError) {
+          ctx.logger.error('Validation function error:', validationError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Validation failed: ${validationError.message}`
+          });
+        }
+
+        // Transform database result to expected format
+        const result = {
+          is_valid: validationResult.is_valid,
+          errors: validationResult.errors || [],
+          warnings: validationResult.warnings || [],
+          blocked_items: validationResult.is_valid ? [] : [item.product_id],
+          total_weight_kg: 0, // Calculate from source_stock if needed
+          estimated_cost: undefined,
+          source_stock: validationResult.source_stock
+        };
+
+        ctx.logger.info('Atomic validation result:', result);
+        return result;
+      }
+
+      // For multi-item transfers, use existing validation logic
       const basicValidation = validateTransferBasics(input);
       let errors = [...basicValidation.errors];
       let warnings = [...basicValidation.warnings];
       const blocked_items: string[] = [];
 
-      // Validate warehouses exist and belong to tenant
+      // Validate warehouses exist
       const { data: warehouses, error: warehouseError } = await ctx.supabase
         .from('warehouses')
         .select('id, name')
-        
         .in('id', [input.source_warehouse_id, input.destination_warehouse_id]);
 
       if (warehouseError || warehouses.length !== 2) {
@@ -342,7 +387,6 @@ export const transfersRouter = router({
           product:product_id(id, sku, name, capacity_kg, tare_weight_kg, is_variant, variant_name, variant_type)
         `)
         .eq('warehouse_id', input.source_warehouse_id)
-        
         .in('product_id', productIds);
 
       if (stockError) {
@@ -350,59 +394,34 @@ export const transfersRouter = router({
         errors.push('Failed to fetch stock information');
       }
 
-      // Validate each item
+      // Validate each item using enhanced validation
       let total_weight_kg = 0;
       let estimated_cost = 0;
 
       for (const item of input.items) {
+        // Use atomic validation for each item
+        const { data: itemValidation } = await ctx.supabase.rpc('validate_transfer_request', {
+          p_from_warehouse_id: input.source_warehouse_id,
+          p_to_warehouse_id: input.destination_warehouse_id,
+          p_product_id: item.product_id,
+          p_qty_full: item.quantity_to_transfer,
+          p_qty_empty: 0,
+        });
+
+        if (itemValidation && !itemValidation.is_valid) {
+          errors.push(...itemValidation.errors.map((error: string) => `${item.product_id}: ${error}`));
+          blocked_items.push(item.product_id);
+        }
+
+        if (itemValidation && itemValidation.warnings) {
+          warnings.push(...itemValidation.warnings.map((warning: string) => `${item.product_id}: ${warning}`));
+        }
+
+        // Calculate weights from stock data
         const stockInfo = stockData?.find(stock => stock.product_id === item.product_id);
-
-        // Basic item validation
-        if (!item.product_id) {
-          errors.push(`Product ID is required for item`);
-          blocked_items.push(item.product_id);
-          continue;
-        }
-
-        if (!item.quantity_to_transfer || item.quantity_to_transfer <= 0) {
-          errors.push(`Transfer quantity must be greater than 0 for product ${item.product_id}`);
-          blocked_items.push(item.product_id);
-          continue;
-        }
-
-        if (item.quantity_to_transfer % 1 !== 0) {
-          errors.push(`Transfer quantity must be a whole number for product ${item.product_id}`);
-          blocked_items.push(item.product_id);
-          continue;
-        }
-
-        // Stock availability validation
-        if (stockInfo) {
-          const availableForTransfer = stockInfo.qty_full - (stockInfo.qty_reserved || 0);
-          
-          if (item.quantity_to_transfer > availableForTransfer) {
-            errors.push(`Insufficient stock for product ${stockInfo.product?.name || item.product_id}. Available: ${availableForTransfer}, Requested: ${item.quantity_to_transfer}`);
-            blocked_items.push(item.product_id);
-            continue;
-          }
-
-          if (item.quantity_to_transfer > stockInfo.qty_full * 0.9) {
-            warnings.push(`Transferring more than 90% of available stock for product ${stockInfo.product?.name || item.product_id}`);
-          }
-
-          // Calculate weights if product has specifications
-          if (stockInfo.product?.capacity_kg && stockInfo.product?.tare_weight_kg) {
-            const unitWeight = stockInfo.product.capacity_kg + stockInfo.product.tare_weight_kg;
-            total_weight_kg += unitWeight * item.quantity_to_transfer;
-          }
-        } else {
-          errors.push(`Stock information not found for product ${item.product_id}`);
-          blocked_items.push(item.product_id);
-        }
-
-        // Quantity limits
-        if (item.quantity_to_transfer > 1000) {
-          warnings.push(`Large quantity transfer (${item.quantity_to_transfer}) may require special approval`);
+        if (stockInfo?.product?.capacity_kg && stockInfo?.product?.tare_weight_kg) {
+          const unitWeight = stockInfo.product.capacity_kg + stockInfo.product.tare_weight_kg;
+          total_weight_kg += unitWeight * item.quantity_to_transfer;
         }
       }
 
@@ -431,7 +450,7 @@ export const transfersRouter = router({
         estimated_cost: estimated_cost > 0 ? estimated_cost : undefined
       };
 
-      ctx.logger.info('Transfer validation result:', result);
+      ctx.logger.info('Multi-item validation result:', result);
       return result;
     }),
 
@@ -628,20 +647,41 @@ export const transfersRouter = router({
         if (currentTransfer.items) {
           for (const item of currentTransfer.items) {
             try {
-              // Use the inventory transfer logic
-              await ctx.supabase.rpc('transfer_stock', {
-                p_from_warehouse_id: currentTransfer.source_warehouse_id,
-                p_to_warehouse_id: currentTransfer.destination_warehouse_id,
-                p_product_id: item.product_id,
-                p_qty_full: item.quantity_full,
-                p_qty_empty: item.quantity_empty,
-                
-              });
+              // Determine transfer type and use appropriate function
+              const isToTruck = currentTransfer.destination_warehouse_id && 
+                               await isTruckDestination(ctx.supabase, currentTransfer.destination_warehouse_id);
+              
+              let transferResult;
+              if (isToTruck) {
+                // Transfer to truck
+                transferResult = await ctx.supabase.rpc('transfer_stock_to_truck', {
+                  p_from_warehouse_id: currentTransfer.source_warehouse_id,
+                  p_to_truck_id: currentTransfer.destination_warehouse_id,
+                  p_product_id: item.product_id,
+                  p_qty_full: item.quantity_full,
+                  p_qty_empty: item.quantity_empty,
+                });
+              } else {
+                // Standard warehouse-to-warehouse transfer
+                transferResult = await ctx.supabase.rpc('transfer_stock', {
+                  p_from_warehouse_id: currentTransfer.source_warehouse_id,
+                  p_to_warehouse_id: currentTransfer.destination_warehouse_id,
+                  p_product_id: item.product_id,
+                  p_qty_full: item.quantity_full,
+                  p_qty_empty: item.quantity_empty,
+                });
+              }
+              
+              if (transferResult.error) {
+                throw transferResult.error;
+              }
+              
+              ctx.logger.info('Stock transfer executed successfully:', transferResult.data);
             } catch (error) {
               ctx.logger.error('Stock transfer execution failed:', error);
               throw new TRPCError({
                 code: 'INTERNAL_SERVER_ERROR',
-                message: `Failed to execute stock transfer for product ${item.product_id}`
+                message: `Failed to execute stock transfer for product ${item.product_id}: ${error.message || error}`
               });
             }
           }

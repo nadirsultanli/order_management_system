@@ -45,7 +45,7 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_reorder_level
     ON products (reorder_level) WHERE reorder_level IS NOT NULL;
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_products_stock_thresholds 
-    ON products (tenant_id, reorder_level, max_stock_level) WHERE reorder_level IS NOT NULL;
+    ON products (reorder_level, max_stock_level) WHERE reorder_level IS NOT NULL;
 
 -- Step 5: Verify the migration worked
 SELECT 

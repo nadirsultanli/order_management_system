@@ -40,6 +40,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       valve_type: '',
       status: 'active',
       barcode_uid: '',
+      variant_type: 'cylinder',
+      requires_tag: false,
+      is_variant: false,
     },
   });
 
@@ -58,6 +61,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         valve_type: product.valve_type || '',
         status: product.status,
         barcode_uid: product.barcode_uid || '',
+        variant_type: product.variant_type,
+        requires_tag: product.requires_tag,
+        is_variant: product.is_variant,
       });
     } else {
       reset({
@@ -70,6 +76,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         valve_type: '',
         status: 'active',
         barcode_uid: '',
+        variant_type: 'cylinder',
+        requires_tag: false,
+        is_variant: false,
       });
     }
   }, [product, reset]);
@@ -306,6 +315,24 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     </div>
 
                     <div>
+                      <label htmlFor="variant_type" className="block text-sm font-medium text-gray-700">
+                        Variant Type *
+                      </label>
+                      <select
+                        id="variant_type"
+                        {...register('variant_type', { required: 'Variant type is required' })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="cylinder">Cylinder</option>
+                        <option value="refillable">Refillable</option>
+                        <option value="disposable">Disposable</option>
+                      </select>
+                      {errors.variant_type && (
+                        <p className="mt-1 text-sm text-red-600">{errors.variant_type.message}</p>
+                      )}
+                    </div>
+
+                    <div>
                       <label htmlFor="barcode_uid" className="block text-sm font-medium text-gray-700">
                         Barcode/RFID UID
                       </label>
@@ -316,6 +343,36 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         placeholder="Optional unique identifier"
                       />
+                    </div>
+
+                    <div>
+                      <label htmlFor="requires_tag" className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="requires_tag"
+                          {...register('requires_tag')}
+                          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Requires Tag</span>
+                      </label>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Check if this product requires a tracking tag or identifier
+                      </p>
+                    </div>
+
+                    <div>
+                      <label htmlFor="is_variant" className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="is_variant"
+                          {...register('is_variant')}
+                          className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Is Variant</span>
+                      </label>
+                      <p className="mt-1 text-sm text-gray-500">
+                        Check if this is a variant of another product
+                      </p>
                     </div>
 
                     {watchedUnitOfMeasure === 'cylinder' && (

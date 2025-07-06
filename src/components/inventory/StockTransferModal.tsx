@@ -55,7 +55,25 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
   }, [inventory, reset]);
 
   const handleFormSubmit = (data: StockTransferData) => {
-    onSubmit(data);
+    // Ensure we have the warehouse ID from the selector
+    const formData = {
+      ...data,
+      to_warehouse_id: toWarehouseId,
+    };
+    
+    // Validation
+    if (!formData.to_warehouse_id) {
+      console.error('No destination warehouse selected');
+      return;
+    }
+    
+    if (formData.qty_full <= 0 && formData.qty_empty <= 0) {
+      console.error('Must transfer at least one cylinder');
+      return;
+    }
+    
+    console.log('Submitting transfer data:', formData);
+    onSubmit(formData);
   };
 
   const handleWarehouseChange = (warehouseId: string) => {
