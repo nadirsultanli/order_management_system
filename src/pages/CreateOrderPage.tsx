@@ -745,7 +745,7 @@ export const CreateOrderPage: React.FC = () => {
                   {productPrices && Object.keys(productPrices).length > 0 && (
                     <div>
                       Sample pricing: {Object.entries(productPrices).slice(0, 2).map(([id, price]) => 
-                        `${id.slice(0, 8)}... = ${price?.finalPrice || 'N/A'}`
+                        `${id.slice(0, 8)}... = ${(price as any)?.finalPrice || 'N/A'}`
                       ).join(', ')}
                     </div>
                   )}
@@ -758,7 +758,29 @@ export const CreateOrderPage: React.FC = () => {
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Available Products</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {products.filter(p => p.status === 'active').map((product) => {
+                  {(() => {
+                    const availableProducts = products.filter((p: Product) => {
+                      // Only show active products that have stock in the selected warehouse
+                      if (p.status !== 'active') return false;
+                      const stockAvailable = getStockInfo(p.id);
+                      return stockAvailable > 0;
+                    });
+                    
+                    if (availableProducts.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          <Package className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+                          <p className="text-lg font-medium">No products available</p>
+                          <p className="text-sm">
+                            {selectedWarehouseId 
+                              ? 'No products have stock in the selected warehouse.' 
+                              : 'Please select a warehouse to see available products.'}
+                          </p>
+                        </div>
+                      );
+                    }
+                    
+                    return availableProducts.map((product) => {
                     const stockAvailable = getStockInfo(product.id);
                     const unitPrice = getProductPriceSync(product.id); // Use sync version for display
                     const orderLine = orderLines.find(line => line.product_id === product.id);
@@ -909,7 +931,8 @@ export const CreateOrderPage: React.FC = () => {
                         </div>
                       </div>
                     );
-                  })}
+                  });
+                  })()}
                 </div>
               </div>
 
