@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { X, Loader2 } from 'lucide-react';
 import { Customer, CreateCustomerData } from '../../types/customer';
 import { getGeocodeSuggestions } from '../../utils/geocoding';
-import { trpc } from '../../lib/trpc-client';
+// @ts-ignore - mapbox-gl types not available
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
@@ -14,6 +14,23 @@ interface CustomerFormProps {
   customer?: Customer;
   loading?: boolean;
   title: string;
+}
+
+// Extended form data interface for the flat form fields
+interface CustomerFormData extends Omit<CreateCustomerData, 'address'> {
+  address_label?: string;
+  line1: string;
+  line2?: string;
+  city: string;
+  state?: string;
+  postal_code?: string;
+  country: string;
+  delivery_window_start?: string;
+  delivery_window_end?: string;
+  is_primary?: boolean;
+  instructions?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export const CustomerForm: React.FC<CustomerFormProps> = ({
@@ -31,7 +48,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     formState: { errors },
     setValue,
     watch,
-  } = useForm<CreateCustomerData>({
+  } = useForm<CustomerFormData>({
     defaultValues: {
       name: '',
       external_id: '',
@@ -40,6 +57,12 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
       email: '',
       account_status: 'active',
       credit_terms_days: 30,
+      line1: '',
+      line2: '',
+      city: '',
+      state: '',
+      postal_code: '',
+      country: 'US',
     },
   });
 
@@ -55,82 +78,6 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   const longitude = watch('longitude');
   const deliveryStart = watch('delivery_window_start');
   const deliveryEnd = watch('delivery_window_end');
-
-  const validateCustomerData = async (data: {
-    name: string;
-    email?: string;
-    phone?: string;
-    external_id?: string;
-    tax_id?: string;
-  }) => {
-    try {
-      const result = await trpc.customers.validate.mutate({
-        ...data,
-        exclude_id: customer?.id
-      });
-      
-      if (!result.valid) {
-        return result.errors[0] || 'Customer validation failed';
-      }
-      
-      // Show warnings as info (but don't block validation)
-      if (result.warnings.length > 0) {
-        console.warn('Customer warnings:', result.warnings);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Customer validation error:', error);
-      return 'Failed to validate customer data';
-    }
-  };
-
-  const validateCreditTerms = async (credit_terms_days: number, account_status: string) => {
-    try {
-      const result = await trpc.customers.validateCreditTerms.mutate({
-        credit_terms_days,
-        account_status: account_status as 'active' | 'credit_hold' | 'closed',
-        customer_id: customer?.id
-      });
-      
-      if (!result.valid) {
-        return result.errors[0] || 'Credit terms validation failed';
-      }
-      
-      // Show warnings as info (but don't block validation)
-      if (result.warnings.length > 0) {
-        console.warn('Credit terms warnings:', result.warnings);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Credit terms validation error:', error);
-      return 'Failed to validate credit terms';
-    }
-  };
-
-  const validateDeliveryWindow = async (start?: string, end?: string) => {
-    try {
-      const result = await trpc.customers.validateDeliveryWindow.mutate({
-        delivery_window_start: start,
-        delivery_window_end: end
-      });
-      
-      if (!result.valid) {
-        return result.errors[0] || 'Delivery window validation failed';
-      }
-      
-      // Show warnings as info (but don't block validation)
-      if (result.warnings.length > 0) {
-        console.warn('Delivery window warnings:', result.warnings);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Delivery window validation error:', error);
-      return 'Failed to validate delivery window';
-    }
-  };
 
   useEffect(() => {
     if (customer) {
@@ -254,35 +201,8 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
     };
   }, []);
 
-  const handleFormSubmit = async (data: any) => {
+  const handleFormSubmit = async (data: CustomerFormData) => {
     try {
-      // Validate customer data using backend
-      const customerValidation = await validateCustomerData({
-        name: data.name,
-        email: data.email || undefined,
-        phone: data.phone || undefined,
-        external_id: data.external_id || undefined,
-        tax_id: data.tax_id || undefined,
-      });
-      
-      if (customerValidation !== true) {
-        return; // Validation failed, error already shown
-      }
-
-      // Validate credit terms using backend
-      const creditValidation = await validateCreditTerms(data.credit_terms_days, data.account_status);
-      if (creditValidation !== true) {
-        return; // Validation failed, error already shown
-      }
-
-      // Validate delivery window using backend
-      if (data.delivery_window_start && data.delivery_window_end) {
-        const windowValidation = await validateDeliveryWindow(data.delivery_window_start, data.delivery_window_end);
-        if (windowValidation !== true) {
-          return; // Validation failed, error already shown
-        }
-      }
-
       // Group address fields under 'address'
       const {
         address_label, line1, line2, city, state, postal_code, country,
@@ -293,15 +213,15 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
       const address = {
         label: address_label,
-        line1,
+        line1: line1 || '',
         line2,
-        city,
+        city: city || '',
         state,
         postal_code,
-        country,
+        country: country || 'US',
         delivery_window_start: delivery_window_start || undefined,
         delivery_window_end: delivery_window_end || undefined,
-        is_primary,
+        is_primary: is_primary ?? true,
         instructions,
         latitude,
         longitude,
