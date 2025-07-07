@@ -76,7 +76,7 @@ export const ordersRouter = router({
           *,
           customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
-          source_warehouse:warehouses(id, name, city, state, active),
+          source_warehouse:warehouses(id, name, is_mobile),
           order_lines(
             id,
             product_id,
@@ -259,7 +259,7 @@ export const ordersRouter = router({
           *,
           customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
-          source_warehouse:warehouses(id, name, city, state, active),
+          source_warehouse:warehouses(id, name, is_mobile),
           order_lines(
             id,
             product_id,
