@@ -1,14 +1,8 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, Menu, User } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 
-interface HeaderProps {
-  onMenuClick: () => void;
-  onMenuHover?: () => void;
-  onMenuLeave?: () => void;
-}
-
-export const Header: React.FC<HeaderProps> = ({ onMenuClick, onMenuHover, onMenuLeave }) => {
+export const Header: React.FC = () => {
   const { adminUser, signOut } = useAuth();
 
   const handleSignOut = async () => {
@@ -22,15 +16,6 @@ export const Header: React.FC<HeaderProps> = ({ onMenuClick, onMenuHover, onMenu
   return (
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 flex-shrink-0">
       <div className="flex items-center space-x-4">
-        <button
-          onClick={onMenuClick}
-          onMouseEnter={onMenuHover}
-          onMouseLeave={onMenuLeave}
-          className="p-2 rounded-md hover:bg-gray-100 transition-colors group"
-          title="Hover to show menu"
-        >
-          <Menu className="h-6 w-6 text-gray-600 group-hover:text-gray-900 transition-colors" />
-        </button>
         <h1 className="text-xl font-semibold text-gray-900">
           LPG Order Management
         </h1>

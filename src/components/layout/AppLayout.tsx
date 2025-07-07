@@ -1,64 +1,41 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
-import { Sidebar } from './Sidebar';
+import { CollapsibleSidebar } from './CollapsibleSidebar';
 
 export const AppLayout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarHovered, setSidebarHovered] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
-  const handleMenuHover = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    setSidebarHovered(true);
-  };
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
 
-  const handleMenuLeave = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setSidebarHovered(false);
-    }, 100); // Small delay to prevent flickering
-  };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-  const handleSidebarMouseEnter = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    setSidebarHovered(true);
-  };
-
-  const handleSidebarMouseLeave = () => {
-    hoverTimeoutRef.current = setTimeout(() => {
-      setSidebarHovered(false);
-    }, 100);
-  };
-
-  // For mobile, use the click-based toggle; for desktop, use hover
-  const isSidebarVisible = sidebarOpen || sidebarHovered;
+  const contentMarginLeft = isMobile ? 0 : (sidebarExpanded ? 256 : 64);
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar 
-        isOpen={isSidebarVisible} 
-        onClose={() => setSidebarOpen(false)}
-        onMouseEnter={handleSidebarMouseEnter}
-        onMouseLeave={handleSidebarMouseLeave}
-      />
+      {/* Collapsible Sidebar */}
+      <CollapsibleSidebar onExpandChange={setSidebarExpanded} />
       
-      {/* Main content area - now takes full width since sidebar is overlay */}
-      <div className="w-full flex flex-col overflow-hidden">
+      {/* Main content area - adjusts margin based on sidebar state */}
+      <div 
+        className="flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          marginLeft: `${contentMarginLeft}px`
+        }}
+      >
         {/* Header */}
-        <Header 
-          onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-          onMenuHover={handleMenuHover}
-          onMenuLeave={handleMenuLeave}
-        />
+        <Header />
         
-        {/* Main content */}
+        {/* Main content with responsive padding */}
         <main className="flex-1 overflow-y-auto">
-          <div className="p-6">
+          <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
             <Outlet />
           </div>
         </main>

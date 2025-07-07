@@ -1,0 +1,256 @@
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Users, 
+  Package, 
+  ShoppingCart, 
+  DollarSign, 
+  Warehouse, 
+  TrendingUp,
+  Settings,
+  Menu,
+  Pin,
+  PinOff,
+  ChevronRight,
+  Truck,
+  ArrowLeftRight,
+  X,
+  BarChart3
+} from 'lucide-react';
+
+interface MenuItem {
+  path: string;
+  label: string;
+  icon: React.ElementType;
+  badge?: number;
+}
+
+interface CollapsibleSidebarProps {
+  onExpandChange?: (expanded: boolean) => void;
+}
+
+export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpandChange }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isPinned, setIsPinned] = useState(() => {
+    // Load pin state from localStorage
+    const saved = localStorage.getItem('sidebarPinned');
+    return saved === 'true';
+  });
+  const [isHovering, setIsHovering] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const location = useLocation();
+
+  const menuItems: MenuItem[] = [
+    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/customers', label: 'Customers', icon: Users },
+    { path: '/products', label: 'Products', icon: Package },
+    { path: '/orders', label: 'Orders', icon: ShoppingCart },
+    { path: '/pricing', label: 'Pricing', icon: DollarSign },
+    { path: '/inventory', label: 'Inventory', icon: BarChart3 },
+    { path: '/warehouses', label: 'Warehouses', icon: Warehouse },
+    { path: '/trucks', label: 'Fleet', icon: Truck },
+    { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
+    { path: '/reports', label: 'Reports', icon: TrendingUp },
+    { path: '/settings', label: 'Settings', icon: Settings },
+  ];
+
+  // Determine if sidebar should be expanded
+  const shouldExpand = isPinned || isHovering;
+
+  useEffect(() => {
+    setIsExpanded(shouldExpand);
+    onExpandChange?.(shouldExpand);
+  }, [shouldExpand, onExpandChange]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location]);
+
+  // Save pin state to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarPinned', isPinned.toString());
+  }, [isPinned]);
+
+  const handleMouseEnter = () => {
+    if (!isPinned) {
+      setIsHovering(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!isPinned) {
+      setIsHovering(false);
+    }
+  };
+
+  const togglePin = () => {
+    setIsPinned(!isPinned);
+    if (!isPinned) {
+      setIsHovering(false);
+    }
+  };
+
+  const isActive = (path: string) => {
+    if (path === '/' && location.pathname === '/') return true;
+    if (path !== '/' && location.pathname.startsWith(path)) return true;
+    return false;
+  };
+
+  return (
+    <>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsMobileOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-lg shadow-lg hover:bg-gray-800 transition-colors"
+        aria-label="Open menu"
+      >
+        <Menu className="h-6 w-6" />
+      </button>
+
+      {/* Mobile Backdrop */}
+      {isMobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 animate-fade-in"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+          fixed left-0 top-0 h-full bg-gray-900 text-white
+          transition-all duration-300 ease-in-out z-40
+          ${isExpanded ? 'w-64 shadow-2xl' : 'w-16 shadow-lg'}
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {/* Logo/Brand Area */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 bg-gray-800">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg">
+              <span className="text-white font-bold text-lg">L</span>
+            </div>
+            {(isExpanded || isMobileOpen) && (
+              <span className="text-xl font-bold whitespace-nowrap bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
+                LPG System
+              </span>
+            )}
+          </div>
+          {/* Mobile close button */}
+          {isMobileOpen && (
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="lg:hidden p-1 hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+
+        {/* Navigation Menu */}
+        <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+          <ul className="space-y-1 px-2">
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+
+              return (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    className={`
+                      flex items-center px-3 py-2.5 rounded-lg
+                      transition-all duration-200 relative group
+                      ${active 
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-[1.02]' 
+                        : 'text-gray-300 hover:bg-gray-800 hover:text-white hover:translate-x-1'
+                      }
+                    `}
+                  >
+                    <Icon className={`h-5 w-5 flex-shrink-0 ${active ? 'animate-pulse' : ''}`} />
+                    
+                    {/* Label - shown when expanded or on mobile */}
+                    {(isExpanded || isMobileOpen) && (
+                      <span className="ml-3 whitespace-nowrap font-medium">{item.label}</span>
+                    )}
+
+                    {/* Tooltip - shown when collapsed on desktop */}
+                    {!isExpanded && !isMobileOpen && (
+                      <div className="
+                        absolute left-full ml-2 px-3 py-2 bg-gray-800 text-white text-sm
+                        rounded-md whitespace-nowrap opacity-0 pointer-events-none
+                        group-hover:opacity-100 transition-all duration-200 transform
+                        group-hover:translate-x-1 shadow-xl hidden lg:block
+                        border border-gray-700
+                      ">
+                        {item.label}
+                      </div>
+                    )}
+
+                    {/* Active indicator for collapsed state */}
+                    {active && !isExpanded && !isMobileOpen && (
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-blue-400 to-blue-600 rounded-r-full shadow-lg" />
+                    )}
+
+                    {/* Badge if any */}
+                    {item.badge && (
+                      <span className={`
+                        ${(isExpanded || isMobileOpen) ? 'ml-auto' : 'absolute -top-1 -right-1'}
+                        bg-gradient-to-r from-red-500 to-red-600 text-white text-xs rounded-full h-5 w-5
+                        flex items-center justify-center font-bold shadow-lg animate-pulse
+                      `}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* Pin/Unpin Button - shown at bottom when expanded on desktop */}
+        {(isExpanded || isMobileOpen) && (
+          <div className="p-4 border-t border-gray-800 bg-gray-800">
+            <button
+              onClick={togglePin}
+              className={`
+                w-full flex items-center justify-center space-x-2 px-3 py-2
+                rounded-lg transition-all duration-200 transform hover:scale-105
+                ${isPinned 
+                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg' 
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white border border-gray-600'
+                }
+                ${isMobileOpen ? 'lg:flex hidden' : 'flex'}
+              `}
+            >
+              {isPinned ? (
+                <>
+                  <PinOff className="h-4 w-4" />
+                  <span>Unpin Sidebar</span>
+                </>
+              ) : (
+                <>
+                  <Pin className="h-4 w-4" />
+                  <span>Keep Sidebar Open</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Expand indicator when collapsed */}
+        {!isExpanded && !isMobileOpen && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-800 rounded-l-lg p-1 shadow-lg hidden lg:flex items-center">
+            <ChevronRight className="h-4 w-4 text-gray-400 animate-pulse" />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}; 
