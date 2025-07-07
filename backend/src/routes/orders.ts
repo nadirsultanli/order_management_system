@@ -571,6 +571,11 @@ export const ordersRouter = router({
         }
 
         // Verify source warehouse exists
+        ctx.logger.info('Validating source warehouse:', { 
+          source_warehouse_id: input.source_warehouse_id,
+          customer_id: input.customer_id 
+        });
+        
         const { data: warehouse, error: warehouseError } = await ctx.supabase
           .from('warehouses')
           .select('id, name, is_mobile')
@@ -578,11 +583,21 @@ export const ordersRouter = router({
           .single();
 
         if (warehouseError || !warehouse) {
+          ctx.logger.error('Warehouse validation failed:', {
+            source_warehouse_id: input.source_warehouse_id,
+            error: warehouseError,
+            warehouse: warehouse
+          });
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Source warehouse not found'
           });
         }
+        
+        ctx.logger.info('Warehouse validation successful:', { 
+          warehouse_id: warehouse.id,
+          warehouse_name: warehouse.name 
+        });
 
         // Validate delivery address if provided
         if (input.delivery_address_id) {

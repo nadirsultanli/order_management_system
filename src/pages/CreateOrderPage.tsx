@@ -305,6 +305,7 @@ export const CreateOrderPage: React.FC = () => {
       };
 
       console.log('Creating order with data:', orderData);
+      console.log('Selected warehouse ID:', selectedWarehouseId);
       console.log('Order lines product IDs:', orderLines.map(l => l.product_id));
       console.log('Products available:', products.map(p => ({ id: p.id, name: p.name, status: p.status })));
 
@@ -326,7 +327,9 @@ export const CreateOrderPage: React.FC = () => {
         return;
       }
 
+      console.log('About to send order creation request...');
       const order = await createOrder.mutateAsync(orderData);
+      console.log('Order created successfully:', order);
 
       // Navigate to the created order
       navigate(`/orders/${order.id}`);
