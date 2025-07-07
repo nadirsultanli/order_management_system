@@ -116,18 +116,84 @@ components:
 
     Customer:
       type: object
-      required: [id, name, email]
+      required: [id, name, account_status, credit_terms_days]
       properties:
         id:
           type: string
           format: uuid
+        external_id:
+          type: string
+          description: External system identifier
         name:
+          type: string
+        tax_id:
+          type: string
+          description: Tax identification number
+        phone:
           type: string
         email:
           type: string
           format: email
-        phone:
+        account_status:
           type: string
+          enum: [active, credit_hold, closed]
+          default: active
+        credit_terms_days:
+          type: integer
+          minimum: 0
+          default: 30
+        primary_address:
+          $ref: '#/components/schemas/Address'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Address:
+      type: object
+      required: [id, line1, city, country]
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+          description: Address label (e.g., "Main Office", "Warehouse")
+        line1:
+          type: string
+        line2:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        postal_code:
+          type: string
+        country:
+          type: string
+          minLength: 2
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+        delivery_window_start:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          description: Delivery window start time (HH:MM format)
+        delivery_window_end:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          description: Delivery window end time (HH:MM format)
+        is_primary:
+          type: boolean
+          default: false
+        instructions:
+          type: string
+          description: Special delivery instructions
         created_at:
           type: string
           format: date-time
@@ -508,10 +574,19 @@ paths:
                               $ref: '#/components/schemas/InventoryItem'
 
   # CUSTOMER MANAGEMENT ENDPOINTS
+  # IMPORTANT: All tRPC endpoints use POST method regardless of operation type
+  # Query procedures (read operations) and Mutation procedures (write operations)
+  # are differentiated in the backend router, not by HTTP method
+  
   /customers.list:
     post:
       summary: List customers
-      description: Retrieve customers with optional filtering (tRPC query)
+      description: |
+        Retrieve customers with optional filtering and pagination.
+        This is a tRPC QUERY procedure (read-only operation).
+        
+        Note: Even though this is a read operation, tRPC requires POST method
+        to pass query parameters in the request body.
       tags: [Customers]
       requestBody:
         required: false
@@ -522,12 +597,20 @@ paths:
               properties:
                 search:
                   type: string
+                  description: Search term for customer name, email, or tax ID
+                account_status:
+                  type: string
+                  enum: [active, credit_hold, closed]
+                  description: Filter by account status
                 page:
                   type: number
                   default: 1
+                  minimum: 1
                 limit:
                   type: number
                   default: 50
+                  minimum: 1
+                  maximum: 1000
       responses:
         '200':
           description: Customers retrieved successfully
@@ -548,11 +631,19 @@ paths:
                               $ref: '#/components/schemas/Customer'
                           totalCount:
                             type: number
+                          totalPages:
+                            type: number
+                          currentPage:
+                            type: number
 
-  /customers.get:
+  /customers.getById:
     post:
       summary: Get customer by ID
-      description: Retrieve a specific customer by ID (tRPC query)
+      description: |
+        Retrieve a specific customer by ID with primary address.
+        This is a tRPC QUERY procedure (read-only operation).
+        
+        Note: Parameters are passed in request body, not URL path.
       tags: [Customers]
       requestBody:
         required: true
@@ -560,11 +651,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [id]
+              required: [customer_id]
               properties:
-                id:
+                customer_id:
                   type: string
                   format: uuid
+                  description: The customer's UUID
       responses:
         '200':
           description: Customer retrieved successfully
@@ -582,7 +674,9 @@ paths:
   /customers.create:
     post:
       summary: Create new customer
-      description: Create a new customer (tRPC mutation)
+      description: |
+        Create a new customer with address.
+        This is a tRPC MUTATION procedure (write operation).
       tags: [Customers]
       requestBody:
         required: true
@@ -590,20 +684,67 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, email]
+              required: [name, address]
               properties:
+                external_id:
+                  type: string
+                  description: External system identifier
                 name:
+                  type: string
+                  minLength: 1
+                tax_id:
+                  type: string
+                phone:
                   type: string
                 email:
                   type: string
                   format: email
-                phone:
+                account_status:
                   type: string
-                company:
-                  type: string
+                  enum: [active, credit_hold, closed]
+                  default: active
+                credit_terms_days:
+                  type: integer
+                  minimum: 0
+                  default: 30
+                address:
+                  type: object
+                  required: [line1, city, country]
+                  properties:
+                    label:
+                      type: string
+                    line1:
+                      type: string
+                      minLength: 1
+                    line2:
+                      type: string
+                    city:
+                      type: string
+                      minLength: 1
+                    state:
+                      type: string
+                    postal_code:
+                      type: string
+                    country:
+                      type: string
+                      minLength: 2
+                    latitude:
+                      type: number
+                      format: double
+                    longitude:
+                      type: number
+                      format: double
+                    delivery_window_start:
+                      type: string
+                      pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+                    delivery_window_end:
+                      type: string
+                      pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+                    instructions:
+                      type: string
       responses:
         '200':
-          description: Customer created successfully
+          description: Customer created successfully with primary address
           content:
             application/json:
               schema:
@@ -614,6 +755,493 @@ paths:
                     properties:
                       data:
                         $ref: '#/components/schemas/Customer'
+
+  /customers.update:
+    post:
+      summary: Update customer
+      description: |
+        Update customer details and optionally their primary address.
+        This is a tRPC MUTATION procedure (write operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                external_id:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                tax_id:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                account_status:
+                  type: string
+                  enum: [active, credit_hold, closed]
+                credit_terms_days:
+                  type: integer
+                  minimum: 0
+                address:
+                  type: object
+                  properties:
+                    label:
+                      type: string
+                    line1:
+                      type: string
+                      minLength: 1
+                    line2:
+                      type: string
+                    city:
+                      type: string
+                      minLength: 1
+                    state:
+                      type: string
+                    postal_code:
+                      type: string
+                    country:
+                      type: string
+                      minLength: 2
+                    latitude:
+                      type: number
+                      format: double
+                    longitude:
+                      type: number
+                      format: double
+                    delivery_window_start:
+                      type: string
+                    delivery_window_end:
+                      type: string
+                    instructions:
+                      type: string
+      responses:
+        '200':
+          description: Customer updated successfully
+
+  /customers.delete:
+    post:
+      summary: Delete customer
+      description: |
+        Delete a customer from the system.
+        This is a tRPC MUTATION procedure (write operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id]
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Customer deleted successfully
+
+  /customers.getOrderHistory:
+    post:
+      summary: Get customer order history
+      description: |
+        Retrieve order history for a specific customer.
+        This is a tRPC QUERY procedure (read-only operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id]
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+                limit:
+                  type: number
+                  default: 50
+                  minimum: 1
+                  maximum: 1000
+                offset:
+                  type: number
+                  default: 0
+                  minimum: 0
+                status:
+                  type: string
+                  enum: [draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled]
+      responses:
+        '200':
+          description: Order history retrieved successfully
+
+  /customers.getAnalytics:
+    post:
+      summary: Get customer analytics
+      description: |
+        Get analytics and insights for a specific customer.
+        This is a tRPC QUERY procedure (read-only operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id]
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+                period:
+                  type: string
+                  enum: [month, quarter, year]
+                  default: year
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+
+  /customers.validate:
+    post:
+      summary: Validate customer data
+      description: |
+        Validate customer data for duplicates and business rules.
+        This is a tRPC MUTATION procedure (validation operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                external_id:
+                  type: string
+                tax_id:
+                  type: string
+                exclude_id:
+                  type: string
+                  format: uuid
+                  description: Customer ID to exclude from duplicate checks (for updates)
+      responses:
+        '200':
+          description: Validation completed
+
+  /customers.validateCreditTerms:
+    post:
+      summary: Validate credit terms
+      description: |
+        Validate customer credit terms against business rules.
+        This is a tRPC MUTATION procedure (validation operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credit_terms_days, account_status]
+              properties:
+                credit_terms_days:
+                  type: number
+                account_status:
+                  type: string
+                  enum: [active, credit_hold, closed]
+                customer_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Credit terms validation completed
+
+  /customers.getAddresses:
+    post:
+      summary: Get customer addresses
+      description: |
+        Get all addresses for a specific customer.
+        This is a tRPC QUERY procedure (read-only operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id]
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Addresses retrieved successfully
+
+  /customers.createAddress:
+    post:
+      summary: Create customer address
+      description: |
+        Add a new address for a customer.
+        This is a tRPC MUTATION procedure (write operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, line1, city, country]
+              properties:
+                customer_id:
+                  type: string
+                  format: uuid
+                label:
+                  type: string
+                line1:
+                  type: string
+                  minLength: 1
+                line2:
+                  type: string
+                city:
+                  type: string
+                  minLength: 1
+                state:
+                  type: string
+                postal_code:
+                  type: string
+                country:
+                  type: string
+                  minLength: 2
+                latitude:
+                  type: number
+                  format: double
+                longitude:
+                  type: number
+                  format: double
+                delivery_window_start:
+                  type: string
+                delivery_window_end:
+                  type: string
+                is_primary:
+                  type: boolean
+                  default: false
+                instructions:
+                  type: string
+      responses:
+        '200':
+          description: Address created successfully
+
+  /customers.updateAddress:
+    post:
+      summary: Update customer address
+      description: |
+        Update an existing customer address.
+        This is a tRPC MUTATION procedure (write operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address_id, customer_id]
+              properties:
+                address_id:
+                  type: string
+                  format: uuid
+                customer_id:
+                  type: string
+                  format: uuid
+                label:
+                  type: string
+                line1:
+                  type: string
+                  minLength: 1
+                line2:
+                  type: string
+                city:
+                  type: string
+                  minLength: 1
+                state:
+                  type: string
+                postal_code:
+                  type: string
+                country:
+                  type: string
+                  minLength: 2
+                latitude:
+                  type: number
+                  format: double
+                longitude:
+                  type: number
+                  format: double
+                delivery_window_start:
+                  type: string
+                delivery_window_end:
+                  type: string
+                is_primary:
+                  type: boolean
+                instructions:
+                  type: string
+      responses:
+        '200':
+          description: Address updated successfully
+
+  /customers.deleteAddress:
+    post:
+      summary: Delete customer address
+      description: |
+        Delete a customer address.
+        This is a tRPC MUTATION procedure (write operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address_id]
+              properties:
+                address_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Address deleted successfully
+
+  /customers.setPrimaryAddress:
+    post:
+      summary: Set primary address
+      description: |
+        Set an address as the primary address for a customer.
+        This is a tRPC MUTATION procedure (write operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address_id, customer_id]
+              properties:
+                address_id:
+                  type: string
+                  format: uuid
+                customer_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Primary address set successfully
+
+  /customers.geocodeAddress:
+    post:
+      summary: Geocode address
+      description: |
+        Get latitude/longitude coordinates for an address.
+        This is a tRPC MUTATION procedure (external API call).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [line1, city, country]
+              properties:
+                line1:
+                  type: string
+                  minLength: 1
+                line2:
+                  type: string
+                city:
+                  type: string
+                  minLength: 1
+                state:
+                  type: string
+                country:
+                  type: string
+                  minLength: 2
+                postal_code:
+                  type: string
+      responses:
+        '200':
+          description: Geocoding completed successfully
+
+  /customers.validateAddress:
+    post:
+      summary: Validate address
+      description: |
+        Validate address format and attempt geocoding.
+        This is a tRPC MUTATION procedure (validation operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [line1, city, country]
+              properties:
+                line1:
+                  type: string
+                  minLength: 1
+                line2:
+                  type: string
+                city:
+                  type: string
+                  minLength: 1
+                state:
+                  type: string
+                country:
+                  type: string
+                  minLength: 2
+                postal_code:
+                  type: string
+      responses:
+        '200':
+          description: Address validation completed
+
+  /customers.validateDeliveryWindow:
+    post:
+      summary: Validate delivery window
+      description: |
+        Validate delivery window times against business rules.
+        This is a tRPC MUTATION procedure (validation operation).
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                delivery_window_start:
+                  type: string
+                  pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+                delivery_window_end:
+                  type: string
+                  pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+      responses:
+        '200':
+          description: Delivery window validation completed
 
   # PRODUCT MANAGEMENT ENDPOINTS
   /products.list:
