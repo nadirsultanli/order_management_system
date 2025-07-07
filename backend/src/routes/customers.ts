@@ -297,41 +297,79 @@ export const customersRouter = router({
         }
       }
       
-      // Call the RPC for atomic customer + address creation
-      const { data, error } = await ctx.supabase.rpc('create_customer_with_address', {
-        p_name: customerFields.name,
-        p_external_id: customerFields.external_id,
-        p_tax_id: customerFields.tax_id,
-        p_phone: customerFields.phone,
-        p_email: customerFields.email,
-        p_account_status: customerFields.account_status,
-        p_credit_terms_days: customerFields.credit_terms_days,
-        p_label: address.label,
-        p_line1: address.line1,
-        p_line2: address.line2,
-        p_city: address.city,
-        p_state: address.state,
-        p_postal_code: address.postal_code,
-        p_country: address.country,
-        p_latitude: latitude,
-        p_longitude: longitude,
-        p_delivery_window_start: address.delivery_window_start,
-        p_delivery_window_end: address.delivery_window_end,
-        p_is_primary: true,
-        p_instructions: address.instructions,
-        p_created_by: user.id,
-      });
-      
-      if (error) {
-        ctx.logger.error('Create customer+address RPC error:', error);
+      // Create customer and address in a transaction
+      // First create the customer
+      const { data: customerData, error: customerError } = await ctx.supabase
+        .from('customers')
+        .insert([{
+          name: customerFields.name,
+          external_id: customerFields.external_id,
+          tax_id: customerFields.tax_id,
+          phone: customerFields.phone,
+          email: customerFields.email,
+          account_status: customerFields.account_status,
+          credit_terms_days: customerFields.credit_terms_days,
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (customerError) {
+        ctx.logger.error('Create customer error:', customerError);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
+          message: customerError.message
         });
       }
+
+      // Then create the address
+      const { data: addressData, error: addressError } = await ctx.supabase
+        .from('addresses')
+        .insert([{
+          customer_id: customerData.id,
+          label: address.label,
+          line1: address.line1,
+          line2: address.line2,
+          city: address.city,
+          state: address.state,
+          postal_code: address.postal_code,
+          country: address.country,
+          latitude: latitude,
+          longitude: longitude,
+          delivery_window_start: address.delivery_window_start,
+          delivery_window_end: address.delivery_window_end,
+          is_primary: true,
+          instructions: address.instructions,
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (addressError) {
+        // If address creation fails, we should delete the customer to maintain consistency
+        await ctx.supabase
+          .from('customers')
+          .delete()
+          .eq('id', customerData.id);
+          
+        ctx.logger.error('Create address error:', addressError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: addressError.message
+        });
+      }
+
+      ctx.logger.info('Customer and address created successfully:', { customer: customerData, address: addressData });
       
-      ctx.logger.info('Customer and address created successfully:', data?.[0]);
-      return data?.[0];
+      // Return the customer data in the format expected by the frontend
+      return {
+        ...customerData,
+        primary_address: addressData
+      };
     }),
 
   // PUT /customers/{id} - Update customer
