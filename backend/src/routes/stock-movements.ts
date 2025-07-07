@@ -48,11 +48,18 @@ const RefillOrderProcessSchema = z.object({
 export const stockMovementsRouter = router({
   // GET /stock-movements - List stock movements with filters
   list: protectedProcedure
-    .input(StockMovementFiltersSchema)
+    .input(StockMovementFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching stock movements with filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const sort_by = filters.sort_by || 'movement_date';
+      const sort_order = filters.sort_order || 'desc';
+      
+      ctx.logger.info('Fetching stock movements with filters:', filters);
       
       let query = ctx.supabase
         .from('stock_movements')
@@ -81,44 +88,44 @@ export const stockMovementsRouter = router({
             status
           )
         `, { count: 'exact' })
-        .order(input.sort_by, { ascending: input.sort_order === 'asc' });
+        .order(sort_by, { ascending: sort_order === 'asc' });
 
       // Apply filters
-      if (input.search) {
-        query = query.or(`reference_number.ilike.%${input.search}%,notes.ilike.%${input.search}%`);
+      if (filters.search) {
+        query = query.or(`reference_number.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`);
       }
 
-      if (input.product_id) {
-        query = query.eq('product_id', input.product_id);
+      if (filters.product_id) {
+        query = query.eq('product_id', filters.product_id);
       }
 
-      if (input.warehouse_id) {
-        query = query.eq('warehouse_id', input.warehouse_id);
+      if (filters.warehouse_id) {
+        query = query.eq('warehouse_id', filters.warehouse_id);
       }
 
-      if (input.truck_id) {
-        query = query.eq('truck_id', input.truck_id);
+      if (filters.truck_id) {
+        query = query.eq('truck_id', filters.truck_id);
       }
 
-      if (input.order_id) {
-        query = query.eq('order_id', input.order_id);
+      if (filters.order_id) {
+        query = query.eq('order_id', filters.order_id);
       }
 
-      if (input.movement_type) {
-        query = query.eq('movement_type', input.movement_type);
+      if (filters.movement_type) {
+        query = query.eq('movement_type', filters.movement_type);
       }
 
-      if (input.date_from) {
-        query = query.gte('movement_date', input.date_from);
+      if (filters.date_from) {
+        query = query.gte('movement_date', filters.date_from);
       }
 
-      if (input.date_to) {
-        query = query.lte('movement_date', input.date_to);
+      if (filters.date_to) {
+        query = query.lte('movement_date', filters.date_to);
       }
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -134,8 +141,8 @@ export const stockMovementsRouter = router({
       return {
         movements: data || [],
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
       };
     }),
 

@@ -56,11 +56,19 @@ export const ordersRouter = router({
       include_analytics: z.boolean().default(false),
       page: z.number().min(1).default(1),
       limit: z.number().min(1).max(100).default(50),
-    }))
+    }).optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching orders with advanced filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const sort_by = filters.sort_by || 'created_at';
+      const sort_order = filters.sort_order || 'desc';
+      const include_analytics = filters.include_analytics || false;
+      
+      ctx.logger.info('Fetching orders with advanced filters:', filters);
       
       let query = ctx.supabase
         .from('orders')
@@ -90,60 +98,60 @@ export const ordersRouter = router({
       const filterConditions: string[] = [];
       
       // Apply status filter FIRST (before any OR conditions)
-      if (input.status) {
-        query = query.eq('status', input.status);
+      if (filters.status) {
+        query = query.eq('status', filters.status);
       }
 
       // Apply customer filter
-      if (input.customer_id) {
-        query = query.eq('customer_id', input.customer_id);
+      if (filters.customer_id) {
+        query = query.eq('customer_id', filters.customer_id);
       }
 
       // Enhanced search with multi-field support including product SKU
-      if (input.search) {
+      if (filters.search) {
         query = query.or(`
-          id.ilike.%${input.search}%,
-          customer.name.ilike.%${input.search}%,
-          customer.email.ilike.%${input.search}%,
-          order_lines.product.sku.ilike.%${input.search}%,
-          order_lines.product.name.ilike.%${input.search}%,
-          delivery_address.city.ilike.%${input.search}%
+          id.ilike.%${filters.search}%,
+          customer.name.ilike.%${filters.search}%,
+          customer.email.ilike.%${filters.search}%,
+          order_lines.product.sku.ilike.%${filters.search}%,
+          order_lines.product.name.ilike.%${filters.search}%,
+          delivery_address.city.ilike.%${filters.search}%
         `);
       }
 
       // Apply date filters
-      if (input.order_date_from) {
-        query = query.gte('order_date', input.order_date_from);
+      if (filters.order_date_from) {
+        query = query.gte('order_date', filters.order_date_from);
       }
-      if (input.order_date_to) {
-        query = query.lte('order_date', input.order_date_to);
+      if (filters.order_date_to) {
+        query = query.lte('order_date', filters.order_date_to);
       }
-      if (input.scheduled_date_from) {
-        query = query.gte('scheduled_date', input.scheduled_date_from);
+      if (filters.scheduled_date_from) {
+        query = query.gte('scheduled_date', filters.scheduled_date_from);
       }
-      if (input.scheduled_date_to) {
-        query = query.lte('scheduled_date', input.scheduled_date_to);
+      if (filters.scheduled_date_to) {
+        query = query.lte('scheduled_date', filters.scheduled_date_to);
       }
 
       // Apply amount range filter (business logic)
-      if (input.amount_min !== undefined) {
-        query = query.gte('total_amount', input.amount_min);
+      if (filters.amount_min !== undefined) {
+        query = query.gte('total_amount', filters.amount_min);
       }
-      if (input.amount_max !== undefined) {
-        query = query.lte('total_amount', input.amount_max);
+      if (filters.amount_max !== undefined) {
+        query = query.lte('total_amount', filters.amount_max);
       }
 
       // Apply delivery area filter (business logic)
-      if (input.delivery_area) {
+      if (filters.delivery_area) {
         query = query.or(`
-          delivery_address.city.ilike.%${input.delivery_area}%,
-          delivery_address.state.ilike.%${input.delivery_area}%,
-          delivery_address.postal_code.ilike.%${input.delivery_area}%
+          delivery_address.city.ilike.%${filters.delivery_area}%,
+          delivery_address.state.ilike.%${filters.delivery_area}%,
+          delivery_address.postal_code.ilike.%${filters.delivery_area}%
         `);
       }
 
       // Apply overdue filter (complex business logic)
-      if (input.is_overdue) {
+      if (filters.is_overdue) {
         const today = new Date().toISOString().split('T')[0];
         query = query
           .eq('status', 'scheduled')
@@ -151,27 +159,27 @@ export const ordersRouter = router({
       }
 
       // Apply delivery method filter
-      if (input.delivery_method) {
-        query = query.eq('delivery_method', input.delivery_method);
+      if (filters.delivery_method) {
+        query = query.eq('delivery_method', filters.delivery_method);
       }
 
       // Apply priority filter
-      if (input.priority) {
-        query = query.eq('priority', input.priority);
+      if (filters.priority) {
+        query = query.eq('priority', filters.priority);
       }
 
       // Apply payment status filter (business logic)
-      if (input.payment_status) {
-        if (input.payment_status === 'overdue') {
+      if (filters.payment_status) {
+        if (filters.payment_status === 'overdue') {
           // Orders that are invoiced but past due date
           const overdueDate = new Date();
           overdueDate.setDate(overdueDate.getDate() - 30); // 30 days overdue
           query = query
             .eq('status', 'invoiced')
             .lt('invoice_date', overdueDate.toISOString());
-        } else if (input.payment_status === 'paid') {
+        } else if (filters.payment_status === 'paid') {
           query = query.not('payment_date', 'is', null);
-        } else if (input.payment_status === 'pending') {
+        } else if (filters.payment_status === 'pending') {
           query = query.is('payment_date', null);
         }
       }
@@ -185,12 +193,12 @@ export const ordersRouter = router({
         'customer_name': 'customer.name'
       };
       
-      const sortField = sortMapping[input.sort_by] || 'created_at';
-      query = query.order(sortField, { ascending: input.sort_order === 'asc' });
+      const sortField = sortMapping[sort_by] || 'created_at';
+      query = query.order(sortField, { ascending: sort_order === 'asc' });
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -227,10 +235,10 @@ export const ordersRouter = router({
       return {
         orders,
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
         // Include analytics if requested
-        analytics: input.include_analytics ? await generateOrderAnalytics(ctx, orders) : undefined,
+        analytics: include_analytics ? await generateOrderAnalytics(ctx, orders) : undefined,
       };
     }),
 

@@ -85,19 +85,29 @@ const BulkStatusUpdateSchema = z.object({
 export const productsRouter = router({
   // GET /products - List products with advanced filtering and business logic
   list: protectedProcedure
-    .input(ProductFiltersSchema)
+    .input(ProductFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       try {
         const user = requireAuth(ctx);
         
-        ctx.logger.info('Fetching products with advanced filters:', input);
+        // Provide default values if input is undefined
+        const filters = input || {} as any;
+        const page = filters.page || 1;
+        const limit = filters.limit || 50;
+        const sort_by = filters.sort_by || 'created_at';
+        const sort_order = filters.sort_order || 'desc';
+        const show_obsolete = filters.show_obsolete || false;
+        const include_inventory_data = filters.include_inventory_data || false;
+        const low_stock_only = filters.low_stock_only || false;
+        
+        ctx.logger.info('Fetching products with advanced filters:', filters);
       
       // Start with basic product fields
       let selectClause = '*';
       
       // Only include inventory data if explicitly requested
       // Note: When using nested selects in PostgREST, we can't use '*' in combination with nested fields
-      if (input.include_inventory_data) {
+      if (include_inventory_data) {
         selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_product_id, variant_name, is_variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
       }
       
@@ -107,72 +117,72 @@ export const productsRouter = router({
         .throwOnError();
 
       // By default, hide obsolete products unless specifically requested
-      if (!input.show_obsolete) {
+      if (!show_obsolete) {
         query = query.in('status', ['active', 'end_of_sale']);
       }
 
       // Apply search filter with enhanced logic
-      if (input.search) {
-        const searchTerm = input.search.replace(/[%_]/g, '\\$&'); // Escape special characters
+      if (filters.search) {
+        const searchTerm = filters.search.replace(/[%_]/g, '\\$&'); // Escape special characters
         query = query.or(`sku.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%,barcode_uid.ilike.%${searchTerm}%`);
       }
 
       // Apply status filter
-      if (input.status) {
-        query = query.eq('status', input.status);
+      if (filters.status) {
+        query = query.eq('status', filters.status);
       }
 
       // Apply unit of measure filter
-      if (input.unit_of_measure) {
-        query = query.eq('unit_of_measure', input.unit_of_measure);
+      if (filters.unit_of_measure) {
+        query = query.eq('unit_of_measure', filters.unit_of_measure);
       }
 
       // Apply variant type filter
-      if (input.variant_type) {
-        query = query.eq('variant_type', input.variant_type);
+      if (filters.variant_type) {
+        query = query.eq('variant_type', filters.variant_type);
       }
 
       // Apply capacity range filters
-      if (input.capacity_min !== undefined) {
-        query = query.gte('capacity_kg', input.capacity_min);
+      if (filters.capacity_min !== undefined) {
+        query = query.gte('capacity_kg', filters.capacity_min);
       }
-      if (input.capacity_max !== undefined) {
-        query = query.lte('capacity_kg', input.capacity_max);
+      if (filters.capacity_max !== undefined) {
+        query = query.lte('capacity_kg', filters.capacity_max);
       }
 
       // Apply weight range filters
-      if (input.weight_min !== undefined) {
-        query = query.gte('tare_weight_kg', input.weight_min);
+      if (filters.weight_min !== undefined) {
+        query = query.gte('tare_weight_kg', filters.weight_min);
       }
-      if (input.weight_max !== undefined) {
-        query = query.lte('tare_weight_kg', input.weight_max);
+      if (filters.weight_max !== undefined) {
+        query = query.lte('tare_weight_kg', filters.weight_max);
       }
 
       // Apply tag requirement filter
-      if (input.requires_tag !== undefined) {
-        query = query.eq('requires_tag', input.requires_tag);
+      if (filters.requires_tag !== undefined) {
+        query = query.eq('requires_tag', filters.requires_tag);
       }
 
       // Apply variant filter
-      if (input.is_variant !== undefined) {
-        query = query.eq('is_variant', input.is_variant);
+      if (filters.is_variant !== undefined) {
+        query = query.eq('is_variant', filters.is_variant);
       }
 
       // Apply date filters
-      if (input.created_after) {
-        query = query.gte('created_at', input.created_after);
+      if (filters.created_after) {
+        query = query.gte('created_at', filters.created_after);
       }
-      if (input.updated_after) {
+      if (filters.updated_after) {
         // Note: products table doesn't have updated_at column, treating as created_after
-        query = query.gte('created_at', input.updated_after);
+        query = query.gte('created_at', filters.updated_after);
       }
 
       // Apply sorting
-      query = query.order(input.sort_by, { ascending: input.sort_order === 'asc' });
+      query = query.order(sort_by, { ascending: sort_order === 'asc' });
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -185,7 +195,7 @@ export const productsRouter = router({
           errorCode: errorObj.code,
           errorDetails: errorObj.details,
           errorHint: errorObj.hint,
-          filters: input
+          filters: filters
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -200,7 +210,7 @@ export const productsRouter = router({
         
         return {
           ...(product as any),
-          inventory_summary: input.include_inventory_data ? {
+          inventory_summary: include_inventory_data ? {
             total_stock: totalStock,
             total_available: totalAvailable,
             warehouse_count: inventoryData.length,
@@ -216,24 +226,24 @@ export const productsRouter = router({
       });
 
       // Apply business logic filters that require calculated data
-      if (input.has_inventory !== undefined) {
+      if (filters.has_inventory !== undefined) {
         products = products.filter(product => {
           const hasStock = (product.inventory_summary?.total_available || 0) > 0;
-          return input.has_inventory ? hasStock : !hasStock;
+          return filters.has_inventory ? hasStock : !hasStock;
         });
       }
 
-      if (input.low_stock_only) {
+      if (low_stock_only) {
         products = products.filter(product => 
           product.inventory_summary?.stock_level === 'low' || 
           product.inventory_summary?.stock_level === 'critical'
         );
       }
 
-      if (input.availability_status) {
+      if (filters.availability_status) {
         products = products.filter(product => {
           const stockLevel = product.inventory_summary?.stock_level || 'unknown';
-          switch (input.availability_status) {
+          switch (filters.availability_status) {
             case 'available':
               return ['high', 'normal'].includes(stockLevel);
             case 'low_stock':
@@ -247,27 +257,27 @@ export const productsRouter = router({
       }
 
       // Apply custom sorting for calculated fields
-      if (['inventory_level', 'last_sold'].includes(input.sort_by)) {
+      if (['inventory_level', 'last_sold'].includes(sort_by)) {
         products = products.sort((a, b) => {
           let aValue, bValue;
           
-          if (input.sort_by === 'inventory_level') {
+          if (sort_by === 'inventory_level') {
             aValue = a.inventory_summary?.total_available || 0;
             bValue = b.inventory_summary?.total_available || 0;
-          } else if (input.sort_by === 'last_sold') {
+          } else if (sort_by === 'last_sold') {
             aValue = new Date(a.inventory_summary?.last_restocked || '1970-01-01').getTime();
             bValue = new Date(b.inventory_summary?.last_restocked || '1970-01-01').getTime();
           }
           
-          return input.sort_order === 'asc' ? aValue - bValue : bValue - aValue;
+          return sort_order === 'asc' ? aValue - bValue : bValue - aValue;
         });
       }
 
       return {
         products,
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
         summary: await generateProductSummary(ctx, products),
       };
       } catch (error) {

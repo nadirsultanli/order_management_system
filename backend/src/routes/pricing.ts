@@ -623,11 +623,16 @@ export const pricingRouter = router({
       status: PriceListStatusEnum.optional(),
       page: z.number().min(1).default(1),
       limit: z.number().min(1).max(1000).default(50),
-    }))
+    }).optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching price lists with filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      
+      ctx.logger.info('Fetching price lists with filters:', filters);
       
       let query = ctx.supabase
         .from('price_list')
@@ -639,18 +644,18 @@ export const pricingRouter = router({
         .order('created_at', { ascending: false });
 
       // Apply search filter
-      if (input.search) {
-        query = query.or(`name.ilike.%${input.search}%,description.ilike.%${input.search}%`);
+      if (filters.search) {
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
       }
 
       // Apply currency filter
-      if (input.currency_code) {
-        query = query.eq('currency_code', input.currency_code);
+      if (filters.currency_code) {
+        query = query.eq('currency_code', filters.currency_code);
       }
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -675,8 +680,8 @@ export const pricingRouter = router({
           isExpiringSoon,
         };
       }).filter((list: any) => {
-        if (input.status) {
-          return list.status === input.status;
+        if (filters.status) {
+          return list.status === filters.status;
         }
         return true;
       });
@@ -684,8 +689,8 @@ export const pricingRouter = router({
       return {
         priceLists: processedLists,
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
       };
     }),
 

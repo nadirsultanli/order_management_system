@@ -194,11 +194,18 @@ function generateTransferReference(
 export const transfersRouter = router({
   // GET /transfers - List transfers with filtering and pagination
   list: protectedProcedure
-    .input(TransferFiltersSchema)
+    .input(TransferFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching transfers with filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const sort_by = filters.sort_by || 'created_at';
+      const sort_order = filters.sort_order || 'desc';
+      
+      ctx.logger.info('Fetching transfers with filters:', filters);
       
       let query = ctx.supabase
         .from('transfers')
@@ -215,39 +222,39 @@ export const transfersRouter = router({
           )
         `, { count: 'exact' })
         
-        .order(input.sort_by, { ascending: input.sort_order === 'asc' });
+        .order(sort_by, { ascending: sort_order === 'asc' });
 
       // Apply filters
-      if (input.source_warehouse_id) {
-        query = query.eq('source_warehouse_id', input.source_warehouse_id);
+      if (filters.source_warehouse_id) {
+        query = query.eq('source_warehouse_id', filters.source_warehouse_id);
       }
-      if (input.destination_warehouse_id) {
-        query = query.eq('destination_warehouse_id', input.destination_warehouse_id);
+      if (filters.destination_warehouse_id) {
+        query = query.eq('destination_warehouse_id', filters.destination_warehouse_id);
       }
-      if (input.status && input.status.length > 0) {
-        query = query.in('status', input.status);
+      if (filters.status && filters.status.length > 0) {
+        query = query.in('status', filters.status);
       }
-      if (input.transfer_type) {
-        query = query.eq('transfer_type', input.transfer_type);
+      if (filters.transfer_type) {
+        query = query.eq('transfer_type', filters.transfer_type);
       }
-      if (input.date_from) {
-        query = query.gte('transfer_date', input.date_from);
+      if (filters.date_from) {
+        query = query.gte('transfer_date', filters.date_from);
       }
-      if (input.date_to) {
-        query = query.lte('transfer_date', input.date_to);
+      if (filters.date_to) {
+        query = query.lte('transfer_date', filters.date_to);
       }
-      if (input.created_by_user_id) {
-        query = query.eq('created_by_user_id', input.created_by_user_id);
+      if (filters.created_by_user_id) {
+        query = query.eq('created_by_user_id', filters.created_by_user_id);
       }
 
       // Apply search filter
-      if (input.search_text) {
-        query = query.or(`id.ilike.%${input.search_text}%,transfer_reference.ilike.%${input.search_text}%,notes.ilike.%${input.search_text}%`);
+      if (filters.search_text) {
+        query = query.or(`id.ilike.%${filters.search_text}%,transfer_reference.ilike.%${filters.search_text}%,notes.ilike.%${filters.search_text}%`);
       }
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -271,8 +278,8 @@ export const transfersRouter = router({
       return {
         transfers,
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
       };
     }),
 

@@ -38,11 +38,16 @@ const WarehouseFiltersSchema = z.object({
 export const warehousesRouter = router({
   // GET /warehouses - List warehouses with optional filters
   list: protectedProcedure
-    .input(WarehouseFiltersSchema)
+    .input(WarehouseFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching warehouses with filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      
+      ctx.logger.info('Fetching warehouses with filters:', filters);
       
       let query = ctx.supabase
         .from('warehouses')
@@ -65,13 +70,13 @@ export const warehousesRouter = router({
         .order('created_at', { ascending: false });
 
       // Apply search filter
-      if (input.search) {
-        query = query.ilike('name', `%${input.search}%`);
+      if (filters.search) {
+        query = query.ilike('name', `%${filters.search}%`);
       }
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -87,8 +92,8 @@ export const warehousesRouter = router({
       return {
         warehouses: data || [],
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
       };
     }),
 

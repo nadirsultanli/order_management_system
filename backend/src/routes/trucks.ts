@@ -116,11 +116,16 @@ const UpdateMaintenanceSchema = z.object({
 export const trucksRouter = router({
   // GET /trucks - List trucks with optional filters
   list: protectedProcedure
-    .input(TruckFiltersSchema)
+    .input(TruckFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching trucks with filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      
+      ctx.logger.info('Fetching trucks with filters:', filters);
       
       let query = ctx.supabase
         .from('truck')
@@ -128,28 +133,28 @@ export const trucksRouter = router({
         .order('fleet_number');
 
       // Apply search filter
-      if (input.search) {
-        query = query.or(`fleet_number.ilike.%${input.search}%,license_plate.ilike.%${input.search}%,driver_name.ilike.%${input.search}%`);
+      if (filters.search) {
+        query = query.or(`fleet_number.ilike.%${filters.search}%,license_plate.ilike.%${filters.search}%,driver_name.ilike.%${filters.search}%`);
       }
 
       // Apply status filter using active field (status doesn't exist in database)
-      if (input.status) {
-        if (input.status === 'active') {
+      if (filters.status) {
+        if (filters.status === 'active') {
           query = query.eq('active', true);
-        } else if (input.status === 'inactive') {
+        } else if (filters.status === 'inactive') {
           query = query.eq('active', false);
         }
         // maintenance status would need additional logic if needed
       }
 
       // Apply active filter
-      if (input.active !== undefined) {
-        query = query.eq('active', input.active);
+      if (filters.active !== undefined) {
+        query = query.eq('active', filters.active);
       }
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -161,7 +166,7 @@ export const trucksRouter = router({
           details: error.details,
           hint: error.hint,
           user_id: user.id,
-          filters: input
+          filters: filters
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -213,8 +218,8 @@ export const trucksRouter = router({
       return {
         trucks: enhancedTrucks,
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
       };
     }),
 

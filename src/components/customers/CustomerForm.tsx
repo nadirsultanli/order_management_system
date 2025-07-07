@@ -268,7 +268,11 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                     type="text"
                     id="name"
                     {...register('name', { required: 'Business name is required' })}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                      errors.name 
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                    }`}
                   />
                   {errors.name && (
                     <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
@@ -303,30 +307,45 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                      Phone
+                      Phone *
                     </label>
                     <input
                       type="tel"
                       id="phone"
-                      {...register('phone')}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      {...register('phone', { 
+                        required: 'Phone number is required',
+                        minLength: { value: 10, message: 'Phone number must be at least 10 digits' }
+                      })}
+                      className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                        errors.phone 
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
                     />
+                    {errors.phone && (
+                      <p className="mt-1 text-sm text-red-600">{errors.phone.message}</p>
+                    )}
                   </div>
 
                   <div>
                     <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email
+                      Email *
                     </label>
                     <input
                       type="email"
                       id="email"
                       {...register('email', {
+                        required: 'Email is required',
                         pattern: {
                           value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                           message: 'Invalid email address',
                         },
                       })}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                        errors.email 
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
                     />
                     {errors.email && (
                       <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -352,7 +371,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
                   <div>
                     <label htmlFor="credit_terms_days" className="block text-sm font-medium text-gray-700">
-                      Credit Terms (Days)
+                      Credit Terms (Days) *
                     </label>
                     <input
                       type="number"
@@ -363,7 +382,11 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                         min: { value: 0, message: 'Credit terms must be positive' },
                         valueAsNumber: true,
                       })}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                        errors.credit_terms_days 
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
                     />
                     {errors.credit_terms_days && (
                       <p className="mt-1 text-sm text-red-600">{errors.credit_terms_days.message}</p>
@@ -384,7 +407,11 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                         setAddressInput(e.target.value);
                         setSelectedSuggestion(null);
                       }}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                        (errors.line1 || errors.city || errors.country) 
+                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
                       autoComplete="off"
                       placeholder="Start typing address..."
                     />
@@ -417,7 +444,26 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                     {selectedSuggestion && (
                       <div className="text-xs text-green-600 mt-1">Address selected</div>
                     )}
+                    {(errors.line1 || errors.city || errors.country) && (
+                      <p className="mt-1 text-sm text-red-600">
+                        Please select a complete address from the suggestions
+                      </p>
+                    )}
                   </div>
+                  
+                  {/* Hidden validation fields for address components */}
+                  <input
+                    type="hidden"
+                    {...register('line1', { required: 'Street address is required' })}
+                  />
+                  <input
+                    type="hidden"
+                    {...register('city', { required: 'City is required' })}
+                  />
+                  <input
+                    type="hidden"
+                    {...register('country', { required: 'Country is required' })}
+                  />
                 </div>
 
                 {/* Under the address input, show the map if lat/lng are set */}
@@ -457,9 +503,23 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                       <input
                         type="time"
                         id="delivery_window_start"
-                        {...register('delivery_window_start')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        {...register('delivery_window_start', {
+                          validate: (value) => {
+                            if (value && !deliveryEnd) {
+                              return 'Please provide both start and end times for delivery window';
+                            }
+                            return true;
+                          }
+                        })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                          errors.delivery_window_start 
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                        }`}
                       />
+                      {errors.delivery_window_start && (
+                        <p className="mt-1 text-sm text-red-600">{errors.delivery_window_start.message}</p>
+                      )}
                     </div>
 
                     <div>
@@ -469,9 +529,26 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                       <input
                         type="time"
                         id="delivery_window_end"
-                        {...register('delivery_window_end')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        {...register('delivery_window_end', {
+                          validate: (value) => {
+                            if (value && !deliveryStart) {
+                              return 'Please provide both start and end times for delivery window';
+                            }
+                            if (deliveryStart && value && deliveryStart >= value) {
+                              return 'End time must be after start time';
+                            }
+                            return true;
+                          }
+                        })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                          errors.delivery_window_end 
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                        }`}
                       />
+                      {errors.delivery_window_end && (
+                        <p className="mt-1 text-sm text-red-600">{errors.delivery_window_end.message}</p>
+                      )}
                     </div>
                   </div>
                 </div>

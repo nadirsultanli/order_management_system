@@ -125,11 +125,18 @@ export const paymentsRouter = router({
 
   // GET /payments - List payments with filtering
   list: protectedProcedure
-    .input(PaymentFiltersSchema)
+    .input(PaymentFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching payments with filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const sort_by = filters.sort_by || 'payment_date';
+      const sort_order = filters.sort_order || 'desc';
+      
+      ctx.logger.info('Fetching payments with filters:', filters);
 
       let query = ctx.supabase
         .from('payments')
@@ -144,41 +151,41 @@ export const paymentsRouter = router({
         `, { count: 'exact' });
 
       // Apply filters
-      if (input.order_id) {
-        query = query.eq('order_id', input.order_id);
+      if (filters.order_id) {
+        query = query.eq('order_id', filters.order_id);
       }
 
-      if (input.payment_method) {
-        query = query.eq('payment_method', input.payment_method);
+      if (filters.payment_method) {
+        query = query.eq('payment_method', filters.payment_method);
       }
 
-      if (input.payment_status) {
-        query = query.eq('payment_status', input.payment_status);
+      if (filters.payment_status) {
+        query = query.eq('payment_status', filters.payment_status);
       }
 
       // Date range filters
-      if (input.date_from) {
-        query = query.gte('payment_date', input.date_from);
+      if (filters.date_from) {
+        query = query.gte('payment_date', filters.date_from);
       }
-      if (input.date_to) {
-        query = query.lte('payment_date', input.date_to);
+      if (filters.date_to) {
+        query = query.lte('payment_date', filters.date_to);
       }
 
       // Amount range filters
-      if (input.amount_min !== undefined) {
-        query = query.gte('amount', input.amount_min);
+      if (filters.amount_min !== undefined) {
+        query = query.gte('amount', filters.amount_min);
       }
-      if (input.amount_max !== undefined) {
-        query = query.lte('amount', input.amount_max);
+      if (filters.amount_max !== undefined) {
+        query = query.lte('amount', filters.amount_max);
       }
 
       // Search filter
-      if (input.search) {
+      if (filters.search) {
         query = query.or(`
-          payment_id.ilike.%${input.search}%,
-          transaction_id.ilike.%${input.search}%,
-          reference_number.ilike.%${input.search}%,
-          notes.ilike.%${input.search}%
+          payment_id.ilike.%${filters.search}%,
+          transaction_id.ilike.%${filters.search}%,
+          reference_number.ilike.%${filters.search}%,
+          notes.ilike.%${filters.search}%
         `);
       }
 
@@ -190,12 +197,12 @@ export const paymentsRouter = router({
         'payment_id': 'payment_id'
       };
       
-      const sortField = sortMapping[input.sort_by] || 'payment_date';
-      query = query.order(sortField, { ascending: input.sort_order === 'asc' });
+      const sortField = sortMapping[sort_by] || 'payment_date';
+      query = query.order(sortField, { ascending: sort_order === 'asc' });
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       query = query.range(from, to);
 
       const { data, error, count } = await query;
@@ -215,19 +222,19 @@ export const paymentsRouter = router({
 
       // Apply same filters to summary query
       let summaryQueryFiltered = summaryQuery;
-      if (input.order_id) summaryQueryFiltered = summaryQueryFiltered.eq('order_id', input.order_id);
-      if (input.payment_method) summaryQueryFiltered = summaryQueryFiltered.eq('payment_method', input.payment_method);
-      if (input.payment_status) summaryQueryFiltered = summaryQueryFiltered.eq('payment_status', input.payment_status);
-      if (input.date_from) summaryQueryFiltered = summaryQueryFiltered.gte('payment_date', input.date_from);
-      if (input.date_to) summaryQueryFiltered = summaryQueryFiltered.lte('payment_date', input.date_to);
-      if (input.amount_min !== undefined) summaryQueryFiltered = summaryQueryFiltered.gte('amount', input.amount_min);
-      if (input.amount_max !== undefined) summaryQueryFiltered = summaryQueryFiltered.lte('amount', input.amount_max);
-      if (input.search) {
+      if (filters.order_id) summaryQueryFiltered = summaryQueryFiltered.eq('order_id', filters.order_id);
+      if (filters.payment_method) summaryQueryFiltered = summaryQueryFiltered.eq('payment_method', filters.payment_method);
+      if (filters.payment_status) summaryQueryFiltered = summaryQueryFiltered.eq('payment_status', filters.payment_status);
+      if (filters.date_from) summaryQueryFiltered = summaryQueryFiltered.gte('payment_date', filters.date_from);
+      if (filters.date_to) summaryQueryFiltered = summaryQueryFiltered.lte('payment_date', filters.date_to);
+      if (filters.amount_min !== undefined) summaryQueryFiltered = summaryQueryFiltered.gte('amount', filters.amount_min);
+      if (filters.amount_max !== undefined) summaryQueryFiltered = summaryQueryFiltered.lte('amount', filters.amount_max);
+      if (filters.search) {
         summaryQueryFiltered = summaryQueryFiltered.or(`
-          payment_id.ilike.%${input.search}%,
-          transaction_id.ilike.%${input.search}%,
-          reference_number.ilike.%${input.search}%,
-          notes.ilike.%${input.search}%
+          payment_id.ilike.%${filters.search}%,
+          transaction_id.ilike.%${filters.search}%,
+          reference_number.ilike.%${filters.search}%,
+          notes.ilike.%${filters.search}%
         `);
       }
 
@@ -238,8 +245,8 @@ export const paymentsRouter = router({
       return {
         payments: data || [],
         totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
         summary,
       };
     }),

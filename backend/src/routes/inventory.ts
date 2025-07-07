@@ -61,11 +61,24 @@ const ReservationSchema = z.object({
 export const inventoryRouter = router({
   // GET /inventory - List inventory with advanced filtering and business logic
   list: protectedProcedure
-    .input(InventoryFiltersSchema)
+    .input(InventoryFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching inventory with advanced filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const sort_by = filters.sort_by || 'updated_at';
+      const sort_order = filters.sort_order || 'desc';
+      const include_reserved = filters.include_reserved || false;
+      const stock_threshold_days = filters.stock_threshold_days || 30;
+      const low_stock_only = filters.low_stock_only || false;
+      const out_of_stock_only = filters.out_of_stock_only || false;
+      const overstocked_only = filters.overstocked_only || false;
+      const critical_stock_only = filters.critical_stock_only || false;
+      
+      ctx.logger.info('Fetching inventory with advanced filters:', filters);
       
       let query = ctx.supabase
         .from('inventory_balance')
@@ -76,35 +89,35 @@ export const inventoryRouter = router({
         `, { count: 'exact' });
 
       // Apply warehouse filter
-      if (input.warehouse_id) {
-        query = query.eq('warehouse_id', input.warehouse_id);
+      if (filters.warehouse_id) {
+        query = query.eq('warehouse_id', filters.warehouse_id);
       }
 
       // Apply product filter
-      if (input.product_id) {
-        query = query.eq('product_id', input.product_id);
+      if (filters.product_id) {
+        query = query.eq('product_id', filters.product_id);
       }
 
       // Apply product status filter
-      if (input.product_status) {
-        query = query.eq('product.status', input.product_status);
+      if (filters.product_status) {
+        query = query.eq('product.status', filters.product_status);
       }
 
       // Enhanced search filter
-      if (input.search) {
+      if (filters.search) {
         query = query.or(`
-          product.sku.ilike.%${input.search}%,
-          product.name.ilike.%${input.search}%,
-          warehouse.name.ilike.%${input.search}%
+          product.sku.ilike.%${filters.search}%,
+          product.name.ilike.%${filters.search}%,
+          warehouse.name.ilike.%${filters.search}%
         `);
       }
 
       // Apply quantity range filters
-      if (input.min_qty_available !== undefined) {
-        query = query.gte('qty_full', input.min_qty_available);
+      if (filters.min_qty_available !== undefined) {
+        query = query.gte('qty_full', filters.min_qty_available);
       }
-      if (input.max_qty_available !== undefined) {
-        query = query.lte('qty_full', input.max_qty_available);
+      if (filters.max_qty_available !== undefined) {
+        query = query.lte('qty_full', filters.max_qty_available);
       }
 
       const { data, error, count } = await query;
@@ -116,7 +129,7 @@ export const inventoryRouter = router({
           details: error.details,
           hint: error.hint,
           user_id: user.id,
-          filters: input
+          filters: filters
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -125,7 +138,7 @@ export const inventoryRouter = router({
       }
 
       let inventory = (data || []).map(item => {
-        const qtyAvailable = input.include_reserved ? item.qty_full : (item.qty_full - item.qty_reserved);
+        const qtyAvailable = include_reserved ? item.qty_full : (item.qty_full - item.qty_reserved);
         // Use default values since reorder_level and max_stock_level columns may not exist yet
         // These should be configurable per product after migration is applied
         const reorderLevel = item.product?.reorder_level || (item.product?.capacity_kg >= 50 ? 5 : item.product?.capacity_kg >= 20 ? 10 : 20);
@@ -137,7 +150,7 @@ export const inventoryRouter = router({
           qty_available: qtyAvailable,
           stock_level: stockLevel,
           stock_level_ratio: maxStockLevel > 0 ? qtyAvailable / maxStockLevel : 0,
-          days_of_stock: calculateDaysOfStock(item, input.stock_threshold_days),
+          days_of_stock: calculateDaysOfStock(item, stock_threshold_days),
           is_critical: stockLevel === 'critical',
           is_low: stockLevel === 'low',
           is_out_of_stock: qtyAvailable <= 0,
@@ -148,33 +161,33 @@ export const inventoryRouter = router({
       });
 
       // Apply business logic filters
-      if (input.low_stock_only) {
+      if (low_stock_only) {
         inventory = inventory.filter(item => item.is_low);
       }
-      if (input.out_of_stock_only) {
+      if (out_of_stock_only) {
         inventory = inventory.filter(item => item.is_out_of_stock);
       }
-      if (input.overstocked_only) {
+      if (overstocked_only) {
         inventory = inventory.filter(item => item.is_overstocked);
       }
-      if (input.critical_stock_only) {
+      if (critical_stock_only) {
         inventory = inventory.filter(item => item.is_critical);
       }
 
       // Apply sorting
-      inventory = applySorting(inventory, input.sort_by, input.sort_order);
+      inventory = applySorting(inventory, sort_by, sort_order);
 
       // Apply pagination after filtering
       const totalFiltered = inventory.length;
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit;
+      const from = (page - 1) * limit;
+      const to = from + limit;
       inventory = inventory.slice(from, to);
 
       return {
         inventory,
         totalCount: totalFiltered,
-        totalPages: Math.ceil(totalFiltered / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil(totalFiltered / limit),
+        currentPage: page,
         // Include summary analytics
         summary: generateInventorySummary(data || []),
       };
