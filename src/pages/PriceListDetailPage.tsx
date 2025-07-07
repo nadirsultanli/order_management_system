@@ -20,7 +20,8 @@ export const PriceListDetailPage: React.FC = () => {
   const [deletingItem, setDeletingItem] = useState<PriceListItem | null>(null);
 
   const { data: priceList, isLoading, error } = usePriceListNew(id!);
-  const { data: priceListItems = [], refetch: refetchItems } = usePriceListItemsNew(id!);
+  const { data: priceListItemsData, refetch: refetchItems } = usePriceListItemsNew(id!);
+  const priceListItems = priceListItemsData?.items || [];
   const updatePriceList = useUpdatePriceListNew();
   const createPriceListItem = useCreatePriceListItemNew();
   // Note: useUpdatePriceListItem and useDeletePriceListItem not available - functionality disabled
