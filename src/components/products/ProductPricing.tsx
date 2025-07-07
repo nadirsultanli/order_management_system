@@ -160,6 +160,9 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Unit Price
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tax Info
+                  </th>
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Min Qty
                   </th>
@@ -202,6 +205,19 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                         <span className="text-sm font-medium text-gray-900">
                           {formatCurrencySync(item.unit_price)}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm text-gray-900">
+                          {item.price_excluding_tax && item.tax_amount ? (
+                            <>
+                              <div className="text-xs text-gray-500">Ex-tax: {formatCurrencySync(item.price_excluding_tax)}</div>
+                              <div className="text-xs text-gray-500">Tax: {formatCurrencySync(item.tax_amount)}</div>
+                              <div className="font-medium">Inc-tax: {formatCurrencySync(item.price_including_tax || item.unit_price)}</div>
+                            </>
+                          ) : (
+                            <div className="text-xs text-gray-500">Tax calculated</div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="text-sm text-gray-900">{item.min_qty}</span>

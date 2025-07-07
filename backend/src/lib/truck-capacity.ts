@@ -80,6 +80,9 @@ export interface Product {
   parent_product_id?: string;
   capacity_kg?: number;
   tare_weight_kg?: number;
+  // Tax-related fields
+  tax_category?: string;
+  tax_rate?: number;
 }
 
 export interface DailyTruckSchedule {

@@ -55,11 +55,18 @@ export interface OrderLine {
   quantity: number;
   unit_price: number;
   subtotal?: number;
+  // Tax-related fields (fixed at order creation time)
+  price_excluding_tax?: number;
+  tax_amount?: number;
+  price_including_tax?: number;
+  tax_rate?: number;
   product?: {
     id: string;
     sku: string;
     name: string;
     unit_of_measure: string;
+    tax_category?: string;
+    tax_rate?: number;
   };
 }
 
@@ -103,6 +110,11 @@ export interface CreateOrderLineData {
   product_id: string;
   quantity: number;
   unit_price: number;
+  // Tax-related fields (fixed at order creation time)
+  price_excluding_tax?: number;
+  tax_amount?: number;
+  price_including_tax?: number;
+  tax_rate?: number;
 }
 
 export interface UpdateOrderLineData extends Partial<CreateOrderLineData> {

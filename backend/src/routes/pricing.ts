@@ -33,6 +33,10 @@ const CreatePriceListItemSchema = z.object({
   unit_price: z.number().positive(),
   min_qty: z.number().int().min(1).optional(),
   surcharge_pct: z.number().min(0).max(100).optional(),
+  // Tax-related fields (optional, calculated if not provided)
+  price_excluding_tax: z.number().positive().optional(),
+  tax_amount: z.number().min(0).optional(),
+  price_including_tax: z.number().positive().optional(),
 });
 
 const UpdatePriceListItemSchema = z.object({
@@ -40,6 +44,10 @@ const UpdatePriceListItemSchema = z.object({
   unit_price: z.number().positive().optional(),
   min_qty: z.number().int().min(1).optional(),
   surcharge_pct: z.number().min(0).max(100).optional(),
+  // Tax-related fields (optional, calculated if not provided)
+  price_excluding_tax: z.number().positive().optional(),
+  tax_amount: z.number().min(0).optional(),
+  price_including_tax: z.number().positive().optional(),
 });
 
 const BulkPricingSchema = z.object({
@@ -329,7 +337,7 @@ export const pricingRouter = router({
         .from('price_list_item')
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure)
+          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
         `, { count: 'exact' })
         .eq('price_list_id', input.price_list_id)
         .order('unit_price', { ascending: false });
@@ -403,7 +411,7 @@ export const pricingRouter = router({
         .insert([input])
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure)
+          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
         `)
         .single();
 
@@ -978,7 +986,7 @@ export const pricingRouter = router({
         .from('price_list_item')
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure)
+          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
         `, { count: 'exact' })
         .eq('price_list_id', input.price_list_id)
         .order('unit_price', { ascending: false });
@@ -1053,7 +1061,7 @@ export const pricingRouter = router({
         .insert([input])
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure)
+          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
         `)
         .single();
 
@@ -1102,7 +1110,7 @@ export const pricingRouter = router({
         .eq('id', id)
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure)
+          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
         `)
         .single();
 
@@ -1253,7 +1261,7 @@ export const pricingRouter = router({
         .insert(items)
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure)
+          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
         `);
 
       if (error) {
@@ -1574,7 +1582,7 @@ export const pricingRouter = router({
             .eq('id', existingItem.id)
             .select(`
               *,
-              product:products(id, sku, name)
+              product:products(id, sku, name, tax_category, tax_rate)
             `)
             .single();
 

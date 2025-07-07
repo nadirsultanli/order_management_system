@@ -125,6 +125,9 @@ export interface Product {
   is_variant: boolean;
   parent_product?: Product;
   variants?: Product[];
+  // Tax-related fields
+  tax_category?: string;
+  tax_rate?: number;
 }
 
 // Standard cylinder weights (kg) - can be customized per product

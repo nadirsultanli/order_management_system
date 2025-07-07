@@ -14,6 +14,12 @@ export interface PriceCalculationResult {
   finalPrice: number;
   priceListId: string;
   priceListName: string;
+  // Tax-related fields
+  priceExcludingTax?: number;
+  taxAmount?: number;
+  priceIncludingTax?: number;
+  taxRate?: number;
+  taxCategory?: string;
 }
 
 export interface OrderTotals {
@@ -109,7 +115,10 @@ export class PricingService {
             unit_price,
             surcharge_pct,
             min_qty,
-            product_id
+            product_id,
+            price_excluding_tax,
+            tax_amount,
+            price_including_tax
           )
         `)
         .eq('price_list_item.product_id', productId)
@@ -144,12 +153,25 @@ export class PricingService {
       const priceItem = (bestPriceList as any).price_list_item[0];
       const finalPrice = this.calculateFinalPrice(priceItem.unit_price, priceItem.surcharge_pct);
 
+      // Get product tax information
+      const { data: productData } = await this.supabase
+        .from('products')
+        .select('tax_category, tax_rate')
+        .eq('id', productId)
+        .single();
+
       return {
         unitPrice: priceItem.unit_price,
         surchargePercent: priceItem.surcharge_pct || 0,
         finalPrice,
         priceListId: bestPriceList.id,
         priceListName: bestPriceList.name,
+        // Tax-related fields from price list item (pre-calculated)
+        priceExcludingTax: priceItem.price_excluding_tax || priceItem.unit_price,
+        taxAmount: priceItem.tax_amount || 0,
+        priceIncludingTax: priceItem.price_including_tax || priceItem.unit_price,
+        taxRate: productData?.tax_rate || 0,
+        taxCategory: productData?.tax_category || 'standard',
       };
     } catch (error) {
       this.logger.error('Error in getProductPrice:', error);

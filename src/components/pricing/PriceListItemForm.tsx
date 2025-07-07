@@ -44,6 +44,10 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
       unit_price: 0,
       min_qty: 1,
       surcharge_pct: 0,
+      // Tax fields (optional, will be calculated if not provided)
+      price_excluding_tax: undefined,
+      tax_amount: undefined,
+      price_including_tax: undefined,
     },
   });
 
@@ -64,15 +68,21 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
         unit_price: item.unit_price,
         min_qty: item.min_qty,
         surcharge_pct: item.surcharge_pct || 0,
+        price_excluding_tax: item.price_excluding_tax,
+        tax_amount: item.tax_amount,
+        price_including_tax: item.price_including_tax,
       });
     } else {
-      reset({
-        price_list_id: priceListId,
-        product_id: '',
-        unit_price: 0,
-        min_qty: 1,
-        surcharge_pct: 0,
-      });
+              reset({
+          price_list_id: priceListId,
+          product_id: '',
+          unit_price: 0,
+          min_qty: 1,
+          surcharge_pct: 0,
+          price_excluding_tax: undefined,
+          tax_amount: undefined,
+          price_including_tax: undefined,
+        });
     }
   }, [item, priceListId, reset]);
 

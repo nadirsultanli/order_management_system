@@ -17,11 +17,17 @@ export interface PriceListItem {
   unit_price: number;
   min_qty: number;
   surcharge_pct?: number;
+  // Tax-related fields (pre-calculated, not dynamic)
+  price_excluding_tax?: number;
+  tax_amount?: number;
+  price_including_tax?: number;
   product?: {
     id: string;
     sku: string;
     name: string;
     unit_of_measure: string;
+    tax_category?: string;
+    tax_rate?: number;
   };
 }
 
@@ -44,6 +50,10 @@ export interface CreatePriceListItemData {
   unit_price: number;
   min_qty: number;
   surcharge_pct?: number;
+  // Tax-related fields (optional, calculated if not provided)
+  price_excluding_tax?: number;
+  tax_amount?: number;
+  price_including_tax?: number;
 }
 
 export interface UpdatePriceListItemData extends Partial<CreatePriceListItemData> {
@@ -85,3 +95,42 @@ export interface CurrencyOption {
   name: string;
   symbol: string;
 }
+
+// Tax-related interfaces
+export interface TaxCalculation {
+  priceExcludingTax: number;
+  taxAmount: number;
+  priceIncludingTax: number;
+  taxRate: number;
+  taxCategory: string;
+}
+
+export interface ProductPricing {
+  unitPrice: number;
+  surchargePercent: number;
+  finalPrice: number;
+  priceListId: string;
+  priceListName: string;
+  // Tax breakdown
+  priceExcludingTax?: number;
+  taxAmount?: number;
+  priceIncludingTax?: number;
+  taxRate?: number;
+  taxCategory?: string;
+}
+
+export interface TaxCategory {
+  id: string;
+  name: string;
+  rate: number;
+  description?: string;
+}
+
+// Common tax categories for Kenya
+export const TAX_CATEGORIES: TaxCategory[] = [
+  { id: 'standard', name: 'Standard Rate', rate: 0.16, description: '16% VAT' },
+  { id: 'exempt', name: 'Exempt', rate: 0, description: 'VAT Exempt' },
+  { id: 'zero_rated', name: 'Zero Rated', rate: 0, description: '0% VAT (can claim input tax)' },
+  { id: 'luxury', name: 'Luxury', rate: 0.25, description: '25% Luxury Tax' },
+  { id: 'reduced', name: 'Reduced Rate', rate: 0.08, description: '8% Reduced VAT' },
+];

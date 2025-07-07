@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Product, CreateProductData } from '../../types/product';
+import { TAX_CATEGORIES } from '../../types/pricing';
 import { trpc } from '../../lib/trpc-client';
 
 interface ProductFormProps {
@@ -43,6 +44,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       variant_type: 'cylinder',
       requires_tag: false,
       is_variant: false,
+      tax_category: 'standard',
+      tax_rate: 0.16,
     },
   });
 
@@ -64,22 +67,26 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         variant_type: product.variant_type,
         requires_tag: product.requires_tag,
         is_variant: product.is_variant,
+        tax_category: product.tax_category || 'standard',
+        tax_rate: product.tax_rate || 0.16,
       });
     } else {
-      reset({
-        sku: '',
-        name: '',
-        description: '',
-        unit_of_measure: 'cylinder',
-        capacity_kg: undefined,
-        tare_weight_kg: undefined,
-        valve_type: '',
-        status: 'active',
-        barcode_uid: '',
-        variant_type: 'cylinder',
-        requires_tag: false,
-        is_variant: false,
-      });
+              reset({
+          sku: '',
+          name: '',
+          description: '',
+          unit_of_measure: 'cylinder',
+          capacity_kg: undefined,
+          tare_weight_kg: undefined,
+          valve_type: '',
+          status: 'active',
+          barcode_uid: '',
+          variant_type: 'cylinder',
+          requires_tag: false,
+          is_variant: false,
+          tax_category: 'standard',
+          tax_rate: 0.16,
+        });
     }
   }, [product, reset]);
 
@@ -281,6 +288,61 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         placeholder="Detailed product description..."
                       />
+                    </div>
+                  </div>
+
+                  {/* Tax Information */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">Tax Information</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="tax_category" className="block text-sm font-medium text-gray-700">
+                          Tax Category
+                        </label>
+                        <select
+                          id="tax_category"
+                          {...register('tax_category')}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                          {TAX_CATEGORIES.map((category) => (
+                            <option key={category.id} value={category.id}>
+                              {category.name} ({category.description})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label htmlFor="tax_rate" className="block text-sm font-medium text-gray-700">
+                          Tax Rate (%)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          id="tax_rate"
+                          {...register('tax_rate', {
+                            valueAsNumber: true,
+                            min: {
+                              value: 0,
+                              message: 'Tax rate must be between 0 and 1'
+                            },
+                            max: {
+                              value: 1,
+                              message: 'Tax rate must be between 0 and 1'
+                            }
+                          })}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="0.16"
+                        />
+                        {errors.tax_rate && (
+                          <p className="mt-1 text-sm text-red-600">{errors.tax_rate.message}</p>
+                        )}
+                        <p className="mt-1 text-sm text-gray-500">
+                          Enter as decimal (0.16 = 16%)
+                        </p>
+                      </div>
                     </div>
                   </div>
 

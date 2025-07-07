@@ -16,6 +16,9 @@ export interface Product {
   parent_product_id?: string; // null for parent products
   variant_name?: string; // 'full', 'empty', etc.
   is_variant: boolean; // true for variants, false for parents
+  // Tax-related fields
+  tax_category?: string;
+  tax_rate?: number;
   // Derived fields for UI
   parent_product?: Product; // populated when fetching variants
   variants?: Product[]; // populated when fetching parent products
@@ -37,6 +40,9 @@ export interface CreateProductData {
   parent_product_id?: string;
   variant_name?: string;
   is_variant: boolean;
+  // Tax-related fields
+  tax_category?: string;
+  tax_rate?: number;
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {

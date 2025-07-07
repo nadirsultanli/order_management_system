@@ -28,6 +28,11 @@ interface OrderLineItem {
   quantity: number;
   unit_price: number;
   subtotal: number;
+  // Tax information (fixed at order creation time)
+  price_excluding_tax?: number;
+  tax_amount?: number;
+  price_including_tax?: number;
+  tax_rate?: number;
 }
 
 export const CreateOrderPage: React.FC = () => {
@@ -196,8 +201,11 @@ export const CreateOrderPage: React.FC = () => {
     }
 
     const existingLine = orderLines.find((line: OrderLineItem) => line.product_id === productId);
-    const unitPrice = await getProductPrice(productId);
     const stockAvailable = getStockInfo(productId);
+    
+    // Get pricing information with tax breakdown
+    const pricingInfo = productPrices && productPrices[productId];
+    const unitPrice = pricingInfo?.finalPrice || 0;
     
     if (existingLine) {
       // Check if we can increase quantity
@@ -214,7 +222,7 @@ export const CreateOrderPage: React.FC = () => {
         )
       );
     } else {
-      // Add new line
+      // Add new line with tax information from pricing
       const newLine: OrderLineItem = {
         product_id: productId,
         product_name: product.name,
@@ -222,6 +230,11 @@ export const CreateOrderPage: React.FC = () => {
         quantity: 1,
         unit_price: unitPrice,
         subtotal: unitPrice,
+        // Include tax information from product/pricing
+        price_excluding_tax: pricingInfo?.priceExcludingTax,
+        tax_amount: pricingInfo?.taxAmount,
+        price_including_tax: pricingInfo?.priceIncludingTax,
+        tax_rate: pricingInfo?.taxRate,
       };
       setOrderLines((lines: OrderLineItem[]) => [...lines, newLine]);
     }
@@ -291,11 +304,16 @@ export const CreateOrderPage: React.FC = () => {
         order_date: orderDate,
         scheduled_date: scheduledDateTime,
         notes,
-        // Include order lines for proper backend processing
+        // Include order lines for proper backend processing with tax information
         order_lines: orderLines.map(line => ({
           product_id: line.product_id,
           quantity: line.quantity,
           unit_price: line.unit_price,
+          // Include tax information (fixed at order creation time)
+          price_excluding_tax: line.price_excluding_tax,
+          tax_amount: line.tax_amount,
+          price_including_tax: line.price_including_tax,
+          tax_rate: line.tax_rate,
         })),
         // Order type fields
         order_type: orderType,

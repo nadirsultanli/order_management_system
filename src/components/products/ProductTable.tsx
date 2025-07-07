@@ -140,6 +140,9 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                 Type & Specs
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tax Info
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -201,6 +204,16 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                             Valve: {product.valve_type}
                           </div>
                         )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      <div className="capitalize font-medium">
+                        {product.tax_category || 'Standard'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {product.tax_rate ? `${(product.tax_rate * 100).toFixed(1)}% VAT` : '16.0% VAT'}
                       </div>
                     </div>
                   </td>
