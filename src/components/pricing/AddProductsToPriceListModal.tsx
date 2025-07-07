@@ -34,9 +34,10 @@ export const AddProductsToPriceListModal: React.FC<AddProductsToPriceListModalPr
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: productsData } = useProducts({ limit: 1000 });
-  const { data: existingItems = [] } = usePriceListItemsNew(priceList.id);
+  const { data: existingItemsData } = usePriceListItemsNew(priceList.id);
 
   const allProducts = productsData?.products || [];
+  const existingItems = existingItemsData?.items || [];
   const existingProductIds = existingItems.map(item => item.product_id);
   
   // Filter out products already in the price list

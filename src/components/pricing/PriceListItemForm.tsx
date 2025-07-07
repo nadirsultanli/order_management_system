@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, Plus } from 'lucide-react';
 import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
+import { Product } from '../../types/product';
 import { useProducts } from '../../hooks/useProducts';
 import { formatCurrencySync, calculateFinalPriceSync } from '../../utils/pricing';
 
@@ -53,12 +54,12 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
 
   const { data: productsData } = useProducts({ limit: 1000 });
   const products = productsData?.products || [];
-  const availableProducts = products.filter(p => 
+  const availableProducts = products.filter((p: Product) => 
     p.status === 'active' && !existingProductIds.includes(p.id)
   );
 
   const watchedPrice = watch('unit_price');
-  const watchedSurcharge = watch('surcharge_pct');
+  const watchedSurcharge = watch('surcharge_pct') || 0;
 
   useEffect(() => {
     if (item) {
@@ -162,7 +163,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          {availableProducts.map(product => (
+                          {availableProducts.map((product: Product) => (
                             <div 
                               key={product.id} 
                               className={`flex items-center p-2 rounded-md ${
