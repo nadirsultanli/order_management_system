@@ -6,8 +6,7 @@ import {
   Package, 
   ShoppingCart, 
   DollarSign, 
-  Warehouse, 
-  TrendingUp,
+  Warehouse,
   Menu,
   Pin,
   PinOff,
@@ -50,7 +49,6 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     { path: '/warehouses', label: 'Warehouses', icon: Warehouse },
     { path: '/trucks', label: 'Fleet', icon: Truck },
     { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
-    { path: '/reports', label: 'Reports', icon: TrendingUp },
   ];
 
   // Determine if sidebar should be expanded
