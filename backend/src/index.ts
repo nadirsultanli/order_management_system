@@ -195,14 +195,7 @@ app.get('/openapi.json', (req, res) => {
     info: {
       title: 'Order Management System API',
       version: '1.0.0',
-      description: `LPG Order Management System using tRPC.
-      
-IMPORTANT: This API uses tRPC, which means:
-- ALL endpoints use POST method, regardless of whether they are queries (read) or mutations (write)
-- Parameters are ALWAYS passed in the request body, never in the URL
-- Query procedures = read-only operations (like GET in REST)
-- Mutation procedures = write operations (like POST/PUT/DELETE in REST)
-- The distinction between queries and mutations is made in the backend router, not by HTTP method`,
+      description: 'LPG Order Management System',
       contact: {
         name: 'API Support',
         url: `${baseUrl}/docs`
@@ -329,12 +322,11 @@ IMPORTANT: This API uses tRPC, which means:
         }
       },
 
-      // Customer Management Module (17 endpoints)
-      // IMPORTANT: All tRPC endpoints use POST method regardless of operation type
+      // Customer Management Module (18 endpoints)
       '/customers.list': {
         post: {
           summary: 'List Customers',
-          description: 'Get paginated list of customers with advanced filtering. This is a tRPC QUERY (read-only) but uses POST method.',
+          description: 'Get paginated list of customers with advanced filtering (tRPC query) (tRPC query)',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }],
           requestBody: {
@@ -347,7 +339,7 @@ IMPORTANT: This API uses tRPC, which means:
                     page: { type: 'integer', minimum: 1, default: 1 },
                     limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
                     search: { type: 'string', description: 'Search by name, email, or phone' },
-                    account_status: { type: 'string', enum: ['active', 'credit_hold', 'closed'] }
+                    status: { type: 'string', enum: ['active', 'inactive'] }
                   }
                 }
               }
@@ -358,7 +350,7 @@ IMPORTANT: This API uses tRPC, which means:
       '/customers.getById': {
         post: {
           summary: 'Get Customer Details',
-          description: 'Get single customer with full details and primary address. This is a tRPC QUERY (read-only) but uses POST method.',
+          description: 'Get single customer with full details and addresses (tRPC query) (tRPC query)',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }],
           requestBody: {
@@ -368,9 +360,9 @@ IMPORTANT: This API uses tRPC, which means:
                 schema: {
                   type: 'object',
                   properties: {
-                    customer_id: { type: 'string', format: 'uuid', description: 'Customer UUID' }
+                    id: { type: 'string', format: 'uuid' }
                   },
-                  required: ['customer_id']
+                  required: ['id']
                 }
               }
             }
@@ -380,7 +372,7 @@ IMPORTANT: This API uses tRPC, which means:
       '/customers.create': {
         post: {
           summary: 'Create Customer',
-          description: 'Create new customer with address information. This is a tRPC MUTATION (write operation).',
+          description: 'Create new customer with address information',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }],
           requestBody: {
@@ -390,33 +382,13 @@ IMPORTANT: This API uses tRPC, which means:
                 schema: {
                   type: 'object',
                   properties: {
-                    external_id: { type: 'string', description: 'External system identifier' },
-                    name: { type: 'string', minLength: 1 },
-                    tax_id: { type: 'string', description: 'Tax ID number' },
-                    phone: { type: 'string' },
+                    name: { type: 'string' },
                     email: { type: 'string', format: 'email' },
-                    account_status: { type: 'string', enum: ['active', 'credit_hold', 'closed'], default: 'active' },
-                    credit_terms_days: { type: 'integer', minimum: 0, default: 30 },
-                    address: {
-                      type: 'object',
-                      required: ['line1', 'city', 'country'],
-                      properties: {
-                        label: { type: 'string' },
-                        line1: { type: 'string', minLength: 1 },
-                        line2: { type: 'string' },
-                        city: { type: 'string', minLength: 1 },
-                        state: { type: 'string' },
-                        postal_code: { type: 'string' },
-                        country: { type: 'string', minLength: 2 },
-                        latitude: { type: 'number' },
-                        longitude: { type: 'number' },
-                        delivery_window_start: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
-                        delivery_window_end: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
-                        instructions: { type: 'string' }
-                      }
-                    }
+                    phone: { type: 'string' },
+                    company: { type: 'string' },
+                    address: { type: 'object' }
                   },
-                  required: ['name', 'address']
+                  required: ['name', 'email']
                 }
               }
             }
@@ -424,368 +396,115 @@ IMPORTANT: This API uses tRPC, which means:
         }
       },
       '/customers.update': {
-        post: {
+        put: {
           summary: 'Update Customer',
-          description: 'Update customer details and optionally their primary address. This is a tRPC MUTATION (write operation).',
+          description: 'Update customer details',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['id'],
-                  properties: {
-                    id: { type: 'string', format: 'uuid' },
-                    external_id: { type: 'string' },
-                    name: { type: 'string', minLength: 1 },
-                    tax_id: { type: 'string' },
-                    phone: { type: 'string' },
-                    email: { type: 'string', format: 'email' },
-                    account_status: { type: 'string', enum: ['active', 'credit_hold', 'closed'] },
-                    credit_terms_days: { type: 'integer', minimum: 0 },
-                    address: { type: 'object' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.delete': {
-        post: {
+        delete: {
           summary: 'Delete Customer',
-          description: 'Remove customer from system. This is a tRPC MUTATION (write operation).',
+          description: 'Remove customer from system',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['customer_id'],
-                  properties: {
-                    customer_id: { type: 'string', format: 'uuid' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.getOrderHistory': {
         post: {
           summary: 'Customer Order History',
-          description: 'Get complete order history for customer. This is a tRPC QUERY (read-only) but uses POST method.',
+          description: 'Get complete order history for customer (tRPC query)',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['customer_id'],
-                  properties: {
-                    customer_id: { type: 'string', format: 'uuid' },
-                    limit: { type: 'number', default: 50, minimum: 1, maximum: 1000 },
-                    offset: { type: 'number', default: 0, minimum: 0 },
-                    status: { type: 'string', enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.getAnalytics': {
         post: {
           summary: 'Customer Analytics',
-          description: 'Get customer analytics and insights. This is a tRPC QUERY (read-only) but uses POST method.',
+          description: 'Get customer analytics and insights (tRPC query)',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['customer_id'],
-                  properties: {
-                    customer_id: { type: 'string', format: 'uuid' },
-                    period: { type: 'string', enum: ['month', 'quarter', 'year'], default: 'year' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.getAddresses': {
         post: {
           summary: 'Customer Addresses',
-          description: 'Get all addresses for a customer. This is a tRPC QUERY (read-only) but uses POST method.',
+          description: 'Get all addresses for a customer (tRPC query)',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['customer_id'],
-                  properties: {
-                    customer_id: { type: 'string', format: 'uuid' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.createAddress': {
         post: {
           summary: 'Create Address',
-          description: 'Add new address for customer. This is a tRPC MUTATION (write operation).',
+          description: 'Add new address for customer',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['customer_id', 'line1', 'city', 'country'],
-                  properties: {
-                    customer_id: { type: 'string', format: 'uuid' },
-                    label: { type: 'string' },
-                    line1: { type: 'string', minLength: 1 },
-                    line2: { type: 'string' },
-                    city: { type: 'string', minLength: 1 },
-                    state: { type: 'string' },
-                    postal_code: { type: 'string' },
-                    country: { type: 'string', minLength: 2 },
-                    latitude: { type: 'number' },
-                    longitude: { type: 'number' },
-                    delivery_window_start: { type: 'string' },
-                    delivery_window_end: { type: 'string' },
-                    is_primary: { type: 'boolean', default: false },
-                    instructions: { type: 'string' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.updateAddress': {
-        post: {
+        put: {
           summary: 'Update Address',
-          description: 'Modify existing customer address. This is a tRPC MUTATION (write operation).',
+          description: 'Modify existing customer address',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['address_id', 'customer_id'],
-                  properties: {
-                    address_id: { type: 'string', format: 'uuid' },
-                    customer_id: { type: 'string', format: 'uuid' },
-                    label: { type: 'string' },
-                    line1: { type: 'string', minLength: 1 },
-                    line2: { type: 'string' },
-                    city: { type: 'string', minLength: 1 },
-                    state: { type: 'string' },
-                    postal_code: { type: 'string' },
-                    country: { type: 'string', minLength: 2 },
-                    latitude: { type: 'number' },
-                    longitude: { type: 'number' },
-                    delivery_window_start: { type: 'string' },
-                    delivery_window_end: { type: 'string' },
-                    is_primary: { type: 'boolean' },
-                    instructions: { type: 'string' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.deleteAddress': {
-        post: {
+        delete: {
           summary: 'Delete Address',
-          description: 'Remove customer address. This is a tRPC MUTATION (write operation).',
+          description: 'Remove customer address',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['address_id'],
-                  properties: {
-                    address_id: { type: 'string', format: 'uuid' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.setPrimaryAddress': {
-        post: {
+        put: {
           summary: 'Set Primary Address',
-          description: 'Set address as primary for customer. This is a tRPC MUTATION (write operation).',
+          description: 'Set address as primary for customer',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['address_id', 'customer_id'],
-                  properties: {
-                    address_id: { type: 'string', format: 'uuid' },
-                    customer_id: { type: 'string', format: 'uuid' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.geocodeAddress': {
         post: {
           summary: 'Geocode Address',
-          description: 'Get coordinates for address. This is a tRPC MUTATION (external API call).',
+          description: 'Get coordinates for address (tRPC query)',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['line1', 'city', 'country'],
-                  properties: {
-                    line1: { type: 'string', minLength: 1 },
-                    line2: { type: 'string' },
-                    city: { type: 'string', minLength: 1 },
-                    state: { type: 'string' },
-                    country: { type: 'string', minLength: 2 },
-                    postal_code: { type: 'string' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.validateAddress': {
         post: {
           summary: 'Validate Address',
-          description: 'Validate address format and completeness. This is a tRPC MUTATION (validation operation).',
+          description: 'Validate address format and completeness',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['line1', 'city', 'country'],
-                  properties: {
-                    line1: { type: 'string', minLength: 1 },
-                    line2: { type: 'string' },
-                    city: { type: 'string', minLength: 1 },
-                    state: { type: 'string' },
-                    country: { type: 'string', minLength: 2 },
-                    postal_code: { type: 'string' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.validateDeliveryWindow': {
         post: {
           summary: 'Validate Delivery Window',
-          description: 'Validate delivery window business rules. This is a tRPC MUTATION (validation operation).',
+          description: 'Validate delivery window business rules',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    delivery_window_start: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' },
-                    delivery_window_end: { type: 'string', pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.validate': {
         post: {
           summary: 'Validate Customer Data',
-          description: 'Validate customer information and business rules. This is a tRPC MUTATION (validation operation).',
+          description: 'Validate customer information and business rules',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['name'],
-                  properties: {
-                    name: { type: 'string', minLength: 1 },
-                    email: { type: 'string', format: 'email' },
-                    phone: { type: 'string' },
-                    external_id: { type: 'string' },
-                    tax_id: { type: 'string' },
-                    exclude_id: { type: 'string', format: 'uuid', description: 'Customer ID to exclude from duplicate checks' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/customers.validateCreditTerms': {
         post: {
           summary: 'Validate Credit Terms',
-          description: 'Validate customer credit terms and limits. This is a tRPC MUTATION (validation operation).',
+          description: 'Validate customer credit terms and limits',
           tags: ['👥 Customer Management'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: true,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  required: ['credit_terms_days', 'account_status'],
-                  properties: {
-                    credit_terms_days: { type: 'number' },
-                    account_status: { type: 'string', enum: ['active', 'credit_hold', 'closed'] },
-                    customer_id: { type: 'string', format: 'uuid' }
-                  }
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
 
