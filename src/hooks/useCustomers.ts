@@ -10,7 +10,7 @@ export const useCustomers = (filters: {
 } = {}) => {
   return trpc.customers.list.useQuery({
     search: filters.search,
-    status: filters.status,
+    account_status: filters.status as 'active' | 'credit_hold' | 'closed' | undefined,
     page: filters.page || 1,
     limit: filters.limit || 50,
   }, {

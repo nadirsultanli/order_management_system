@@ -81,11 +81,18 @@ const AddressSchema = z.object({
 export const customersRouter = router({
   // GET /customers - List customers with filtering and pagination
   list: protectedProcedure
-    .input(CustomerFiltersSchema)
+    .input(CustomerFiltersSchema.optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching customers with filters:', input);
+      // Provide default values if input is undefined
+      const filters = input || {} as { page?: number; limit?: number; search?: string; account_status?: 'active' | 'credit_hold' | 'closed' };
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const search = filters.search;
+      const account_status = filters.account_status;
+      
+      ctx.logger.info('Fetching customers with filters:', filters);
       
       // Build base query for customers with primary addresses
       let queryWithAddress = ctx.supabase
@@ -115,20 +122,20 @@ export const customersRouter = router({
         .order('created_at', { ascending: false });
 
       // Apply search filter
-      if (input.search) {
+      if (search) {
         queryWithAddress = queryWithAddress.or(
-          `name.ilike.%${input.search}%,email.ilike.%${input.search}%,tax_id.ilike.%${input.search}%`
+          `name.ilike.%${search}%,email.ilike.%${search}%,tax_id.ilike.%${search}%`
         );
       }
 
       // Apply status filter
-      if (input.account_status) {
-        queryWithAddress = queryWithAddress.eq('account_status', input.account_status);
+      if (account_status) {
+        queryWithAddress = queryWithAddress.eq('account_status', account_status);
       }
 
       // Apply pagination
-      const from = (input.page - 1) * input.limit;
-      const to = from + input.limit - 1;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
       queryWithAddress = queryWithAddress.range(from, to);
 
       const { data: customersWithAddress, error: errorWithAddress, count: countWithAddress } = await queryWithAddress;
@@ -156,14 +163,14 @@ export const customersRouter = router({
       }
 
       // Apply same filters to customers without addresses
-      if (input.search) {
+      if (search) {
         queryWithoutAddress = queryWithoutAddress.or(
-          `name.ilike.%${input.search}%,email.ilike.%${input.search}%,tax_id.ilike.%${input.search}%`
+          `name.ilike.%${search}%,email.ilike.%${search}%,tax_id.ilike.%${search}%`
         );
       }
 
-      if (input.account_status) {
-        queryWithoutAddress = queryWithoutAddress.eq('account_status', input.account_status);
+      if (account_status) {
+        queryWithoutAddress = queryWithoutAddress.eq('account_status', account_status);
       }
 
       const { data: customersWithoutAddress, error: errorWithoutAddress, count: countWithoutAddress } = await queryWithoutAddress;
@@ -184,8 +191,8 @@ export const customersRouter = router({
       return {
         customers: allCustomers,
         totalCount,
-        totalPages: Math.ceil(totalCount / input.limit),
-        currentPage: input.page,
+        totalPages: Math.ceil(totalCount / limit),
+        currentPage: page,
       };
     }),
 
