@@ -49,6 +49,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     reset,
     watch,
     setValue,
+    clearErrors,
     formState: { errors },
   } = useForm<AddressFormData>({
     defaultValues: {
@@ -70,6 +71,9 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   const longitude = watch('longitude');
   const deliveryStart = watch('delivery_window_start');
   const deliveryEnd = watch('delivery_window_end');
+  const line1 = watch('line1');
+  const city = watch('city');
+  const country = watch('country');
 
   // Initialize form data when address prop changes
   useEffect(() => {
@@ -237,6 +241,9 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     setValue('country', suggestion.country || '');
     setValue('latitude', suggestion.lat);
     setValue('longitude', suggestion.lng);
+    
+    // Clear any validation errors since we now have a complete address
+    clearErrors(['line1', 'city', 'country']);
   };
 
   const handleAddressInputChange = (value: string) => {
@@ -254,6 +261,8 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   if (!isOpen) return null;
 
   const hasValidCoordinates = latitude && longitude;
+  const hasValidAddressFields = line1 && city && country;
+  const shouldShowValidationError = (errors.line1 || errors.city || errors.country) && !hasValidAddressFields;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -307,10 +316,10 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                       ))}
                     </ul>
                   )}
-                  {selectedSuggestion && (
+                  {selectedSuggestion && hasValidAddressFields && (
                     <div className="text-xs text-green-600 mt-1">Address selected</div>
                   )}
-                  {(errors.line1 || errors.city || errors.country) && (
+                  {shouldShowValidationError && (
                     <p className="mt-1 text-sm text-red-600">
                       Please select a complete address from the suggestions
                     </p>
