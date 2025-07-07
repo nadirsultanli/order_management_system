@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
-import { X, Loader2, Navigation, MapPin } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { Address, CreateAddressData } from '../../types/address';
-import { getCountryOptions, validateDeliveryWindow, geocodeAddress } from '../../utils/address';
+import { getGeocodeSuggestions } from '../../utils/geocoding';
+// @ts-ignore - mapbox-gl types not available
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface AddressFormProps {
   isOpen: boolean;
@@ -15,6 +18,11 @@ interface AddressFormProps {
   isFirstAddress?: boolean;
 }
 
+// Extended form data interface for the flat form fields (matching CustomerForm pattern)
+interface AddressFormData extends Omit<CreateAddressData, 'customer_id'> {
+  customer_id: string;
+}
+
 export const AddressForm: React.FC<AddressFormProps> = ({
   isOpen,
   onClose,
@@ -25,8 +33,14 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   title,
   isFirstAddress = false,
 }) => {
-  const [geocoding, setGeocoding] = useState(false);
-  const [geocoded, setGeocoded] = useState(false);
+  const [addressInput, setAddressInput] = useState('');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<any>(null);
+  const [map, setMap] = useState<any>(null);
+  const [marker, setMarker] = useState<any>(null);
+  const [isPinDraggable, setIsPinDraggable] = useState(false);
+  const mapContainer = useRef<HTMLDivElement>(null);
 
   const {
     register,
@@ -35,7 +49,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     watch,
     setValue,
     formState: { errors },
-  } = useForm<CreateAddressData>({
+  } = useForm<AddressFormData>({
     defaultValues: {
       customer_id: customerId,
       label: '',
@@ -52,7 +66,8 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     },
   });
 
-  const watchedFields = watch(['line1', 'city', 'state', 'postal_code']);
+  const latitude = watch('latitude');
+  const longitude = watch('longitude');
   const deliveryStart = watch('delivery_window_start');
   const deliveryEnd = watch('delivery_window_end');
 
@@ -74,7 +89,18 @@ export const AddressForm: React.FC<AddressFormProps> = ({
         latitude: address.latitude,
         longitude: address.longitude,
       });
-      setGeocoded(!!(address.latitude && address.longitude));
+      
+      // Set the address input display text
+      if (address) {
+        const addressParts = [
+          address.line1,
+          address.line2,
+          address.city,
+          address.state,
+          address.postal_code,
+        ].filter(Boolean);
+        setAddressInput(addressParts.join(', '));
+      }
     } else {
       reset({
         customer_id: customerId,
@@ -90,65 +116,78 @@ export const AddressForm: React.FC<AddressFormProps> = ({
         is_primary: isFirstAddress,
         instructions: '',
       });
-      setGeocoded(false);
+      setAddressInput('');
     }
   }, [address, customerId, isFirstAddress, reset]);
 
-  const handleGeocode = async () => {
-    const [line1, city, state, postal_code] = watchedFields;
-    
-    if (!line1 || !city) {
-      return;
+  // Address autocomplete effect
+  useEffect(() => {
+    let active = true;
+    if (addressInput && addressInput.length >= 3) {
+      setIsSearching(true);
+      getGeocodeSuggestions(addressInput, setIsSearching).then((results) => {
+        if (active) setSuggestions(results || []);
+      });
+    } else {
+      setSuggestions([]);
+      setIsSearching(false);
     }
+    return () => { active = false; };
+  }, [addressInput]);
 
-    setGeocoding(true);
-    try {
-      const result = await geocodeAddress({
-        line1,
-        city,
-        state,
-        postal_code,
+  // Map initialization effect
+  useEffect(() => {
+    if (!map && mapContainer.current && latitude && longitude) {
+      mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
+      const newMap = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: 'mapbox://styles/mapbox/streets-v11',
+        center: [longitude, latitude],
+        zoom: 14,
+      });
+      newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      setMap(newMap);
+
+      const newMarker = new mapboxgl.Marker({ anchor: 'center', draggable: isPinDraggable })
+        .setLngLat([longitude, latitude])
+        .addTo(newMap);
+      setMarker(newMarker);
+
+      newMarker.on('dragend', () => {
+        const lngLat = newMarker.getLngLat();
+        setValue('latitude', lngLat.lat);
+        setValue('longitude', lngLat.lng);
       });
 
-      if (result) {
-        setValue('latitude', result.latitude);
-        setValue('longitude', result.longitude);
-        setGeocoded(true);
-      }
-    } catch (error) {
-      console.error('Geocoding failed:', error);
-    } finally {
-      setGeocoding(false);
+      newMap.on('load', () => {
+        newMap.resize();
+      });
     }
-  };
+  }, [mapContainer, latitude, longitude]);
 
-  const handleFormSubmit = (data: CreateAddressData) => {
-    // Validate delivery window only if both times are provided
-    if (data.delivery_window_start && data.delivery_window_end) {
-      if (!validateDeliveryWindow(data.delivery_window_start, data.delivery_window_end)) {
-        // Use better error handling instead of alert
-        const errorMessage = 'End time must be after start time';
-        console.error('Delivery window validation error:', errorMessage);
-        // For now use alert, but this should be replaced with a proper error state
-        alert(errorMessage);
-        return;
-      }
+  // Map update effect
+  useEffect(() => {
+    if (map && marker && latitude && longitude) {
+      marker.setLngLat([longitude, latitude]);
+      marker.setDraggable(isPinDraggable);
+      map.setCenter([longitude, latitude]);
+      map.setZoom(14);
+      map.resize();
     }
-    
-    // Clear partial time windows - either both or neither
-    if (data.delivery_window_start && !data.delivery_window_end) {
-      data.delivery_window_end = undefined;
-    }
-    if (data.delivery_window_end && !data.delivery_window_start) {
-      data.delivery_window_start = undefined;
-    }
+  }, [latitude, longitude, isPinDraggable, map, marker]);
 
-    // Log for debugging
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (marker) marker.remove();
+      if (map) map.remove();
+    };
+  }, []);
+
+  const handleFormSubmit = (data: AddressFormData) => {
     console.log('Submitting address form:', data);
     onSubmit(data);
   };
-
-  const countryOptions = getCountryOptions();
 
   if (!isOpen) return null;
 
@@ -157,10 +196,10 @@ export const AddressForm: React.FC<AddressFormProps> = ({
       <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+        <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
           <form onSubmit={handleSubmit(handleFormSubmit)}>
             <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold leading-6 text-gray-900">
                   {title}
                 </h3>
@@ -173,141 +212,118 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                 </button>
               </div>
 
-              <div className="space-y-6">
-                {/* Address Information */}
+              <div className="space-y-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Address Information</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="sm:col-span-2">
-                      <label htmlFor="label" className="block text-sm font-medium text-gray-700">
-                        Address Label
-                      </label>
-                      <input
-                        type="text"
-                        id="label"
-                        {...register('label')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Main Location, Loading Dock, etc."
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label htmlFor="line1" className="block text-sm font-medium text-gray-700">
-                        Address Line 1 *
-                      </label>
-                      <input
-                        type="text"
-                        id="line1"
-                        {...register('line1', { required: 'Address line 1 is required' })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      {errors.line1 && (
-                        <p className="mt-1 text-sm text-red-600">{errors.line1.message}</p>
-                      )}
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label htmlFor="line2" className="block text-sm font-medium text-gray-700">
-                        Address Line 2
-                      </label>
-                      <input
-                        type="text"
-                        id="line2"
-                        {...register('line2')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Apartment, suite, unit, etc."
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                        City *
-                      </label>
-                      <input
-                        type="text"
-                        id="city"
-                        {...register('city', { required: 'City is required' })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      {errors.city && (
-                        <p className="mt-1 text-sm text-red-600">{errors.city.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="state" className="block text-sm font-medium text-gray-700">
-                        State/Province
-                      </label>
-                      <input
-                        type="text"
-                        id="state"
-                        {...register('state')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="postal_code" className="block text-sm font-medium text-gray-700">
-                        Postal Code
-                      </label>
-                      <input
-                        type="text"
-                        id="postal_code"
-                        {...register('postal_code')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="country" className="block text-sm font-medium text-gray-700">
-                        Country
-                      </label>
-                      <select
-                        id="country"
-                        {...register('country')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        {countryOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Geocoding
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleGeocode}
-                          disabled={geocoding || !watchedFields[0] || !watchedFields[1]}
-                          className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {geocoding ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : geocoded ? (
-                            <Navigation className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <MapPin className="h-4 w-4" />
-                          )}
-                          <span>
-                            {geocoding ? 'Geocoding...' : geocoded ? 'Geocoded' : 'Geocode Address'}
-                          </span>
-                        </button>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Geocoding helps with delivery route optimization
-                      </p>
-                    </div>
-                  </div>
+                  <label htmlFor="label" className="block text-sm font-medium text-gray-700">
+                    Address Label
+                  </label>
+                  <input
+                    type="text"
+                    id="label"
+                    {...register('label')}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Main Location, Loading Dock, etc."
+                  />
                 </div>
 
-                {/* Delivery Preferences */}
+                {/* Address Search Input */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Delivery Preferences</h4>
+                  <label htmlFor="address_autosuggest" className="block text-sm font-medium text-gray-700">Address *</label>
+                  <input
+                    type="text"
+                    id="address_autosuggest"
+                    value={addressInput}
+                    onChange={e => {
+                      setAddressInput(e.target.value);
+                      setSelectedSuggestion(null);
+                    }}
+                    className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                      (errors.line1 || errors.city || errors.country) 
+                        ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                        : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                    }`}
+                    autoComplete="off"
+                    placeholder="Start typing address..."
+                  />
+                  {isSearching && <div className="text-xs text-gray-500 mt-1">Searching...</div>}
+                  {suggestions.length > 0 && !selectedSuggestion && (
+                    <ul className="border border-gray-200 rounded bg-white mt-1 max-h-48 overflow-y-auto z-10 relative">
+                      {suggestions.map((s, idx) => (
+                        <li
+                          key={idx}
+                          className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                          onClick={() => {
+                            setSelectedSuggestion(s);
+                            setAddressInput(s.display_name);
+                            // Parse and set all address fields in the form
+                            setValue('line1', s.address_line1 || '');
+                            setValue('line2', s.address_line2 || '');
+                            setValue('city', s.city || '');
+                            setValue('state', s.state || '');
+                            setValue('postal_code', s.postal_code || '');
+                            setValue('country', s.country || '');
+                            setValue('latitude', s.lat);
+                            setValue('longitude', s.lng);
+                          }}
+                        >
+                          {s.display_name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {selectedSuggestion && (
+                    <div className="text-xs text-green-600 mt-1">Address selected</div>
+                  )}
+                  {(errors.line1 || errors.city || errors.country) && (
+                    <p className="mt-1 text-sm text-red-600">
+                      Please select a complete address from the suggestions
+                    </p>
+                  )}
+                </div>
+                
+                {/* Hidden validation fields for address components */}
+                <input
+                  type="hidden"
+                  {...register('line1', { required: 'Street address is required' })}
+                />
+                <input
+                  type="hidden"
+                  {...register('city', { required: 'City is required' })}
+                />
+                <input
+                  type="hidden"
+                  {...register('country', { required: 'Country is required' })}
+                />
+
+                {/* Map Display */}
+                {latitude && longitude && (
+                  <div className="mt-4">
+                    <div ref={mapContainer} style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden', position: 'relative' }} />
+                    <div className="flex justify-end mt-2">
+                      {!isPinDraggable ? (
+                        <button
+                          type="button"
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                          onClick={() => setIsPinDraggable(true)}
+                        >
+                          Adjust Pin
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                          onClick={() => setIsPinDraggable(false)}
+                        >
+                          Save Pin Location
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Delivery Preferences */}
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4">Delivery Preferences</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="delivery_window_start" className="block text-sm font-medium text-gray-700">
@@ -316,9 +332,23 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                       <input
                         type="time"
                         id="delivery_window_start"
-                        {...register('delivery_window_start')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        {...register('delivery_window_start', {
+                          validate: (value) => {
+                            if (value && !deliveryEnd) {
+                              return 'Please provide both start and end times for delivery window';
+                            }
+                            return true;
+                          }
+                        })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                          errors.delivery_window_start 
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                        }`}
                       />
+                      {errors.delivery_window_start && (
+                        <p className="mt-1 text-sm text-red-600">{errors.delivery_window_start.message}</p>
+                      )}
                     </div>
 
                     <div>
@@ -328,216 +358,60 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                       <input
                         type="time"
                         id="delivery_window_end"
-                        {...register('delivery_window_end')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        {...register('delivery_window_end', {
+                          validate: (value) => {
+                            if (value && !deliveryStart) {
+                              return 'Please provide both start and end times for delivery window';
+                            }
+                            if (deliveryStart && value && deliveryStart >= value) {
+                              return 'End time must be after start time';
+                            }
+                            return true;
+                          }
+                        })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                          errors.delivery_window_end 
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                        }`}
                       />
-                      {deliveryStart && deliveryEnd && !validateDeliveryWindow(deliveryStart, deliveryEnd) && (
-                        <p className="mt-1 text-sm text-red-600">End time must be after start time</p>
+                      {errors.delivery_window_end && (
+                        <p className="mt-1 text-sm text-red-600">{errors.delivery_window_end.message}</p>
                       )}
                     </div>
+                  </div>
 
-                    <div className="sm:col-span-2">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="is_primary"
-                          {...register('is_primary')}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="is_primary" className="ml-2 block text-sm text-gray-900">
-                          Set as primary address
-                        </label>
-                      </div>
-                      <p className="mt-1 text-xs text-gray-500">
-                        Primary address will be used as the default for orders
-                      </p>
+                  <div className="mt-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="is_primary"
+                        {...register('is_primary')}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="is_primary" className="ml-2 block text-sm text-gray-900">
+                        Set as primary address
+                      </label>
                     </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Primary address will be used as the default for orders
+                    </p>
                   </div>
                 </div>
 
-                {/* Access & Security */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Access & Security</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="access_code" className="block text-sm font-medium text-gray-700">
-                        Access Code
-                      </label>
-                      <input
-                        type="text"
-                        id="access_code"
-                        {...register('access_code')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Building access code"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="gate_code" className="block text-sm font-medium text-gray-700">
-                        Gate Code
-                      </label>
-                      <input
-                        type="text"
-                        id="gate_code"
-                        {...register('gate_code')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Gate or entrance code"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="building_type" className="block text-sm font-medium text-gray-700">
-                        Building Type
-                      </label>
-                      <select
-                        id="building_type"
-                        {...register('building_type')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="">Select type...</option>
-                        <option value="residential">Residential</option>
-                        <option value="commercial">Commercial</option>
-                        <option value="industrial">Industrial</option>
-                        <option value="other">Other</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label htmlFor="preferred_delivery_time" className="block text-sm font-medium text-gray-700">
-                        Preferred Time
-                      </label>
-                      <input
-                        type="time"
-                        id="preferred_delivery_time"
-                        {...register('preferred_delivery_time')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Preferred time within delivery window
-                      </p>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label htmlFor="security_requirements" className="block text-sm font-medium text-gray-700">
-                        Security Requirements
-                      </label>
-                      <textarea
-                        id="security_requirements"
-                        rows={2}
-                        {...register('security_requirements')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Security checkpoints, ID requirements, visitor procedures..."
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Contact Information */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">On-Site Contact</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="contact_person" className="block text-sm font-medium text-gray-700">
-                        Contact Person
-                      </label>
-                      <input
-                        type="text"
-                        id="contact_person"
-                        {...register('contact_person')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="On-site contact name"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="contact_phone" className="block text-sm font-medium text-gray-700">
-                        Contact Phone
-                      </label>
-                      <input
-                        type="tel"
-                        id="contact_phone"
-                        {...register('contact_phone')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Phone number for delivery"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Logistics Information */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Logistics & Access</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="parking_instructions" className="block text-sm font-medium text-gray-700">
-                        Parking Instructions
-                      </label>
-                      <textarea
-                        id="parking_instructions"
-                        rows={2}
-                        {...register('parking_instructions')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Where to park, parking restrictions, loading zones..."
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="loading_dock_info" className="block text-sm font-medium text-gray-700">
-                        Loading Dock Information
-                      </label>
-                      <textarea
-                        id="loading_dock_info"
-                        rows={2}
-                        {...register('loading_dock_info')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Loading dock location, height restrictions, equipment availability..."
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Delivery Instructions */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Delivery Instructions</h4>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="delivery_notes" className="block text-sm font-medium text-gray-700">
-                        Delivery Notes
-                      </label>
-                      <textarea
-                        id="delivery_notes"
-                        rows={3}
-                        {...register('delivery_notes')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Specific delivery instructions, handling requirements..."
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="special_instructions" className="block text-sm font-medium text-gray-700">
-                        Special Instructions
-                      </label>
-                      <textarea
-                        id="special_instructions"
-                        rows={3}
-                        {...register('special_instructions')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Special handling, fragile items, temperature requirements..."
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
-                        General Instructions
-                      </label>
-                      <textarea
-                        id="instructions"
-                        rows={2}
-                        {...register('instructions')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="General delivery notes and instructions..."
-                      />
-                    </div>
+                {/* Instructions */}
+                <div className="pt-4 border-t border-gray-200">
+                  <div>
+                    <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
+                      Delivery Instructions
+                    </label>
+                    <textarea
+                      id="instructions"
+                      rows={3}
+                      {...register('instructions')}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="Gate codes, special access requirements, loading dock information..."
+                    />
                   </div>
                 </div>
               </div>
