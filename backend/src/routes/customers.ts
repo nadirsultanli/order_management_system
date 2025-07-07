@@ -807,7 +807,6 @@ export const customersRouter = router({
           .from('addresses')
           .update({ is_primary: false })
           .eq('customer_id', input.customer_id)
-          
           .eq('is_primary', true);
       }
 

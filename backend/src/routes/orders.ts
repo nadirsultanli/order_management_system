@@ -86,6 +86,19 @@ export const ordersRouter = router({
           )
         `, { count: 'exact' });
 
+      // Build filter conditions array for complex queries
+      const filterConditions: string[] = [];
+      
+      // Apply status filter FIRST (before any OR conditions)
+      if (input.status) {
+        query = query.eq('status', input.status);
+      }
+
+      // Apply customer filter
+      if (input.customer_id) {
+        query = query.eq('customer_id', input.customer_id);
+      }
+
       // Enhanced search with multi-field support including product SKU
       if (input.search) {
         query = query.or(`
@@ -97,17 +110,6 @@ export const ordersRouter = router({
           delivery_address.city.ilike.%${input.search}%
         `);
       }
-
-      // Apply status filter
-      if (input.status) {
-        query = query.eq('status', input.status);
-      }
-
-      // Apply customer filter
-      if (input.customer_id) {
-        query = query.eq('customer_id', input.customer_id);
-      }
-
 
       // Apply date filters
       if (input.order_date_from) {
