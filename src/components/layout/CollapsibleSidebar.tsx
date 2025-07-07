@@ -8,7 +8,6 @@ import {
   DollarSign, 
   Warehouse, 
   TrendingUp,
-  Settings,
   Menu,
   Pin,
   PinOff,
@@ -41,9 +40,6 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
 
-  // Debug log to verify component is rendering
-  console.log('CollapsibleSidebar rendering:', { isExpanded, isPinned, isHovering, isMobileOpen });
-
   const menuItems: MenuItem[] = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
@@ -55,7 +51,6 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     { path: '/trucks', label: 'Fleet', icon: Truck },
     { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
     { path: '/reports', label: 'Reports', icon: TrendingUp },
-    { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   // Determine if sidebar should be expanded
@@ -127,7 +122,6 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
           transition-all duration-300 ease-in-out z-40
           ${isExpanded ? 'w-64 shadow-2xl' : 'w-16 shadow-lg'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          border-4 border-red-500
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -218,9 +212,9 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
           </ul>
         </nav>
 
-        {/* Pin/Unpin Button - shown at bottom when expanded on desktop */}
-        {(isExpanded || isMobileOpen) && (
-          <div className="p-4 border-t border-gray-800 bg-gray-800">
+        {/* Pin/Unpin Button - only show on desktop when expanded */}
+        {isExpanded && !isMobileOpen && (
+          <div className="hidden lg:block p-4 border-t border-gray-800">
             <button
               onClick={togglePin}
               className={`
@@ -230,7 +224,6 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
                   ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg' 
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white border border-gray-600'
                 }
-                ${isMobileOpen ? 'lg:flex hidden' : 'flex'}
               `}
             >
               {isPinned ? (
