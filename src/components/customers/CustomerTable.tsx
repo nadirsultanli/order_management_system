@@ -118,22 +118,17 @@ export const CustomerTable: React.FC<CustomerTableProps> = ({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center space-x-2">
-                    <StatusBadge 
-                      status={customer.account_status}
-                      size="sm"
-                    />
-                    <select
-                      value={customer.account_status}
-                      onChange={(e) => onStatusChange(customer, e.target.value as 'active' | 'credit_hold' | 'closed')}
-                      className="block w-20 text-xs border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      title="Change account status"
-                    >
-                      <option value="active">Active</option>
-                      <option value="credit_hold">Hold</option>
-                      <option value="closed">Closed</option>
-                    </select>
-                  </div>
+                  <StatusBadge 
+                    status={customer.account_status}
+                    size="sm"
+                    interactive={true}
+                    onStatusChange={(newStatus) => onStatusChange(customer, newStatus as 'active' | 'credit_hold' | 'closed')}
+                    options={[
+                      { value: 'active', label: 'Active' },
+                      { value: 'credit_hold', label: 'Credit Hold' },
+                      { value: 'closed', label: 'Closed' }
+                    ]}
+                  />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {customer.credit_terms_days} days
