@@ -26,7 +26,7 @@ export const AppLayout: React.FC = () => {
       
       {/* Main content area - adjusts margin based on sidebar state */}
       <div 
-        className="flex-1 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+        className="flex-1 flex flex-col overflow-hidden transition-all duration-500 ease-in-out"
         style={{
           marginLeft: `${contentMarginLeft}px`
         }}

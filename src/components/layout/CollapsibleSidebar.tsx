@@ -10,7 +10,6 @@ import {
   Menu,
   Pin,
   PinOff,
-  ChevronRight,
   Truck,
   ArrowLeftRight,
   X,
@@ -117,7 +116,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
       <div
         className={`
           fixed left-0 top-0 h-full bg-gray-900 text-white
-          transition-all duration-300 ease-in-out z-40
+          transition-all duration-500 ease-in-out z-40
           ${isExpanded ? 'w-64 shadow-2xl' : 'w-16 shadow-lg'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
@@ -239,12 +238,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
           </div>
         )}
 
-        {/* Expand indicator when collapsed */}
-        {!isExpanded && !isMobileOpen && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-800 rounded-l-lg p-1 shadow-lg hidden lg:flex items-center">
-            <ChevronRight className="h-4 w-4 text-gray-400 animate-pulse" />
-          </div>
-        )}
+
       </div>
     </>
   );
