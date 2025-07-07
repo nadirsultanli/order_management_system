@@ -570,10 +570,10 @@ export const ordersRouter = router({
           });
         }
 
-        // Verify source warehouse exists and is active
+        // Verify source warehouse exists
         const { data: warehouse, error: warehouseError } = await ctx.supabase
           .from('warehouses')
-          .select('id, name, active')
+          .select('id, name, is_mobile')
           .eq('id', input.source_warehouse_id)
           .single();
 
@@ -581,13 +581,6 @@ export const ordersRouter = router({
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Source warehouse not found'
-          });
-        }
-        
-        if (!warehouse.active) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Source warehouse is not active'
           });
         }
 
