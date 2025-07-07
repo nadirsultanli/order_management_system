@@ -52,7 +52,6 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   } = useForm<AddressFormData>({
     defaultValues: {
       customer_id: customerId,
-      label: '',
       line1: '',
       line2: '',
       city: '',
@@ -75,7 +74,6 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     if (address) {
       reset({
         customer_id: address.customer_id,
-        label: address.label || '',
         line1: address.line1,
         line2: address.line2 || '',
         city: address.city,
@@ -104,7 +102,6 @@ export const AddressForm: React.FC<AddressFormProps> = ({
     } else {
       reset({
         customer_id: customerId,
-        label: '',
         line1: '',
         line2: '',
         city: '',
@@ -213,19 +210,6 @@ export const AddressForm: React.FC<AddressFormProps> = ({
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <label htmlFor="label" className="block text-sm font-medium text-gray-700">
-                    Address Label
-                  </label>
-                  <input
-                    type="text"
-                    id="label"
-                    {...register('label')}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    placeholder="Main Location, Loading Dock, etc."
-                  />
-                </div>
-
                 {/* Address Search Input */}
                 <div>
                   <label htmlFor="address_autosuggest" className="block text-sm font-medium text-gray-700">Address *</label>
