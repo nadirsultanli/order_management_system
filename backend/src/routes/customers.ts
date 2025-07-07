@@ -200,9 +200,17 @@ export const customersRouter = router({
   getById: protectedProcedure
     .input(z.object({
       customer_id: z.string().uuid(),
-    }))
+    }).optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
+      
+      // For testing purposes, if no input provided, return an error message
+      if (!input || !input.customer_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'customer_id is required. Please provide a valid UUID in the format: {"customer_id": "uuid-here"}'
+        });
+      }
       
       ctx.logger.info('Fetching customer:', input.customer_id);
       
@@ -481,9 +489,21 @@ export const customersRouter = router({
       limit: z.number().min(1).max(1000).default(50),
       offset: z.number().min(0).default(0),
       status: z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']).optional(),
-    }))
+    }).optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
+      
+      // For testing purposes, if no input provided, return an error message
+      if (!input || !input.customer_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'customer_id is required. Please provide input in the format: {"customer_id": "uuid-here", "limit": 50, "offset": 0}'
+        });
+      }
+      
+      // Provide defaults for optional fields
+      const limit = input.limit || 50;
+      const offset = input.offset || 0;
       
       ctx.logger.info('Fetching customer order history:', input);
       
@@ -524,7 +544,7 @@ export const customersRouter = router({
       }
 
       // Apply pagination
-      query = query.range(input.offset, input.offset + input.limit - 1);
+      query = query.range(offset, offset + limit - 1);
 
       const { data, error, count } = await query;
 
@@ -539,7 +559,7 @@ export const customersRouter = router({
       return {
         orders: data || [],
         totalCount: count || 0,
-        hasMore: (count || 0) > input.offset + input.limit,
+        hasMore: (count || 0) > offset + limit,
       };
     }),
 
@@ -548,9 +568,20 @@ export const customersRouter = router({
     .input(z.object({
       customer_id: z.string().uuid(),
       period: z.enum(['month', 'quarter', 'year']).default('year'),
-    }))
+    }).optional())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
+      
+      // For testing purposes, if no input provided, return an error message
+      if (!input || !input.customer_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'customer_id is required. Please provide input in the format: {"customer_id": "uuid-here", "period": "year"}'
+        });
+      }
+      
+      // Provide default for optional fields
+      const period = input.period || 'year';
       
       ctx.logger.info('Fetching customer analytics:', input);
       
@@ -571,7 +602,7 @@ export const customersRouter = router({
         month: 30,
         quarter: 90,
         year: 365,
-      }[input.period];
+      }[period];
       
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - periodDays);
@@ -622,7 +653,7 @@ export const customersRouter = router({
           name: customer.name,
           created_at: customer.created_at,
         },
-        period: input.period,
+        period: period,
         analytics: {
           totalOrders,
           totalRevenue,
