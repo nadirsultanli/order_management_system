@@ -309,9 +309,6 @@ export const customersRouter = router({
           email: customerFields.email,
           account_status: customerFields.account_status,
           credit_terms_days: customerFields.credit_terms_days,
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         }])
         .select()
         .single();
@@ -342,9 +339,6 @@ export const customersRouter = router({
           delivery_window_end: address.delivery_window_end,
           is_primary: true,
           instructions: address.instructions,
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         }])
         .select()
         .single();
@@ -385,11 +379,7 @@ export const customersRouter = router({
       // Update customer fields
       const { data: customerData, error: customerError } = await ctx.supabase
         .from('customers')
-        .update({ 
-          ...updateData, 
-          updated_at: new Date().toISOString(),
-          updated_by: user.id,
-        })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
@@ -433,8 +423,6 @@ export const customersRouter = router({
           .from('addresses')
           .update({
             ...address,
-            updated_at: new Date().toISOString(),
-            updated_by: user.id,
           })
           .eq('id', addressData.id)
           ;
@@ -879,7 +867,6 @@ export const customersRouter = router({
           ...input,
           latitude,
           longitude,
-          created_by: user.id,
         }])
         .select()
         .single();
@@ -949,8 +936,6 @@ export const customersRouter = router({
         .from('addresses')
         .update({
           ...updateData,
-          updated_at: new Date().toISOString(),
-          updated_by: user.id,
         })
         .eq('id', address_id)
         .select()
@@ -1032,8 +1017,6 @@ export const customersRouter = router({
         .from('addresses')
         .update({ 
           is_primary: true,
-          updated_at: new Date().toISOString(),
-          updated_by: user.id,
         })
         .eq('id', input.address_id)
         .select()
