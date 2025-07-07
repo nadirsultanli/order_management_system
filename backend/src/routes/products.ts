@@ -535,8 +535,7 @@ export const productsRouter = router({
           status: 'obsolete',
         })
         .eq('id', input.id)
-        
-        .select()
+        .select('id, sku, name, status')
         .single();
 
       if (error) {
@@ -547,7 +546,16 @@ export const productsRouter = router({
         });
       }
 
-      return { success: true, product: data };
+      // Return a clean response without potentially problematic fields
+      return { 
+        success: true, 
+        product: {
+          id: data.id,
+          sku: data.sku,
+          name: data.name,
+          status: data.status
+        }
+      };
     }),
 
   // GET /products/:id/variants - Get product variants
@@ -686,8 +694,7 @@ export const productsRouter = router({
           status: 'active',
         })
         .eq('id', input.id)
-        
-        .select()
+        .select('id, sku, name, status')
         .single();
 
       if (error) {
@@ -698,7 +705,12 @@ export const productsRouter = router({
         });
       }
 
-      return data;
+      return {
+        id: data.id,
+        sku: data.sku,
+        name: data.name,
+        status: data.status
+      };
     }),
 
   // POST /products/validate - Validate product data
