@@ -40,6 +40,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   const [map, setMap] = useState<any>(null);
   const [marker, setMarker] = useState<any>(null);
   const [isPinDraggable, setIsPinDraggable] = useState(false);
+  const [mapError, setMapError] = useState<string>('');
   const mapContainer = useRef<HTMLDivElement>(null);
 
   const {
@@ -70,8 +71,10 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   const deliveryStart = watch('delivery_window_start');
   const deliveryEnd = watch('delivery_window_end');
 
+  // Initialize form data when address prop changes
   useEffect(() => {
     if (address) {
+      // Edit mode - populate all fields and address input
       reset({
         customer_id: address.customer_id,
         line1: address.line1,
@@ -88,18 +91,18 @@ export const AddressForm: React.FC<AddressFormProps> = ({
         longitude: address.longitude,
       });
       
-      // Set the address input display text
-      if (address) {
-        const addressParts = [
-          address.line1,
-          address.line2,
-          address.city,
-          address.state,
-          address.postal_code,
-        ].filter(Boolean);
-        setAddressInput(addressParts.join(', '));
-      }
+      // Set the address input display text for editing
+      const addressParts = [
+        address.line1,
+        address.line2,
+        address.city,
+        address.state,
+        address.postal_code,
+      ].filter(Boolean);
+      setAddressInput(addressParts.join(', '));
+      setSelectedSuggestion({ display_name: addressParts.join(', ') }); // Mark as selected
     } else {
+      // Add mode - start fresh
       reset({
         customer_id: customerId,
         line1: '',
@@ -112,15 +115,35 @@ export const AddressForm: React.FC<AddressFormProps> = ({
         delivery_window_end: '',
         is_primary: isFirstAddress,
         instructions: '',
+        latitude: undefined,
+        longitude: undefined,
       });
       setAddressInput('');
+      setSelectedSuggestion(null);
     }
   }, [address, customerId, isFirstAddress, reset]);
+
+  // Clear map when form is closed or opened
+  useEffect(() => {
+    if (!isOpen) {
+      // Clean up map when modal closes
+      if (marker) {
+        marker.remove();
+        setMarker(null);
+      }
+      if (map) {
+        map.remove();
+        setMap(null);
+      }
+      setMapError('');
+    }
+  }, [isOpen, map, marker]);
 
   // Address autocomplete effect
   useEffect(() => {
     let active = true;
-    if (addressInput && addressInput.length >= 3) {
+    // Only search when not in edit mode with a selected suggestion, or when user is actively typing
+    if (addressInput && addressInput.length >= 3 && (!selectedSuggestion || selectedSuggestion.display_name !== addressInput)) {
       setIsSearching(true);
       getGeocodeSuggestions(addressInput, setIsSearching).then((results) => {
         if (active) setSuggestions(results || []);
@@ -130,37 +153,60 @@ export const AddressForm: React.FC<AddressFormProps> = ({
       setIsSearching(false);
     }
     return () => { active = false; };
-  }, [addressInput]);
+  }, [addressInput, selectedSuggestion]);
 
   // Map initialization effect
   useEffect(() => {
-    if (!map && mapContainer.current && latitude && longitude) {
-      mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
-      const newMap = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/streets-v11',
-        center: [longitude, latitude],
-        zoom: 14,
-      });
-      newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      setMap(newMap);
+    const apiKey = import.meta.env.VITE_MAPBOX_API_KEY;
+    
+    if (!map && mapContainer.current && latitude && longitude && isOpen) {
+      if (!apiKey) {
+        setMapError('Mapbox API key not configured. Please set VITE_MAPBOX_API_KEY in your environment variables.');
+        return;
+      }
 
-      const newMarker = new mapboxgl.Marker({ anchor: 'center', draggable: isPinDraggable })
-        .setLngLat([longitude, latitude])
-        .addTo(newMap);
-      setMarker(newMarker);
+      try {
+        mapboxgl.accessToken = apiKey;
+        const newMap = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [longitude, latitude],
+          zoom: 14,
+        });
+        
+        newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        
+        const newMarker = new mapboxgl.Marker({ 
+          anchor: 'center', 
+          draggable: isPinDraggable 
+        })
+          .setLngLat([longitude, latitude])
+          .addTo(newMap);
 
-      newMarker.on('dragend', () => {
-        const lngLat = newMarker.getLngLat();
-        setValue('latitude', lngLat.lat);
-        setValue('longitude', lngLat.lng);
-      });
+        newMarker.on('dragend', () => {
+          const lngLat = newMarker.getLngLat();
+          setValue('latitude', lngLat.lat);
+          setValue('longitude', lngLat.lng);
+        });
 
-      newMap.on('load', () => {
-        newMap.resize();
-      });
+        newMap.on('load', () => {
+          newMap.resize();
+        });
+
+        newMap.on('error', (e: any) => {
+          console.error('Mapbox error:', e);
+          setMapError('Failed to load map. Please check your internet connection.');
+        });
+
+        setMap(newMap);
+        setMarker(newMarker);
+        setMapError('');
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setMapError('Failed to initialize map. Please check your Mapbox configuration.');
+      }
     }
-  }, [mapContainer, latitude, longitude]);
+  }, [mapContainer, latitude, longitude, isOpen, isPinDraggable, setValue]);
 
   // Map update effect
   useEffect(() => {
@@ -169,17 +215,36 @@ export const AddressForm: React.FC<AddressFormProps> = ({
       marker.setDraggable(isPinDraggable);
       map.setCenter([longitude, latitude]);
       map.setZoom(14);
-      map.resize();
+      
+      // Ensure map resizes properly
+      setTimeout(() => {
+        map.resize();
+      }, 100);
     }
   }, [latitude, longitude, isPinDraggable, map, marker]);
 
-  // Cleanup effect
-  useEffect(() => {
-    return () => {
-      if (marker) marker.remove();
-      if (map) map.remove();
-    };
-  }, []);
+  const handleSuggestionSelect = (suggestion: any) => {
+    setSelectedSuggestion(suggestion);
+    setAddressInput(suggestion.display_name);
+    setSuggestions([]);
+    
+    // Parse and set all address fields in the form
+    setValue('line1', suggestion.address_line1 || '');
+    setValue('line2', suggestion.address_line2 || '');
+    setValue('city', suggestion.city || '');
+    setValue('state', suggestion.state || '');
+    setValue('postal_code', suggestion.postal_code || '');
+    setValue('country', suggestion.country || '');
+    setValue('latitude', suggestion.lat);
+    setValue('longitude', suggestion.lng);
+  };
+
+  const handleAddressInputChange = (value: string) => {
+    setAddressInput(value);
+    if (selectedSuggestion && selectedSuggestion.display_name !== value) {
+      setSelectedSuggestion(null);
+    }
+  };
 
   const handleFormSubmit = (data: AddressFormData) => {
     console.log('Submitting address form:', data);
@@ -187,6 +252,8 @@ export const AddressForm: React.FC<AddressFormProps> = ({
   };
 
   if (!isOpen) return null;
+
+  const hasValidCoordinates = latitude && longitude;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -217,10 +284,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                     type="text"
                     id="address_autosuggest"
                     value={addressInput}
-                    onChange={e => {
-                      setAddressInput(e.target.value);
-                      setSelectedSuggestion(null);
-                    }}
+                    onChange={e => handleAddressInputChange(e.target.value)}
                     className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
                       (errors.line1 || errors.city || errors.country) 
                         ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
@@ -230,25 +294,13 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                     placeholder="Start typing address..."
                   />
                   {isSearching && <div className="text-xs text-gray-500 mt-1">Searching...</div>}
-                  {suggestions.length > 0 && !selectedSuggestion && (
+                  {suggestions.length > 0 && (
                     <ul className="border border-gray-200 rounded bg-white mt-1 max-h-48 overflow-y-auto z-10 relative">
                       {suggestions.map((s, idx) => (
                         <li
                           key={idx}
                           className="px-3 py-2 cursor-pointer hover:bg-blue-50"
-                          onClick={() => {
-                            setSelectedSuggestion(s);
-                            setAddressInput(s.display_name);
-                            // Parse and set all address fields in the form
-                            setValue('line1', s.address_line1 || '');
-                            setValue('line2', s.address_line2 || '');
-                            setValue('city', s.city || '');
-                            setValue('state', s.state || '');
-                            setValue('postal_code', s.postal_code || '');
-                            setValue('country', s.country || '');
-                            setValue('latitude', s.lat);
-                            setValue('longitude', s.lng);
-                          }}
+                          onClick={() => handleSuggestionSelect(s)}
                         >
                           {s.display_name}
                         </li>
@@ -280,28 +332,46 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                 />
 
                 {/* Map Display */}
-                {latitude && longitude && (
+                {hasValidCoordinates && (
                   <div className="mt-4">
-                    <div ref={mapContainer} style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden', position: 'relative' }} />
-                    <div className="flex justify-end mt-2">
-                      {!isPinDraggable ? (
-                        <button
-                          type="button"
-                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
-                          onClick={() => setIsPinDraggable(true)}
-                        >
-                          Adjust Pin
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
-                          onClick={() => setIsPinDraggable(false)}
-                        >
-                          Save Pin Location
-                        </button>
-                      )}
-                    </div>
+                    {mapError ? (
+                      <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                        <p className="text-sm text-red-600">{mapError}</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div 
+                          ref={mapContainer} 
+                          style={{ 
+                            width: '100%', 
+                            height: 200, 
+                            borderRadius: 8, 
+                            overflow: 'hidden', 
+                            position: 'relative',
+                            backgroundColor: '#f3f4f6'
+                          }} 
+                        />
+                        <div className="flex justify-end mt-2">
+                          {!isPinDraggable ? (
+                            <button
+                              type="button"
+                              className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                              onClick={() => setIsPinDraggable(true)}
+                            >
+                              Adjust Pin
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                              onClick={() => setIsPinDraggable(false)}
+                            >
+                              Save Pin Location
+                            </button>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
