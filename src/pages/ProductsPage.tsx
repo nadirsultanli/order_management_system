@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw, Package2 } from 'lucide-react';
+import { Plus, Package2 } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '../hooks/useProducts';
 import { ProductTable } from '../components/products/ProductTable';
 import { ProductFilters } from '../components/products/ProductFilters';
@@ -125,10 +125,7 @@ export const ProductsPage: React.FC = () => {
     setFilters(prev => ({ ...prev, page }));
   };
 
-  const handleRefresh = () => {
-    console.log('Refreshing products');
-    refetch();
-  };
+
 
   const handleSelectionChange = (productIds: string[]) => {
     setSelectedProducts(productIds);
@@ -171,14 +168,6 @@ export const ProductsPage: React.FC = () => {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
           <button
             onClick={handleAddVariantProduct}
             className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"

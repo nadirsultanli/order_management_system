@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { BarChart3, Users, Package, ShoppingCart, TrendingUp, Warehouse, AlertTriangle, Activity, RefreshCw } from 'lucide-react';
+import { BarChart3, Users, Package, ShoppingCart, TrendingUp, Warehouse, AlertTriangle, Activity } from 'lucide-react';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 
 export const DashboardPage: React.FC = () => {
@@ -49,14 +49,6 @@ export const DashboardPage: React.FC = () => {
           <p className="text-gray-600">Welcome {adminUser?.name}!</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => refetchStats()}
-            disabled={statsLoading}
-            className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${statsLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
           <BarChart3 className="h-8 w-8 text-blue-600" />
         </div>
       </div>

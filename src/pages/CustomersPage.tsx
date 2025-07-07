@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useCustomers, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from '../hooks/useCustomers';
 import { CustomerTable } from '../components/customers/CustomerTable';
 import { CustomerFilters } from '../components/customers/CustomerFilters';
@@ -97,10 +97,7 @@ export const CustomersPage: React.FC = () => {
     setFilters(prev => ({ ...prev, page }));
   };
 
-  const handleRefresh = () => {
-    console.log('Refreshing customers');
-    refetch();
-  };
+
 
   return (
     <ErrorBoundary>
@@ -116,14 +113,6 @@ export const CustomersPage: React.FC = () => {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
           <button
             onClick={handleAddCustomer}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
