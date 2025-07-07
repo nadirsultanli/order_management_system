@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide horizontal scrollbars but keep functionality */
+.overflow-x-auto {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.overflow-x-auto::-webkit-scrollbar {
+  height: 0px; /* Chrome, Safari, Opera */
+  background: transparent;
+}
+
+/* Keep vertical scrollbars visible but style them */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
 @layer base {
   body {
     @apply antialiased;

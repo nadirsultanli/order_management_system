@@ -35,9 +35,11 @@ export const AppLayout: React.FC = () => {
         <Header />
         
         {/* Main content with responsive padding */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 sm:p-6 max-w-[1600px] mx-auto">
-            <Outlet />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="p-4 sm:p-6 max-w-full w-full">
+            <div className="max-w-[1600px] mx-auto">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>
