@@ -1,19 +1,17 @@
 openapi: 3.1.0
 info:
   title: Order Management System API
-  description: Backend API for LPG Order Management System with multi-tenant support
+  description: Backend API for LPG Order Management System
   version: 1.0.0
   contact:
     name: API Support
     email: support@example.com
 
 servers:
-  - url: http://localhost:3001/api/v1
-    description: Development server
-  - url: https://api-staging.example.com/v1
-    description: Staging server
-  - url: https://api.example.com/v1
-    description: Production server
+  - url: http://localhost:3001/api/trpc
+    description: Development server (tRPC)
+  - url: https://ordermanagementsystem-production-3ed7.up.railway.app/api/trpc
+    description: Production server (tRPC)
 
 security:
   - BearerAuth: []
@@ -47,6 +45,9 @@ components:
         customer_id:
           type: string
           format: uuid
+        source_warehouse_id:
+          type: string
+          format: uuid
         status:
           type: string
           enum: [draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled]
@@ -62,9 +63,6 @@ components:
         created_at:
           type: string
           format: date-time
-        tenant_id:
-          type: string
-          format: uuid
 
     OrderCalculation:
       type: object
@@ -86,64 +84,100 @@ components:
 
     InventoryItem:
       type: object
-      required: [product_id, available_quantity, reserved_quantity]
+      required: [product_id, qty_full, qty_reserved]
       properties:
         product_id:
           type: string
           format: uuid
-        available_quantity:
+        qty_full:
           type: number
-        reserved_quantity:
+        qty_empty:
+          type: number
+        qty_reserved:
           type: number
         warehouse_id:
-          type: string
-          format: uuid
-        tenant_id:
           type: string
           format: uuid
 
     TransferValidation:
       type: object
-      required: [is_valid, blocked_items]
+      required: [is_valid]
       properties:
         is_valid:
           type: boolean
-        blocked_items:
+        errors:
           type: array
           items:
             type: string
-            format: uuid
         warnings:
           type: array
           items:
             type: string
-        estimated_cost:
-          type: number
-          format: decimal
+
+    Customer:
+      type: object
+      required: [id, name, email]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Product:
+      type: object
+      required: [id, name, sku]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        sku:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, end_of_sale, obsolete]
 
 paths:
   # ORDER MANAGEMENT ENDPOINTS
-  /orders:
-    get:
+  /orders.list:
+    post:
       summary: List orders with analytics
-      description: Retrieve orders with optional filtering and analytics data
+      description: Retrieve orders with optional filtering and analytics data (tRPC query)
       tags: [Orders]
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled]
-        - name: customer_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-        - name: include_analytics
-          in: query
-          schema:
-            type: boolean
-            default: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled]
+                customer_id:
+                  type: string
+                  format: uuid
+                include_analytics:
+                  type: boolean
+                  default: false
+                page:
+                  type: number
+                  default: 1
+                limit:
+                  type: number
+                  default: 50
       responses:
         '200':
           description: Orders retrieved successfully
@@ -152,23 +186,32 @@ paths:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Order'
-                  analytics:
+                  result:
                     type: object
-                    nullable: true
-        '401':
-          description: Unauthorized
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          orders:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Order'
+                          totalCount:
+                            type: number
+                          analytics:
+                            type: object
+                            nullable: true
+        '400':
+          description: Bad Request
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /orders.create:
     post:
       summary: Create new order
-      description: Create a new order with validation and inventory checks
+      description: Create a new order with validation and inventory checks (tRPC mutation)
       tags: [Orders]
       requestBody:
         required: true
@@ -176,9 +219,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [customer_id, order_lines]
+              required: [customer_id, order_lines, source_warehouse_id]
               properties:
                 customer_id:
+                  type: string
+                  format: uuid
+                source_warehouse_id:
                   type: string
                   format: uuid
                 order_lines:
@@ -195,127 +241,205 @@ paths:
                 delivery_date:
                   type: string
                   format: date-time
+                notes:
+                  type: string
+                tax_percent:
+                  type: number
+                  default: 0
       responses:
-        '201':
+        '200':
           description: Order created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Order'
-        '400':
-          description: Validation error
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
+
+  /orders.get:
+    post:
+      summary: Get order by ID
+      description: Retrieve a specific order by ID (tRPC query)
+      tags: [Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Order retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Order'
 
-  /orders/{orderId}/calculate-total:
+  /orders.calculateTotals:
     post:
       summary: Calculate order total
-      description: Recalculate order totals including tax and discounts (idempotent)
+      description: Calculate order totals including tax and discounts (tRPC mutation)
       tags: [Orders]
-      parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lines]
+              properties:
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity, unit_price, subtotal]
+                    properties:
+                      product_id:
+                        type: string
+                        format: uuid
+                      quantity:
+                        type: number
+                      unit_price:
+                        type: number
+                      subtotal:
+                        type: number
+                tax_percent:
+                  type: number
+                  default: 0
       responses:
         '200':
           description: Order total calculated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OrderCalculation'
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/OrderCalculation'
 
-  /orders/{orderId}/status:
+  # INVENTORY MANAGEMENT ENDPOINTS
+  /inventory.list:
     post:
-      summary: Update order status
-      description: Update order status with business logic and inventory side effects
-      tags: [Orders]
-      parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+      summary: Get inventory levels
+      description: Retrieve current inventory with filtering options (tRPC query)
+      tags: [Inventory]
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required: [new_status]
               properties:
-                new_status:
+                warehouse_id:
                   type: string
-                  enum: [confirmed, scheduled, en_route, delivered, invoiced, cancelled]
-                reason:
+                  format: uuid
+                product_id:
                   type: string
-                metadata:
-                  type: object
-      responses:
-        '200':
-          description: Status updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Order'
-
-  # INVENTORY MANAGEMENT ENDPOINTS
-  /inventory:
-    get:
-      summary: Get inventory levels
-      description: Retrieve current inventory with filtering options
-      tags: [Inventory]
-      parameters:
-        - name: warehouse_id
-          in: query
-          schema:
-            type: string
-            format: uuid
-        - name: product_id
-          in: query
-          schema:
-            type: string
-            format: uuid
+                  format: uuid
+                low_stock_only:
+                  type: boolean
+                  default: false
+                page:
+                  type: number
+                  default: 1
+                limit:
+                  type: number
+                  default: 50
       responses:
         '200':
           description: Inventory retrieved successfully
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/InventoryItem'
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          inventory:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/InventoryItem'
+                          totalCount:
+                            type: number
 
-  /inventory/{inventoryId}/adjust:
+  /inventory.getByWarehouse:
     post:
-      summary: Adjust inventory levels
-      description: Adjust stock levels with validation and audit trail
+      summary: Get inventory by warehouse
+      description: Retrieve inventory for specific warehouse (tRPC query)
       tags: [Inventory]
-      parameters:
-        - name: inventoryId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [adjustment_type, quantity]
+              required: [warehouse_id]
               properties:
+                warehouse_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Warehouse inventory retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/InventoryItem'
+
+  /inventory.adjustStock:
+    post:
+      summary: Adjust inventory levels
+      description: Adjust stock levels with validation and audit trail (tRPC mutation)
+      tags: [Inventory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inventory_id, adjustment_type, qty_full_change, reason]
+              properties:
+                inventory_id:
+                  type: string
+                  format: uuid
                 adjustment_type:
                   type: string
-                  enum: [increase, decrease, set]
-                quantity:
+                  enum: [received_full, received_empty, physical_count, damage_loss, other]
+                qty_full_change:
                   type: number
+                qty_empty_change:
+                  type: number
+                  default: 0
                 reason:
                   type: string
       responses:
@@ -324,12 +448,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InventoryItem'
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/InventoryItem'
 
-  /inventory/reserve:
+  /inventory.reserve:
     post:
       summary: Reserve inventory
-      description: Reserve inventory for orders (idempotent)
+      description: Reserve inventory for orders (tRPC mutation)
       tags: [Inventory]
       requestBody:
         required: true
@@ -364,19 +494,207 @@ paths:
               schema:
                 type: object
                 properties:
-                  reservation_id:
-                    type: string
-                    format: uuid
-                  reserved_items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/InventoryItem'
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          success:
+                            type: boolean
+                          reserved_items:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/InventoryItem'
 
-  # TRANSFER MANAGEMENT
-  /transfers/validate:
+  # CUSTOMER MANAGEMENT ENDPOINTS
+  /customers.list:
+    post:
+      summary: List customers
+      description: Retrieve customers with optional filtering (tRPC query)
+      tags: [Customers]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                search:
+                  type: string
+                page:
+                  type: number
+                  default: 1
+                limit:
+                  type: number
+                  default: 50
+      responses:
+        '200':
+          description: Customers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          customers:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Customer'
+                          totalCount:
+                            type: number
+
+  /customers.get:
+    post:
+      summary: Get customer by ID
+      description: Retrieve a specific customer by ID (tRPC query)
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Customer retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Customer'
+
+  /customers.create:
+    post:
+      summary: Create new customer
+      description: Create a new customer (tRPC mutation)
+      tags: [Customers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                company:
+                  type: string
+      responses:
+        '200':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Customer'
+
+  # PRODUCT MANAGEMENT ENDPOINTS
+  /products.list:
+    post:
+      summary: List products
+      description: Retrieve products with optional filtering (tRPC query)
+      tags: [Products]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                search:
+                  type: string
+                status:
+                  type: string
+                  enum: [active, end_of_sale, obsolete]
+                page:
+                  type: number
+                  default: 1
+                limit:
+                  type: number
+                  default: 50
+      responses:
+        '200':
+          description: Products retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          products:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Product'
+                          totalCount:
+                            type: number
+
+  /products.get:
+    post:
+      summary: Get product by ID
+      description: Retrieve a specific product by ID (tRPC query)
+      tags: [Products]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Product retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Product'
+
+  # TRANSFER MANAGEMENT ENDPOINTS
+  /transfers.validate:
     post:
       summary: Validate transfer request
-      description: Validate multi-SKU transfer with business rules
+      description: Validate multi-SKU transfer with business rules (tRPC mutation)
       tags: [Transfers]
       requestBody:
         required: true
@@ -399,12 +717,12 @@ paths:
                   type: array
                   items:
                     type: object
-                    required: [product_id, quantity]
+                    required: [product_id, quantity_to_transfer]
                     properties:
                       product_id:
                         type: string
                         format: uuid
-                      quantity:
+                      quantity_to_transfer:
                         type: number
       responses:
         '200':
@@ -412,12 +730,18 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TransferValidation'
+                type: object
+                properties:
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TransferValidation'
 
-  /transfers/execute:
+  /transfers.create:
     post:
-      summary: Execute transfer
-      description: Execute validated transfer with inventory updates (idempotent)
+      summary: Create transfer
+      description: Create and execute validated transfer with inventory updates (tRPC mutation)
       tags: [Transfers]
       requestBody:
         required: true
@@ -425,34 +749,56 @@ paths:
           application/json:
             schema:
               type: object
-              required: [transfer_id]
+              required: [source_warehouse_id, destination_warehouse_id, items, transfer_type]
               properties:
-                transfer_id:
+                source_warehouse_id:
                   type: string
                   format: uuid
-                force_execute:
-                  type: boolean
-                  default: false
+                destination_warehouse_id:
+                  type: string
+                  format: uuid
+                transfer_type:
+                  type: string
+                  enum: [standard, return, load, internal]
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity_to_transfer]
+                    properties:
+                      product_id:
+                        type: string
+                        format: uuid
+                      quantity_to_transfer:
+                        type: number
+                notes:
+                  type: string
       responses:
         '200':
-          description: Transfer executed successfully
+          description: Transfer created successfully
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  transfer_id:
-                    type: string
-                    format: uuid
-                  status:
-                    type: string
-                    enum: [completed, failed, partial]
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          status:
+                            type: string
+                            enum: [pending, approved, in_transit, completed, cancelled]
 
-  # PRICING MANAGEMENT
-  /pricing/calculate:
+  # PRICING MANAGEMENT ENDPOINTS
+  /pricing.calculate:
     post:
       summary: Calculate dynamic pricing
-      description: Calculate customer-specific pricing with tiers and discounts
+      description: Calculate customer-specific pricing with tiers and discounts (tRPC query)
       tags: [Pricing]
       requestBody:
         required: true
@@ -487,37 +833,47 @@ paths:
               schema:
                 type: object
                 properties:
-                  total_amount:
-                    type: number
-                    format: decimal
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        product_id:
-                          type: string
-                          format: uuid
-                        unit_price:
-                          type: number
-                          format: decimal
-                        subtotal:
-                          type: number
-                          format: decimal
+                  result:
+                    type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          total_amount:
+                            type: number
+                            format: decimal
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                product_id:
+                                  type: string
+                                  format: uuid
+                                unit_price:
+                                  type: number
+                                  format: decimal
+                                subtotal:
+                                  type: number
+                                  format: decimal
 
-  # ANALYTICS & DASHBOARD
-  /dashboard/stats:
-    get:
+  # ANALYTICS & DASHBOARD ENDPOINTS
+  /analytics.getDashboardStats:
+    post:
       summary: Get dashboard statistics
-      description: Retrieve comprehensive business metrics for dashboard
+      description: Retrieve comprehensive business metrics for dashboard (tRPC query)
       tags: [Analytics]
-      parameters:
-        - name: period
-          in: query
-          schema:
-            type: string
-            enum: [today, week, month, quarter, year]
-            default: month
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                period:
+                  type: string
+                  enum: [today, week, month, quarter, year]
+                  default: month
       responses:
         '200':
           description: Dashboard stats retrieved successfully
@@ -526,100 +882,34 @@ paths:
               schema:
                 type: object
                 properties:
-                  orders:
+                  result:
                     type: object
                     properties:
-                      total_count:
-                        type: number
-                      total_revenue:
-                        type: number
-                        format: decimal
-                  inventory:
-                    type: object
-                    properties:
-                      total_products:
-                        type: number
-                      low_stock_alerts:
-                        type: number
-                  customers:
-                    type: object
-                    properties:
-                      total_count:
-                        type: number
-                      active_count:
-                        type: number
-
-  # CUSTOMER MANAGEMENT
-  /customers/{customerId}/orders:
-    get:
-      summary: Get customer order history
-      description: Retrieve complete order history for specific customer
-      tags: [Customers]
-      parameters:
-        - name: customerId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: limit
-          in: query
-          schema:
-            type: number
-            default: 50
-        - name: offset
-          in: query
-          schema:
-            type: number
-            default: 0
-      responses:
-        '200':
-          description: Customer orders retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Order'
-                  total_count:
-                    type: number
-                  pagination:
-                    type: object
-
-  /customers/{customerId}/analytics:
-    get:
-      summary: Get customer analytics
-      description: Comprehensive customer analytics and behavior metrics
-      tags: [Customers]
-      parameters:
-        - name: customerId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Customer analytics retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  lifetime_value:
-                    type: number
-                    format: decimal
-                  order_frequency:
-                    type: number
-                  average_order_value:
-                    type: number
-                    format: decimal
-                  last_order_date:
-                    type: string
-                    format: date-time
+                      data:
+                        type: object
+                        properties:
+                          orders:
+                            type: object
+                            properties:
+                              total_count:
+                                type: number
+                              total_revenue:
+                                type: number
+                                format: decimal
+                          inventory:
+                            type: object
+                            properties:
+                              total_products:
+                                type: number
+                              low_stock_alerts:
+                                type: number
+                          customers:
+                            type: object
+                            properties:
+                              total_count:
+                                type: number
+                              active_count:
+                                type: number
 
 # Global error responses
 responses:
@@ -631,7 +921,7 @@ responses:
           $ref: '#/components/schemas/Error'
   
   ForbiddenError:
-    description: Insufficient permissions or tenant isolation violation
+    description: Insufficient permissions
     content:
       application/json:
         schema:
@@ -657,3 +947,5 @@ tags:
     description: Business analytics and reporting
   - name: Customers
     description: Customer management operations
+  - name: Products
+    description: Product management operations
