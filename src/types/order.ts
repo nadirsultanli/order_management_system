@@ -16,6 +16,8 @@ export interface Order {
   service_type: 'standard' | 'express' | 'scheduled';
   exchange_empty_qty: number; // for refill/exchange orders
   requires_pickup: boolean; // if empty pickup needed
+  // Warehouse/fulfillment fields
+  source_warehouse_id?: string; // Warehouse to fulfill order from
   created_by_user_id?: string;
   assigned_to_user_id?: string;
   customer?: {
@@ -35,6 +37,12 @@ export interface Order {
     postal_code?: string;
     country: string;
     instructions?: string;
+  };
+  source_warehouse?: {
+    id: string;
+    name: string;
+    city?: string;
+    state?: string;
   };
   order_lines?: OrderLine[];
   status_history?: OrderStatusHistory[];
@@ -80,6 +88,8 @@ export interface CreateOrderData {
   service_type: 'standard' | 'express' | 'scheduled';
   exchange_empty_qty: number;
   requires_pickup: boolean;
+  // Warehouse/fulfillment fields
+  source_warehouse_id?: string; // Warehouse to fulfill order from
   created_by_user_id?: string;
   assigned_to_user_id?: string;
 }

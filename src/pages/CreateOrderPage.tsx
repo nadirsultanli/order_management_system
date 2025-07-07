@@ -16,8 +16,10 @@ import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
+import { WarehouseSelector } from '../components/warehouses/WarehouseSelector';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
+import { useWarehouses } from '../hooks/useWarehouses';
 
 interface OrderLineItem {
   product_id: string;
@@ -48,11 +50,15 @@ export const CreateOrderPage: React.FC = () => {
   const [serviceType, setServiceType] = useState<'standard' | 'express' | 'scheduled'>('standard');
   const [exchangeEmptyQty, setExchangeEmptyQty] = useState(0);
   const [requiresPickup, setRequiresPickup] = useState(false);
+  
+  // Warehouse selection state
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
   const { data: productsData, isLoading: isProductsLoading } = useProducts({ limit: 1000 });
   const { data: priceListsData } = usePriceListsNew({ limit: 1000 });
+  const { data: warehousesData } = useWarehouses({ limit: 1000 });
   const createOrder = useCreateOrderNew();
   const calculateOrderTotals = useCalculateOrderTotals();
   // Note: useCreateOrderLine not available - order line functionality disabled
@@ -61,6 +67,7 @@ export const CreateOrderPage: React.FC = () => {
   const customers = customersData?.customers || [];
   const products = productsData?.products || [];
   const priceLists = priceListsData?.priceLists || [];
+  const warehouses = warehousesData?.warehouses || [];
   
   // Get product prices from backend
   const productIds = products.map(p => p.id);
@@ -246,7 +253,7 @@ export const CreateOrderPage: React.FC = () => {
   };
 
   const handleCreateOrder = async () => {
-    if (!selectedCustomerId || !selectedAddressId || orderLines.length === 0) {
+    if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || orderLines.length === 0) {
       return;
     }
     
@@ -280,6 +287,7 @@ export const CreateOrderPage: React.FC = () => {
       const orderData = {
         customer_id: selectedCustomerId,
         delivery_address_id: selectedAddressId,
+        source_warehouse_id: selectedWarehouseId,
         order_date: orderDate,
         scheduled_date: scheduledDateTime,
         notes,
@@ -327,7 +335,7 @@ export const CreateOrderPage: React.FC = () => {
     }
   };
 
-  const canProceedToStep2 = selectedCustomerId && selectedAddressId && 
+  const canProceedToStep2 = selectedCustomerId && selectedAddressId && selectedWarehouseId &&
     (!selectedCustomer || selectedCustomer.account_status !== 'closed');
   const canCreateOrder = canProceedToStep2 && orderLines.length > 0 && 
     (serviceType !== 'scheduled' || (scheduledDate && scheduledTime)) &&
@@ -339,14 +347,21 @@ export const CreateOrderPage: React.FC = () => {
       return 0;
     }
     
-    // Find the product's inventory records across all warehouses
-    const productInventory = inventoryData.inventory.filter(
+    // If a warehouse is selected, only check stock from that warehouse
+    let productInventory = inventoryData.inventory.filter(
       (inv: any) => inv.product_id === productId
     );
     
+    // Filter by selected warehouse if one is chosen
+    if (selectedWarehouseId) {
+      productInventory = productInventory.filter(
+        (inv: any) => inv.warehouse_id === selectedWarehouseId
+      );
+    }
+    
     if (productInventory.length === 0) return 0;
     
-    // Sum available stock across all warehouses for this product
+    // Sum available stock from the selected warehouse(s)
     // Available stock = qty_full - qty_reserved (never negative)
     const totalAvailable = productInventory.reduce(
       (sum: number, inv: any) => {
@@ -480,6 +495,23 @@ export const CreateOrderPage: React.FC = () => {
                   min={new Date().toISOString().split('T')[0]}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
+              </div>
+
+              {/* Warehouse Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Package className="inline h-4 w-4 mr-1" />
+                  Source Warehouse *
+                </label>
+                <WarehouseSelector
+                  value={selectedWarehouseId}
+                  onChange={setSelectedWarehouseId}
+                  placeholder="Select warehouse to fulfill from..."
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Stock availability will be checked from the selected warehouse
+                </p>
               </div>
               
               {/* Scheduled Date/Time (for scheduled service type) */}
@@ -657,7 +689,7 @@ export const CreateOrderPage: React.FC = () => {
                 onClick={() => setStep(2)}
                 disabled={!canProceedToStep2}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                title={!canProceedToStep2 ? 'Please select a customer and delivery address to continue' : ''}
+                title={!canProceedToStep2 ? 'Please select a customer, delivery address, and warehouse to continue' : ''}
               >
                 Next: Add Products
               </button>
@@ -668,6 +700,19 @@ export const CreateOrderPage: React.FC = () => {
         {/* Step 2: Add Products */}
         {step === 2 && (
           <div className="space-y-6">
+            {/* Warehouse Stock Indicator */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <Package className="h-5 w-5 text-blue-600" />
+                <span className="text-sm text-blue-800">
+                  <strong>Stock Source:</strong> {warehouses.find(w => w.id === selectedWarehouseId)?.name || 'Unknown Warehouse'}
+                </span>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">
+                Stock availability shown below is from the selected warehouse only.
+              </p>
+            </div>
+
             {!selectedPriceList && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2">
@@ -1008,6 +1053,12 @@ export const CreateOrderPage: React.FC = () => {
                   <div>
                     <label className="text-sm font-medium text-gray-600">Order Date:</label>
                     <div className="text-gray-900">{new Date(orderDate).toLocaleDateString()}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Source Warehouse:</label>
+                    <div className="text-gray-900">
+                      {warehouses.find(w => w.id === selectedWarehouseId)?.name || 'Unknown Warehouse'}
+                    </div>
                   </div>
                   {notes && (
                     <div>

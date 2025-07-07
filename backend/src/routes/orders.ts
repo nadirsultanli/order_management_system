@@ -76,6 +76,7 @@ export const ordersRouter = router({
           *,
           customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
+          source_warehouse:warehouses(id, name, city, state, active),
           order_lines(
             id,
             product_id,
@@ -258,6 +259,7 @@ export const ordersRouter = router({
           *,
           customer:customers(id, name, email, phone, account_status, credit_terms_days),
           delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
+          source_warehouse:warehouses(id, name, city, state, active),
           order_lines(
             id,
             product_id,
@@ -476,6 +478,7 @@ export const ordersRouter = router({
     .input(z.object({
       customer_id: z.string().uuid(),
       delivery_address_id: z.string().uuid().optional(),
+      source_warehouse_id: z.string().uuid(),
       order_date: z.string().optional(),
       scheduled_date: z.string().datetime().optional(),
       notes: z.string().optional(),
@@ -564,6 +567,27 @@ export const ordersRouter = router({
           throw new TRPCError({
             code: 'BAD_REQUEST',
             message: 'Cannot create order for closed customer account'
+          });
+        }
+
+        // Verify source warehouse exists and is active
+        const { data: warehouse, error: warehouseError } = await ctx.supabase
+          .from('warehouses')
+          .select('id, name, active')
+          .eq('id', input.source_warehouse_id)
+          .single();
+
+        if (warehouseError || !warehouse) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Source warehouse not found'
+          });
+        }
+        
+        if (!warehouse.active) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Source warehouse is not active'
           });
         }
 
@@ -682,22 +706,23 @@ export const ordersRouter = router({
               .from('inventory_balance')
               .select('qty_full, qty_reserved')
               .eq('product_id', line.product_id)
+              .eq('warehouse_id', input.source_warehouse_id)
               .single();
               
             if (inventoryError || !inventory) {
-              validationWarnings.push(`No inventory found for product ${product.sku}`);
+              validationWarnings.push(`No inventory found for product ${product.sku} in selected warehouse`);
             } else {
               const availableStock = inventory.qty_full - inventory.qty_reserved;
               if (line.quantity > availableStock) {
                 validationErrors.push(
-                  `Insufficient stock for ${product.sku}. Requested: ${line.quantity}, Available: ${availableStock}`
+                  `Insufficient stock for ${product.sku} in selected warehouse. Requested: ${line.quantity}, Available: ${availableStock}`
                 );
                 continue;
               }
               
               if (line.quantity > availableStock * 0.8) {
                 validationWarnings.push(
-                  `Large quantity requested for ${product.sku} (${line.quantity}/${availableStock} available)`
+                  `Large quantity requested for ${product.sku} (${line.quantity}/${availableStock} available in selected warehouse)`
                 );
               }
             }
@@ -747,6 +772,7 @@ export const ordersRouter = router({
         const orderData = {
           customer_id: input.customer_id,
           delivery_address_id: input.delivery_address_id,
+          source_warehouse_id: input.source_warehouse_id,
           scheduled_date: input.scheduled_date,
           notes: input.notes,
           status: 'draft' as const,
