@@ -65,8 +65,12 @@ export const CustomersPage: React.FC = () => {
   const handleFormSubmit = async (data: CreateCustomerData) => {
     console.log('Form submit:', data);
     try {
-      await createCustomer.mutateAsync(data);
+      const newCustomer = await createCustomer.mutateAsync(data);
+      console.log('Customer created, navigating to details:', newCustomer);
       setIsFormOpen(false);
+      
+      // Navigate to the newly created customer's detail page
+      navigate(`/customers/${newCustomer.id}`);
     } catch (error) {
       console.error('Form submit error:', error);
       handleError(error as Error, { formData: data });
