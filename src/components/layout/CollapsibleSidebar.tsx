@@ -41,6 +41,9 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
 
+  // Debug log to verify component is rendering
+  console.log('CollapsibleSidebar rendering:', { isExpanded, isPinned, isHovering, isMobileOpen });
+
   const menuItems: MenuItem[] = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
@@ -124,6 +127,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
           transition-all duration-300 ease-in-out z-40
           ${isExpanded ? 'w-64 shadow-2xl' : 'w-16 shadow-lg'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          border-4 border-red-500
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}

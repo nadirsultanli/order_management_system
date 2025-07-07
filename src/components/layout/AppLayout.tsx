@@ -7,6 +7,9 @@ export const AppLayout: React.FC = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
+  // Debug log
+  console.log('AppLayout rendering with CollapsibleSidebar');
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -20,6 +23,11 @@ export const AppLayout: React.FC = () => {
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
+      {/* Debug indicator */}
+      <div className="fixed top-0 right-0 z-50 bg-green-500 text-white p-2 text-xs">
+        NEW SIDEBAR ACTIVE
+      </div>
+      
       {/* Collapsible Sidebar */}
       <CollapsibleSidebar onExpandChange={setSidebarExpanded} />
       
