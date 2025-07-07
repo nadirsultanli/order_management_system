@@ -287,22 +287,11 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/auth.me': {
-        post: {
+        get: {
           summary: 'Get Current User',
-          description: 'Get current authenticated user session info (tRPC query)',
+          description: 'Get current authenticated user session info',
           tags: ['🔑 Authentication'],
-          security: [{ bearerAuth: [] }],
-          requestBody: {
-            required: false,
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {}
-                }
-              }
-            }
-          }
+          security: [{ bearerAuth: [] }]
         }
       },
       '/auth.refresh': {
@@ -326,7 +315,7 @@ app.get('/openapi.json', (req, res) => {
       '/customers.list': {
         post: {
           summary: 'List Customers',
-          description: 'Get paginated list of customers with advanced filtering (tRPC query) (tRPC query)',
+          description: 'Get paginated list of customers with advanced filtering (tRPC query)',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }],
           requestBody: {
@@ -350,7 +339,7 @@ app.get('/openapi.json', (req, res) => {
       '/customers.getById': {
         post: {
           summary: 'Get Customer Details',
-          description: 'Get single customer with full details and addresses (tRPC query) (tRPC query)',
+          description: 'Get single customer with full details and addresses (tRPC query)',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }],
           requestBody: {
@@ -412,25 +401,25 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/customers.getOrderHistory': {
-        post: {
+        get: {
           summary: 'Customer Order History',
-          description: 'Get complete order history for customer (tRPC query)',
+          description: 'Get complete order history for customer',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/customers.getAnalytics': {
-        post: {
+        get: {
           summary: 'Customer Analytics',
-          description: 'Get customer analytics and insights (tRPC query)',
+          description: 'Get customer analytics and insights',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/customers.getAddresses': {
-        post: {
+        get: {
           summary: 'Customer Addresses',
-          description: 'Get all addresses for a customer (tRPC query)',
+          description: 'Get all addresses for a customer',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -470,7 +459,7 @@ app.get('/openapi.json', (req, res) => {
       '/customers.geocodeAddress': {
         post: {
           summary: 'Geocode Address',
-          description: 'Get coordinates for address (tRPC query)',
+          description: 'Get coordinates for address',
           tags: ['👥 Customer Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -510,17 +499,17 @@ app.get('/openapi.json', (req, res) => {
 
       // Order Management Module (26 endpoints)
       '/orders.list': {
-        post: {
+        get: {
           summary: 'List Orders',
-          description: 'Get orders with advanced filtering and pagination (tRPC query)',
+          description: 'Get orders with advanced filtering and pagination',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/orders.getById': {
-        post: {
+        get: {
           summary: 'Get Order Details',
-          description: 'Get single order with complete details and line items (tRPC query)',
+          description: 'Get single order with complete details and line items',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -600,25 +589,25 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/orders.getOverdue': {
-        post: {
+        get: {
           summary: 'Get Overdue Orders',
-          description: 'Get orders that are overdue with business logic (tRPC query)',
+          description: 'Get orders that are overdue with business logic',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/orders.getDeliveryCalendar': {
-        post: {
+        get: {
           summary: 'Delivery Calendar',
-          description: 'Get orders by delivery date with route optimization (tRPC query)',
+          description: 'Get orders by delivery date with route optimization',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/orders.getWorkflow': {
-        post: {
+        get: {
           summary: 'Order Workflow',
-          description: 'Get order workflow steps and transitions (tRPC query)',
+          description: 'Get order workflow steps and transitions',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -656,9 +645,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/orders.getWorkflowInfo': {
-        post: {
+        get: {
           summary: 'Get Workflow Information',
-          description: 'Get order workflow state and available actions (tRPC query)',
+          description: 'Get order workflow state and available actions',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -730,7 +719,7 @@ app.get('/openapi.json', (req, res) => {
       '/orders.getAllocationSuggestions': {
         post: {
           summary: 'Get Allocation Suggestions',
-          description: 'Get AI-powered truck allocation suggestions for optimal routing (tRPC query)',
+          description: 'Get AI-powered truck allocation suggestions for optimal routing',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -752,9 +741,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/orders.getDailySchedule': {
-        post: {
+        get: {
           summary: 'Get Daily Schedule',
-          description: 'Get daily order schedule with truck assignments (tRPC query)',
+          description: 'Get daily order schedule with truck assignments',
           tags: ['📦 Order Management'],
           security: [{ bearerAuth: [] }],
           parameters: [
@@ -783,17 +772,17 @@ app.get('/openapi.json', (req, res) => {
 
       // Product Catalog Module (25 endpoints)
       '/products.list': {
-        post: {
+        get: {
           summary: 'List Products',
-          description: 'Get product catalog with advanced filtering and search (tRPC query)',
+          description: 'Get product catalog with advanced filtering and search',
           tags: ['🏭 Product Catalog'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/products.getById': {
-        post: {
+        get: {
           summary: 'Get Product Details',
-          description: 'Get single product with variants and specifications (tRPC query)',
+          description: 'Get single product with variants and specifications',
           tags: ['🏭 Product Catalog'],
           security: [{ bearerAuth: [] }]
         }
@@ -823,9 +812,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/products.getVariants': {
-        post: {
+        get: {
           summary: 'Product Variants',
-          description: 'Get all variants for a product (tRPC query)',
+          description: 'Get all variants for a product',
           tags: ['🏭 Product Catalog'],
           security: [{ bearerAuth: [] }]
         }
@@ -839,17 +828,17 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/products.getStats': {
-        post: {
+        get: {
           summary: 'Product Statistics',
-          description: 'Get product performance statistics and metrics (tRPC query)',
+          description: 'Get product performance statistics and metrics',
           tags: ['🏭 Product Catalog'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/products.getOptions': {
-        post: {
+        get: {
           summary: 'Product Dropdown Options',
-          description: 'Get formatted product options for dropdowns and forms (tRPC query)',
+          description: 'Get formatted product options for dropdowns and forms',
           tags: ['🏭 Product Catalog'],
           security: [{ bearerAuth: [] }]
         }
@@ -903,9 +892,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/products.getAvailabilityMatrix': {
-        post: {
+        get: {
           summary: 'Product Availability Matrix',
-          description: 'Get cross-warehouse product availability (tRPC query)',
+          description: 'Get cross-warehouse product availability',
           tags: ['🏭 Product Catalog'],
           security: [{ bearerAuth: [] }]
         }
@@ -943,9 +932,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/products.getStandardCylinderVariants': {
-        post: {
+        get: {
           summary: 'Standard Cylinder Variants',
-          description: 'Get standard LPG cylinder variants (5kg, 15kg, 45kg, 90kg) (tRPC query)',
+          description: 'Get standard LPG cylinder variants (5kg, 15kg, 45kg, 90kg)',
           tags: ['🏭 Product Catalog'],
           security: [{ bearerAuth: [] }]
         }
@@ -969,17 +958,17 @@ app.get('/openapi.json', (req, res) => {
 
       // Fleet Management Module (23 endpoints)
       '/trucks.list': {
-        post: {
+        get: {
           summary: 'List Trucks',
-          description: 'Get fleet listing with capacity and status filters (tRPC query)',
+          description: 'Get fleet listing with capacity and status filters',
           tags: ['🚛 Fleet Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/trucks.get': {
-        post: {
+        get: {
           summary: 'Get Truck Details',
-          description: 'Get truck details with current inventory and capacity (tRPC query)',
+          description: 'Get truck details with current inventory and capacity',
           tags: ['🚛 Fleet Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1040,7 +1029,7 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/trucks.generateSchedule': {
-        post: {
+        get: {
           summary: 'Generate Daily Schedule',
           description: 'Generate optimized daily delivery schedules',
           tags: ['🚛 Fleet Management'],
@@ -1048,9 +1037,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/trucks.getAllocations': {
-        post: {
+        get: {
           summary: 'Truck Allocations',
-          description: 'Get truck allocations by date and truck (tRPC query)',
+          description: 'Get truck allocations by date and truck',
           tags: ['🚛 Fleet Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1088,9 +1077,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/trucks.getRoutes': {
-        post: {
+        get: {
           summary: 'Truck Routes',
-          description: 'Get optimized truck routes and schedules (tRPC query)',
+          description: 'Get optimized truck routes and schedules',
           tags: ['🚛 Fleet Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1112,9 +1101,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/trucks.getMaintenance': {
-        post: {
+        get: {
           summary: 'Maintenance Records',
-          description: 'Get truck maintenance history and schedules (tRPC query)',
+          description: 'Get truck maintenance history and schedules',
           tags: ['🚛 Fleet Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1212,17 +1201,17 @@ app.get('/openapi.json', (req, res) => {
 
       // Inventory Transfers Module (16 endpoints)
       '/transfers.list': {
-        post: {
+        get: {
           summary: 'List Transfers',
-          description: 'Get inventory transfers with filtering and status tracking (tRPC query)',
+          description: 'Get inventory transfers with filtering and status tracking',
           tags: ['🔄 Inventory Transfers'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/transfers.getById': {
-        post: {
+        get: {
           summary: 'Get Transfer Details',
-          description: 'Get single transfer with complete item details (tRPC query)',
+          description: 'Get single transfer with complete item details',
           tags: ['🔄 Inventory Transfers'],
           security: [{ bearerAuth: [] }]
         }
@@ -1268,23 +1257,23 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/transfers.getWarehouseStock': {
-        post: {
+        get: {
           summary: 'Warehouse Stock for Transfer',
-          description: 'Get available stock for transfer planning (tRPC query)',
+          description: 'Get available stock for transfer planning',
           tags: ['🔄 Inventory Transfers'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/transfers.getCostAnalysis': {
-        post: {
+        get: {
           summary: 'Transfer Cost Analysis',
-          description: 'Get detailed cost analysis for transfers (tRPC query)',
+          description: 'Get detailed cost analysis for transfers',
           tags: ['🔄 Inventory Transfers'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/transfers.searchProducts': {
-        post: {
+        get: {
           summary: 'Search Products for Transfer',
           description: 'Search available products for transfer',
           tags: ['🔄 Inventory Transfers'],
@@ -1334,9 +1323,9 @@ app.get('/openapi.json', (req, res) => {
 
       // Dynamic Pricing Module (28 endpoints)
       '/pricing.list': {
-        post: {
+        get: {
           summary: 'List Price Lists',
-          description: 'Get all price lists with filtering and date ranges (tRPC query)',
+          description: 'Get all price lists with filtering and date ranges',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1365,9 +1354,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getProductPrice': {
-        post: {
+        get: {
           summary: 'Get Product Price',
-          description: 'Get current price for product with customer-specific discounts (tRPC query)',
+          description: 'Get current price for product with customer-specific discounts',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1381,9 +1370,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getActivePriceLists': {
-        post: {
+        get: {
           summary: 'Active Price Lists',
-          description: 'Get currently active price lists for pricing (tRPC query)',
+          description: 'Get currently active price lists for pricing',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1397,9 +1386,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getById': {
-        post: {
+        get: {
           summary: 'Get Price List Details',
-          description: 'Get single price list with all items and metadata (tRPC query)',
+          description: 'Get single price list with all items and metadata',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1437,9 +1426,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getItems': {
-        post: {
+        get: {
           summary: 'Price List Items',
-          description: 'Get all items in a price list (tRPC query)',
+          description: 'Get all items in a price list',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1477,9 +1466,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getStats': {
-        post: {
+        get: {
           summary: 'Pricing Statistics',
-          description: 'Get price list statistics and analytics (tRPC query)',
+          description: 'Get price list statistics and analytics',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1501,7 +1490,7 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getPriceListStatus': {
-        post: {
+        get: {
           summary: 'Get Price List Status',
           description: '💡 Calculate price list status (moved from frontend)',
           tags: ['💰 Dynamic Pricing'],
@@ -1517,7 +1506,7 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.isExpiringSoon': {
-        post: {
+        get: {
           summary: 'Check Expiration Status',
           description: '💡 Check if price list expires soon (moved from frontend)',
           tags: ['💰 Dynamic Pricing'],
@@ -1525,9 +1514,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getProductPrices': {
-        post: {
+        get: {
           summary: 'Get Product Prices',
-          description: 'Get bulk pricing for multiple products (tRPC query)',
+          description: 'Get bulk pricing for multiple products',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1549,9 +1538,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/pricing.getCustomerPricingTiers': {
-        post: {
+        get: {
           summary: 'Customer Pricing Tiers',
-          description: 'Get customer-specific pricing tiers and discounts (tRPC query)',
+          description: 'Get customer-specific pricing tiers and discounts',
           tags: ['💰 Dynamic Pricing'],
           security: [{ bearerAuth: [] }]
         }
@@ -1559,57 +1548,57 @@ app.get('/openapi.json', (req, res) => {
 
       // Business Intelligence Module (7 endpoints)
       '/analytics.getDashboardStats': {
-        post: {
+        get: {
           summary: 'Dashboard Statistics',
-          description: 'Get comprehensive dashboard overview with KPIs (tRPC query)',
+          description: 'Get comprehensive dashboard overview with KPIs',
           tags: ['📊 Business Intelligence'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/analytics.getRevenueAnalytics': {
-        post: {
+        get: {
           summary: 'Revenue Analytics',
-          description: 'Get detailed revenue analysis and trends (tRPC query)',
+          description: 'Get detailed revenue analysis and trends',
           tags: ['📊 Business Intelligence'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/analytics.getOrderAnalytics': {
-        post: {
+        get: {
           summary: 'Order Analytics',
-          description: 'Get order patterns, trends, and performance metrics (tRPC query)',
+          description: 'Get order patterns, trends, and performance metrics',
           tags: ['📊 Business Intelligence'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/analytics.getCustomerAnalytics': {
-        post: {
+        get: {
           summary: 'Customer Analytics',
-          description: 'Get customer behavior and lifetime value analysis (tRPC query)',
+          description: 'Get customer behavior and lifetime value analysis',
           tags: ['📊 Business Intelligence'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/analytics.getInventoryAnalytics': {
-        post: {
+        get: {
           summary: 'Inventory Analytics',
-          description: 'Get inventory turnover and optimization insights (tRPC query)',
+          description: 'Get inventory turnover and optimization insights',
           tags: ['📊 Business Intelligence'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/analytics.getComprehensiveOrderAnalytics': {
-        post: {
+        get: {
           summary: 'Comprehensive Order Analytics',
-          description: 'Get detailed order analysis with performance metrics (tRPC query)',
+          description: 'Get detailed order analysis with performance metrics',
           tags: ['📊 Business Intelligence'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/analytics.getOrderStats': {
-        post: {
+        get: {
           summary: 'Order Statistics',
-          description: 'Get statistical overview of order performance (tRPC query)',
+          description: 'Get statistical overview of order performance',
           tags: ['📊 Business Intelligence'],
           security: [{ bearerAuth: [] }]
         }
@@ -1617,17 +1606,17 @@ app.get('/openapi.json', (req, res) => {
 
       // Warehouse Management Module (9 endpoints)
       '/warehouses.list': {
-        post: {
+        get: {
           summary: 'List Warehouses',
-          description: 'Get all warehouses with capacity and location info (tRPC query)',
+          description: 'Get all warehouses with capacity and location info',
           tags: ['🏢 Warehouse Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/warehouses.get': {
-        post: {
+        get: {
           summary: 'Get Warehouse Details',
-          description: 'Get warehouse details with current inventory levels (tRPC query)',
+          description: 'Get warehouse details with current inventory levels',
           tags: ['🏢 Warehouse Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1657,17 +1646,17 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/warehouses.getStats': {
-        post: {
+        get: {
           summary: 'Warehouse Statistics',
-          description: 'Get warehouse utilization and performance stats (tRPC query)',
+          description: 'Get warehouse utilization and performance stats',
           tags: ['🏢 Warehouse Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/warehouses.getOptions': {
-        post: {
+        get: {
           summary: 'Warehouse Dropdown Options',
-          description: 'Get formatted warehouse options for dropdowns (tRPC query)',
+          description: 'Get formatted warehouse options for dropdowns',
           tags: ['🏢 Warehouse Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1675,17 +1664,17 @@ app.get('/openapi.json', (req, res) => {
 
       // Inventory Management Module (12 endpoints)
       '/inventory.list': {
-        post: {
+        get: {
           summary: 'List Inventory',
-          description: 'Get inventory with advanced filtering and stock levels (tRPC query)',
+          description: 'Get inventory with advanced filtering and stock levels',
           tags: ['📦 Inventory Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/inventory.getByWarehouse': {
-        post: {
+        get: {
           summary: 'Warehouse Inventory',
-          description: 'Get all inventory for specific warehouse (tRPC query)',
+          description: 'Get all inventory for specific warehouse',
           tags: ['📦 Inventory Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1707,25 +1696,25 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/inventory.getLowStock': {
-        post: {
+        get: {
           summary: 'Low Stock Alerts',
-          description: 'Get items with low stock levels requiring attention (tRPC query)',
+          description: 'Get items with low stock levels requiring attention',
           tags: ['📦 Inventory Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/inventory.getByProduct': {
-        post: {
+        get: {
           summary: 'Product Inventory',
-          description: 'Get inventory levels for specific product across warehouses (tRPC query)',
+          description: 'Get inventory levels for specific product across warehouses',
           tags: ['📦 Inventory Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/inventory.getStats': {
-        post: {
+        get: {
           summary: 'Inventory Statistics',
-          description: 'Get inventory statistics and KPIs (tRPC query)',
+          description: 'Get inventory statistics and KPIs',
           tags: ['📦 Inventory Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1747,9 +1736,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/inventory.getMovements': {
-        post: {
+        get: {
           summary: 'Inventory Movements',
-          description: 'Get inventory movement history and audit trail (tRPC query)',
+          description: 'Get inventory movement history and audit trail',
           tags: ['📦 Inventory Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1763,7 +1752,7 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/inventory.checkAvailability': {
-        post: {
+        get: {
           summary: 'Check Product Availability',
           description: 'Check product availability with business rules',
           tags: ['📦 Inventory Management'],
@@ -1799,9 +1788,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/payments.list': {
-        post: {
+        get: {
           summary: 'List Payments',
-          description: 'Get paginated list of payments with filtering (tRPC query)',
+          description: 'Get paginated list of payments with filtering',
           tags: ['💳 Payment Management'],
           security: [{ bearerAuth: [] }],
           parameters: [
@@ -1823,17 +1812,17 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/payments.getById': {
-        post: {
+        get: {
           summary: 'Get Payment Details',
-          description: 'Get single payment with complete details (tRPC query)',
+          description: 'Get single payment with complete details',
           tags: ['💳 Payment Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/payments.getByOrderId': {
-        post: {
+        get: {
           summary: 'Get Payments by Order',
-          description: 'Get all payments for a specific order (tRPC query)',
+          description: 'Get all payments for a specific order',
           tags: ['💳 Payment Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1847,17 +1836,17 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/payments.getSummary': {
-        post: {
+        get: {
           summary: 'Payment Summary',
-          description: 'Get payment summary statistics (tRPC query)',
+          description: 'Get payment summary statistics',
           tags: ['💳 Payment Management'],
           security: [{ bearerAuth: [] }]
         }
       },
       '/payments.getOverdueOrders': {
-        post: {
+        get: {
           summary: 'Get Overdue Orders',
-          description: 'Get orders with overdue payments (tRPC query)',
+          description: 'Get orders with overdue payments',
           tags: ['💳 Payment Management'],
           security: [{ bearerAuth: [] }]
         }
@@ -1865,9 +1854,9 @@ app.get('/openapi.json', (req, res) => {
 
       // Stock Movements Module (6 endpoints)
       '/stockMovements.list': {
-        post: {
+        get: {
           summary: 'List Stock Movements',
-          description: 'Get stock movements with filtering (tRPC query)',
+          description: 'Get stock movements with filtering',
           tags: ['📈 Stock Movements'],
           security: [{ bearerAuth: [] }],
           parameters: [
@@ -1889,9 +1878,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/stockMovements.get': {
-        post: {
+        get: {
           summary: 'Get Movement Details',
-          description: 'Get stock movement details (tRPC query)',
+          description: 'Get stock movement details',
           tags: ['📈 Stock Movements'],
           security: [{ bearerAuth: [] }]
         }
@@ -1940,9 +1929,9 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/stockMovements.getSummary': {
-        post: {
+        get: {
           summary: 'Movement Summary',
-          description: 'Get stock movement summary statistics (tRPC query)',
+          description: 'Get stock movement summary statistics',
           tags: ['📈 Stock Movements'],
           security: [{ bearerAuth: [] }]
         }
@@ -1950,7 +1939,7 @@ app.get('/openapi.json', (req, res) => {
 
       // System Administration Module (2 endpoints)
       '/admin.healthCheck': {
-        post: {
+        get: {
           summary: 'System Health Check',
           description: 'Comprehensive system health and security validation',
           tags: ['⚙️ System Administration'],
@@ -1958,7 +1947,7 @@ app.get('/openapi.json', (req, res) => {
         }
       },
       '/admin.testRLSPolicies': {
-        post: {
+        get: {
           summary: 'Test Security Policies',
           description: 'Test Row Level Security policies for data isolation',
           tags: ['⚙️ System Administration'],
