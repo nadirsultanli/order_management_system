@@ -217,13 +217,13 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Warehouse Name *
+                        Warehouse Name <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="text"
                         id="name"
-                        {...register('name', { required: 'Warehouse name is required' })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        {...register('name', { required: 'This field is required.' })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
                         placeholder="Main Depot"
                       />
                       {errors.name && (
@@ -232,17 +232,18 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                     </div>
                     <div>
                       <label htmlFor="capacity_cylinders" className="block text-sm font-medium text-gray-700">
-                        Storage Capacity (cylinders)
+                        Storage Capacity (cylinders) <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="number"
                         min="1"
                         id="capacity_cylinders"
                         {...register('capacity_cylinders', {
+                          required: 'This field is required.',
                           valueAsNumber: true,
                           min: { value: 1, message: 'Capacity must be at least 1' },
                         })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.capacity_cylinders ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
                         placeholder="1000"
                       />
                       {errors.capacity_cylinders && (
@@ -259,7 +260,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                   {includeAddress && (
                     <div className="p-4 bg-gray-50 rounded-lg">
                       <label htmlFor="addressInput" className="block text-sm font-medium text-gray-700">
-                        Address *
+                        Address <span className="text-red-600">*</span>
                       </label>
                       <input
                         type="text"
@@ -269,7 +270,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                           setAddressInput(e.target.value);
                           setSelectedSuggestion(null);
                         }}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${(errors.address?.line1 || errors.address?.city || errors.address?.country) ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
                         placeholder="Start typing address..."
                       />
                       {isSearching && <div className="text-xs text-gray-500 mt-1">Searching...</div>}
@@ -300,6 +301,76 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                       {selectedSuggestion && (
                         <div className="text-xs text-green-600 mt-1">Address selected</div>
                       )}
+                      {/* Address field validation errors */}
+                      {(errors.address?.line1 || errors.address?.city || errors.address?.country) && (
+                        <p className="mt-1 text-sm text-red-600">All address fields are required.</p>
+                      )}
+                      {/* Hidden validation fields for address components */}
+                      <input
+                        type="hidden"
+                        {...register('address.line1', { required: 'This field is required.' })}
+                      />
+                      <input
+                        type="hidden"
+                        {...register('address.city', { required: 'This field is required.' })}
+                      />
+                      <input
+                        type="hidden"
+                        {...register('address.country', { required: 'This field is required.' })}
+                      />
+                      <label htmlFor="address.state" className="block text-sm font-medium text-gray-700 mt-4">
+                        State/Province <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="address.state"
+                        {...register('address.state', { required: 'This field is required.' })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.address?.state ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                        placeholder="State or province"
+                      />
+                      {errors.address?.state && (
+                        <p className="mt-1 text-sm text-red-600">{errors.address.state.message}</p>
+                      )}
+                      <label htmlFor="address.postal_code" className="block text-sm font-medium text-gray-700 mt-4">
+                        Postal Code <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="address.postal_code"
+                        {...register('address.postal_code', { required: 'This field is required.' })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.address?.postal_code ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                        placeholder="Postal code"
+                      />
+                      {errors.address?.postal_code && (
+                        <p className="mt-1 text-sm text-red-600">{errors.address.postal_code.message}</p>
+                      )}
+                      <label htmlFor="address.country" className="block text-sm font-medium text-gray-700 mt-4">
+                        Country <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        id="address.country"
+                        {...register('address.country', { required: 'This field is required.' })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.address?.country ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                      >
+                        {countryOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      {errors.address?.country && (
+                        <p className="mt-1 text-sm text-red-600">{errors.address.country.message}</p>
+                      )}
+                      <label htmlFor="address.instructions" className="block text-sm font-medium text-gray-700 mt-4">
+                        Access Instructions <span className="text-red-600">*</span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        {...register('address.instructions', { required: 'This field is required.' })}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.address?.instructions ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
+                        placeholder="Gate codes, special access requirements, loading dock information..."
+                      />
+                      {errors.address?.instructions && (
+                        <p className="mt-1 text-sm text-red-600">{errors.address.instructions.message}</p>
+                      )}
                       {/* Show the map if lat/lng are set */}
                       {latitude && longitude && (
                         <div className="mt-4">
@@ -325,15 +396,6 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                           </div>
                         </div>
                       )}
-                      <label htmlFor="address.instructions" className="block text-sm font-medium text-gray-700 mt-4">
-                        Access Instructions
-                      </label>
-                      <textarea
-                        rows={2}
-                        {...register('address.instructions')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Gate codes, special access requirements, loading dock information..."
-                      />
                     </div>
                   )}
                 </div>
