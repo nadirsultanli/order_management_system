@@ -77,11 +77,6 @@ export const AddressCard: React.FC<AddressCardProps> = ({
         </div>
         
         <div className="flex items-center space-x-1">
-          {address.latitude && address.longitude && (
-            <div className="p-1 text-green-600" title="Geocoded">
-              <Navigation className="h-4 w-4" />
-            </div>
-          )}
           <button
             onClick={() => onEdit(address)}
             className="p-1 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
