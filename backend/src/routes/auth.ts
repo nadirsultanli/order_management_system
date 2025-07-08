@@ -41,7 +41,7 @@ export const authRouter = router({
         const { data: adminUser, error: adminError } = await supabaseAdmin
           .from('admin_users')
           .select('*')
-          .eq('email', data.user.email!)
+          .eq('auth_user_id', data.user.id)
           .eq('active', true)
           .single();
 
@@ -99,7 +99,7 @@ export const authRouter = router({
         const { error: adminUserError } = await supabaseAdmin
           .from('admin_users')
           .insert({
-            id: data.user.id,
+            auth_user_id: data.user.id,
             email: input.email,
             name: input.name,
             role: 'admin',
@@ -129,7 +129,7 @@ export const authRouter = router({
         }
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Registration failed',
+          message: 'Failed to create admin user',
         });
       }
     }),

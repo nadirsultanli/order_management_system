@@ -35,7 +35,7 @@ export const createContext = async ({ req, res }: CreateExpressContextOptions) =
         const { data: adminUser, error: adminError } = await supabaseAdmin
           .from('admin_users')
           .select('*')
-          .eq('email', userData.user.email!)
+          .eq('auth_user_id', userData.user.id)
           .eq('active', true)
           .single();
 
