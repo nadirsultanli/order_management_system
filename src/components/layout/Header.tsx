@@ -1,7 +1,8 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, User } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { TokenStatus } from '../auth/TokenStatus';
+import { UserAvatar } from '../ui/UserAvatar';
 
 export const Header: React.FC = () => {
   const { adminUser, signOut } = useAuth();
@@ -31,12 +32,9 @@ export const Header: React.FC = () => {
 
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <User className="h-4 w-4" />
-            <div className="flex flex-col items-end">
-              <span className="font-medium text-gray-900">{adminUser?.name}</span>
-              <span className="text-xs text-gray-500">{adminUser?.email}</span>
-            </div>
+          <div className="flex items-center space-x-3 text-sm text-gray-600">
+            <UserAvatar name={adminUser?.name || 'User'} size="md" />
+            <span className="font-medium text-gray-900">{adminUser?.name}</span>
           </div>
         </div>
         

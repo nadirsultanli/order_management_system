@@ -16,6 +16,8 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
+import { UserAvatar } from '../ui/UserAvatar';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MenuItem {
   path: string;
@@ -38,6 +40,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
   const [isHovering, setIsHovering] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const location = useLocation();
+  const { adminUser } = useAuth();
 
   const menuItems: MenuItem[] = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -206,6 +209,39 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
             })}
           </ul>
         </nav>
+
+        {/* User Avatar Section */}
+        <div className="p-2 border-t border-gray-800">
+          <div className={`
+            flex items-center px-3 py-2.5 rounded-lg
+            transition-all duration-200 relative group
+            text-gray-300 hover:bg-gray-800 hover:text-white
+          `}>
+            <UserAvatar 
+              name={adminUser?.name || 'User'} 
+              size="sm" 
+              className="flex-shrink-0"
+            />
+            
+            {/* User name - shown when expanded or on mobile */}
+            {(isExpanded || isMobileOpen) && (
+              <span className="ml-3 whitespace-nowrap font-medium">{adminUser?.name}</span>
+            )}
+
+            {/* Tooltip - shown when collapsed on desktop */}
+            {!isExpanded && !isMobileOpen && (
+              <div className="
+                absolute left-full ml-2 px-3 py-2 bg-gray-800 text-white text-sm
+                rounded-md whitespace-nowrap opacity-0 pointer-events-none
+                group-hover:opacity-100 transition-all duration-200 transform
+                group-hover:translate-x-1 shadow-xl hidden lg:block
+                border border-gray-700
+              ">
+                {adminUser?.name}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Pin/Unpin Button - only show on desktop when expanded */}
         {isExpanded && !isMobileOpen && (
