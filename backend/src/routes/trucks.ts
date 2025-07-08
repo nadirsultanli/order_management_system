@@ -1658,4 +1658,163 @@ export const trucksRouter = router({
         results
       };
     }),
+
+  // GET /trucks/:id/inventory - Get truck current inventory
+  getInventory: protectedProcedure
+    .input(z.object({ 
+      truck_id: z.string().uuid(),
+      include_product_details: z.boolean().optional().default(true)
+    }))
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching truck inventory:', { truck_id: input.truck_id });
+      
+      // Validate truck exists
+      const { data: truck, error: truckError } = await ctx.supabase
+        .from('truck')
+        .select('id, fleet_number, license_plate, active, capacity_cylinders')
+        .eq('id', input.truck_id)
+        .single();
+
+      if (truckError || !truck) {
+        ctx.logger.error('Truck not found for inventory fetch:', {
+          error: formatErrorMessage(truckError),
+          truck_id: input.truck_id,
+          user_id: user.id
+        });
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Truck not found',
+        });
+      }
+
+      // Build inventory query with optional product details
+      let inventoryQuery = ctx.supabase
+        .from('truck_inventory')
+        .select(input.include_product_details 
+          ? `
+            id,
+            truck_id,
+            product_id,
+            qty_full,
+            qty_empty,
+            created_at,
+            updated_at,
+            product:product_id (
+              id,
+              name,
+              sku,
+              variant_name,
+              capacity_kg,
+              tare_weight_kg,
+              unit_of_measure,
+              status
+            )
+          `
+          : `
+            id,
+            truck_id,
+            product_id,
+            qty_full,
+            qty_empty,
+            created_at,
+            updated_at
+          `
+        )
+        .eq('truck_id', input.truck_id)
+        .order('updated_at', { ascending: false });
+
+      const { data: inventoryData, error: inventoryError } = await inventoryQuery;
+
+      if (inventoryError) {
+        ctx.logger.error('Error fetching truck inventory:', {
+          error: formatErrorMessage(inventoryError),
+          truck_id: input.truck_id,
+          user_id: user.id
+        });
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch truck inventory: ${formatErrorMessage(inventoryError)}`,
+        });
+      }
+
+      // Process inventory data and calculate weights
+      const inventory = (inventoryData || []).map((item: any) => {
+        const product = item.product;
+        let weight_kg = 0;
+        let total_cylinders = item.qty_full + item.qty_empty;
+        
+        if (product && product.capacity_kg && product.tare_weight_kg) {
+          weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
+                     (item.qty_empty * product.tare_weight_kg);
+        }
+
+        const inventoryItem: any = {
+          id: item.id,
+          product_id: item.product_id,
+          qty_full: item.qty_full,
+          qty_empty: item.qty_empty,
+          total_cylinders,
+          weight_kg,
+          updated_at: item.updated_at
+        };
+
+        if (input.include_product_details && product) {
+          inventoryItem.product = {
+            id: product.id,
+            name: product.name,
+            sku: product.sku,
+            variant_name: product.variant_name,
+            capacity_kg: product.capacity_kg,
+            tare_weight_kg: product.tare_weight_kg,
+            unit_of_measure: product.unit_of_measure,
+            status: product.status
+          };
+        }
+
+        return inventoryItem;
+      });
+
+      // Calculate summary statistics
+      const totalFullCylinders = inventory.reduce((sum, item) => sum + item.qty_full, 0);
+      const totalEmptyCylinders = inventory.reduce((sum, item) => sum + item.qty_empty, 0);
+      const totalCylinders = totalFullCylinders + totalEmptyCylinders;
+      const totalWeightKg = inventory.reduce((sum, item) => sum + item.weight_kg, 0);
+      const capacityUtilization = truck.capacity_cylinders > 0 
+        ? (totalCylinders / truck.capacity_cylinders) * 100 
+        : 0;
+
+      const result = {
+        truck: {
+          id: truck.id,
+          fleet_number: truck.fleet_number,
+          license_plate: truck.license_plate,
+          active: truck.active,
+          capacity_cylinders: truck.capacity_cylinders,
+          capacity_kg: truck.capacity_cylinders * 27 // Standard cylinder weight assumption
+        },
+        inventory: inventory,
+        summary: {
+          total_products: inventory.length,
+          total_full_cylinders: totalFullCylinders,
+          total_empty_cylinders: totalEmptyCylinders,
+          total_cylinders: totalCylinders,
+          total_weight_kg: Math.round(totalWeightKg * 100) / 100, // Round to 2 decimal places
+          capacity_utilization_percent: Math.round(capacityUtilization * 100) / 100,
+          is_overloaded: totalCylinders > truck.capacity_cylinders,
+          last_updated: inventory.length > 0 ? inventory[0].updated_at : null
+        },
+        timestamp: new Date().toISOString()
+      };
+
+      ctx.logger.info('Truck inventory fetched successfully:', {
+        truck_id: input.truck_id,
+        inventory_items: result.inventory.length,
+        total_cylinders: result.summary.total_cylinders,
+        capacity_utilization: result.summary.capacity_utilization_percent
+      });
+
+      return result;
+    }),
 });

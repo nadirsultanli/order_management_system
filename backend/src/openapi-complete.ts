@@ -1126,6 +1126,145 @@ export const openApiDocument = {
         },
       },
     },
+    '/api/v1/trpc/trucks.getInventory': {
+      get: {
+        summary: 'Get truck inventory',
+        description: 'Get current inventory of products in a specific truck (Query)',
+        tags: ['trucks'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { 
+            name: 'truck_id', 
+            in: 'query', 
+            required: true, 
+            schema: { type: 'string', format: 'uuid' },
+            description: 'ID of the truck to get inventory for'
+          },
+          { 
+            name: 'include_product_details', 
+            in: 'query', 
+            schema: { type: 'boolean', default: true },
+            description: 'Whether to include detailed product information'
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Truck inventory retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            truck: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', format: 'uuid' },
+                                fleet_number: { type: 'string' },
+                                license_plate: { type: 'string' },
+                                active: { type: 'boolean' },
+                                capacity_cylinders: { type: 'integer' },
+                                capacity_kg: { type: 'number' },
+                              },
+                            },
+                            inventory: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  product_id: { type: 'string', format: 'uuid' },
+                                  qty_full: { type: 'integer', minimum: 0 },
+                                  qty_empty: { type: 'integer', minimum: 0 },
+                                  total_cylinders: { type: 'integer', minimum: 0 },
+                                  weight_kg: { type: 'number', minimum: 0 },
+                                  updated_at: { type: 'string', format: 'date-time' },
+                                  product: {
+                                    type: 'object',
+                                    description: 'Included when include_product_details is true',
+                                    properties: {
+                                      id: { type: 'string', format: 'uuid' },
+                                      name: { type: 'string' },
+                                      sku: { type: 'string' },
+                                      variant_name: { type: 'string' },
+                                      capacity_kg: { type: 'number' },
+                                      tare_weight_kg: { type: 'number' },
+                                      unit_of_measure: { type: 'string' },
+                                      status: { type: 'string' },
+                                    },
+                                  },
+                                },
+                              },
+                            },
+                            summary: {
+                              type: 'object',
+                              properties: {
+                                total_products: { type: 'integer', minimum: 0 },
+                                total_full_cylinders: { type: 'integer', minimum: 0 },
+                                total_empty_cylinders: { type: 'integer', minimum: 0 },
+                                total_cylinders: { type: 'integer', minimum: 0 },
+                                total_weight_kg: { type: 'number', minimum: 0 },
+                                capacity_utilization_percent: { type: 'number', minimum: 0, maximum: 100 },
+                                is_overloaded: { type: 'boolean' },
+                                last_updated: { type: 'string', format: 'date-time', nullable: true },
+                              },
+                            },
+                            timestamp: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Truck not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'NOT_FOUND' },
+                        message: { type: 'string', example: 'Truck not found' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '500': {
+            description: 'Internal server error',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'INTERNAL_SERVER_ERROR' },
+                        message: { type: 'string', example: 'Failed to fetch truck inventory' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
 
     // Pricing endpoints
     '/api/v1/trpc/pricing.list': {
