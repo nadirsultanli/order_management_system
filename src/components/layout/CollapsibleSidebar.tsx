@@ -15,6 +15,7 @@ import {
   X,
   BarChart3
 } from 'lucide-react';
+import { Logo } from '../ui/Logo';
 
 interface MenuItem {
   path: string;
@@ -126,13 +127,10 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
         {/* Logo/Brand Area */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 bg-gray-800">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg">
-              <span className="text-white font-bold text-lg">L</span>
-            </div>
-            {(isExpanded || isMobileOpen) && (
-              <span className="text-xl font-bold whitespace-nowrap bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-                LPG System
-              </span>
+            {(isExpanded || isMobileOpen) ? (
+              <Logo size="md" />
+            ) : (
+              <Logo size="sm" />
             )}
           </div>
           {/* Mobile close button */}
