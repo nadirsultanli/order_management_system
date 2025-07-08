@@ -19,6 +19,10 @@ const RefreshTokenSchema = z.object({
   refresh_token: z.string(),
 });
 
+const DebugTokenSchema = z.object({
+  token: z.string(),
+});
+
 export const authRouter = router({
   // Login endpoint
   login: publicProcedure
@@ -73,6 +77,70 @@ export const authRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Login failed',
         });
+      }
+    }),
+
+  // Debug token endpoint - helps troubleshoot auth issues
+  debugToken: publicProcedure
+    .input(DebugTokenSchema)
+    .mutation(async ({ input }) => {
+      try {
+        // Validate token with Supabase
+        const { data: userData, error } = await supabaseAdmin.auth.getUser(input.token);
+        
+        if (error || !userData.user) {
+          return {
+            valid: false,
+            error: error?.message || 'Invalid token',
+            tokenLength: input.token.length
+          };
+        }
+
+        // Check if user exists in admin_users table
+        const { data: adminUser, error: adminError } = await supabaseAdmin
+          .from('admin_users')
+          .select('*')
+          .eq('auth_user_id', userData.user.id)
+          .single();
+
+        // Check if user exists in users table
+        const { data: regularUser, error: userError } = await supabaseAdmin
+          .from('users')
+          .select('*')
+          .eq('email', userData.user.email!)
+          .single();
+
+        return {
+          valid: true,
+          supabaseUser: {
+            id: userData.user.id,
+            email: userData.user.email,
+            emailVerified: userData.user.email_confirmed_at ? true : false,
+            createdAt: userData.user.created_at
+          },
+          adminUser: adminUser ? {
+            exists: true,
+            active: adminUser.active,
+            role: adminUser.role,
+            name: adminUser.name
+          } : {
+            exists: false,
+            error: adminError?.message
+          },
+          regularUser: regularUser ? {
+            exists: true,
+            active: regularUser.active,
+            userType: regularUser.user_type
+          } : {
+            exists: false,
+            error: userError?.message
+          }
+        };
+      } catch (error) {
+        return {
+          valid: false,
+          error: `Debug failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+        };
       }
     }),
 
