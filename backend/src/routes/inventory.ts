@@ -103,13 +103,10 @@ export const inventoryRouter = router({
         query = query.eq('product.status', filters.product_status);
       }
 
-      // Enhanced search filter
+      // Enhanced search filter - fix PostgREST syntax
       if (filters.search) {
-        query = query.or(`
-          product.sku.ilike.%${filters.search}%,
-          product.name.ilike.%${filters.search}%,
-          warehouse.name.ilike.%${filters.search}%
-        `);
+        const searchTerm = `%${filters.search}%`;
+        query = query.or(`product.sku.ilike.${searchTerm},product.name.ilike.${searchTerm},warehouse.name.ilike.${searchTerm}`);
       }
 
       // Apply quantity range filters
