@@ -109,9 +109,12 @@ export const authRouter = router({
         if (adminUserError) {
           // Clean up auth user if admin creation fails
           await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+          
+          // Provide detailed error message for debugging
+          console.error('Admin user creation failed:', adminUserError);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to create admin user',
+            message: `Failed to create admin user: ${adminUserError.message || adminUserError.code || 'Unknown error'}`,
           });
         }
 
@@ -127,9 +130,12 @@ export const authRouter = router({
         if (error instanceof TRPCError) {
           throw error;
         }
+        
+        // Log the full error for debugging
+        console.error('Registration error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create admin user',
+          message: `Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         });
       }
     }),
