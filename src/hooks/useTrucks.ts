@@ -20,17 +20,17 @@ export const useTrucks = (filters: {
   page?: number;
   limit?: number;
   search?: string;
-  status?: string;
+  sort_by?: 'capacity_asc' | 'capacity_desc';
 } = {}) => {
   return trpc.trucks.list.useQuery({
     page: filters.page || 1,
     limit: filters.limit || 15,
     search: filters.search,
-    status: filters.status,
+    sort_by: filters.sort_by,
   }, {
     retry: 1,
     staleTime: 30000,
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('useTrucks query error:', error);
     }
   });

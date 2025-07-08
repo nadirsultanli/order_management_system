@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { TruckTable } from '../components/trucks/TruckTable';
+import { TruckFilters } from '../components/trucks/TruckFilters';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { useTrucks, useUpdateTruck } from '../hooks/useTrucks';
+import { TruckFilters as TruckFiltersType } from '../types/truck';
 
 export const TrucksPage: React.FC = () => {
-  const [filters, setFilters] = useState({ page: 1 });
+  const [filters, setFilters] = useState<TruckFiltersType>({ page: 1 });
   const { data, isLoading: loading, error } = useTrucks(filters);
   const updateTruck = useUpdateTruck();
 
@@ -24,8 +26,12 @@ export const TrucksPage: React.FC = () => {
     }
   };
 
+  const handleFiltersChange = (newFilters: TruckFiltersType) => {
+    setFilters(newFilters);
+  };
+
   const handlePageChange = (page: number) => {
-    setFilters(prev => ({ ...prev, page }));
+    setFilters((prev: TruckFiltersType) => ({ ...prev, page }));
   };
 
   return (
@@ -55,6 +61,11 @@ export const TrucksPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <TruckFilters
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+      />
 
       <TruckTable 
         trucks={trucks} 

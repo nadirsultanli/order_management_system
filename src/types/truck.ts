@@ -324,6 +324,13 @@ export interface RefillOrderProcessing {
 }
 
 // Filter types
+export interface TruckFilters {
+  search?: string; // Search by fleet number or license plate
+  sort_by?: 'capacity_asc' | 'capacity_desc';
+  page?: number;
+  limit?: number;
+}
+
 export interface StockMovementFilters {
   search?: string;
   product_id?: string;
