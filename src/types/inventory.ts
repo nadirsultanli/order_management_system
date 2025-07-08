@@ -50,7 +50,6 @@ export interface StockTransferData {
 export interface InventoryFilters {
   warehouse_id?: string;
   search?: string;
-  low_stock_only?: boolean;
   page?: number;
   limit?: number;
 }

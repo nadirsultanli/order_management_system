@@ -1,7 +1,7 @@
 import React from 'react';
-import { Search, Filter, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Search, RotateCcw } from 'lucide-react';
 import { InventoryFilters as FilterType } from '../../types/inventory';
-import { WarehouseSelector } from '../warehouses/WarehouseSelector';
+import { SearchableWarehouseSelector } from '../warehouses/SearchableWarehouseSelector';
 
 interface InventoryFiltersProps {
   filters: FilterType;
@@ -28,13 +28,7 @@ export const InventoryFilters: React.FC<InventoryFiltersProps> = ({
     });
   };
 
-  const handleLowStockToggle = () => {
-    onFiltersChange({
-      ...filters,
-      low_stock_only: !filters.low_stock_only,
-      page: 1,
-    });
-  };
+
 
   const handleReset = () => {
     onFiltersChange({ page: 1 });
@@ -58,25 +52,12 @@ export const InventoryFilters: React.FC<InventoryFiltersProps> = ({
         
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="sm:w-64">
-            <WarehouseSelector
+            <SearchableWarehouseSelector
               value={filters.warehouse_id}
               onChange={handleWarehouseChange}
               placeholder="All Warehouses"
             />
           </div>
-
-          <button
-            onClick={handleLowStockToggle}
-            className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
-              filters.low_stock_only
-                ? 'bg-red-100 text-red-800 border border-red-200'
-                : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-            }`}
-            title="Show items with intelligent low stock detection"
-          >
-            <AlertTriangle className="h-4 w-4" />
-            <span>Smart Low Stock</span>
-          </button>
 
           <button
             onClick={handleReset}
