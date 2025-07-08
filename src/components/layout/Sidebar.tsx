@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onMouseEnter,
       >
         {/* Mobile header */}
         <div className="flex items-center justify-between p-4 lg:hidden border-b border-gray-700">
-          <Logo size="sm" />
+          <Logo size="md" />
           <button
             onClick={onClose}
             className="p-2 rounded-md hover:bg-gray-800 transition-colors"
@@ -70,8 +70,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onMouseEnter,
         </div>
 
         {/* Logo area for desktop */}
-        <div className="hidden lg:flex items-center justify-center h-16 bg-gray-800 border-b border-gray-700 px-4">
-          <Logo size="md" />
+        <div className="hidden lg:flex items-center justify-center h-16 bg-gray-800 border-b border-gray-700 px-4 py-2">
+          <Logo size="lg" className="drop-shadow-sm" />
         </div>
 
         {/* Navigation */}

@@ -125,19 +125,19 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
         onMouseLeave={handleMouseLeave}
       >
         {/* Logo/Brand Area */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 bg-gray-800">
-          <div className="flex items-center space-x-3">
+        <div className="h-16 flex items-center justify-center px-4 py-2 border-b border-gray-800 bg-gray-800">
+          <div className="flex items-center justify-center w-full">
             {(isExpanded || isMobileOpen) ? (
-              <Logo size="md" />
+              <Logo size="lg" className="drop-shadow-sm" />
             ) : (
-              <Logo size="sm" />
+              <Logo size="sm" className="drop-shadow-sm" />
             )}
           </div>
           {/* Mobile close button */}
           {isMobileOpen && (
             <button
               onClick={() => setIsMobileOpen(false)}
-              className="lg:hidden p-1 hover:bg-gray-700 rounded-lg transition-colors"
+              className="lg:hidden p-1 hover:bg-gray-700 rounded-lg transition-colors absolute right-4"
               aria-label="Close menu"
             >
               <X className="h-5 w-5" />
