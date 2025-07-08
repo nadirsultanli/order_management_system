@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
-import { createOpenApiHttpHandler } from 'trpc-openapi';
 import { renderTrpcPanel } from 'trpc-panel';
 import { appRouter } from './routes';
 import { createContext } from './lib/context';
@@ -190,12 +189,6 @@ app.get('/scalar', (req, res) => {
 app.get('/openapi.json', (req, res) => {
   res.json(openApiDocument);
 });
-
-// OpenAPI HTTP Handler for REST-like endpoints
-app.use('/api/v1', createOpenApiHttpHandler({
-  router: appRouter,
-  createContext,
-}));
 
 // tRPC middleware  
 app.use('/api/v1/trpc', createExpressMiddleware({

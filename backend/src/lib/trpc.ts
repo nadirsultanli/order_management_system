@@ -1,9 +1,8 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { OpenApiMeta } from 'trpc-openapi';
 import { Context } from './context';
 import { ZodError } from 'zod';
 
-const t = initTRPC.context<Context>().meta<OpenApiMeta>().create({
+const t = initTRPC.context<Context>().create({
   errorFormatter({ shape, error }) {
     return {
       ...shape,

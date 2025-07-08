@@ -2,13 +2,6 @@ import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '../lib/trpc';
 import { TRPCError } from '@trpc/server';
 import { supabaseAdmin } from '../lib/supabase';
-import { 
-  loginResponseSchema, 
-  registerResponseSchema, 
-  meResponseSchema, 
-  refreshResponseSchema, 
-  logoutResponseSchema 
-} from '../schemas/auth';
 
 // Zod schemas for input validation
 const LoginSchema = z.object({
@@ -29,17 +22,7 @@ const RefreshTokenSchema = z.object({
 export const authRouter = router({
   // Login endpoint
   login: publicProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/auth/login',
-        tags: ['auth'],
-        summary: 'User login',
-        description: 'Authenticate a user with email and password',
-      },
-    })
     .input(LoginSchema)
-    .output(loginResponseSchema)
     .mutation(async ({ input }) => {
       try {
         const { data, error } = await supabaseAdmin.auth.signInWithPassword({
@@ -95,17 +78,7 @@ export const authRouter = router({
 
   // Register endpoint
   register: publicProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/auth/register',
-        tags: ['auth'],
-        summary: 'Register new user',
-        description: 'Create a new admin user account',
-      },
-    })
     .input(RegisterSchema)
-    .output(registerResponseSchema)
     .mutation(async ({ input }) => {
       try {
         // Create user in Supabase Auth
@@ -163,18 +136,6 @@ export const authRouter = router({
 
   // Get current user session
   me: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/auth/me',
-        tags: ['auth'],
-        summary: 'Get current user',
-        description: 'Get the currently authenticated user information',
-        protect: true,
-      },
-    })
-    .input(z.void())
-    .output(meResponseSchema)
     .query(async ({ ctx }) => {
       if (!ctx.user) {
         throw new TRPCError({
@@ -190,17 +151,7 @@ export const authRouter = router({
 
   // Refresh token endpoint
   refresh: publicProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/auth/refresh',
-        tags: ['auth'],
-        summary: 'Refresh access token',
-        description: 'Exchange a refresh token for a new access token',
-      },
-    })
     .input(RefreshTokenSchema)
-    .output(refreshResponseSchema)
     .mutation(async ({ input }) => {
       try {
         const { data, error } = await supabaseAdmin.auth.refreshSession({
@@ -234,18 +185,6 @@ export const authRouter = router({
 
   // Logout endpoint
   logout: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/auth/logout',
-        tags: ['auth'],
-        summary: 'User logout',
-        description: 'Logout the current user',
-        protect: true,
-      },
-    })
-    .input(z.void())
-    .output(logoutResponseSchema)
     .mutation(async ({ ctx }) => {
       try {
         // Supabase doesn't need explicit logout on server side
