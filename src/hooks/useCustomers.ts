@@ -4,20 +4,20 @@ import toast from 'react-hot-toast';
 // Hook for listing customers
 export const useCustomers = (filters: {
   search?: string;
-  status?: string;
+  account_status?: string;
   page?: number;
   limit?: number;
 } = {}) => {
   return trpc.customers.list.useQuery({
     search: filters.search,
-    account_status: filters.status as 'active' | 'credit_hold' | 'closed' | undefined,
+    account_status: filters.account_status as 'active' | 'credit_hold' | 'closed' | undefined,
     page: filters.page || 1,
     limit: filters.limit || 15,
   }, {
     enabled: true,
     staleTime: 30000,
     retry: 1,
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Customers fetch error:', error);
       toast.error('Failed to load customers');
     }
@@ -32,7 +32,7 @@ export const useCustomerNew = (customerId: string) => {
     enabled: !!customerId && customerId !== 'null' && customerId !== 'undefined',
     staleTime: 30000,
     retry: 1,
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Customer fetch error:', error);
       toast.error('Failed to load customer details');
     }
