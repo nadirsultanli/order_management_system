@@ -1,18 +1,16 @@
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
-// Hook for listing inventory
+// Hook for listing inventory (without search to avoid backend issues)
 export const useInventoryNew = (filters: {
   warehouse_id?: string;
   product_id?: string;
-  search?: string;
   page?: number;
   limit?: number;
 } = {}) => {
   return trpc.inventory.list.useQuery({
     warehouse_id: filters.warehouse_id,
     product_id: filters.product_id,
-    search: filters.search,
     page: filters.page || 1,
     limit: filters.limit || 15,
   }, {
