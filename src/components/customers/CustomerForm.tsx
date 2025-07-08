@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2 } from 'lucide-react';
-import { Customer, CreateCustomerData } from '../../types/customer';
+import { Customer, CreateCustomerData, CreateCustomerAddressInput } from '../../types/customer';
 import { getGeocodeSuggestions } from '../../utils/geocoding';
 // @ts-ignore - mapbox-gl types not available
 import mapboxgl from 'mapbox-gl';
@@ -14,6 +14,7 @@ interface CustomerFormProps {
   customer?: Customer;
   loading?: boolean;
   title: string;
+  showAddressFields?: boolean; // New prop to control address field visibility
 }
 
 // Extended form data interface for the flat form fields
@@ -40,6 +41,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   customer,
   loading = false,
   title,
+  showAddressFields = true, // Default to true for backward compatibility
 }) => {
   const {
     register,
@@ -203,34 +205,54 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
 
   const handleFormSubmit = async (data: CustomerFormData) => {
     try {
-      // Group address fields under 'address'
-      const {
-        address_label, line1, line2, city, state, postal_code, country,
-        delivery_window_start, delivery_window_end, is_primary, instructions,
-        latitude, longitude,
-        ...customerFields
-      } = data;
+      if (showAddressFields) {
+        // Group address fields under 'address' when address fields are shown
+        const {
+          address_label, line1, line2, city, state, postal_code, country,
+          delivery_window_start, delivery_window_end, is_primary, instructions,
+          latitude, longitude,
+          ...customerFields
+        } = data;
 
-      const address = {
-        label: address_label,
-        line1: line1 || '',
-        line2,
-        city: city || '',
-        state,
-        postal_code,
-        country: country || 'US',
-        delivery_window_start: delivery_window_start || undefined,
-        delivery_window_end: delivery_window_end || undefined,
-        is_primary: is_primary ?? true,
-        instructions,
-        latitude,
-        longitude,
-      };
+        const address = {
+          label: address_label,
+          line1: line1 || '',
+          line2,
+          city: city || '',
+          state,
+          postal_code,
+          country: country || 'US',
+          delivery_window_start: delivery_window_start || undefined,
+          delivery_window_end: delivery_window_end || undefined,
+          is_primary: is_primary ?? true,
+          instructions,
+          latitude,
+          longitude,
+        };
 
-      onSubmit({
-        ...customerFields,
-        address,
-      });
+        onSubmit({
+          ...customerFields,
+          address,
+        });
+      } else {
+        // Only submit customer fields when address fields are hidden
+        const {
+          address_label, line1, line2, city, state, postal_code, country,
+          delivery_window_start, delivery_window_end, is_primary, instructions,
+          latitude, longitude,
+          ...customerFields
+        } = data;
+
+        onSubmit({
+          ...customerFields,
+          address: {
+            line1: '',
+            city: '',
+            country: 'US',
+            is_primary: true,
+          } as CreateCustomerAddressInput,
+        });
+      }
     } catch (error) {
       console.error('Form validation error:', error);
     }
@@ -395,79 +417,81 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                 </div>
 
                 {/* Address Information Section */}
-                <div className="pt-4 border-t border-gray-200 mt-4">
-                  <h4 className="text-md font-semibold text-gray-900 mb-2">Address</h4>
-                  <div>
-                    <label htmlFor="address_autosuggest" className="block text-sm font-medium text-gray-700">Address *</label>
+                {showAddressFields && (
+                  <div className="pt-4 border-t border-gray-200 mt-4">
+                    <h4 className="text-md font-semibold text-gray-900 mb-2">Address</h4>
+                    <div>
+                      <label htmlFor="address_autosuggest" className="block text-sm font-medium text-gray-700">Address *</label>
+                      <input
+                        type="text"
+                        id="address_autosuggest"
+                        value={addressInput}
+                        onChange={e => {
+                          setAddressInput(e.target.value);
+                          setSelectedSuggestion(null);
+                        }}
+                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                          (errors.line1 || errors.city || errors.country) 
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                        }`}
+                        autoComplete="off"
+                        placeholder="Start typing address..."
+                      />
+                      {isSearching && <div className="text-xs text-gray-500 mt-1">Searching...</div>}
+                      {suggestions.length > 0 && !selectedSuggestion && (
+                        <ul className="border border-gray-200 rounded bg-white mt-1 max-h-48 overflow-y-auto z-10 relative">
+                          {suggestions.map((s, idx) => (
+                            <li
+                              key={idx}
+                              className="px-3 py-2 cursor-pointer hover:bg-blue-50"
+                              onClick={() => {
+                                setSelectedSuggestion(s);
+                                setAddressInput(s.display_name);
+                                // Parse and set all address fields in the form
+                                setValue('line1', s.address_line1 || '');
+                                setValue('line2', s.address_line2 || '');
+                                setValue('city', s.city || '');
+                                setValue('state', s.state || '');
+                                setValue('postal_code', s.postal_code || '');
+                                setValue('country', s.country || '');
+                                setValue('latitude', s.lat);
+                                setValue('longitude', s.lng);
+                              }}
+                            >
+                              {s.display_name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {selectedSuggestion && (
+                        <div className="text-xs text-green-600 mt-1">Address selected</div>
+                      )}
+                      {(errors.line1 || errors.city || errors.country) && (
+                        <p className="mt-1 text-sm text-red-600">
+                          Please select a complete address from the suggestions
+                        </p>
+                      )}
+                    </div>
+                    
+                    {/* Hidden validation fields for address components */}
                     <input
-                      type="text"
-                      id="address_autosuggest"
-                      value={addressInput}
-                      onChange={e => {
-                        setAddressInput(e.target.value);
-                        setSelectedSuggestion(null);
-                      }}
-                      className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
-                        (errors.line1 || errors.city || errors.country) 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                      }`}
-                      autoComplete="off"
-                      placeholder="Start typing address..."
+                      type="hidden"
+                      {...register('line1', { required: 'Street address is required' })}
                     />
-                    {isSearching && <div className="text-xs text-gray-500 mt-1">Searching...</div>}
-                    {suggestions.length > 0 && !selectedSuggestion && (
-                      <ul className="border border-gray-200 rounded bg-white mt-1 max-h-48 overflow-y-auto z-10 relative">
-                        {suggestions.map((s, idx) => (
-                          <li
-                            key={idx}
-                            className="px-3 py-2 cursor-pointer hover:bg-blue-50"
-                            onClick={() => {
-                              setSelectedSuggestion(s);
-                              setAddressInput(s.display_name);
-                              // Parse and set all address fields in the form
-                              setValue('line1', s.address_line1 || '');
-                              setValue('line2', s.address_line2 || '');
-                              setValue('city', s.city || '');
-                              setValue('state', s.state || '');
-                              setValue('postal_code', s.postal_code || '');
-                              setValue('country', s.country || '');
-                              setValue('latitude', s.lat);
-                              setValue('longitude', s.lng);
-                            }}
-                          >
-                            {s.display_name}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {selectedSuggestion && (
-                      <div className="text-xs text-green-600 mt-1">Address selected</div>
-                    )}
-                    {(errors.line1 || errors.city || errors.country) && (
-                      <p className="mt-1 text-sm text-red-600">
-                        Please select a complete address from the suggestions
-                      </p>
-                    )}
+                    <input
+                      type="hidden"
+                      {...register('city', { required: 'City is required' })}
+                    />
+                    <input
+                      type="hidden"
+                      {...register('country', { required: 'Country is required' })}
+                    />
                   </div>
-                  
-                  {/* Hidden validation fields for address components */}
-                  <input
-                    type="hidden"
-                    {...register('line1', { required: 'Street address is required' })}
-                  />
-                  <input
-                    type="hidden"
-                    {...register('city', { required: 'City is required' })}
-                  />
-                  <input
-                    type="hidden"
-                    {...register('country', { required: 'Country is required' })}
-                  />
-                </div>
+                )}
 
                 {/* Under the address input, show the map if lat/lng are set */}
-                {latitude && longitude && (
+                {showAddressFields && latitude && longitude && (
                   <div className="mt-4">
                     <div ref={mapContainer} style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden', position: 'relative' }} />
                     <div className="flex justify-end mt-2">
@@ -493,81 +517,85 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                 )}
 
                 {/* Delivery Preferences Section */}
-                <div className="pt-4 border-t border-gray-200 mt-4">
-                  <h4 className="text-md font-semibold text-gray-900 mb-4">Delivery Preferences</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="delivery_window_start" className="block text-sm font-medium text-gray-700">
-                        Delivery Window Start
-                      </label>
-                      <input
-                        type="time"
-                        id="delivery_window_start"
-                        {...register('delivery_window_start', {
-                          validate: (value) => {
-                            if (value && !deliveryEnd) {
-                              return 'Please provide both start and end times for delivery window';
-                            }
-                            return true;
-                          }
-                        })}
-                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
-                          errors.delivery_window_start 
-                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                        }`}
-                      />
-                      {errors.delivery_window_start && (
-                        <p className="mt-1 text-sm text-red-600">{errors.delivery_window_start.message}</p>
-                      )}
+                {showAddressFields && (
+                  <>
+                    <div className="pt-4 border-t border-gray-200 mt-4">
+                      <h4 className="text-md font-semibold text-gray-900 mb-4">Delivery Preferences</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="delivery_window_start" className="block text-sm font-medium text-gray-700">
+                            Delivery Window Start
+                          </label>
+                          <input
+                            type="time"
+                            id="delivery_window_start"
+                            {...register('delivery_window_start', {
+                              validate: (value) => {
+                                if (value && !deliveryEnd) {
+                                  return 'Please provide both start and end times for delivery window';
+                                }
+                                return true;
+                              }
+                            })}
+                            className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                              errors.delivery_window_start 
+                                ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                            }`}
+                          />
+                          {errors.delivery_window_start && (
+                            <p className="mt-1 text-sm text-red-600">{errors.delivery_window_start.message}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label htmlFor="delivery_window_end" className="block text-sm font-medium text-gray-700">
+                            Delivery Window End
+                          </label>
+                          <input
+                            type="time"
+                            id="delivery_window_end"
+                            {...register('delivery_window_end', {
+                              validate: (value) => {
+                                if (value && !deliveryStart) {
+                                  return 'Please provide both start and end times for delivery window';
+                                }
+                                if (deliveryStart && value && deliveryStart >= value) {
+                                  return 'End time must be after start time';
+                                }
+                                return true;
+                              }
+                            })}
+                            className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
+                              errors.delivery_window_end 
+                                ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                                : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                            }`}
+                          />
+                          {errors.delivery_window_end && (
+                            <p className="mt-1 text-sm text-red-600">{errors.delivery_window_end.message}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <div>
-                      <label htmlFor="delivery_window_end" className="block text-sm font-medium text-gray-700">
-                        Delivery Window End
-                      </label>
-                      <input
-                        type="time"
-                        id="delivery_window_end"
-                        {...register('delivery_window_end', {
-                          validate: (value) => {
-                            if (value && !deliveryStart) {
-                              return 'Please provide both start and end times for delivery window';
-                            }
-                            if (deliveryStart && value && deliveryStart >= value) {
-                              return 'End time must be after start time';
-                            }
-                            return true;
-                          }
-                        })}
-                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${
-                          errors.delivery_window_end 
-                            ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                            : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                        }`}
-                      />
-                      {errors.delivery_window_end && (
-                        <p className="mt-1 text-sm text-red-600">{errors.delivery_window_end.message}</p>
-                      )}
+                    {/* Instructions Section */}
+                    <div className="pt-4 border-t border-gray-200 mt-4">
+                      <div>
+                        <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
+                          Delivery Instructions
+                        </label>
+                        <textarea
+                          id="instructions"
+                          rows={3}
+                          {...register('instructions')}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Gate codes, special access requirements, loading dock information..."
+                        />
+                      </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Instructions Section */}
-                <div className="pt-4 border-t border-gray-200 mt-4">
-                  <div>
-                    <label htmlFor="instructions" className="block text-sm font-medium text-gray-700">
-                      Delivery Instructions
-                    </label>
-                    <textarea
-                      id="instructions"
-                      rows={3}
-                      {...register('instructions')}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Gate codes, special access requirements, loading dock information..."
-                    />
-                  </div>
-                </div>
+                  </>
+                )}
               </div>
             </div>
 

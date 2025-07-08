@@ -244,6 +244,7 @@ export const CustomerDetailPage: React.FC = () => {
         customer={customer}
         loading={updateCustomer.isPending}
         title="Edit Customer"
+        showAddressFields={false}
       />
     </div>
   );
