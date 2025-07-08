@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LogOut, User } from 'lucide-react';
+import { TokenStatus } from '../auth/TokenStatus';
 
 export const Header: React.FC = () => {
   const { adminUser, signOut } = useAuth();
@@ -19,6 +20,13 @@ export const Header: React.FC = () => {
         <h1 className="text-xl font-semibold text-gray-900">
           LPG Order Management
         </h1>
+        
+        {/* Show token status in development */}
+        {!import.meta.env.PROD && (
+          <div className="ml-8">
+            <TokenStatus />
+          </div>
+        )}
       </div>
 
       <div className="flex items-center space-x-4">

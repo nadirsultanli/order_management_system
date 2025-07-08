@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { trpc, trpcClient } from '../lib/trpc-client';
+import { TokenManager, TokenData } from '../utils/tokenManager';
+import { useTokenRefresh } from '../hooks/useTokenRefresh';
 
 interface User {
   id: string;
@@ -19,6 +21,8 @@ interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
+  refreshToken: () => Promise<boolean>;
+  getTokenStatus: () => any;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,10 +43,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error: null,
   });
 
-  // tRPC mutations for auth
+  // tRPC mutations for auth - use proper mutation syntax
   const loginMutation = trpc.auth.login.useMutation();
   const registerMutation = trpc.auth.register.useMutation();
   const logoutMutation = trpc.auth.logout.useMutation();
+
+  // Token refresh hook with callbacks
+  const { 
+    refreshToken: manualRefreshToken, 
+    getTokenStatus,
+    startRefreshInterval,
+    stopRefreshInterval,
+  } = useTokenRefresh({
+    onTokenRefreshed: (tokens: TokenData) => {
+      console.log('Token refreshed successfully in AuthContext');
+      // Token is already stored by TokenManager, no need to update state
+      // The user state remains the same, only the token is refreshed
+    },
+    onRefreshError: (error: Error) => {
+      console.error('Token refresh error in AuthContext:', error);
+      // Don't immediately sign out on refresh error, let the user continue
+      // They will be signed out when they try to make an authenticated request
+    },
+    onTokenExpired: () => {
+      console.log('Token expired, signing out user');
+      handleTokenExpired();
+    },
+    enabled: !!state.user, // Only enable refresh when user is signed in
+  });
+
+  const handleTokenExpired = () => {
+    console.log('Handling token expiration - clearing auth state');
+    TokenManager.clearTokens();
+    setState({
+      user: null,
+      adminUser: null,
+      loading: false,
+      error: null,
+    });
+    
+    // Redirect to login if not already there
+    const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
+    if (!isLoginPage) {
+      window.location.href = '/login';
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
@@ -53,9 +98,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password,
       });
 
-      // Store tokens in localStorage
-      localStorage.setItem('auth_token', result.session.access_token);
-      localStorage.setItem('refresh_token', result.session.refresh_token);
+      // Store tokens using TokenManager
+      const tokenData: TokenData = {
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token,
+        expires_at: result.session.expires_at,
+        expires_in: result.session.expires_in,
+      };
+      
+      TokenManager.storeTokens(tokenData);
 
       setState({
         user: result.user,
@@ -64,6 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: null,
       });
 
+      console.log('User signed in successfully, token refresh will start automatically');
+
       // Redirect to dashboard after successful login
       window.location.href = '/dashboard';
     } catch (error: any) {
@@ -71,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setState(prev => ({
         ...prev,
         loading: false,
-        error: error.message || 'Authentication failed',
+        error: error?.message || 'Authentication failed',
       }));
       throw error;
     }
@@ -96,7 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setState(prev => ({
         ...prev,
         loading: false,
-        error: error.message || 'Registration failed',
+        error: error?.message || 'Registration failed',
       }));
       throw error;
     }
@@ -112,9 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ignore logout errors
     }
 
-    // Clear tokens
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
+    // Clear tokens using TokenManager
+    TokenManager.clearTokens();
     
     setState({
       user: null,
@@ -122,36 +174,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading: false,
       error: null,
     });
+
+    console.log('User signed out, token refresh stopped');
   };
 
   // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
-      // Try multiple ways to get the token
-      let token = localStorage.getItem('auth_token');
+      // Try to migrate old token formats first
+      TokenManager.migrateOldTokens();
       
-      // If auth_token doesn't exist, try to get from session object
-      if (!token) {
-        const keys = Object.keys(localStorage);
-        
-        for (const key of keys) {
-          const value = localStorage.getItem(key);
-          try {
-            const parsed = JSON.parse(value);
-            if (parsed && parsed.access_token) {
-              token = parsed.access_token;
-              break;
-            }
-          } catch (e) {
-            // Not JSON, skip
-          }
-        }
-      }
+      const tokenInfo = TokenManager.getTokenInfo();
       
       // Don't redirect if we're already on the login page
       const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
       
-      if (!token) {
+      if (!tokenInfo || tokenInfo.isExpired) {
         setState(prev => ({ ...prev, user: null, adminUser: null, loading: false }));
         if (!isLoginPage) {
           window.location.href = '/login';
@@ -160,12 +198,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       try {
-        // Use GET request for tRPC query procedure
-        const tokenForHeader = token;
+        // Use the token to verify user identity
         const response = await fetch('https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/auth.me', {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${tokenForHeader}`,
+            'Authorization': `Bearer ${tokenInfo.token}`,
           },
         });
         
@@ -179,16 +216,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             loading: false,
             error: null,
           });
+
+          console.log('Auth initialized successfully, token refresh starting');
+          
+          // Log token status for debugging
+          TokenManager.debugTokenStatus();
         } else {
           throw new Error('Invalid response format from auth.me');
         }
-      } catch (error) {
-        // Keep only essential error logging for production debugging
-        console.error('Auth initialization failed:', error?.message);
+      } catch (error: any) {
+        console.error('Auth initialization failed:', error?.message || 'Unknown error');
         
         // Token is invalid, clear it
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('refresh_token');
+        TokenManager.clearTokens();
         setState({
           user: null,
           adminUser: null,
@@ -209,6 +249,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signOut,
     register,
+    refreshToken: manualRefreshToken,
+    getTokenStatus,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
