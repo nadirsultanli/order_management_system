@@ -45,7 +45,7 @@ const refreshTokens = async (): Promise<boolean> => {
     };
     
     TokenManager.storeTokens(tokenData);
-    console.log('Token refreshed successfully in tRPC client');
+    console.log('🔄 Token refreshed successfully in tRPC client');
     return true;
   } catch (error) {
     console.error('Token refresh failed in tRPC client:', error);

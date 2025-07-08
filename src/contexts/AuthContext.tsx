@@ -43,12 +43,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     error: null,
   });
 
-  // tRPC mutations for auth - use proper mutation syntax
-  const loginMutation = trpc.auth.login.useMutation();
-  const registerMutation = trpc.auth.register.useMutation();
-  const logoutMutation = trpc.auth.logout.useMutation();
+  // Direct API calls for auth operations to avoid TypeScript issues
+  const apiUrl = import.meta.env.VITE_BACKEND_URL || 
+                 (import.meta.env.PROD ? 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc' : 'http://localhost:3001/api/v1/trpc');
 
-  // Token refresh hook with callbacks
+  const loginMutation = {
+    mutateAsync: async (input: { email: string; password: string }) => {
+      const response = await fetch(`${apiUrl}/auth.login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Login failed');
+      }
+      
+      const data = await response.json();
+      return data.result.data;
+    }
+  };
+  
+  const registerMutation = {
+    mutateAsync: async (input: { email: string; password: string; name: string }) => {
+      const response = await fetch(`${apiUrl}/auth.register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Registration failed');
+      }
+      
+      const data = await response.json();
+      return data.result.data;
+    }
+  };
+  
+  const logoutMutation = {
+    mutateAsync: async () => {
+      const tokenInfo = TokenManager.getTokenInfo();
+      const response = await fetch(`${apiUrl}/auth.logout`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokenInfo?.token || ''}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Logout failed');
+      }
+      
+      const data = await response.json();
+      return data.result.data;
+    }
+  };
+
+  // Token refresh hook with callbacks - Enable refresh whenever we have tokens
   const { 
     refreshToken: manualRefreshToken, 
     getTokenStatus,
@@ -56,24 +112,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     stopRefreshInterval,
   } = useTokenRefresh({
     onTokenRefreshed: (tokens: TokenData) => {
-      console.log('Token refreshed successfully in AuthContext');
+      console.log('🔄 Token refreshed successfully in AuthContext');
       // Token is already stored by TokenManager, no need to update state
       // The user state remains the same, only the token is refreshed
     },
     onRefreshError: (error: Error) => {
-      console.error('Token refresh error in AuthContext:', error);
+      console.error('❌ Token refresh error in AuthContext:', error);
       // Don't immediately sign out on refresh error, let the user continue
       // They will be signed out when they try to make an authenticated request
     },
     onTokenExpired: () => {
-      console.log('Token expired, signing out user');
+      console.log('⏰ Token expired, signing out user');
       handleTokenExpired();
     },
-    enabled: !!state.user, // Only enable refresh when user is signed in
+    enabled: true, // Always enabled - the hook will check if tokens exist
   });
 
   const handleTokenExpired = () => {
-    console.log('Handling token expiration - clearing auth state');
+    console.log('🔒 Handling token expiration - clearing auth state');
     TokenManager.clearTokens();
     setState({
       user: null,
@@ -115,12 +171,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error: null,
       });
 
-      console.log('User signed in successfully, token refresh will start automatically');
+      console.log('✅ User signed in successfully');
+      console.log('🔄 Token refresh will start automatically');
+
+      // Log token status for debugging
+      TokenManager.debugTokenStatus();
 
       // Redirect to dashboard after successful login
       window.location.href = '/dashboard';
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       setState(prev => ({
         ...prev,
         loading: false,
@@ -175,12 +235,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       error: null,
     });
 
-    console.log('User signed out, token refresh stopped');
+    console.log('👋 User signed out, token refresh stopped');
   };
 
   // Initialize auth state
   useEffect(() => {
     const initializeAuth = async () => {
+      console.log('🚀 Initializing auth state...');
+      
       // Try to migrate old token formats first
       TokenManager.migrateOldTokens();
       
@@ -190,12 +252,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
       
       if (!tokenInfo || tokenInfo.isExpired) {
+        console.log('❌ No valid tokens found');
         setState(prev => ({ ...prev, user: null, adminUser: null, loading: false }));
         if (!isLoginPage) {
           window.location.href = '/login';
         }
         return;
       }
+
+      console.log('✅ Valid tokens found, verifying with backend...');
+      TokenManager.debugTokenStatus();
 
       try {
         // Use the token to verify user identity
@@ -205,6 +271,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             'Authorization': `Bearer ${tokenInfo.token}`,
           },
         });
+        
+        if (!response.ok) {
+          throw new Error(`Auth verification failed: ${response.status}`);
+        }
         
         const data = await response.json();
         
@@ -217,7 +287,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             error: null,
           });
 
-          console.log('Auth initialized successfully, token refresh starting');
+          console.log('✅ Auth initialized successfully');
+          console.log('🔄 Token refresh system is active');
           
           // Log token status for debugging
           TokenManager.debugTokenStatus();
@@ -225,7 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Invalid response format from auth.me');
         }
       } catch (error: any) {
-        console.error('Auth initialization failed:', error?.message || 'Unknown error');
+        console.error('❌ Auth initialization failed:', error?.message || 'Unknown error');
         
         // Token is invalid, clear it
         TokenManager.clearTokens();

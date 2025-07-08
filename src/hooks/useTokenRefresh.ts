@@ -96,17 +96,23 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
           throw new Error('No refresh token available');
         }
 
-        console.log('Refreshing access token...');
+        console.log('🔄 Refreshing access token...');
         const newTokens = await callRefreshAPI(refreshTokenValue);
         
         // Store the new tokens
         TokenManager.storeTokens(newTokens);
         
-        console.log('Access token refreshed successfully');
+        console.log('✅ Access token refreshed successfully');
+        
+        // Log the new expiration info
+        const expirationInfo = TokenManager.getExpirationInfo();
+        console.log('New token expires at:', expirationInfo.expiresAt?.toISOString());
+        console.log('New token expires in:', expirationInfo.expiresInMinutes, 'minutes');
+        
         onTokenRefreshed?.(newTokens);
         
       } catch (error) {
-        console.error('Token refresh failed:', error);
+        console.error('❌ Token refresh failed:', error);
         
         const refreshError = error instanceof Error ? error : new Error('Token refresh failed');
         onRefreshError?.(refreshError);
@@ -114,6 +120,7 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
         // Check if this is a token expiration issue
         const tokenInfo = TokenManager.getTokenInfo();
         if (!tokenInfo || tokenInfo.isExpired) {
+          console.log('🔒 Token expired, triggering onTokenExpired');
           onTokenExpired?.();
         }
         
@@ -143,19 +150,21 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
     const tokenInfo = TokenManager.getTokenInfo();
     
     if (!tokenInfo) {
-      console.log('No token found, skipping refresh check');
+      console.log('⚠️ No token found, skipping refresh check');
       return;
     }
 
     if (tokenInfo.isExpired) {
-      console.log('Token is expired, triggering onTokenExpired');
+      console.log('⏰ Token is expired, triggering onTokenExpired');
       onTokenExpired?.();
       return;
     }
 
     if (tokenInfo.needsRefresh) {
-      console.log(`Token expires in ${tokenInfo.expiresInMinutes} minutes, refreshing...`);
+      console.log(`🔔 Token expires in ${tokenInfo.expiresInMinutes} minutes, refreshing...`);
       await refreshToken();
+    } else {
+      console.log(`⏱️ Token check: ${tokenInfo.expiresInMinutes} minutes remaining`);
     }
   }, [enabled, refreshToken, onTokenExpired]);
 
@@ -170,6 +179,20 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
       clearInterval(intervalRef.current);
     }
 
+    // Check if we have tokens before starting
+    const tokenInfo = TokenManager.getTokenInfo();
+    if (!tokenInfo) {
+      console.log('⚠️ No tokens found, cannot start refresh interval');
+      return;
+    }
+
+    console.log('🚀 Starting token refresh interval');
+    console.log('Current token status:', {
+      expiresInMinutes: tokenInfo.expiresInMinutes,
+      needsRefresh: tokenInfo.needsRefresh,
+      isExpired: tokenInfo.isExpired
+    });
+
     // Check immediately
     checkAndRefreshToken();
 
@@ -178,7 +201,7 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
       checkAndRefreshToken();
     }, 60 * 1000); // Check every minute
 
-    console.log('Token refresh interval started');
+    console.log('✅ Token refresh interval started');
   }, [enabled, checkAndRefreshToken]);
 
   /**
@@ -188,7 +211,7 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
-      console.log('Token refresh interval stopped');
+      console.log('🛑 Token refresh interval stopped');
     }
   }, []);
 
@@ -207,15 +230,37 @@ export const useTokenRefresh = (options: UseTokenRefreshOptions = {}) => {
     return TokenManager.getTokenInfo();
   }, []);
 
-  // Set up the refresh interval on mount and when enabled changes
+  /**
+   * Initialize and start refresh interval when tokens are available
+   */
   useEffect(() => {
-    if (enabled) {
-      startRefreshInterval();
-    } else {
+    if (!enabled) {
       stopRefreshInterval();
+      return;
     }
 
+    // Start interval immediately if we have tokens
+    const tokenInfo = TokenManager.getTokenInfo();
+    if (tokenInfo && !tokenInfo.isExpired) {
+      startRefreshInterval();
+    }
+
+    // Also listen for storage changes to start/stop interval
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth_token' || e.key === 'refresh_token') {
+        const newTokenInfo = TokenManager.getTokenInfo();
+        if (newTokenInfo && !newTokenInfo.isExpired) {
+          startRefreshInterval();
+        } else {
+          stopRefreshInterval();
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
+      window.removeEventListener('storage', handleStorageChange);
       stopRefreshInterval();
     };
   }, [enabled, startRefreshInterval, stopRefreshInterval]);

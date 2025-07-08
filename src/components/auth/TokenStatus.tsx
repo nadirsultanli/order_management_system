@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { TokenManager } from '../../utils/tokenManager';
-import { RefreshCw, Eye, EyeOff, Clock, Shield, AlertTriangle, CheckCircle } from 'lucide-react';
+import { RefreshCw, Eye, EyeOff, Clock, Shield, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
 export const TokenStatus: React.FC = () => {
   const { refreshToken, getTokenStatus } = useAuth();
@@ -22,15 +22,34 @@ export const TokenStatus: React.FC = () => {
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     try {
+      console.log('🔄 Manual token refresh initiated');
       const success = await refreshToken();
       if (success) {
         setTokenStatus(TokenManager.getTokenInfo());
         setLastRefresh(new Date());
+        console.log('✅ Manual token refresh successful');
+      } else {
+        console.error('❌ Manual token refresh failed');
       }
     } catch (error) {
-      console.error('Manual refresh failed:', error);
+      console.error('❌ Manual refresh failed:', error);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleDebugTokens = () => {
+    console.log('🔍 Debug: Current token status');
+    TokenManager.debugTokenStatus();
+    
+    const expirationInfo = TokenManager.getExpirationInfo();
+    console.log('🔍 Debug: Expiration info', expirationInfo);
+    
+    const refreshToken = TokenManager.getRefreshToken();
+    console.log('🔍 Debug: Has refresh token', !!refreshToken);
+    
+    if (refreshToken) {
+      console.log('🔍 Debug: Refresh token length', refreshToken.length);
     }
   };
 
@@ -55,6 +74,13 @@ export const TokenStatus: React.FC = () => {
     return 'Valid';
   };
 
+  const getStatusBadge = () => {
+    if (!tokenStatus) return 'bg-gray-100 text-gray-800';
+    if (tokenStatus.isExpired) return 'bg-red-100 text-red-800';
+    if (tokenStatus.needsRefresh) return 'bg-amber-100 text-amber-800';
+    return 'bg-green-100 text-green-800';
+  };
+
   if (!tokenStatus) {
     return null; // Don't show component if no token
   }
@@ -68,14 +94,20 @@ export const TokenStatus: React.FC = () => {
             <span className="text-sm font-medium">{getStatusText()}</span>
           </div>
           
-          {tokenStatus.expiresInMinutes > 0 && (
-            <div className="text-sm text-gray-500">
-              Expires in {tokenStatus.expiresInMinutes}m
-            </div>
-          )}
+          <div className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge()}`}>
+            {tokenStatus.expiresInMinutes > 0 ? `${tokenStatus.expiresInMinutes}m left` : 'Expired'}
+          </div>
         </div>
 
         <div className="flex items-center space-x-2">
+          <button
+            onClick={handleDebugTokens}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            title="Debug token info (check console)"
+          >
+            <Info className="h-4 w-4" />
+          </button>
+          
           <button
             onClick={() => setShowDetails(!showDetails)}
             className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -97,52 +129,30 @@ export const TokenStatus: React.FC = () => {
       </div>
 
       {showDetails && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
+        <div className="mt-4 space-y-3">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <div className="text-gray-500">Status</div>
-              <div className={`font-medium ${getStatusColor()}`}>
-                {getStatusText()}
+              <span className="text-gray-500">Expires at:</span>
+              <div className="font-mono text-xs">
+                {tokenStatus.expiresAt ? new Date(tokenStatus.expiresAt).toLocaleString() : 'Unknown'}
               </div>
             </div>
-            
             <div>
-              <div className="text-gray-500">Time until expiry</div>
-              <div className="font-medium">
+              <span className="text-gray-500">Time remaining:</span>
+              <div className="font-mono text-xs">
                 {TokenManager.getTimeUntilExpiry()}
               </div>
             </div>
-            
-            <div>
-              <div className="text-gray-500">Expires at</div>
-              <div className="font-medium">
-                {tokenStatus.expiresAt > 0 
-                  ? new Date(tokenStatus.expiresAt).toLocaleString()
-                  : 'Unknown'
-                }
-              </div>
-            </div>
-            
-            <div>
-              <div className="text-gray-500">Auto-refresh</div>
-              <div className="font-medium">
-                {tokenStatus.needsRefresh ? (
-                  <span className="text-amber-600">Needed</span>
-                ) : (
-                  <span className="text-green-600">Active</span>
-                )}
-              </div>
-            </div>
-            
-            {lastRefresh && (
-              <div className="col-span-2">
-                <div className="text-gray-500">Last refresh</div>
-                <div className="font-medium">
-                  {lastRefresh.toLocaleString()}
-                </div>
-              </div>
-            )}
           </div>
+
+          {lastRefresh && (
+            <div className="text-sm">
+              <span className="text-gray-500">Last refresh:</span>
+              <div className="font-mono text-xs">
+                {lastRefresh.toLocaleString()}
+              </div>
+            </div>
+          )}
 
           <div className="mt-4 p-3 bg-gray-50 rounded text-xs">
             <div className="font-medium text-gray-700 mb-1">Token Refresh Info:</div>
@@ -150,7 +160,19 @@ export const TokenStatus: React.FC = () => {
               • Automatic refresh starts 3 minutes before expiration<br />
               • Refresh check runs every minute when signed in<br />
               • Failed API calls (401) trigger automatic refresh<br />
-              • Manual refresh available above
+              • Manual refresh available above<br />
+              • Debug button logs detailed token info to console
+            </div>
+          </div>
+
+          <div className="mt-3 p-3 bg-blue-50 rounded text-xs">
+            <div className="font-medium text-blue-700 mb-1">Current Status:</div>
+            <div className="text-blue-600 space-y-1">
+              <div>✓ Has access token: {tokenStatus.token ? 'Yes' : 'No'}</div>
+              <div>✓ Has refresh token: {TokenManager.getRefreshToken() ? 'Yes' : 'No'}</div>
+              <div>✓ Is expired: {tokenStatus.isExpired ? 'Yes' : 'No'}</div>
+              <div>✓ Needs refresh: {tokenStatus.needsRefresh ? 'Yes' : 'No'}</div>
+              <div>✓ Minutes until expiry: {tokenStatus.expiresInMinutes}</div>
             </div>
           </div>
         </div>

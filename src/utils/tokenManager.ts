@@ -36,17 +36,33 @@ export class TokenManager {
       localStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, tokenData.access_token);
       localStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, tokenData.refresh_token);
       
-      // Calculate expiration time if not provided
+      // Calculate expiration time - handle both seconds and milliseconds
       let expiresAt = tokenData.expires_at;
-      if (!expiresAt && tokenData.expires_in) {
-        expiresAt = Date.now() + (tokenData.expires_in * 1000);
-      }
       
       if (expiresAt) {
-        localStorage.setItem(TOKEN_KEYS.EXPIRES_AT, expiresAt.toString());
+        // If expires_at is in seconds (Unix timestamp), convert to milliseconds
+        // Unix timestamps are typically 10 digits, milliseconds are 13 digits
+        if (expiresAt.toString().length === 10) {
+          expiresAt = expiresAt * 1000;
+        }
+      } else if (tokenData.expires_in) {
+        // If no expires_at but we have expires_in, calculate from now
+        expiresAt = Date.now() + (tokenData.expires_in * 1000);
+      } else {
+        // Default to 1 hour if no expiration info
+        expiresAt = Date.now() + (60 * 60 * 1000);
       }
       
-      console.log('Tokens stored successfully. Expires at:', new Date(expiresAt));
+      localStorage.setItem(TOKEN_KEYS.EXPIRES_AT, expiresAt.toString());
+      
+      const expiresAtDate = new Date(expiresAt);
+      const expiresInMinutes = Math.floor((expiresAt - Date.now()) / (60 * 1000));
+      
+      console.log('Tokens stored successfully:', {
+        expiresAt: expiresAtDate.toISOString(),
+        expiresInMinutes,
+        needsRefresh: expiresInMinutes <= 3
+      });
     } catch (error) {
       console.error('Failed to store tokens:', error);
     }
@@ -233,5 +249,40 @@ export class TokenManager {
       expiresAt: tokenInfo?.expiresAt ? new Date(tokenInfo.expiresAt) : null,
       timeUntilExpiry: this.getTimeUntilExpiry(),
     });
+  }
+
+  /**
+   * Check if token is close to expiring (within refresh threshold)
+   */
+  static shouldRefreshToken(): boolean {
+    const tokenInfo = this.getTokenInfo();
+    return tokenInfo ? tokenInfo.needsRefresh : false;
+  }
+
+  /**
+   * Get token expiration info for debugging
+   */
+  static getExpirationInfo(): {
+    expiresAt: Date | null;
+    expiresInMinutes: number;
+    needsRefresh: boolean;
+    isExpired: boolean;
+  } {
+    const tokenInfo = this.getTokenInfo();
+    if (!tokenInfo) {
+      return {
+        expiresAt: null,
+        expiresInMinutes: 0,
+        needsRefresh: false,
+        isExpired: true,
+      };
+    }
+
+    return {
+      expiresAt: new Date(tokenInfo.expiresAt),
+      expiresInMinutes: tokenInfo.expiresInMinutes,
+      needsRefresh: tokenInfo.needsRefresh,
+      isExpired: tokenInfo.isExpired,
+    };
   }
 } 
