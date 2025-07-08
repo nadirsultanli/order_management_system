@@ -78,17 +78,16 @@ export const authRouter = router({
 
   // Register endpoint
   register: publicProcedure
-  .input(RegisterSchema)
-  .mutation(async ({ input }) => {
-    try {
-      // Create user in Supabase Auth
-      const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        email: input.email,
-        password: input.password,
-        email_confirm: true, // Auto-confirm for development
-      });
+    .input(RegisterSchema)
+    .mutation(async ({ input }) => {
+      try {
+        // Create user in Supabase Auth
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email: input.email,
+          password: input.password,
+          email_confirm: true, // Auto-confirm for development
+        });
 
-<<<<<<< HEAD
         if (error || !data.user) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -137,54 +136,9 @@ export const authRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Registration failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-=======
-      if (error || !data.user) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: error?.message || 'Failed to create user',
->>>>>>> b4ed7bbc5c45d5a19ca5d852e47da45f370a54e6
         });
       }
-
-      // Create admin user record - FIXED: use auth_user_id instead of id
-      const { error: adminUserError } = await supabaseAdmin
-        .from('admin_users')
-        .insert({
-          auth_user_id: data.user.id, // CHANGED: was 'id', now 'auth_user_id'
-          email: input.email,          // KEEP: since login works with email
-          name: input.name,            // KEEP: since login works with name  
-          role: 'admin',               // KEEP: same as before
-          active: true,                // KEEP: same as before
-        });
-
-      if (adminUserError) {
-        console.error('Admin user creation error:', adminUserError); // Added for debugging
-        // Clean up auth user if admin creation fails
-        await supabaseAdmin.auth.admin.deleteUser(data.user.id);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create admin user',
-        });
-      }
-
-      return {
-        user: {
-          id: data.user.id,
-          email: data.user.email!,
-          name: input.name,
-          role: 'admin',
-        },
-      };
-    } catch (error) {
-      if (error instanceof TRPCError) {
-        throw error;
-      }
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Registration failed',
-      });
-    }
-  }),
+    }),
 
   // Get current user session
   me: protectedProcedure
