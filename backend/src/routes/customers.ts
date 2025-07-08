@@ -94,7 +94,37 @@ export const customersRouter = router({
       
       ctx.logger.info('Fetching customers with filters:', filters);
       
-      // Build base query for customers with primary addresses
+      // First, get total count of all customers (with and without addresses) that match filters
+      let countQuery = ctx.supabase
+        .from('customers')
+        .select('id', { count: 'exact', head: true });
+
+      // Apply search filter to count query
+      if (search) {
+        countQuery = countQuery.or(
+          `name.ilike.%${search}%,email.ilike.%${search}%,tax_id.ilike.%${search}%`
+        );
+      }
+
+      // Apply status filter to count query
+      if (account_status) {
+        countQuery = countQuery.eq('account_status', account_status);
+      }
+
+      const { count: totalCount, error: countError } = await countQuery;
+
+      if (countError) {
+        ctx.logger.error('Error getting customer count:', countError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: countError.message
+        });
+      }
+
+      // Now get all customers (with and without addresses) and apply pagination to the combined result
+      // Strategy: Get customers with addresses first, then customers without addresses, combine and sort, then paginate
+
+      // Get customers WITH primary addresses
       let queryWithAddress = ctx.supabase
         .from('customers')
         .select(`
@@ -116,8 +146,7 @@ export const customersRouter = router({
             instructions,
             created_at
           )
-        `, { count: 'exact' })
-        
+        `)
         .eq('addresses.is_primary', true)
         .order('created_at', { ascending: false });
 
@@ -133,12 +162,7 @@ export const customersRouter = router({
         queryWithAddress = queryWithAddress.eq('account_status', account_status);
       }
 
-      // Apply pagination
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-      queryWithAddress = queryWithAddress.range(from, to);
-
-      const { data: customersWithAddress, error: errorWithAddress, count: countWithAddress } = await queryWithAddress;
+      const { data: customersWithAddress, error: errorWithAddress } = await queryWithAddress;
 
       if (errorWithAddress) {
         ctx.logger.error('Supabase customers error (with address):', errorWithAddress);
@@ -148,10 +172,10 @@ export const customersRouter = router({
         });
       }
 
-      // Get customers without primary addresses
+      // Get customers WITHOUT primary addresses
       let queryWithoutAddress = ctx.supabase
         .from('customers')
-        .select('*', { count: 'exact' })
+        .select('*')
         .order('created_at', { ascending: false });
 
       // Exclude customers that already have primary addresses
@@ -173,25 +197,38 @@ export const customersRouter = router({
         queryWithoutAddress = queryWithoutAddress.eq('account_status', account_status);
       }
 
-      const { data: customersWithoutAddress, error: errorWithoutAddress, count: countWithoutAddress } = await queryWithoutAddress;
+      const { data: customersWithoutAddress, error: errorWithoutAddress } = await queryWithoutAddress;
 
       if (errorWithoutAddress) {
         ctx.logger.warn('Supabase customers error (without address):', errorWithoutAddress);
         // Don't throw error here, just log it and continue
       }
 
-      // Combine results
+      // Combine and sort all customers
       const allCustomers = [
         ...(customersWithAddress || []),
         ...(customersWithoutAddress || []).map(c => ({ ...c, primary_address: null }))
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-      const totalCount = (countWithAddress || 0) + (countWithoutAddress || 0);
+      // Apply pagination to the combined and sorted result
+      const from = (page - 1) * limit;
+      const to = from + limit;
+      const paginatedCustomers = allCustomers.slice(from, to);
+
+      const totalPages = Math.ceil((totalCount || 0) / limit);
+
+      // Validate pagination request
+      if (page > totalPages && totalPages > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Requested page ${page} exceeds total pages ${totalPages}`
+        });
+      }
 
       return {
-        customers: allCustomers,
-        totalCount,
-        totalPages: Math.ceil(totalCount / limit),
+        customers: paginatedCustomers,
+        totalCount: totalCount || 0,
+        totalPages,
         currentPage: page,
       };
     }),
