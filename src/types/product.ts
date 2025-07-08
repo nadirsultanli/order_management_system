@@ -7,7 +7,7 @@ export interface Product {
   capacity_kg?: number;
   tare_weight_kg?: number;
   valve_type?: string;
-  status: 'active' | 'end_of_sale' | 'obsolete';
+  status: 'active' | 'obsolete';
   barcode_uid?: string;
   requires_tag: boolean;
   created_at: string;
@@ -32,7 +32,7 @@ export interface CreateProductData {
   capacity_kg?: number;
   tare_weight_kg?: number;
   valve_type?: string;
-  status: 'active' | 'end_of_sale' | 'obsolete';
+  status: 'active' | 'obsolete';
   barcode_uid?: string;
   requires_tag: boolean;
   // Product variant fields
@@ -63,7 +63,6 @@ export interface ProductFilters {
 export interface ProductStats {
   total: number;
   active: number;
-  end_of_sale: number;
   obsolete: number;
   cylinders: number;
   kg_products: number;
@@ -76,7 +75,7 @@ export interface ProductVariant {
   variant_name: string;
   sku: string;
   name: string;
-  status: 'active' | 'end_of_sale' | 'obsolete';
+  status: 'active' | 'obsolete';
   created_at: string;
 }
 
@@ -86,7 +85,7 @@ export interface CreateVariantData {
   sku: string;
   name: string;
   description?: string;
-  status: 'active' | 'end_of_sale' | 'obsolete';
+  status: 'active' | 'obsolete';
   barcode_uid?: string;
 }
 

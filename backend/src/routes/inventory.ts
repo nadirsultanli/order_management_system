@@ -13,7 +13,7 @@ const InventoryFiltersSchema = z.object({
   out_of_stock_only: z.boolean().default(false),
   overstocked_only: z.boolean().default(false),
   critical_stock_only: z.boolean().default(false),
-  product_status: z.enum(['active', 'end_of_sale', 'obsolete']).optional(),
+  product_status: z.enum(['active', 'obsolete']).optional(),
   stock_threshold_days: z.number().min(1).max(365).default(30),
   min_qty_available: z.number().min(0).optional(),
   max_qty_available: z.number().min(0).optional(),

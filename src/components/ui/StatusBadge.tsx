@@ -26,7 +26,6 @@ const getStatusConfig = (status: string) => {
     closed: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
     
     // Product statuses
-    end_of_sale: { bg: 'bg-orange-100', text: 'text-orange-800', dot: 'bg-orange-500' },
     obsolete: { bg: 'bg-gray-100', text: 'text-gray-800', dot: 'bg-gray-500' },
     
     // Transfer statuses

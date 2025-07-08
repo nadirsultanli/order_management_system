@@ -4,7 +4,7 @@ import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
 // Validation schemas
-const ProductStatusEnum = z.enum(['active', 'end_of_sale', 'obsolete']);
+const ProductStatusEnum = z.enum(['active', 'obsolete']);
 const UnitOfMeasureEnum = z.enum(['cylinder', 'kg']);
 const VariantTypeEnum = z.enum(['cylinder', 'refillable', 'disposable']);
 
@@ -118,7 +118,7 @@ export const productsRouter = router({
 
       // By default, hide obsolete products unless specifically requested
       if (!show_obsolete) {
-        query = query.in('status', ['active', 'end_of_sale']);
+        query = query.eq('status', 'active');
       }
 
       // Apply search filter with enhanced logic
@@ -346,7 +346,6 @@ export const productsRouter = router({
       const stats = {
         total: data.length,
         active: data.filter(p => p.status === 'active').length,
-        end_of_sale: data.filter(p => p.status === 'end_of_sale').length,
         obsolete: data.filter(p => p.status === 'obsolete').length,
         cylinders: data.filter(p => p.unit_of_measure === 'cylinder').length,
         kg_products: data.filter(p => p.unit_of_measure === 'kg').length,
@@ -1295,9 +1294,8 @@ function calculatePopularity(product: any): number {
   // Products with variants tend to be more popular
   if (product.is_variant) score += 1;
   
-  // Active products are more popular than end_of_sale
+  // Active products are more popular
   if (product.status === 'active') score += 2;
-  else if (product.status === 'end_of_sale') score += 1;
   
   // Certain types are more popular
   if (product.variant_type === 'refillable') score += 2;
@@ -1338,9 +1336,6 @@ function calculateProfitabilityScore(product: any): number {
   
   // Refillable products have better long-term profitability
   if (product.variant_type === 'refillable') score += 2;
-  
-  // End of sale products might have clearance pricing
-  if (product.status === 'end_of_sale') score -= 1;
   
   return Math.min(score, 10);
 }

@@ -34,7 +34,7 @@ export const useProductStats = () => {
 };
 
 export const useProductOptions = (filters: { 
-  status?: ('active' | 'end_of_sale' | 'obsolete')[],
+  status?: ('active' | 'obsolete')[],
   include_variants?: boolean 
 } = {}) => {
   return trpc.products.getOptions.useQuery({

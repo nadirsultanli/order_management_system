@@ -20,9 +20,15 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
   };
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedStatus = e.target.value || undefined;
+    
+    // Auto-enable "Show obsolete" when obsolete status is selected
+    const shouldShowObsolete = selectedStatus === 'obsolete' ? true : filters.show_obsolete;
+    
     onFiltersChange({
       ...filters,
-      status: e.target.value || undefined,
+      status: selectedStatus,
+      show_obsolete: shouldShowObsolete,
       page: 1,
     });
   };
@@ -84,7 +90,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
               >
                 <option value="">All Statuses</option>
                 <option value="active">Active</option>
-                <option value="end_of_sale">End of Sale</option>
                 <option value="obsolete">Obsolete</option>
               </select>
             </div>

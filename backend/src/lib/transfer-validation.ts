@@ -115,7 +115,7 @@ export interface Product {
   capacity_kg?: number;
   tare_weight_kg?: number;
   valve_type?: string;
-  status: 'active' | 'end_of_sale' | 'obsolete';
+  status: 'active' | 'obsolete';
   barcode_uid?: string;
   requires_tag: boolean;
   created_at: string;

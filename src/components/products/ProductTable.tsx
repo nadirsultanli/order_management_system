@@ -41,10 +41,8 @@ export const ProductTable: React.FC<ProductTableProps> = ({
     switch (status) {
       case 'active':
         return 'active';
-      case 'end_of_sale':
-        return 'credit_hold'; // Using yellow color
       case 'obsolete':
-        return 'closed'; // Using red color
+        return 'obsolete'; // Using proper obsolete color
       default:
         return 'active';
     }
@@ -219,11 +217,8 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <StatusBadge 
-                      status={getStatusBadgeType(product.status) as any}
-                      className="capitalize"
-                    >
-                      {product.status.replace('_', ' ')}
-                    </StatusBadge>
+                      status={product.status}
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDateSync(product.created_at)}

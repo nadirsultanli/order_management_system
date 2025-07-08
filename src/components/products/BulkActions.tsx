@@ -74,13 +74,6 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
                   Set as Active
                 </button>
                 <button
-                  onClick={() => handleStatusUpdate('end_of_sale')}
-                  disabled={bulkUpdateStatus.isPending}
-                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Set as End of Sale
-                </button>
-                <button
                   onClick={() => handleStatusUpdate('obsolete')}
                   disabled={bulkUpdateStatus.isPending}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"

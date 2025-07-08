@@ -38,13 +38,6 @@ export const ProductStats: React.FC = () => {
       bgColor: 'bg-green-50',
     },
     {
-      name: 'End of Sale',
-      value: stats.end_of_sale,
-      icon: AlertTriangle,
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-50',
-    },
-    {
       name: 'Obsolete',
       value: stats.obsolete,
       icon: XCircle,
@@ -70,7 +63,7 @@ export const ProductStats: React.FC = () => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Product Overview</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 justify-center">
         {statItems.map((item) => (
           <div key={item.name} className="text-center">
             <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${item.bgColor} mb-2`}>
