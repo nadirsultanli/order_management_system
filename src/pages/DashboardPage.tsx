@@ -1,12 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { BarChart3, Users, Package, ShoppingCart, TrendingUp, Warehouse, AlertTriangle, Activity } from 'lucide-react';
 import { useDashboardStats } from '../hooks/useDashboardStats';
+import { useCreateCustomer } from '../hooks/useCustomers';
+import { CustomerForm } from '../components/customers/CustomerForm';
+import { CreateCustomerData } from '../types/customer';
 
 export const DashboardPage: React.FC = () => {
   const { adminUser } = useAuth();
+  const navigate = useNavigate();
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useDashboardStats();
+  const createCustomer = useCreateCustomer();
+  const [isCustomerFormOpen, setIsCustomerFormOpen] = useState(false);
 
+  const handleAddCustomer = () => {
+    setIsCustomerFormOpen(true);
+  };
+
+  const handleCustomerFormSubmit = async (data: CreateCustomerData) => {
+    try {
+      const newCustomer = await createCustomer.mutateAsync(data);
+      setIsCustomerFormOpen(false);
+      // Navigate to the newly created customer's detail page
+      navigate(`/customers/${newCustomer.id}`);
+    } catch (error) {
+      console.error('Failed to create customer:', error);
+      // Error handling is done in the hook
+    }
+  };
 
   const dashboardStats = [
     {
@@ -105,7 +127,7 @@ export const DashboardPage: React.FC = () => {
           </button>
           
           <button 
-            onClick={() => window.location.href = '/customers'}
+            onClick={handleAddCustomer}
             className="p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
           >
             <Users className="h-8 w-8 text-blue-600 mb-2" />
@@ -136,6 +158,16 @@ export const DashboardPage: React.FC = () => {
           <p className="text-gray-500">Recent activity tracking coming soon</p>
         </div>
       </div>
+
+      {/* Customer Form Modal */}
+      <CustomerForm
+        isOpen={isCustomerFormOpen}
+        onClose={() => setIsCustomerFormOpen(false)}
+        onSubmit={handleCustomerFormSubmit}
+        customer={undefined}
+        loading={createCustomer.isPending}
+        title="Add New Customer"
+      />
     </div>
   );
 };
