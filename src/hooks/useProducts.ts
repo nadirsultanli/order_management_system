@@ -47,7 +47,7 @@ export const useProductOptions = (filters: {
 
 export const useCreateProduct = () => {
   return trpc.products.create.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       console.log('Product created successfully:', data);
       toast.success('Product created successfully');
     },
@@ -60,7 +60,7 @@ export const useCreateProduct = () => {
 
 export const useUpdateProduct = () => {
   return trpc.products.update.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       console.log('Product updated successfully:', data);
       toast.success('Product updated successfully');
     },

@@ -14,7 +14,7 @@ export const ProductDetailPage: React.FC = () => {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'pricing'>('details');
 
-  const { data: product, isLoading, error } = useProduct(id!);
+  const { data: product, isLoading, error, refetch } = useProduct(id!);
   const updateProduct = useUpdateProduct();
 
   const handleEditSubmit = async (data: CreateProductData) => {
@@ -22,6 +22,9 @@ export const ProductDetailPage: React.FC = () => {
       try {
         await updateProduct.mutateAsync({ id: product.id, ...data });
         setIsEditFormOpen(false);
+        
+        // Manually refetch the product data to update the UI
+        await refetch();
       } catch (error) {
         // Error handling is done in the hook
       }
@@ -29,18 +32,7 @@ export const ProductDetailPage: React.FC = () => {
   };
 
 
-  const getStatusBadgeType = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'active';
-      case 'end_of_sale':
-        return 'credit_hold';
-      case 'obsolete':
-        return 'closed';
-      default:
-        return 'active';
-    }
-  };
+
 
   if (isLoading) {
     return (
@@ -184,11 +176,8 @@ export const ProductDetailPage: React.FC = () => {
                       Status
                     </label>
                     <StatusBadge 
-                      status={getStatusBadgeType(product.status) as any}
-                      className="capitalize"
-                    >
-                      {product.status.replace('_', ' ')}
-                    </StatusBadge>
+                      status={product.status}
+                    />
                   </div>
 
                   {product.unit_of_measure === 'cylinder' && (
