@@ -2,8 +2,15 @@ import { CreateWarehouseData, UpdateWarehouseData, WarehouseFilters } from '../t
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
-export const useWarehouses = (filters: WarehouseFilters = {}) => {
-  return trpc.warehouses.list.useQuery(filters, {
+export const useWarehouses = (filters: WarehouseFilters & {
+  page?: number;
+  limit?: number;
+} = {}) => {
+  return trpc.warehouses.list.useQuery({
+    ...filters,
+    page: filters.page || 1,
+    limit: filters.limit || 15,
+  }, {
     retry: 1,
     staleTime: 30000,
   });

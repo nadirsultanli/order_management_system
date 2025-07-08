@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { TruckTable } from '../components/trucks/TruckTable';
+import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { useTrucks, useUpdateTruck } from '../hooks/useTrucks';
 
 export const TrucksPage: React.FC = () => {
-  const { data, isLoading: loading, error } = useTrucks();
+  const [filters, setFilters] = useState({ page: 1 });
+  const { data, isLoading: loading, error } = useTrucks(filters);
   const updateTruck = useUpdateTruck();
 
   const trucks = data?.trucks || [];
@@ -20,6 +22,10 @@ export const TrucksPage: React.FC = () => {
       console.error('Error updating truck status:', err);
       alert('Failed to update truck status. Please try again.');
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setFilters(prev => ({ ...prev, page }));
   };
 
   return (
@@ -55,6 +61,16 @@ export const TrucksPage: React.FC = () => {
         loading={loading} 
         onStatusChange={handleStatusChange}
       />
+
+      {data && data.totalPages > 1 && (
+        <CustomerPagination
+          currentPage={data.currentPage}
+          totalPages={data.totalPages}
+          totalCount={data.totalCount}
+          onPageChange={handlePageChange}
+          itemsPerPage={15}
+        />
+      )}
     </div>
   );
 }; 

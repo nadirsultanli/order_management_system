@@ -139,6 +139,7 @@ export const CustomersPage: React.FC = () => {
           totalPages={data.totalPages}
           totalCount={data.totalCount}
           onPageChange={handlePageChange}
+          itemsPerPage={15}
         />
       )}
 

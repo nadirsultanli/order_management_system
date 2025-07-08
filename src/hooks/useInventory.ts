@@ -6,11 +6,15 @@ export const useInventoryNew = (filters: {
   warehouse_id?: string;
   product_id?: string;
   low_stock_only?: boolean;
+  page?: number;
+  limit?: number;
 } = {}) => {
   return trpc.inventory.list.useQuery({
     warehouse_id: filters.warehouse_id,
     product_id: filters.product_id,
     low_stock_only: filters.low_stock_only || false,
+    page: filters.page || 1,
+    limit: filters.limit || 15,
   }, {
     enabled: true,
     staleTime: 30000,

@@ -28,7 +28,7 @@ export const useOrdersNew = (filters: OrderListFilters = {}) => {
     scheduled_date_to: filters.scheduled_date_to,
     include_analytics: filters.include_analytics || false,
     page: filters.page || 1,
-    limit: filters.limit || 50,
+    limit: filters.limit || 15,
   }, {
     enabled: true, // Always enabled
     staleTime: 30000, // 30 seconds

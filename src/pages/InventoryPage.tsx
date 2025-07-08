@@ -138,6 +138,7 @@ export const InventoryPage: React.FC = () => {
           totalPages={data.totalPages}
           totalCount={data.totalCount}
           onPageChange={handlePageChange}
+          itemsPerPage={15}
         />
       )}
 

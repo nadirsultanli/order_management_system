@@ -12,7 +12,7 @@ export const useCustomers = (filters: {
     search: filters.search,
     account_status: filters.status as 'active' | 'credit_hold' | 'closed' | undefined,
     page: filters.page || 1,
-    limit: filters.limit || 50,
+    limit: filters.limit || 15,
   }, {
     enabled: true,
     staleTime: 30000,

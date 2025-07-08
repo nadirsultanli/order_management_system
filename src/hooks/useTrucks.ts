@@ -16,8 +16,18 @@ import {
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
-export const useTrucks = (filters: any = {}) => {
-  return trpc.trucks.list.useQuery(filters, {
+export const useTrucks = (filters: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+} = {}) => {
+  return trpc.trucks.list.useQuery({
+    page: filters.page || 1,
+    limit: filters.limit || 15,
+    search: filters.search,
+    status: filters.status,
+  }, {
     retry: 1,
     staleTime: 30000,
     onError: (error) => {
