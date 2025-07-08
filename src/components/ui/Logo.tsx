@@ -1,5 +1,5 @@
 import React from 'react';
-import LogoSvg from '../../assets/Full_CIRCL_Logo.svg';
+import LogoSvg from '../../assets/Logo.svg';
 
 interface LogoProps {
   className?: string;
