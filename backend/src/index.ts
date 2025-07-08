@@ -9,7 +9,7 @@ import { renderTrpcPanel } from 'trpc-panel';
 import { appRouter } from './routes';
 import { createContext } from './lib/context';
 import { logger } from './lib/logger';
-import { openApiDocument } from './openapi';
+import { openApiDocument } from './openapi-complete';
 
 dotenv.config();
 

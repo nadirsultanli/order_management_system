@@ -14,6 +14,7 @@ import {
   TrendingUp,
   PackageCheck
 } from 'lucide-react';
+import { Logo } from '../ui/Logo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onMouseEnter,
       >
         {/* Mobile header */}
         <div className="flex items-center justify-between p-4 lg:hidden border-b border-gray-700">
-          <span className="text-lg font-semibold text-white">Menu</span>
+          <Logo size="sm" />
           <button
             onClick={onClose}
             className="p-2 rounded-md hover:bg-gray-800 transition-colors"
@@ -69,8 +70,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onMouseEnter,
         </div>
 
         {/* Logo area for desktop */}
-        <div className="hidden lg:flex items-center justify-center h-16 bg-gray-800 border-b border-gray-700">
-          <span className="text-lg font-semibold text-white">LPG Admin</span>
+        <div className="hidden lg:flex items-center justify-center h-16 bg-gray-800 border-b border-gray-700 px-4">
+          <Logo size="md" />
         </div>
 
         {/* Navigation */}
