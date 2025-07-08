@@ -11,7 +11,8 @@ import {
   DollarSign,
   Truck,
   ArrowLeftRight,
-  TrendingUp
+  TrendingUp,
+  PackageCheck
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -31,7 +32,8 @@ const navigation = [
   { name: 'Fleet Capacity', href: '/trucks/capacity', icon: TrendingUp },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
-  { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight }
+  { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight },
+  { name: 'Deliveries & Pickups', href: '/deliveries', icon: PackageCheck }
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onMouseEnter, onMouseLeave }) => {

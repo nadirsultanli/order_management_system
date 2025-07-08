@@ -26,6 +26,7 @@ import { TrucksPage } from './pages/TrucksPage';
 import { TruckDetailPage } from './pages/TruckDetailPage';
 import CreateTruckPage from './pages/CreateTruckPage';
 import { TruckCapacityDashboard } from './pages/TruckCapacityDashboard';
+import { DeliveriesPage } from './pages/DeliveriesPage';
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
             <Route path="orders/reports" element={<OrderReportsPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
             <Route path="transfers" element={<TransfersPage />} />
+            <Route path="deliveries" element={<DeliveriesPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="trucks">
               <Route index element={<TrucksPage />} />

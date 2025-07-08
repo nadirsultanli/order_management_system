@@ -4,6 +4,15 @@ import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { formatErrorMessage } from '../lib/logger';
 import {
+  listOrdersResponseSchema,
+  getOrderResponseSchema,
+  createOrderResponseSchema,
+  updateOrderResponseSchema,
+  deleteOrderResponseSchema,
+  validateTransitionResponseSchema,
+  calculateTotalsResponseSchema,
+} from '../schemas/orders';
+import {
   getOrderWorkflow,
   getOrderStatusInfo,
   canTransitionTo,
@@ -36,6 +45,16 @@ const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', '
 export const ordersRouter = router({
   // GET /orders - List orders with advanced filtering and business logic
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders',
+        tags: ['orders'],
+        summary: 'List orders',
+        description: 'Get a paginated list of orders with advanced filtering options',
+        protect: true,
+      },
+    })
     .input(z.object({
       status: OrderStatusEnum.optional(),
       customer_id: z.string().uuid().optional(),
@@ -57,6 +76,7 @@ export const ordersRouter = router({
       page: z.number().min(1).default(1),
       limit: z.number().min(1).max(100).default(50),
     }).optional())
+    .output(listOrdersResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -245,9 +265,20 @@ export const ordersRouter = router({
 
   // GET /orders/{id} - Get single order
   getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/{order_id}',
+        tags: ['orders'],
+        summary: 'Get order by ID',
+        description: 'Get a single order with all related data',
+        protect: true,
+      },
+    })
     .input(z.object({
       order_id: z.string().uuid(),
     }))
+    .output(getOrderResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
