@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, ArrowRight } from 'lucide-react';
 import { InventoryBalance, StockTransferData } from '../../types/inventory';
@@ -19,6 +19,11 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
   inventory,
   loading = false,
 }) => {
+  const [validationErrors, setValidationErrors] = useState<{
+    qty_full?: string;
+    qty_empty?: string;
+  }>({});
+
   const {
     register,
     handleSubmit,
@@ -51,28 +56,44 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
         qty_empty: 0,
         notes: '',
       });
+      setValidationErrors({});
     }
   }, [inventory, reset]);
 
+  // Real-time validation
+  useEffect(() => {
+    const newErrors: { qty_full?: string; qty_empty?: string } = {};
+    
+    if (qtyFull > inventory.qty_full) {
+      newErrors.qty_full = `Cannot exceed available stock (${inventory.qty_full})`;
+    }
+    
+    if (qtyEmpty > inventory.qty_empty) {
+      newErrors.qty_empty = `Cannot exceed available stock (${inventory.qty_empty})`;
+    }
+
+    setValidationErrors(newErrors);
+  }, [qtyFull, qtyEmpty, inventory.qty_full, inventory.qty_empty]);
+
   const handleFormSubmit = (data: StockTransferData) => {
-    // Ensure we have the warehouse ID from the selector
+    // Final validation
+    if (!toWarehouseId) {
+      return;
+    }
+    
+    if (data.qty_full <= 0 && data.qty_empty <= 0) {
+      return;
+    }
+
+    if (data.qty_full > inventory.qty_full || data.qty_empty > inventory.qty_empty) {
+      return;
+    }
+    
     const formData = {
       ...data,
       to_warehouse_id: toWarehouseId,
     };
     
-    // Validation
-    if (!formData.to_warehouse_id) {
-      console.error('No destination warehouse selected');
-      return;
-    }
-    
-    if (formData.qty_full <= 0 && formData.qty_empty <= 0) {
-      console.error('Must transfer at least one cylinder');
-      return;
-    }
-    
-    console.log('Submitting transfer data:', formData);
     onSubmit(formData);
   };
 
@@ -80,156 +101,218 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
     setValue('to_warehouse_id', warehouseId);
   };
 
+  const isTransferValid = () => {
+    return (
+      toWarehouseId &&
+      (qtyFull > 0 || qtyEmpty > 0) &&
+      qtyFull <= inventory.qty_full &&
+      qtyEmpty <= inventory.qty_empty &&
+      !validationErrors.qty_full &&
+      !validationErrors.qty_empty
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+      <div className="flex min-h-full items-center justify-center p-4">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl">
+        <div className="relative transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all w-full max-w-4xl">
           <form onSubmit={handleSubmit(handleFormSubmit)}>
-            <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold leading-6 text-gray-900">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-green-600 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-white">
                   Transfer Stock
                 </h3>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-md bg-white text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="rounded-full bg-white/20 p-2 text-white hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
+            </div>
 
-              <div className="space-y-6">
-                {/* Product Information */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Product Information</h4>
-                  <div className="text-sm text-gray-600">
-                    <div><span className="font-medium">Product:</span> {inventory.product?.name}</div>
-                    <div><span className="font-medium">SKU:</span> {inventory.product?.sku}</div>
+            <div className="px-6 py-6 space-y-8">
+              {/* Product Information */}
+              <div className="text-center">
+                <div className="bg-gray-50 rounded-xl p-6 inline-block">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Product Information</h4>
+                  <div className="space-y-1">
+                    <div className="text-gray-700">
+                      <span className="font-medium">Product:</span> {inventory.product?.name}
+                    </div>
+                    <div className="text-gray-700">
+                      <span className="font-medium">SKU:</span> {inventory.product?.sku}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Transfer Direction - Equal sized sections */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+                {/* Source Warehouse */}
+                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-blue-900 mb-4 text-center">From Warehouse</h4>
+                  <div className="text-center">
+                    <div className="text-base font-bold text-blue-800 mb-4">
+                      {inventory.warehouse?.name}
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white rounded-lg p-3">
+                        <div className="text-sm font-medium text-gray-700">Full Cylinders</div>
+                        <div className={`text-lg font-bold ${inventory.qty_full === 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                          {inventory.qty_full}
+                        </div>
+                      </div>
+                      <div className="bg-white rounded-lg p-3">
+                        <div className="text-sm font-medium text-gray-700">Empty Cylinders</div>
+                        <div className={`text-lg font-bold ${inventory.qty_empty === 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                          {inventory.qty_empty}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Transfer Direction */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">From Warehouse</h4>
-                    <div className="text-sm text-blue-800 font-medium">
-                      {inventory.warehouse?.name}
-                    </div>
-                    <div className="mt-2 space-y-1 text-xs text-blue-700">
-                      <div>Full: {inventory.qty_full}</div>
-                      <div>Empty: {inventory.qty_empty}</div>
-                    </div>
+                {/* Arrow */}
+                <div className="flex justify-center">
+                  <div className="bg-gray-100 rounded-full p-4">
+                    <ArrowRight className="h-8 w-8 text-gray-600" />
                   </div>
+                </div>
 
-                  <div className="flex justify-center">
-                    <ArrowRight className="h-6 w-6 text-gray-400" />
-                  </div>
-
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-green-900 mb-2">To Warehouse</h4>
+                {/* Destination Warehouse */}
+                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
+                  <h4 className="text-lg font-semibold text-green-900 mb-4 text-center">To Warehouse</h4>
+                  <div className="space-y-4">
                     <WarehouseSelector
                       value={toWarehouseId}
                       onChange={handleWarehouseChange}
-                      placeholder="Select destination..."
-                      className="w-full"
+                      placeholder="Select destination warehouse..."
+                      className="w-full text-center"
                       required
                     />
-                    {errors.to_warehouse_id && (
-                      <p className="mt-1 text-xs text-red-600">Destination warehouse is required</p>
+                    {!toWarehouseId && (
+                      <p className="text-sm text-red-600 text-center">Please select destination warehouse</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Transfer Quantities */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-6 text-center">Transfer Quantities</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Full Cylinders */}
+                  <div className="space-y-3">
+                    <label htmlFor="qty_full" className="block text-sm font-bold text-gray-700 text-center">
+                      Full Cylinders
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={inventory.qty_full}
+                      id="qty_full"
+                      {...register('qty_full', {
+                        valueAsNumber: true,
+                        min: { value: 0, message: 'Quantity must be positive' },
+                        max: { value: inventory.qty_full, message: `Cannot exceed available quantity (${inventory.qty_full})` },
+                      })}
+                      className={`block w-full rounded-lg border-2 px-4 py-3 text-center text-lg font-semibold shadow-sm focus:outline-none focus:ring-2 ${
+                        validationErrors.qty_full || qtyFull > inventory.qty_full
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
+                      placeholder="0"
+                    />
+                    <div className="text-center">
+                      <span className="text-sm font-medium text-gray-600">Available: </span>
+                      <span className={`text-sm font-bold ${inventory.qty_full === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                        {inventory.qty_full}
+                      </span>
+                    </div>
+                    {validationErrors.qty_full && (
+                      <p className="text-sm text-red-600 text-center font-medium">{validationErrors.qty_full}</p>
+                    )}
+                  </div>
+
+                  {/* Empty Cylinders */}
+                  <div className="space-y-3">
+                    <label htmlFor="qty_empty" className="block text-sm font-bold text-gray-700 text-center">
+                      Empty Cylinders
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={inventory.qty_empty}
+                      id="qty_empty"
+                      {...register('qty_empty', {
+                        valueAsNumber: true,
+                        min: { value: 0, message: 'Quantity must be positive' },
+                        max: { value: inventory.qty_empty, message: `Cannot exceed available quantity (${inventory.qty_empty})` },
+                      })}
+                      className={`block w-full rounded-lg border-2 px-4 py-3 text-center text-lg font-semibold shadow-sm focus:outline-none focus:ring-2 ${
+                        validationErrors.qty_empty || qtyEmpty > inventory.qty_empty
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+                          : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                      }`}
+                      placeholder="0"
+                    />
+                    <div className="text-center">
+                      <span className="text-sm font-medium text-gray-600">Available: </span>
+                      <span className={`text-sm font-bold ${inventory.qty_empty === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                        {inventory.qty_empty}
+                      </span>
+                    </div>
+                    {validationErrors.qty_empty && (
+                      <p className="text-sm text-red-600 text-center font-medium">{validationErrors.qty_empty}</p>
                     )}
                   </div>
                 </div>
 
-                {/* Transfer Quantities */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Transfer Quantities</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="qty_full" className="block text-sm font-medium text-gray-700">
-                        Full Cylinders
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={inventory.qty_full}
-                        id="qty_full"
-                        {...register('qty_full', {
-                          valueAsNumber: true,
-                          min: { value: 0, message: 'Quantity must be positive' },
-                          max: { value: inventory.qty_full, message: `Cannot exceed available quantity (${inventory.qty_full})` },
-                        })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="0"
-                      />
-                      <div className="mt-1 text-xs text-gray-500">
-                        Available: {inventory.qty_full}
+                {/* Transfer Summary */}
+                {(qtyFull > 0 || qtyEmpty > 0) && isTransferValid() && (
+                  <div className="mt-6 p-4 bg-green-100 border border-green-300 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-green-800">Transfer Summary</div>
+                      <div className="text-lg font-bold text-green-900">
+                        {qtyFull} Full + {qtyEmpty} Empty Cylinders
                       </div>
-                      {errors.qty_full && (
-                        <p className="mt-1 text-sm text-red-600">{errors.qty_full.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="qty_empty" className="block text-sm font-medium text-gray-700">
-                        Empty Cylinders
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={inventory.qty_empty}
-                        id="qty_empty"
-                        {...register('qty_empty', {
-                          valueAsNumber: true,
-                          min: { value: 0, message: 'Quantity must be positive' },
-                          max: { value: inventory.qty_empty, message: `Cannot exceed available quantity (${inventory.qty_empty})` },
-                        })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="0"
-                      />
-                      <div className="mt-1 text-xs text-gray-500">
-                        Available: {inventory.qty_empty}
-                      </div>
-                      {errors.qty_empty && (
-                        <p className="mt-1 text-sm text-red-600">{errors.qty_empty.message}</p>
-                      )}
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {(qtyFull > 0 || qtyEmpty > 0) && (
-                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                      <div className="text-sm text-yellow-800">
-                        <strong>Transfer Summary:</strong> {qtyFull} full + {qtyEmpty} empty cylinders
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Transfer Notes */}
-                <div>
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
-                    Transfer Notes
-                  </label>
-                  <textarea
-                    id="notes"
-                    rows={3}
-                    {...register('notes')}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    placeholder="Optional notes about this transfer..."
-                  />
-                </div>
+              {/* Transfer Notes */}
+              <div>
+                <label htmlFor="notes" className="block text-sm font-bold text-gray-700 mb-3 text-center">
+                  Transfer Notes (Optional)
+                </label>
+                <textarea
+                  id="notes"
+                  rows={3}
+                  {...register('notes')}
+                  className="block w-full rounded-lg border-2 border-gray-300 px-4 py-3 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Add any notes about this transfer..."
+                />
               </div>
             </div>
 
-            <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
+            {/* Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex flex-col sm:flex-row-reverse sm:space-x-reverse sm:space-x-3 space-y-3 sm:space-y-0">
               <button
                 type="submit"
-                disabled={loading || !toWarehouseId || (qtyFull === 0 && qtyEmpty === 0)}
-                className="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading || !isTransferValid()}
+                className={`inline-flex w-full justify-center rounded-lg px-6 py-3 text-sm font-bold shadow-sm focus:outline-none focus:ring-2 sm:w-auto transition-all ${
+                  loading || !isTransferValid()
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-blue-600 to-green-600 text-white hover:from-blue-700 hover:to-green-700 focus:ring-blue-500'
+                }`}
               >
                 {loading ? (
                   <div className="flex items-center space-x-2">
@@ -244,7 +327,7 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
                 type="button"
                 onClick={onClose}
                 disabled={loading}
-                className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex w-full justify-center rounded-lg bg-white px-6 py-3 text-sm font-bold text-gray-900 shadow-sm ring-2 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 Cancel
               </button>
