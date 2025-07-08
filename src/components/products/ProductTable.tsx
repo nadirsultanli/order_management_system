@@ -179,11 +179,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                       <div className="text-sm text-gray-500">
                         SKU: {product.sku}
                       </div>
-                      {product.description && (
-                        <div className="text-xs text-gray-400 mt-1 max-w-xs truncate">
-                          {product.description}
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
