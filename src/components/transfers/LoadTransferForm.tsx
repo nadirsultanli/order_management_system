@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { Search, Truck, Package, X, Warehouse, CheckCircle, AlertCircle } from 'lucide-react';
+import { Package, CheckCircle, AlertCircle } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
 import { useInventoryByWarehouseNew } from '../../hooks/useInventory';
 import { trpc } from '../../lib/trpc-client';
 import toast from 'react-hot-toast';
 import { clampQuantityToMax } from '../../utils/transfer-quantity-validation';
+import { SearchableWarehouseSelector } from '../warehouses/SearchableWarehouseSelector';
+import { SearchableTruckSelector } from '../trucks/SearchableTruckSelector';
 
 // Define types locally since they were removed from lib/transfers
 interface TransferLine {
@@ -31,15 +33,11 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   const [verifying, setVerifying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [warehouseSearchTerm, setWarehouseSearchTerm] = useState('');
   const { data: warehouses = [] } = useWarehouseOptions();
   const [optimisticUpdate, setOptimisticUpdate] = useState<boolean>(false);
   const [transferResult, setTransferResult] = useState<any>(null);
 
-  // Use tRPC to get trucks and context for invalidation
-  const { data: trucksData } = trpc.trucks.list.useQuery({ active: true });
-  const trucks = trucksData?.trucks || [];
+  // Use tRPC for context invalidation
   const utils = trpc.useContext();
   
   // Use tRPC for truck loading with optimistic updates
@@ -277,15 +275,6 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
     setLines(newLines);
   };
 
-  const filteredTrucks = trucks.filter(truck =>
-    truck.fleet_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    truck.license_plate?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredWarehouses = warehouses.filter(warehouse =>
-    warehouse.name?.toLowerCase().includes(warehouseSearchTerm.toLowerCase()) ||
-    warehouse.location?.toLowerCase().includes(warehouseSearchTerm.toLowerCase())
-  );
 
   return (
     <div className="space-y-6">
@@ -306,140 +295,25 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Warehouse (Source)
             </label>
-            <div className="relative">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={warehouseSearchTerm}
-                  onChange={(e) => setWarehouseSearchTerm(e.target.value)}
-                  placeholder="Search by warehouse name or location..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              {warehouseSearchTerm && (
-                <div className="absolute z-10 mt-1 w-full rounded-md bg-white shadow-lg">
-                  <div className="max-h-60 overflow-auto">
-                    {filteredWarehouses.length === 0 ? (
-                      <div className="px-4 py-2 text-sm text-gray-500">No warehouses found</div>
-                    ) : (
-                      filteredWarehouses.map((warehouse) => (
-                        <div
-                          key={warehouse.id}
-                          onClick={() => {
-                            setSelectedWarehouse(warehouse.id);
-                            setWarehouseSearchTerm('');
-                          }}
-                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer"
-                        >
-                          <div className="font-medium text-gray-900">
-                            <Warehouse className="inline h-4 w-4 mr-1" />
-                            {warehouse.name}
-                          </div>
-                          {warehouse.location && (
-                            <div className="text-sm text-gray-500">
-                              Location: {warehouse.location}
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            {selectedWarehouse && (
-              <div className="mt-2 p-3 bg-green-50 rounded-md">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      <Warehouse className="inline h-4 w-4 mr-1" />
-                      {warehouses.find(w => w.id === selectedWarehouse)?.name}
-                    </div>
-                    {warehouses.find(w => w.id === selectedWarehouse)?.location && (
-                      <div className="text-sm text-gray-500">
-                        Location: {warehouses.find(w => w.id === selectedWarehouse)?.location}
-                      </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => setSelectedWarehouse('')}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            <SearchableWarehouseSelector
+              value={selectedWarehouse}
+              onChange={setSelectedWarehouse}
+              placeholder="Select a warehouse..."
+              className="w-full"
+            />
           </div>
-
 
           {/* Truck Selection (Destination) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Select Truck (Destination)
             </label>
-            <div className="relative">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by fleet number or license plate..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              {searchTerm && (
-                <div className="absolute z-10 mt-1 w-full rounded-md bg-white shadow-lg">
-                  <div className="max-h-60 overflow-auto">
-                    {filteredTrucks.length === 0 ? (
-                      <div className="px-4 py-2 text-sm text-gray-500">No trucks found</div>
-                    ) : (
-                      filteredTrucks.map((truck) => (
-                        <div
-                          key={truck.id}
-                          onClick={() => {
-                            setSelectedTruck(truck.id);
-                            setSearchTerm('');
-                          }}
-                          className="px-4 py-2 hover:bg-blue-50 cursor-pointer"
-                        >
-                          <div className="font-medium text-gray-900">
-                            <Truck className="inline h-4 w-4 mr-1" />
-                            {truck.fleet_number}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            License: {truck.license_plate}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            {selectedTruck && (
-              <div className="mt-2 p-3 bg-blue-50 rounded-md">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-medium text-gray-900">
-                      <Truck className="inline h-4 w-4 mr-1" />
-                      {trucks.find(t => t.id === selectedTruck)?.fleet_number}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      License: {trucks.find(t => t.id === selectedTruck)?.license_plate}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSelectedTruck('')}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            <SearchableTruckSelector
+              value={selectedTruck}
+              onChange={setSelectedTruck}
+              placeholder="Select a truck..."
+              className="w-full"
+            />
           </div>
         </div>
 
