@@ -320,30 +320,135 @@ export const openApiDocument = {
 
     // Orders endpoints  
     '/api/v1/trpc/orders.list': {
-      get: {
+      post: {
         summary: 'List orders',
         description: 'Get paginated list of orders with advanced filtering (Query)',
         tags: ['orders'],
-        parameters: [
-          { name: 'status', in: 'query', schema: { type: 'string' } },
-          { name: 'customer_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'search', in: 'query', schema: { type: 'string' } },
-          { name: 'order_date_from', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'order_date_to', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'scheduled_date_from', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'scheduled_date_to', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'amount_min', in: 'query', schema: { type: 'number' } },
-          { name: 'amount_max', in: 'query', schema: { type: 'number' } },
-          { name: 'delivery_area', in: 'query', schema: { type: 'string' } },
-          { name: 'is_overdue', in: 'query', schema: { type: 'boolean' } },
-          { name: 'delivery_method', in: 'query', schema: { type: 'string', enum: ['pickup', 'delivery'] } },
-          { name: 'priority', in: 'query', schema: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] } },
-          { name: 'payment_status', in: 'query', schema: { type: 'string', enum: ['pending', 'paid', 'overdue'] } },
-          { name: 'sort_by', in: 'query', schema: { type: 'string' } },
-          { name: 'sort_order', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
-          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } }
-        ],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  status: { 
+                    type: 'string', 
+                    enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'],
+                    description: 'Filter by order status'
+                  },
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter by customer ID'
+                  },
+                  search: { 
+                    type: 'string',
+                    description: 'Search in order details, customer name, etc.'
+                  },
+                  order_date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter orders from this date (YYYY-MM-DD)'
+                  },
+                  order_date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter orders to this date (YYYY-MM-DD)'
+                  },
+                  scheduled_date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter by scheduled delivery date from (YYYY-MM-DD)'
+                  },
+                  scheduled_date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter by scheduled delivery date to (YYYY-MM-DD)'
+                  },
+                  amount_min: { 
+                    type: 'number',
+                    minimum: 0,
+                    description: 'Minimum order amount'
+                  },
+                  amount_max: { 
+                    type: 'number',
+                    minimum: 0,
+                    description: 'Maximum order amount'
+                  },
+                  delivery_area: { 
+                    type: 'string',
+                    description: 'Filter by delivery area'
+                  },
+                  is_overdue: { 
+                    type: 'boolean',
+                    description: 'Filter overdue orders only'
+                  },
+                  delivery_method: { 
+                    type: 'string', 
+                    enum: ['pickup', 'delivery'],
+                    description: 'Filter by delivery method'
+                  },
+                  priority: { 
+                    type: 'string', 
+                    enum: ['low', 'normal', 'high', 'urgent'],
+                    description: 'Filter by order priority'
+                  },
+                  payment_status: { 
+                    type: 'string', 
+                    enum: ['pending', 'paid', 'overdue'],
+                    description: 'Filter by payment status'
+                  },
+                  sort_by: { 
+                    type: 'string',
+                    enum: ['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name'],
+                    default: 'created_at',
+                    description: 'Sort field'
+                  },
+                  sort_order: { 
+                    type: 'string', 
+                    enum: ['asc', 'desc'],
+                    default: 'desc',
+                    description: 'Sort order'
+                  },
+                  include_analytics: {
+                    type: 'boolean',
+                    default: false,
+                    description: 'Include analytics data in response'
+                  },
+                  page: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    default: 1,
+                    description: 'Page number for pagination'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 100, 
+                    default: 50,
+                    description: 'Number of orders per page'
+                  }
+                },
+                additionalProperties: false,
+                example: {
+                  status: "confirmed",
+                  customer_id: "123e4567-e89b-12d3-a456-426614174000",
+                  search: "gas cylinder",
+                  order_date_from: "2024-01-01",
+                  order_date_to: "2024-12-31",
+                  delivery_method: "delivery",
+                  priority: "normal",
+                  payment_status: "pending",
+                  sort_by: "order_date",
+                  sort_order: "desc",
+                  page: 1,
+                  limit: 20
+                }
+              }
+            }
+          }
+        },
         responses: {
           '200': {
             description: 'Orders retrieved successfully',
@@ -360,7 +465,43 @@ export const openApiDocument = {
                           properties: {
                             orders: {
                               type: 'array',
-                              items: { type: 'object' }
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  order_date: { type: 'string', format: 'date' },
+                                  scheduled_date: { type: 'string', format: 'date-time' },
+                                  status: { type: 'string' },
+                                  total_amount: { type: 'number' },
+                                  customer: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string' },
+                                      name: { type: 'string' },
+                                      email: { type: 'string' }
+                                    }
+                                  },
+                                  delivery_address: {
+                                    type: 'object',
+                                    properties: {
+                                      line1: { type: 'string' },
+                                      city: { type: 'string' },
+                                      state: { type: 'string' }
+                                    }
+                                  },
+                                  order_lines: {
+                                    type: 'array',
+                                    items: {
+                                      type: 'object',
+                                      properties: {
+                                        product_id: { type: 'string' },
+                                        quantity: { type: 'number' },
+                                        unit_price: { type: 'number' }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
                             },
                             totalCount: { type: 'integer' },
                             totalPages: { type: 'integer' },
@@ -371,6 +512,33 @@ export const openApiDocument = {
                     }
                   }
                 }
+              }
+            }
+          },
+          '400': {
+            description: 'Bad request - Invalid parameters',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'BAD_REQUEST' },
+                        message: { type: 'string', example: 'Invalid filter parameters' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '401': {
+            description: 'Unauthorized - Invalid or missing authentication',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
               }
             }
           }
