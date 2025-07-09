@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Package, Loader2 } from 'lucide-react';
 import { SearchableTruckSelector } from '../trucks/SearchableTruckSelector';
@@ -25,11 +25,14 @@ interface ReturnTransferFormProps {
 
 export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSuccess }) => {
   const [selectedTruck, setSelectedTruck] = useState<string>('');
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>(''); // This will be the destination warehouse
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('');
   const [lines, setLines] = useState<TransferLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // ADD THIS: Flag to prevent form re-initialization after first load
+  const [formInitialized, setFormInitialized] = useState(false);
 
   // Use tRPC for truck unloading and context for invalidation
   const utils = trpc.useContext();
@@ -48,9 +51,9 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
     (item: any) => (item.qty_full > 0 || item.qty_empty > 0)
   );
   
-  // Initialize lines when truck inventory is loaded
+  // FIXED: Initialize lines only when truck changes, not when query data changes
   useEffect(() => {
-    if (availableInventory.length > 0) {
+    if (availableInventory.length > 0 && !formInitialized && selectedTruck) {
       const initialLines = availableInventory.map((item: any) => ({
         product_id: item.product_id,
         product_name: item.product_name,
@@ -62,10 +65,31 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         max_qty_empty: item.qty_empty
       }));
       setLines(initialLines);
-    } else {
+      setFormInitialized(true);
+    } else if (!selectedTruck) {
+      // Only reset when truck is cleared
       setLines([]);
+      setFormInitialized(false);
     }
-  }, [availableInventory]);
+  }, [availableInventory, formInitialized, selectedTruck]);
+
+  // FIXED: Reset form initialization when truck changes
+  useEffect(() => {
+    setFormInitialized(false);
+  }, [selectedTruck]);
+
+  // FIXED: Use useCallback to prevent unnecessary re-renders
+  const handleTruckChange = useCallback((truckId: string) => {
+    setSelectedTruck(truckId);
+    if (!truckId) {
+      setLines([]);
+      setFormInitialized(false);
+    }
+  }, []);
+
+  const handleWarehouseChange = useCallback((warehouseId: string) => {
+    setSelectedWarehouse(warehouseId);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,7 +149,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       
       toast.success(`Successfully returned ${totalItems} cylinders (${totalFull} full, ${totalEmpty} empty) to warehouse`);
 
-      // Invalidate relevant queries to refresh inventory data
+      // FIXED: Only invalidate queries AFTER successful operation
       utils.inventory.list.invalidate();
       utils.inventory.getByWarehouse.invalidate();
       utils.inventory.getStats.invalidate();
@@ -136,6 +160,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
       setSelectedTruck('');
       setSelectedWarehouse('');
       setLines([]);
+      setFormInitialized(false);
       setShowConfirm(false);
 
       if (onSuccess) {
@@ -151,9 +176,8 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
     }
   };
 
-
-  // Function to validate and clamp quantities for truck return
-  const handleQuantityChange = (index: number, field: 'qty_full' | 'qty_empty', value: string) => {
+  // FIXED: Use useCallback to prevent unnecessary re-renders
+  const handleQuantityChange = useCallback((index: number, field: 'qty_full' | 'qty_empty', value: string) => {
     const newLines = [...lines];
     
     // If the value is empty, set it to empty string to allow clearing
@@ -187,8 +211,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
     }
     
     setLines(newLines);
-  };
-
+  }, [lines]);
 
   return (
     <div className="space-y-6">
@@ -211,12 +234,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
             </label>
             <SearchableTruckSelector
               value={selectedTruck}
-              onChange={(truckId) => {
-                setSelectedTruck(truckId);
-                if (!truckId) {
-                  setLines([]);
-                }
-              }}
+              onChange={handleTruckChange}
               placeholder="Select a truck..."
               className="w-full"
             />
@@ -229,7 +247,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
             </label>
             <SearchableWarehouseSelector
               value={selectedWarehouse}
-              onChange={setSelectedWarehouse}
+              onChange={handleWarehouseChange}
               placeholder="Select a warehouse..."
               className="w-full"
             />
@@ -332,7 +350,6 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         type="info"
         loading={loading}
       />
-
     </div>
   );
-}; 
+};
