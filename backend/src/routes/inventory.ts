@@ -21,7 +21,7 @@ const InventoryFiltersSchema = z.object({
   sort_by: z.enum(['updated_at', 'qty_available', 'product_name', 'warehouse_name', 'stock_level_ratio']).default('updated_at'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
   page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
+  limit: z.number().min(1).max(500).default(50),
 });
 
 const StockAdjustmentSchema = z.object({
