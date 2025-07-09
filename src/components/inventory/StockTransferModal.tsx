@@ -193,7 +193,7 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
                     <WarehouseSelector
                       value={toWarehouseId}
                       onChange={handleWarehouseChange}
-                      placeholder="Select destination warehouse..."
+                      placeholder="Select destination warehouse"
                       className="w-full text-center"
                       required
                     />
