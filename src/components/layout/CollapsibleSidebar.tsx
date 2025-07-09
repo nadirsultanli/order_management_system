@@ -150,7 +150,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
         </div>
 
         {/* Navigation Menu */}
-        <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        <nav className={`flex-1 py-4 ${isExpanded || isMobileOpen ? 'overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent' : 'overflow-hidden'}`}>
           <ul className="space-y-1 px-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
