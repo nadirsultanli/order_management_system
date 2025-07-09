@@ -259,13 +259,26 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   // Function to validate and clamp quantities
   const handleQuantityChange = (index: number, field: 'qty_full' | 'qty_empty', value: string) => {
     const newLines = [...lines];
-    const numValue = value === '' ? 0 : parseInt(value);
+    
+    // If the value is empty, set it to empty string to allow clearing
+    if (value === '') {
+      newLines[index][field] = '';
+      setLines(newLines);
+      return;
+    }
+    
+    const numValue = parseInt(value);
     const maxValue = field === 'qty_full' ? newLines[index].max_qty_full || 0 : newLines[index].max_qty_empty || 0;
+    
+    // If the parsed value is NaN or negative, don't update
+    if (isNaN(numValue) || numValue < 0) {
+      return;
+    }
     
     // Clamp the value to the maximum available
     const clampedValue = clampQuantityToMax(numValue, maxValue);
     
-    newLines[index][field] = value === '' ? '' : clampedValue;
+    newLines[index][field] = clampedValue;
     
     // Show warning if user tried to enter more than available
     if (numValue > maxValue && maxValue > 0) {
@@ -293,7 +306,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
           {/* Source Warehouse Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Warehouse (Source)
+              Warehouse (Source)
             </label>
             <SearchableWarehouseSelector
               value={selectedWarehouse}
@@ -306,7 +319,7 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
           {/* Truck Selection (Destination) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Truck (Destination)
+              Truck (Destination)
             </label>
             <SearchableTruckSelector
               value={selectedTruck}

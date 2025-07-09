@@ -212,7 +212,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
         </nav>
 
         {/* User Avatar Section */}
-        <div className="p-2 border-t border-gray-800 mt-auto order-last">
+        <div className="p-2 mt-auto order-last">
           <div className={`
             flex items-center px-3 py-2.5 rounded-lg
             transition-all duration-200 relative group
@@ -247,7 +247,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
         {/* Pin/Unpin Button - show on desktop when expanded or on hover when collapsed */}
         {!isMobileOpen && (
           <div className={`
-            hidden lg:block p-2 border-t border-gray-800
+            hidden lg:block p-2
             ${!isExpanded ? 'opacity-0 group-hover:opacity-100 transition-opacity duration-300' : ''}
           `}>
             <button
