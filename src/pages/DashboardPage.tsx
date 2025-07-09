@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { BarChart3, Users, Package, ShoppingCart, TrendingUp, Warehouse, AlertTriangle, Activity } from 'lucide-react';
+import { BarChart3, Users, Package, ShoppingCart, TrendingUp, Warehouse, AlertTriangle } from 'lucide-react';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 import { useCreateCustomer } from '../hooks/useCustomers';
 import { CustomerForm } from '../components/customers/CustomerForm';
@@ -64,110 +64,100 @@ export const DashboardPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Welcome {adminUser?.name}!</p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600 mt-2">Welcome {adminUser?.name}!</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            <BarChart3 className="h-8 w-8 text-blue-600" />
+          </div>
         </div>
-        <div className="flex items-center space-x-3">
-          <BarChart3 className="h-8 w-8 text-blue-600" />
-        </div>
-      </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {dashboardStats.map((stat) => (
-          <div
-            key={stat.name}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-          >
-            <div className="flex items-center justify-between">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {dashboardStats.map((stat) => (
+            <div
+              key={stat.name}
+              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">{stat.name}</p>
+                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-full">
+                  <stat.icon className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-center">
+                <span className="text-sm text-gray-500">{stat.change}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Low Stock Alert */}
+        {!statsLoading && stats && stats.lowStockProducts > 0 && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+            <div className="flex items-center space-x-3">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
               <div>
-                <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                <h3 className="text-base font-medium text-red-800">Low Stock Alert</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  {stats.lowStockProducts} product{stats.lowStockProducts > 1 ? 's have' : ' has'} low stock levels (≤10 available)
+                </p>
               </div>
-              <div className="p-3 bg-blue-50 rounded-full">
-                <stat.icon className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center">
-              <span className="text-sm text-gray-500">{stat.change}</span>
             </div>
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* Low Stock Alert */}
-      {!statsLoading && stats && stats.lowStockProducts > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
-            <div>
-              <h3 className="text-sm font-medium text-red-800">Low Stock Alert</h3>
-              <p className="text-sm text-red-700">
-                {stats.lowStockProducts} product{stats.lowStockProducts > 1 ? 's have' : ' has'} low stock levels (≤10 available)
-              </p>
-            </div>
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <button 
+              onClick={() => navigate('/orders/new')}
+              className="p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors text-left group"
+            >
+              <ShoppingCart className="h-10 w-10 text-blue-600 mb-3 group-hover:scale-110 transition-transform" />
+              <h3 className="font-semibold text-gray-900 mb-2">New Order</h3>
+              <p className="text-sm text-gray-600">Create a new customer order</p>
+            </button>
+            
+            <button 
+              onClick={handleAddCustomer}
+              className="p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors text-left group"
+            >
+              <Users className="h-10 w-10 text-blue-600 mb-3 group-hover:scale-110 transition-transform" />
+              <h3 className="font-semibold text-gray-900 mb-2">Add Customer</h3>
+              <p className="text-sm text-gray-600">Register a new customer</p>
+            </button>
+            
+            <button 
+              onClick={() => window.location.href = '/inventory'}
+              className="p-6 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors text-left group"
+            >
+              <Package className="h-10 w-10 text-blue-600 mb-3 group-hover:scale-110 transition-transform" />
+              <h3 className="font-semibold text-gray-900 mb-2">Manage Inventory</h3>
+              <p className="text-sm text-gray-600">Update product stock levels</p>
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button 
-            onClick={() => navigate('/orders/new')}
-            className="p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-          >
-            <ShoppingCart className="h-8 w-8 text-blue-600 mb-2" />
-            <h3 className="font-medium text-gray-900">New Order</h3>
-            <p className="text-sm text-gray-600">Create a new customer order</p>
-          </button>
-          
-          <button 
-            onClick={handleAddCustomer}
-            className="p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-          >
-            <Users className="h-8 w-8 text-blue-600 mb-2" />
-            <h3 className="font-medium text-gray-900">Add Customer</h3>
-            <p className="text-sm text-gray-600">Register a new customer</p>
-          </button>
-          
-          <button 
-            onClick={() => window.location.href = '/inventory'}
-            className="p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
-          >
-            <Package className="h-8 w-8 text-blue-600 mb-2" />
-            <h3 className="font-medium text-gray-900">Manage Inventory</h3>
-            <p className="text-sm text-gray-600">Update product stock levels</p>
-          </button>
-        </div>
+
+        {/* Customer Form Modal */}
+        <CustomerForm
+          isOpen={isCustomerFormOpen}
+          onClose={() => setIsCustomerFormOpen(false)}
+          onSubmit={handleCustomerFormSubmit}
+          customer={undefined}
+          loading={createCustomer.isPending}
+          title="Add New Customer"
+        />
       </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-          <Activity className="h-5 w-5 text-gray-400" />
-        </div>
-        
-        <div className="text-center py-8">
-          <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">Recent activity tracking coming soon</p>
-        </div>
-      </div>
-
-      {/* Customer Form Modal */}
-      <CustomerForm
-        isOpen={isCustomerFormOpen}
-        onClose={() => setIsCustomerFormOpen(false)}
-        onSubmit={handleCustomerFormSubmit}
-        customer={undefined}
-        loading={createCustomer.isPending}
-        title="Add New Customer"
-      />
     </div>
   );
 };
