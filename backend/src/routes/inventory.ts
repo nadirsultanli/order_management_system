@@ -401,218 +401,272 @@ export const inventoryRouter = router({
 
   // POST /inventory/transfer - Transfer stock between warehouses
   transferStock: protectedProcedure
-    .input(StockTransferSchema)
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Transferring stock:', input);
+  .input(StockTransferSchema)
+  .mutation(async ({ input, ctx }) => {
+    const user = requireAuth(ctx);
+    
+    ctx.logger.info('Transferring stock:', input);
 
-      // Validate source and destination are different
-      if (input.from_warehouse_id === input.to_warehouse_id) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Source and destination warehouses must be different'
-        });
-      }
-
-      // Validate both warehouses exist
-      const { data: warehouses, error: warehouseError } = await ctx.supabase
-        .from('warehouses')
-        .select('id')
-        .in('id', [input.from_warehouse_id, input.to_warehouse_id]);
-
-      if (warehouseError || warehouses.length !== 2) {
-        ctx.logger.error('Warehouse validation error for stock transfer:', {
-          error: formatErrorMessage(warehouseError),
-          code: warehouseError?.code,
-          details: warehouseError?.details,
-          hint: warehouseError?.hint,
-          user_id: user.id,
-          from_warehouse_id: input.from_warehouse_id,
-          to_warehouse_id: input.to_warehouse_id,
-          found_warehouses: warehouses?.length || 0
-        });
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'One or both warehouses not found'
-        });
-      }
-
-      // Get source inventory
-      const { data: sourceInventory, error: sourceError } = await ctx.supabase
-        .from('inventory_balance')
-        .select('*')
-        .eq('warehouse_id', input.from_warehouse_id)
-        .eq('product_id', input.product_id)
-        .single();
-
-      if (sourceError) {
-        ctx.logger.error('Source inventory not found for transfer:', {
-          error: formatErrorMessage(sourceError),
-          code: sourceError?.code,
-          details: sourceError?.details,
-          hint: sourceError?.hint,
-          user_id: user.id,
-          from_warehouse_id: input.from_warehouse_id,
-          product_id: input.product_id
-        });
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Source inventory not found'
-        });
-      }
-
-      // Validate transfer quantities
-      if (input.qty_full > sourceInventory.qty_full) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Cannot transfer more full cylinders than available (${sourceInventory.qty_full})`
-        });
-      }
-      if (input.qty_empty > sourceInventory.qty_empty) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Cannot transfer more empty cylinders than available (${sourceInventory.qty_empty})`
-        });
-      }
-
-      // Check if transfer would leave less than reserved stock
-      const remainingFull = sourceInventory.qty_full - input.qty_full;
-      if (remainingFull < sourceInventory.qty_reserved) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Transfer would leave insufficient stock to cover reservations (${sourceInventory.qty_reserved} reserved)`
-        });
-      }
-
-      // Get or create destination inventory
-      let { data: destInventory, error: destError } = await ctx.supabase
-        .from('inventory_balance')
-        .select('*')
-        .eq('warehouse_id', input.to_warehouse_id)
-        .eq('product_id', input.product_id)
-        .single();
-
-      if (destError && destError.code === 'PGRST116') {
-        // Create new inventory record for destination
-        const { data: newDestInventory, error: createError } = await ctx.supabase
-          .from('inventory_balance')
-          .insert([{
-            warehouse_id: input.to_warehouse_id,
-            product_id: input.product_id,
-            qty_full: 0,
-            qty_empty: 0,
-            qty_reserved: 0,
-            updated_at: new Date().toISOString(),
-          }])
-          .select()
-          .single();
-
-        if (createError) {
-          ctx.logger.error('Destination inventory creation error:', {
-            error: formatErrorMessage(createError),
-            code: createError?.code,
-            details: createError?.details,
-            hint: createError?.hint,
-            user_id: user.id,
-            to_warehouse_id: input.to_warehouse_id,
-            product_id: input.product_id
-          });
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to create destination inventory: ${formatErrorMessage(createError)}`
-          });
-        }
-
-        destInventory = newDestInventory;
-      } else if (destError) {
-        ctx.logger.error('Destination inventory error:', {
-          error: formatErrorMessage(destError),
-          code: destError?.code,
-          details: destError?.details,
-          hint: destError?.hint,
-          user_id: user.id,
-          to_warehouse_id: input.to_warehouse_id,
-          product_id: input.product_id
-        });
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to access destination inventory: ${formatErrorMessage(destError)}`
-        });
-      }
-
-      // Execute transfer using atomic RPC function
-      const { data: transferResult, error: transferError } = await ctx.supabase.rpc('transfer_stock', {
-        p_from_warehouse_id: input.from_warehouse_id,
-        p_to_warehouse_id: input.to_warehouse_id,
-        p_product_id: input.product_id,
-        p_qty_full: input.qty_full,
-        p_qty_empty: input.qty_empty,
+    // Validate source and destination are different
+    if (input.from_warehouse_id === input.to_warehouse_id) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Source and destination warehouses must be different'
       });
+    }
 
-      if (transferError) {
-        ctx.logger.error('Atomic transfer failed:', {
-          error: formatErrorMessage(transferError),
-          code: transferError?.code,
-          details: transferError?.details,
-          hint: transferError?.hint,
+    // Validate both warehouses exist
+    const { data: warehouses, error: warehouseError } = await ctx.supabase
+      .from('warehouses')
+      .select('id')
+      .in('id', [input.from_warehouse_id, input.to_warehouse_id]);
+
+    if (warehouseError || warehouses.length !== 2) {
+      ctx.logger.error('Warehouse validation error for stock transfer:', {
+        error: formatErrorMessage(warehouseError),
+        code: warehouseError?.code,
+        details: warehouseError?.details,
+        hint: warehouseError?.hint,
+        user_id: user.id,
+        from_warehouse_id: input.from_warehouse_id,
+        to_warehouse_id: input.to_warehouse_id,
+        found_warehouses: warehouses?.length || 0
+      });
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'One or both warehouses not found'
+      });
+    }
+
+    // Get source inventory
+    const { data: sourceInventory, error: sourceError } = await ctx.supabase
+      .from('inventory_balance')
+      .select('*')
+      .eq('warehouse_id', input.from_warehouse_id)
+      .eq('product_id', input.product_id)
+      .single();
+
+    if (sourceError) {
+      ctx.logger.error('Source inventory not found for transfer:', {
+        error: formatErrorMessage(sourceError),
+        code: sourceError?.code,
+        details: sourceError?.details,
+        hint: sourceError?.hint,
+        user_id: user.id,
+        from_warehouse_id: input.from_warehouse_id,
+        product_id: input.product_id
+      });
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Source inventory not found'
+      });
+    }
+
+    // Validate transfer quantities
+    if (input.qty_full > sourceInventory.qty_full) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Cannot transfer more full cylinders than available (${sourceInventory.qty_full})`
+      });
+    }
+    if (input.qty_empty > sourceInventory.qty_empty) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Cannot transfer more empty cylinders than available (${sourceInventory.qty_empty})`
+      });
+    }
+
+    // Check if transfer would leave less than reserved stock
+    const remainingFull = sourceInventory.qty_full - input.qty_full;
+    if (remainingFull < sourceInventory.qty_reserved) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Transfer would leave insufficient stock to cover reservations (${sourceInventory.qty_reserved} reserved)`
+      });
+    }
+
+    // Get or create destination inventory
+    let { data: destInventory, error: destError } = await ctx.supabase
+      .from('inventory_balance')
+      .select('*')
+      .eq('warehouse_id', input.to_warehouse_id)
+      .eq('product_id', input.product_id)
+      .single();
+
+    if (destError && destError.code === 'PGRST116') {
+      // Create new inventory record for destination
+      const { data: newDestInventory, error: createError } = await ctx.supabase
+        .from('inventory_balance')
+        .insert([{
+          warehouse_id: input.to_warehouse_id,
+          product_id: input.product_id,
+          qty_full: 0,
+          qty_empty: 0,
+          qty_reserved: 0,
+          updated_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (createError) {
+        ctx.logger.error('Destination inventory creation error:', {
+          error: formatErrorMessage(createError),
+          code: createError?.code,
+          details: createError?.details,
+          hint: createError?.hint,
           user_id: user.id,
-          transfer_params: {
-            from_warehouse_id: input.from_warehouse_id,
-            to_warehouse_id: input.to_warehouse_id,
-            product_id: input.product_id,
-            qty_full: input.qty_full,
-            qty_empty: input.qty_empty
-          }
+          to_warehouse_id: input.to_warehouse_id,
+          product_id: input.product_id
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Transfer failed: ${formatErrorMessage(transferError)}`
+          message: `Failed to create destination inventory: ${formatErrorMessage(createError)}`
         });
       }
 
-      ctx.logger.info('Atomic transfer completed successfully:', transferResult);
+      destInventory = newDestInventory;
+    } else if (destError) {
+      ctx.logger.error('Destination inventory error:', {
+        error: formatErrorMessage(destError),
+        code: destError?.code,
+        details: destError?.details,
+        hint: destError?.hint,
+        user_id: user.id,
+        to_warehouse_id: input.to_warehouse_id,
+        product_id: input.product_id
+      });
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Failed to access destination inventory: ${formatErrorMessage(destError)}`
+      });
+    }
 
-      // Get updated inventory records for response
-      const { data: updatedSourceInventory } = await ctx.supabase
+    // REPLACED: Execute transfer using direct database updates instead of RPC
+    let transferResult;
+    try {
+      ctx.logger.info('Starting direct transfer without RPC function');
+      
+      // Step 1: Update source inventory (subtract quantities)
+      const { error: sourceUpdateError } = await ctx.supabase
         .from('inventory_balance')
-        .select(`
-          *,
-          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
-          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
-        `)
-        .eq('id', sourceInventory.id)
-        .single();
+        .update({
+          qty_full: sourceInventory.qty_full - input.qty_full,
+          qty_empty: sourceInventory.qty_empty - input.qty_empty,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('warehouse_id', input.from_warehouse_id)
+        .eq('product_id', input.product_id);
 
-      const { data: updatedDestInventory } = await ctx.supabase
+      if (sourceUpdateError) {
+        ctx.logger.error('Failed to update source inventory:', sourceUpdateError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update source inventory: ${sourceUpdateError.message}`
+        });
+      }
+
+      ctx.logger.info('Source inventory updated successfully');
+
+      // Step 2: Update destination inventory (add quantities)
+      const { error: destUpdateError } = await ctx.supabase
         .from('inventory_balance')
-        .select(`
-          *,
-          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
-          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
-        `)
-        .eq('id', destInventory.id)
-        .single();
+        .update({
+          qty_full: destInventory.qty_full + input.qty_full,
+          qty_empty: destInventory.qty_empty + input.qty_empty,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('warehouse_id', input.to_warehouse_id)
+        .eq('product_id', input.product_id);
 
-      const response = {
+      if (destUpdateError) {
+        ctx.logger.error('Failed to update destination inventory:', destUpdateError);
+        
+        // Rollback source inventory on destination failure
+        await ctx.supabase
+          .from('inventory_balance')
+          .update({
+            qty_full: sourceInventory.qty_full, // Restore original
+            qty_empty: sourceInventory.qty_empty, // Restore original
+            updated_at: new Date().toISOString(),
+          })
+          .eq('warehouse_id', input.from_warehouse_id)
+          .eq('product_id', input.product_id);
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update destination inventory: ${destUpdateError.message}`
+        });
+      }
+
+      ctx.logger.info('Destination inventory updated successfully');
+
+      // Create transfer result object (replaces RPC result)
+      transferResult = {
         success: true,
-        transfer_result: transferResult,
-        transfer: {
-          from_warehouse_id: input.from_warehouse_id,
-          to_warehouse_id: input.to_warehouse_id,
-          product_id: input.product_id,
-          qty_full: input.qty_full,
-          qty_empty: input.qty_empty,
-          notes: input.notes,
-          timestamp: new Date().toISOString(),
-        },
-        source_inventory: updatedSourceInventory,
-        destination_inventory: updatedDestInventory,
+        message: 'Direct transfer completed successfully',
+        transferred_full: input.qty_full,
+        transferred_empty: input.qty_empty,
+        from_warehouse_id: input.from_warehouse_id,
+        to_warehouse_id: input.to_warehouse_id,
+        product_id: input.product_id,
+        timestamp: new Date().toISOString()
       };
 
-      ctx.logger.info('Stock transferred successfully:', response);
-      return response;
-    }),
+      ctx.logger.info('Direct transfer completed successfully:', transferResult);
+
+    } catch (error) {
+      ctx.logger.error('Direct transfer failed:', error);
+      
+      if (error instanceof TRPCError) {
+        throw error; // Re-throw TRPC errors as-is
+      }
+      
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    }
+
+    // Get updated inventory records for response
+    const { data: updatedSourceInventory } = await ctx.supabase
+      .from('inventory_balance')
+      .select(`
+        *,
+        warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
+        product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
+      `)
+      .eq('id', sourceInventory.id)
+      .single();
+
+    const { data: updatedDestInventory } = await ctx.supabase
+      .from('inventory_balance')
+      .select(`
+        *,
+        warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
+        product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
+      `)
+      .eq('id', destInventory.id)
+      .single();
+
+    const response = {
+      success: true,
+      transfer_result: transferResult,
+      transfer: {
+        from_warehouse_id: input.from_warehouse_id,
+        to_warehouse_id: input.to_warehouse_id,
+        product_id: input.product_id,
+        qty_full: input.qty_full,
+        qty_empty: input.qty_empty,
+        notes: input.notes,
+        timestamp: new Date().toISOString(),
+      },
+      source_inventory: updatedSourceInventory,
+      destination_inventory: updatedDestInventory,
+    };
+
+    ctx.logger.info('Stock transferred successfully:', response);
+    return response;
+  }),
 
   // POST /inventory/create - Create new inventory balance record
   create: protectedProcedure
