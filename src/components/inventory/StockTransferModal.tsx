@@ -308,7 +308,7 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
               <button
                 type="submit"
                 disabled={loading || !isTransferValid()}
-                className={`inline-flex w-full justify-center rounded-md px-6 py-2 text-sm font-semibold leading-none shadow-sm sm:w-auto transition-colors focus:outline-none focus:ring-2 ${
+                className={`inline-flex items-center w-full justify-center rounded-md px-6 py-2 text-sm font-semibold shadow-sm sm:w-auto transition-colors focus:outline-none focus:ring-2 ${
                   loading || !isTransferValid()
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                     : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
