@@ -322,15 +322,27 @@ export const openApiDocument = {
     '/api/v1/trpc/orders.list': {
       get: {
         summary: 'List orders',
-        description: 'Get a paginated list of orders with advanced filtering (Query)',
+        description: 'Get paginated list of orders with advanced filtering (Query)',
         tags: ['orders'],
-        security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] } },
+          { name: 'status', in: 'query', schema: { type: 'string' } },
           { name: 'customer_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
-          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+          { name: 'order_date_from', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'order_date_to', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'scheduled_date_from', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'scheduled_date_to', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'amount_min', in: 'query', schema: { type: 'number' } },
+          { name: 'amount_max', in: 'query', schema: { type: 'number' } },
+          { name: 'delivery_area', in: 'query', schema: { type: 'string' } },
+          { name: 'is_overdue', in: 'query', schema: { type: 'boolean' } },
+          { name: 'delivery_method', in: 'query', schema: { type: 'string', enum: ['pickup', 'delivery'] } },
+          { name: 'priority', in: 'query', schema: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] } },
+          { name: 'payment_status', in: 'query', schema: { type: 'string', enum: ['pending', 'paid', 'overdue'] } },
+          { name: 'sort_by', in: 'query', schema: { type: 'string' } },
+          { name: 'sort_order', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } }
         ],
         responses: {
           '200': {
@@ -348,45 +360,34 @@ export const openApiDocument = {
                           properties: {
                             orders: {
                               type: 'array',
-                              items: {
-                                type: 'object',
-                                properties: {
-                                  id: { type: 'string' },
-                                  order_number: { type: 'string' },
-                                  customer_id: { type: 'string' },
-                                  status: { type: 'string' },
-                                  total_amount: { type: 'number' },
-                                  created_at: { type: 'string', format: 'date-time' },
-                                },
-                              },
+                              items: { type: 'object' }
                             },
                             totalCount: { type: 'integer' },
                             totalPages: { type: 'integer' },
-                            currentPage: { type: 'integer' },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+                            currentPage: { type: 'integer' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     },
     '/api/v1/trpc/orders.getById': {
       get: {
         summary: 'Get order by ID',
-        description: 'Get a single order with all related data (Query)',
+        description: 'Get detailed information about a specific order (Query)',
         tags: ['orders'],
-        security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'order_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'order_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } }
         ],
         responses: {
           '200': {
-            description: 'Order retrieved successfully',
+            description: 'Order details retrieved successfully',
             content: {
               'application/json': {
                 schema: {
@@ -395,71 +396,30 @@ export const openApiDocument = {
                     result: {
                       type: 'object',
                       properties: {
-                        data: {
-                          type: 'object',
-                          properties: {
-                            id: { type: 'string' },
-                            order_number: { type: 'string' },
-                            status: { type: 'string' },
-                            total_amount: { type: 'number' },
-                            customer: {
-                              type: 'object',
-                              properties: {
-                                id: { type: 'string' },
-                                name: { type: 'string' },
-                                email: { type: 'string' },
-                              },
-                            },
-                            order_lines: {
-                              type: 'array',
-                              items: {
-                                type: 'object',
-                                properties: {
-                                  id: { type: 'string' },
-                                  product_id: { type: 'string' },
-                                  quantity: { type: 'number' },
-                                  unit_price: { type: 'number' },
-                                  subtotal: { type: 'number' },
-                                },
-                              },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
+                        data: { type: 'object' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           '404': {
             description: 'Order not found',
             content: {
               'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    error: {
-                      type: 'object',
-                      properties: {
-                        code: { type: 'string', example: 'NOT_FOUND' },
-                        message: { type: 'string', example: 'Order not found' },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+                schema: { $ref: '#/components/schemas/Error' }
+              }
+            }
+          }
+        }
+      }
     },
     '/api/v1/trpc/orders.create': {
       post: {
         summary: 'Create order',
-        description: 'Create a new order with line items (Mutation)',
+        description: 'Create a new order (Mutation)',
         tags: ['orders'],
-        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -468,7 +428,6 @@ export const openApiDocument = {
                 type: 'object',
                 properties: {
                   customer_id: { type: 'string', format: 'uuid' },
-                  delivery_method: { type: 'string', enum: ['pickup', 'delivery'] },
                   order_lines: {
                     type: 'array',
                     items: {
@@ -476,17 +435,19 @@ export const openApiDocument = {
                       properties: {
                         product_id: { type: 'string', format: 'uuid' },
                         quantity: { type: 'number' },
-                        unit_price: { type: 'number' },
+                        unit_price: { type: 'number' }
                       },
-                      required: ['product_id', 'quantity'],
-                    },
+                      required: ['product_id', 'quantity']
+                    }
                   },
-                  notes: { type: 'string' },
+                  scheduled_date: { type: 'string', format: 'date' },
+                  delivery_address_id: { type: 'string', format: 'uuid' },
+                  notes: { type: 'string' }
                 },
-                required: ['customer_id', 'order_lines'],
-              },
-            },
-          },
+                required: ['customer_id', 'order_lines', 'scheduled_date', 'delivery_address_id']
+              }
+            }
+          }
         },
         responses: {
           '200': {
@@ -499,26 +460,121 @@ export const openApiDocument = {
                     result: {
                       type: 'object',
                       properties: {
-                        data: {
-                          type: 'object',
-                          properties: {
-                            id: { type: 'string' },
-                            order_number: { type: 'string' },
-                            customer_id: { type: 'string' },
-                            status: { type: 'string' },
-                            total_amount: { type: 'number' },
-                            created_at: { type: 'string', format: 'date-time' },
-                          },
-                        },
+                        data: { type: 'object' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    '/api/v1/trpc/orders.update': {
+      put: {
+        summary: 'Update order',
+        description: 'Update an existing order (Mutation)',
+        tags: ['orders'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  order_id: { type: 'string', format: 'uuid' },
+                  order_lines: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        product_id: { type: 'string', format: 'uuid' },
+                        quantity: { type: 'number' },
+                        unit_price: { type: 'number' }
                       },
-                    },
+                      required: ['product_id', 'quantity']
+                    }
                   },
+                  scheduled_date: { type: 'string', format: 'date' },
+                  delivery_address_id: { type: 'string', format: 'uuid' },
+                  notes: { type: 'string' }
                 },
-              },
-            },
-          },
+                required: ['order_id', 'order_lines', 'scheduled_date', 'delivery_address_id']
+              }
+            }
+          }
         },
-      },
+        responses: {
+          '200': {
+            description: 'Order updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    '/api/v1/trpc/orders.delete': {
+      delete: {
+        summary: 'Delete order',
+        description: 'Delete an order by ID (Mutation)',
+        tags: ['orders'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  order_id: { type: 'string', format: 'uuid' }
+                },
+                required: ['order_id']
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Order deleted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '404': {
+            description: 'Order not found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
+              }
+            }
+          }
+        }
+      }
     },
 
     // Customers endpoints
@@ -672,6 +728,150 @@ export const openApiDocument = {
                             account_status: { type: 'string' },
                           },
                         },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/trpc/customers.update': {
+      put: {
+        summary: 'Update customer',
+        description: 'Update an existing customer and optionally their primary address (Mutation)',
+        tags: ['customers'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid', example: 'customer-uuid' },
+                  external_id: { type: 'string', example: 'EXT123' },
+                  name: { type: 'string', example: 'Acme Corp' },
+                  tax_id: { type: 'string', example: '123456789' },
+                  phone: { type: 'string', example: '+1234567890' },
+                  email: { type: 'string', format: 'email', example: 'info@acme.com' },
+                  account_status: { type: 'string', enum: ['active', 'credit_hold', 'closed'] },
+                  credit_terms_days: { type: 'integer', example: 30 },
+                  address: {
+                    type: 'object',
+                    properties: {
+                      label: { type: 'string', example: 'HQ' },
+                      line1: { type: 'string', example: '123 Main St' },
+                      line2: { type: 'string', example: 'Suite 100' },
+                      city: { type: 'string', example: 'Metropolis' },
+                      state: { type: 'string', example: 'CA' },
+                      postal_code: { type: 'string', example: '90001' },
+                      country: { type: 'string', example: 'US' },
+                      latitude: { type: 'number', example: 34.0522 },
+                      longitude: { type: 'number', example: -118.2437 },
+                      delivery_window_start: { type: 'string', example: '08:00' },
+                      delivery_window_end: { type: 'string', example: '17:00' },
+                      instructions: { type: 'string', example: 'Leave at front desk' },
+                    },
+                  },
+                },
+                required: ['id'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Customer updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Customer not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'NOT_FOUND' },
+                        message: { type: 'string', example: 'Customer not found' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/v1/trpc/customers.delete': {
+      delete: {
+        summary: 'Delete customer',
+        description: 'Delete a customer by ID (Mutation)',
+        tags: ['customers'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { type: 'string', format: 'uuid', example: 'customer-uuid' },
+                },
+                required: ['customer_id'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Customer deleted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          '404': {
+            description: 'Customer not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'NOT_FOUND' },
+                        message: { type: 'string', example: 'Customer not found' },
                       },
                     },
                   },
@@ -1725,6 +1925,563 @@ export const openApiDocument = {
           },
         },
       },
+    },
+    // Add these missing delivery endpoints to your OpenAPI specification:
+    '/api/v1/trpc/deliveries.process': {
+      post: {
+        summary: 'Process delivery or pickup',
+        description: 'Unified endpoint to process delivery or pickup operations (Mutation)',
+        tags: ['deliveries'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  type: { 
+                    type: 'string', 
+                    enum: ['delivery', 'pickup'],
+                    description: 'Type of operation to process'
+                  },
+                  data: {
+                    oneOf: [
+                      {
+                        // Delivery data schema
+                        type: 'object',
+                        properties: {
+                          order_id: { type: 'string', format: 'uuid' },
+                          customer_id: { type: 'string', format: 'uuid' },
+                          delivery_address_id: { type: 'string', format: 'uuid' },
+                          truck_id: { type: 'string', format: 'uuid' },
+                          delivery_items: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                product_id: { type: 'string', format: 'uuid' },
+                                quantity_delivered: { type: 'integer', minimum: 0 },
+                                quantity_returned: { type: 'integer', minimum: 0 },
+                                unit_price: { type: 'number' }
+                              },
+                              required: ['product_id', 'quantity_delivered']
+                            }
+                          },
+                          driver_name: { type: 'string' },
+                          driver_notes: { type: 'string' },
+                          delivery_latitude: { type: 'number' },
+                          delivery_longitude: { type: 'number' }
+                        },
+                        required: ['customer_id', 'truck_id', 'delivery_items']
+                      },
+                      {
+                        // Pickup data schema
+                        type: 'object',
+                        properties: {
+                          customer_id: { type: 'string', format: 'uuid' },
+                          pickup_address_id: { type: 'string', format: 'uuid' },
+                          truck_id: { type: 'string', format: 'uuid' },
+                          pickup_items: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                product_id: { type: 'string', format: 'uuid' },
+                                quantity_picked_up: { type: 'integer', minimum: 0 },
+                                condition: { type: 'string', enum: ['good', 'damaged', 'needs_repair'] }
+                              },
+                              required: ['product_id', 'quantity_picked_up']
+                            }
+                          },
+                          driver_name: { type: 'string' },
+                          driver_notes: { type: 'string' },
+                          pickup_latitude: { type: 'number' },
+                          pickup_longitude: { type: 'number' }
+                        },
+                        required: ['customer_id', 'truck_id', 'pickup_items']
+                      }
+                    ]
+                  }
+                },
+                required: ['type', 'data']
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Operation processed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            success: { type: 'boolean' },
+                            delivery_id: { type: 'string', format: 'uuid' },
+                            pickup_id: { type: 'string', format: 'uuid' },
+                            delivery_number: { type: 'string' },
+                            pickup_number: { type: 'string' },
+                            message: { type: 'string' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    '/api/v1/trpc/deliveries.complete': {
+      post: {
+        summary: 'Complete delivery or pickup',
+        description: 'Mark delivery or pickup as completed with proof (Mutation)',
+        tags: ['deliveries'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  type: { 
+                    type: 'string', 
+                    enum: ['delivery', 'pickup'],
+                    description: 'Type of operation to complete'
+                  },
+                  data: {
+                    oneOf: [
+                      {
+                        type: 'object',
+                        properties: {
+                          delivery_id: { type: 'string', format: 'uuid' },
+                          customer_signature: { type: 'string' },
+                          photo_proof: { type: 'string' },
+                          delivery_latitude: { type: 'number' },
+                          delivery_longitude: { type: 'number' }
+                        },
+                        required: ['delivery_id']
+                      },
+                      {
+                        type: 'object',
+                        properties: {
+                          pickup_id: { type: 'string', format: 'uuid' },
+                          customer_signature: { type: 'string' },
+                          photo_proof: { type: 'string' },
+                          pickup_latitude: { type: 'number' },
+                          pickup_longitude: { type: 'number' }
+                        },
+                        required: ['pickup_id']
+                      }
+                    ]
+                  }
+                },
+                required: ['type', 'data']
+              }
+            }
+          }
+        },
+        responses: {
+          '200': {
+            description: 'Operation completed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            success: { type: 'boolean' },
+                            message: { type: 'string' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    '/api/v1/trpc/deliveries.listPickups': {
+      get: {
+        summary: 'List pickups',
+        description: 'Get paginated list of pickups with filtering (Query)',
+        tags: ['deliveries'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'customer_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+          { name: 'truck_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending', 'in_transit', 'completed', 'failed', 'cancelled'] } },
+          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }
+        ],
+        responses: {
+          '200': {
+            description: 'Pickups retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            pickups: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  pickup_number: { type: 'string' },
+                                  customer_id: { type: 'string', format: 'uuid' },
+                                  truck_id: { type: 'string', format: 'uuid' },
+                                  status: { type: 'string' },
+                                  pickup_date: { type: 'string', format: 'date-time' },
+                                  created_at: { type: 'string', format: 'date-time' }
+                                }
+                              }
+                            },
+                            total: { type: 'integer' },
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            totalPages: { type: 'integer' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    '/api/v1/trpc/deliveries.getCustomerBalance': {
+      get: {
+        summary: 'Get customer cylinder balance',
+        description: 'Get customer cylinder balance for tracking inventory (Query)',
+        tags: ['deliveries'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } }
+        ],
+        responses: {
+          '200': {
+            description: 'Customer balance retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              product_id: { type: 'string', format: 'uuid' },
+                              product_name: { type: 'string' },
+                              full_cylinders: { type: 'integer' },
+                              empty_cylinders: { type: 'integer' },
+                              total_cylinders: { type: 'integer' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    '/api/v1/trpc/deliveries.getDelivery': {
+      get: {
+        summary: 'Get delivery details',
+        description: 'Get detailed information about a specific delivery (Query)',
+        tags: ['deliveries'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'delivery_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } }
+        ],
+        responses: {
+          '200': {
+            description: 'Delivery details retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            delivery_number: { type: 'string' },
+                            customer: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                phone: { type: 'string' },
+                                email: { type: 'string' }
+                              }
+                            },
+                            delivery_address: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                line1: { type: 'string' },
+                                line2: { type: 'string' },
+                                city: { type: 'string' },
+                                state: { type: 'string' },
+                                postal_code: { type: 'string' }
+                              }
+                            },
+                            truck: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                fleet_number: { type: 'string' },
+                                driver_name: { type: 'string' }
+                              }
+                            },
+                            items: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string' },
+                                  product_id: { type: 'string' },
+                                  quantity_delivered: { type: 'integer' },
+                                  unit_price: { type: 'number' },
+                                  product: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string' },
+                                      name: { type: 'string' },
+                                      sku: { type: 'string' }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            status: { type: 'string' },
+                            created_at: { type: 'string', format: 'date-time' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '404': {
+            description: 'Delivery not found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    '/api/v1/trpc/deliveries.getPickup': {
+      get: {
+        summary: 'Get pickup details',
+        description: 'Get detailed information about a specific pickup (Query)',
+        tags: ['deliveries'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'pickup_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } }
+        ],
+        responses: {
+          '200': {
+            description: 'Pickup details retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            pickup_number: { type: 'string' },
+                            customer: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                phone: { type: 'string' },
+                                email: { type: 'string' }
+                              }
+                            },
+                            pickup_address: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                line1: { type: 'string' },
+                                line2: { type: 'string' },
+                                city: { type: 'string' },
+                                state: { type: 'string' },
+                                postal_code: { type: 'string' }
+                              }
+                            },
+                            truck: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                fleet_number: { type: 'string' },
+                                driver_name: { type: 'string' }
+                              }
+                            },
+                            items: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string' },
+                                  product_id: { type: 'string' },
+                                  quantity_picked_up: { type: 'integer' },
+                                  condition: { type: 'string' },
+                                  product: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string' },
+                                      name: { type: 'string' },
+                                      sku: { type: 'string' }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            status: { type: 'string' },
+                            created_at: { type: 'string', format: 'date-time' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '404': {
+            description: 'Pickup not found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    '/api/v1/trpc/deliveries.getCustomerTransactions': {
+      get: {
+        summary: 'Get customer transaction history',
+        description: 'Get paginated transaction history for a customer (Query)',
+        tags: ['deliveries'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }
+        ],
+        responses: {
+          '200': {
+            description: 'Customer transactions retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            transactions: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  transaction_type: { type: 'string' },
+                                  quantity: { type: 'integer' },
+                                  transaction_date: { type: 'string', format: 'date-time' },
+                                  product: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string' },
+                                      name: { type: 'string' },
+                                      sku: { type: 'string' }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            total: { type: 'integer' },
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            totalPages: { type: 'integer' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     },
 
     // Admin endpoints
