@@ -17,7 +17,7 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
   const handleStatusUpdate = async (status: string) => {
     try {
       await bulkUpdateStatus.mutateAsync({
-        productIds: selectedProducts,
+        product_ids: selectedProducts,
         status,
       });
       onClearSelection();
