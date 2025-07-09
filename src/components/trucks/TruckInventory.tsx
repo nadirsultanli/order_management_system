@@ -21,7 +21,9 @@ export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
   const { data: truck, isLoading: loading, error: truckError, refetch } = trpc.trucks.get.useQuery({ id: truckId });
   
   const error = truckError?.message || null;
-  const inventory = truck?.inventory || [];
+  const inventory = (truck?.inventory || []).filter(
+    (item: any) => (item.qty_full > 0 || item.qty_empty > 0)
+  );
 
   if (loading) {
     return (
@@ -82,7 +84,7 @@ export const TruckInventory: React.FC<TruckInventoryProps> = ({ truckId }) => {
           {inventory.map((item: any) => (
             <tr key={item.product_id}>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm font-medium text-gray-900">{item.product_name}</div>
+                <div className="text-sm font-medium text-gray-900">{item.product_name || 'Unknown Product'}</div>
                 {item.product_variant_name && (
                   <div className="text-xs text-gray-500">{item.product_variant_name}</div>
                 )}

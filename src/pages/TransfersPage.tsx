@@ -1,7 +1,6 @@
 import React, { useState, ErrorBoundary } from 'react';
 import { LoadTransferForm } from '../components/transfers/LoadTransferForm';
 import { ReturnTransferForm } from '../components/transfers/ReturnTransferForm';
-import { MultiSkuTransferForm } from '../components/transfers/MultiSkuTransferForm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { Card } from '../components/ui/Card';
 import { Truck, ArrowLeftRight, Package, AlertCircle } from 'lucide-react';
@@ -110,7 +109,7 @@ export const TransfersPage: React.FC = () => {
 
       <TransferErrorBoundary>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="load" className="flex items-center space-x-2">
               <Truck className="h-4 w-4" />
               <span>Load Truck</span>
@@ -118,10 +117,6 @@ export const TransfersPage: React.FC = () => {
             <TabsTrigger value="return" className="flex items-center space-x-2">
               <ArrowLeftRight className="h-4 w-4" />
               <span>Return to Warehouse</span>
-            </TabsTrigger>
-            <TabsTrigger value="multi-sku" className="flex items-center space-x-2">
-              <Package className="h-4 w-4" />
-              <span>Multi-SKU Transfer</span>
             </TabsTrigger>
           </TabsList>
 
@@ -145,14 +140,6 @@ export const TransfersPage: React.FC = () => {
                 </TransferErrorBoundary>
               </div>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="multi-sku">
-            <TransferErrorBoundary>
-              <MultiSkuTransferForm
-                onTransferCreated={handleTransferSuccess}
-              />
-            </TransferErrorBoundary>
           </TabsContent>
         </Tabs>
       </TransferErrorBoundary>

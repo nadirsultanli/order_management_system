@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
-import { Eye, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Eye, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar, ChevronUp, ChevronDown } from 'lucide-react';
 import { Order } from '../../types/order';
 import { formatCurrencySync } from '../../utils/pricing';
 import { formatDateSync } from '../../utils/order';
+
+type SortField = 'order_date' | 'scheduled_date' | 'total_amount';
+type SortDirection = 'asc' | 'desc';
 
 interface OrderTableProps {
   orders: Order[];
@@ -22,6 +25,71 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   onSelectionChange,
 }) => {
   const [selectAll, setSelectAll] = useState(false);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Handle column sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // If clicking the same field, toggle direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If clicking a different field, set new field and default to desc
+      setSortField(field);
+      setSortDirection('desc');
+    }
+  };
+
+  // Sort orders based on current sort state
+  const sortedOrders = useMemo(() => {
+    if (!sortField) return orders;
+
+    return [...orders].sort((a, b) => {
+      let aValue, bValue;
+
+      switch (sortField) {
+        case 'order_date':
+          aValue = new Date(a.order_date || 0).getTime();
+          bValue = new Date(b.order_date || 0).getTime();
+          break;
+        case 'scheduled_date':
+          aValue = new Date(a.scheduled_date || 0).getTime();
+          bValue = new Date(b.scheduled_date || 0).getTime();
+          break;
+        case 'total_amount':
+          aValue = a.total_amount || 0;
+          bValue = b.total_amount || 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (sortDirection === 'asc') {
+        return aValue - bValue;
+      } else {
+        return bValue - aValue;
+      }
+    });
+  }, [orders, sortField, sortDirection]);
+
+  // Render sort icon
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return (
+        <div className="flex flex-col ml-1">
+          <ChevronUp className="h-3 w-3 text-gray-300" />
+          <ChevronDown className="h-3 w-3 text-gray-300 -mt-1" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col ml-1">
+        <ChevronUp className={`h-3 w-3 ${sortDirection === 'asc' ? 'text-blue-600' : 'text-gray-300'}`} />
+        <ChevronDown className={`h-3 w-3 -mt-1 ${sortDirection === 'desc' ? 'text-blue-600' : 'text-gray-300'}`} />
+      </div>
+    );
+  };
 
 
   const getStatusColorSync = (status: string) => {
@@ -111,7 +179,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   const handleSelectAll = (checked: boolean) => {
     setSelectAll(checked);
     if (onSelectionChange) {
-      onSelectionChange(checked ? orders.map(o => o.id) : []);
+      onSelectionChange(checked ? sortedOrders.map(o => o.id) : []);
     }
   };
 
@@ -121,24 +189,12 @@ export const OrderTable: React.FC<OrderTableProps> = ({
         ? [...selectedOrders, orderId]
         : selectedOrders.filter(id => id !== orderId);
       onSelectionChange(newSelection);
-      setSelectAll(newSelection.length === orders.length);
+      setSelectAll(newSelection.length === sortedOrders.length);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center space-x-2">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-            <span className="text-gray-600">Loading orders...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!orders || orders.length === 0) {
+  // Show empty state only when not loading and no orders
+  if (!loading && (!orders || orders.length === 0)) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="text-center py-12">
@@ -155,7 +211,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative">
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-end">
         {selectedOrders.length > 0 && (
           <span className="text-sm text-blue-600">
@@ -188,13 +244,25 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                 Delivery Address
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Dates
+                <button
+                  onClick={() => handleSort('order_date')}
+                  className="flex items-center hover:text-gray-700 transition-colors"
+                >
+                  Dates
+                  {renderSortIcon('order_date')}
+                </button>
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
+                <button
+                  onClick={() => handleSort('total_amount')}
+                  className="flex items-center hover:text-gray-700 transition-colors ml-auto"
+                >
+                  Total
+                  {renderSortIcon('total_amount')}
+                </button>
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -202,7 +270,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {orders.map((order) => {
+            {sortedOrders.map((order) => {
               const quickActions = getQuickActions(order);
 
               return (
@@ -303,6 +371,16 @@ export const OrderTable: React.FC<OrderTableProps> = ({
           </tbody>
         </table>
       </div>
+      
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+          <div className="flex items-center space-x-2">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+            <span className="text-gray-600">Loading orders...</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

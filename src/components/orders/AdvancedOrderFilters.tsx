@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, Calendar, DollarSign, MapPin, RotateCcw, Save, Star } from 'lucide-react';
+import { Search, Filter, Calendar, RotateCcw, Save, Star } from 'lucide-react';
 import { OrderFilters, SavedFilter } from '../../types/order';
 
 interface AdvancedOrderFiltersProps {
@@ -45,21 +45,7 @@ export const AdvancedOrderFilters: React.FC<AdvancedOrderFiltersProps> = ({
     });
   };
 
-  const handleAmountChange = (field: 'amount_min' | 'amount_max', value: string) => {
-    onFiltersChange({
-      ...filters,
-      [field]: value ? parseFloat(value) : undefined,
-      page: 1,
-    });
-  };
 
-  const handleDeliveryAreaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFiltersChange({
-      ...filters,
-      delivery_area: e.target.value || undefined,
-      page: 1,
-    });
-  };
 
   const handleReset = () => {
     onFiltersChange({ page: 1 });
@@ -216,60 +202,7 @@ export const AdvancedOrderFilters: React.FC<AdvancedOrderFiltersProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Amount Filters */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Min Amount
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={filters.amount_min || ''}
-                  onChange={(e) => handleAmountChange('amount_min', e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Amount
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={filters.amount_max || ''}
-                  onChange={(e) => handleAmountChange('amount_max', e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Delivery Area
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={filters.delivery_area || ''}
-                  onChange={handleDeliveryAreaChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="City or region"
-                />
-              </div>
-            </div>
-          </div>
 
           {/* Save Filter */}
           {onSaveFilter && (
