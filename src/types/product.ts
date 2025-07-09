@@ -52,7 +52,6 @@ export interface UpdateProductData extends Partial<CreateProductData> {
 export interface ProductFilters {
   search?: string;
   status?: string;
-  unit_of_measure?: string;
   page?: number;
   limit?: number;
   sort_by?: string;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, Package, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { Search, Filter, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { ProductFilters as FilterType } from '../../types/product';
 
 interface ProductFiltersProps {
@@ -33,13 +33,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     });
   };
 
-  const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onFiltersChange({
-      ...filters,
-      unit_of_measure: e.target.value || undefined,
-      page: 1,
-    });
-  };
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const [sort_by, sort_order] = e.target.value.split(':');
@@ -95,20 +88,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
             </div>
           </div>
 
-          <div className="sm:w-40">
-            <div className="relative">
-              <Package className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <select
-                value={filters.unit_of_measure || ''}
-                onChange={handleUnitChange}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
-              >
-                <option value="">All Types</option>
-                <option value="cylinder">Cylinders</option>
-                <option value="kg">By Weight (kg)</option>
-              </select>
-            </div>
-          </div>
 
           <div className="sm:w-48">
             <select

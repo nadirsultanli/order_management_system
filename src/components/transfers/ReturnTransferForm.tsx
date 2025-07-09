@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
-import { Truck, Package, Warehouse, Loader2 } from 'lucide-react';
+import { Package, Loader2 } from 'lucide-react';
 import { SearchableTruckSelector } from '../trucks/SearchableTruckSelector';
 import { SearchableWarehouseSelector } from '../warehouses/SearchableWarehouseSelector';
 import { trpc } from '../../lib/trpc-client';
@@ -194,10 +194,8 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           {/* Truck Selection (Source) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Truck className="inline h-4 w-4 mr-1" />
               Select Truck (Source)
             </label>
-            <p className="text-sm text-gray-500 mb-3">Choose the truck that has products to return</p>
             <SearchableTruckSelector
               value={selectedTruck}
               onChange={(truckId) => {
@@ -214,10 +212,8 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           {/* Destination Warehouse Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              <Warehouse className="inline h-4 w-4 mr-1" />
-              Select Destination Warehouse
+              Select Warehouse (Destination)
             </label>
-            <p className="text-sm text-gray-500 mb-3">Choose the warehouse to return products to</p>
             <SearchableWarehouseSelector
               value={selectedWarehouse}
               onChange={setSelectedWarehouse}
@@ -230,10 +226,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         {/* Truck Inventory with Inline Quantity Inputs */}
         {selectedTruck && (
           <div className="mt-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              <Package className="inline h-5 w-5 mr-2" />
-              Truck Inventory - Select Quantities to Transfer
-            </h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Truck Inventory - Items to Return</h3>
             
             {truckLoading ? (
               <div className="flex items-center justify-center p-8">
@@ -242,85 +235,58 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
             ) : availableInventory.length === 0 ? (
               <div className="text-center py-8">
                 <Package className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No Inventory</h3>
-                <p className="mt-1 text-sm text-gray-500">This truck has no inventory to transfer.</p>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No Inventory Available</h3>
+                <p className="mt-1 text-sm text-gray-500">This truck has no inventory to return.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Product
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        SKU
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Available Full
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Transfer Full
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Available Empty
-                      </th>
-                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Transfer Empty
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {lines.map((line, index) => {
-                      const inventoryItem = availableInventory.find((item: any) => item.product_id === line.product_id);
-                      return (
-                        <tr key={line.product_id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{line.product_name}</div>
-                            {inventoryItem?.product_variant_name && (
-                              <div className="text-xs text-gray-500">{inventoryItem.product_variant_name}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-500">{line.product_sku}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-sm font-medium text-gray-900">{line.max_qty_full || 0}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex justify-center">
-                              <input
-                                type="number"
-                                min="0"
-                                max={line.max_qty_full || 0}
-                                value={line.qty_full}
-                                onChange={(e) => handleQuantityChange(index, 'qty_full', e.target.value)}
-                                placeholder="0"
-                                className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                              />
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center">
-                            <div className="text-sm font-medium text-gray-900">{line.max_qty_empty || 0}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex justify-center">
-                              <input
-                                type="number"
-                                min="0"
-                                max={line.max_qty_empty || 0}
-                                value={line.qty_empty}
-                                onChange={(e) => handleQuantityChange(index, 'qty_empty', e.target.value)}
-                                placeholder="0"
-                                className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                              />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <div className="space-y-4">
+                {lines.map((line, index) => (
+                  <div key={`${line.product_id}-${index}`} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">{line.product_name}</div>
+                      <div className="text-sm text-gray-500">SKU: {line.product_sku}</div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        Available: {line.max_qty_full || 0} full, {line.max_qty_empty || 0} empty
+                      </div>
+                    </div>
+                    <div className="flex space-x-4">
+                      <div className="w-32">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Full Cylinders
+                          {line.max_qty_full !== undefined && (
+                            <span className="text-xs text-gray-500 ml-1">(max: {line.max_qty_full})</span>
+                          )}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={line.max_qty_full || undefined}
+                          value={line.qty_full}
+                          onChange={(e) => handleQuantityChange(index, 'qty_full', e.target.value)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div className="w-32">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Empty Cylinders
+                          {line.max_qty_empty !== undefined && (
+                            <span className="text-xs text-gray-500 ml-1">(max: {line.max_qty_empty})</span>
+                          )}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max={line.max_qty_empty || undefined}
+                          value={line.qty_empty}
+                          onChange={(e) => handleQuantityChange(index, 'qty_empty', e.target.value)}
+                          placeholder="0"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -331,11 +297,13 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          disabled={loading || !selectedTruck || !selectedWarehouse || lines.length === 0 || !lines.some(line => (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0)}
-          className="inline-flex justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={loading || !selectedTruck || !selectedWarehouse || lines.filter(line => (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0).length === 0}
+          className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Truck className="h-4 w-4 mr-2" />
-          Offload Truck
+          {loading && (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+          )}
+          {loading ? 'Returning...' : 'Return to Warehouse'}
         </button>
       </div>
 
@@ -343,9 +311,9 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
-        title="Confirm Truck Unloading"
-        message="Are you sure you want to unload this truck? This will move inventory from the selected truck back to the warehouse."
-        confirmText="Offload Truck"
+        title="Confirm Truck Return"
+        message={`Are you sure you want to return inventory from this truck? This will move inventory from the truck back to the warehouse. ${lines.filter(line => (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0).length} products will be transferred.`}
+        confirmText={loading ? 'Returning...' : 'Return to Warehouse'}
         type="info"
         loading={loading}
       />
