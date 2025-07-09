@@ -55,11 +55,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900">
-          Price Lists ({priceLists.length})
-        </h3>
-      </div>
+      {/* Header removed as per design update */}
       
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
@@ -116,7 +112,7 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                           </span>
                         )}
                         {expiringSoon && (
-                          <AlertTriangle className="h-4 w-4 text-yellow-500" title="Expiring soon" />
+                          <AlertTriangle className="h-4 w-4 text-yellow-500" />
                         )}
                       </div>
                       {priceList.description && (

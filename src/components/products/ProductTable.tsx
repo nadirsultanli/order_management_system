@@ -106,10 +106,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="text-lg font-medium text-gray-900">
-          Products ({products.length})
-        </h3>
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-end">
         {selectedProducts.length > 0 && (
           <span className="text-sm text-blue-600">
             {selectedProducts.length} selected

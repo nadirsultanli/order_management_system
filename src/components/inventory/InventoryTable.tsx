@@ -60,11 +60,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900">
-          Inventory ({inventory.length})
-        </h3>
-      </div>
+      {/* Header removed as per design update */}
       
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
