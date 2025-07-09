@@ -141,7 +141,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
   }, [addressInput]);
 
   useEffect(() => {
-    if (!map && mapContainer.current && latitude && longitude) {
+    if (!map && mapContainer.current && latitude && longitude && isOpen) {
       mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_API_KEY;
       const newMap = new mapboxgl.Map({
         container: mapContainer.current,
@@ -164,7 +164,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
         newMap.resize();
       });
     }
-  }, [mapContainer, latitude, longitude]);
+  }, [mapContainer, latitude, longitude, isOpen]);
 
   useEffect(() => {
     if (map && marker && latitude && longitude) {
@@ -176,6 +176,21 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
     }
   }, [latitude, longitude, isPinDraggable, map, marker]);
 
+  // Cleanup map when modal closes
+  useEffect(() => {
+    if (!isOpen && map) {
+      if (marker) {
+        marker.remove();
+        setMarker(null);
+      }
+      if (map) {
+        map.remove();
+        setMap(null);
+      }
+    }
+  }, [isOpen, map, marker]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (marker) marker.remove();

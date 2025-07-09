@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -39,6 +39,8 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
   });
   const [isHovering, setIsHovering] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showScrollbar, setShowScrollbar] = useState(false);
+  const expandTimeout = useRef<NodeJS.Timeout | null>(null);
   const location = useLocation();
   const { adminUser } = useAuth();
 
@@ -61,6 +63,25 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     setIsExpanded(shouldExpand);
     onExpandChange?.(shouldExpand);
   }, [shouldExpand, onExpandChange]);
+
+  // Show/hide scrollbar with animation delay
+  useEffect(() => {
+    if (isExpanded || isMobileOpen) {
+      // Delay showing scrollbar until after expand animation (500ms)
+      expandTimeout.current && clearTimeout(expandTimeout.current);
+      expandTimeout.current = setTimeout(() => {
+        setShowScrollbar(true);
+      }, 500);
+    } else {
+      // Hide scrollbar immediately when collapsing
+      expandTimeout.current && clearTimeout(expandTimeout.current);
+      setShowScrollbar(false);
+    }
+    // Cleanup on unmount
+    return () => {
+      expandTimeout.current && clearTimeout(expandTimeout.current);
+    };
+  }, [isExpanded, isMobileOpen]);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -150,7 +171,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
         </div>
 
         {/* Navigation Menu */}
-        <nav className={`flex-1 py-4 ${isExpanded || isMobileOpen ? 'overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent' : 'overflow-hidden'}`}>
+        <nav className={`flex-1 py-4 ${showScrollbar && (isExpanded || isMobileOpen) ? 'overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent' : 'overflow-hidden'}`}>
           <ul className="space-y-1 px-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
