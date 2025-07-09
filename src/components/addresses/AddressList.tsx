@@ -62,7 +62,7 @@ export const AddressList: React.FC<AddressListProps> = ({ customerId }) => {
   const handleConfirmDelete = async () => {
     if (deletingAddress) {
       try {
-        await deleteAddress.mutateAsync(deletingAddress);
+        await deleteAddress.mutateAsync({ address_id: deletingAddress.id });
         setDeletingAddress(null);
       } catch (error) {
         // Error handling is done in the hooks
@@ -115,7 +115,7 @@ export const AddressList: React.FC<AddressListProps> = ({ customerId }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {addresses.map((address) => (
+          {addresses.map((address: Address) => (
             <AddressCard
               key={address.id}
               address={address}
