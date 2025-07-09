@@ -47,12 +47,12 @@ const UpdateCustomerSchema = z.object({
   credit_terms_days: z.number().int().min(0).optional(),
   address: z.object({
     label: z.string().optional(),
-    line1: z.string().min(1).optional(),
+    line1: z.string().optional(),
     line2: z.string().optional(),
-    city: z.string().min(1).optional(),
+    city: z.string().optional(),
     state: z.string().optional(),
     postal_code: z.string().optional(),
-    country: z.string().min(2).optional(),
+    country: z.string().optional(),
     latitude: z.number().optional(),
     longitude: z.number().optional(),
     delivery_window_start: z.string().optional(),
@@ -428,31 +428,55 @@ export const customersRouter = router({
       
       const { id, address, ...updateData } = input;
       
-      // Update customer fields
-      const { data: customerData, error: customerError } = await ctx.supabase
-        .from('customers')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
+      // Filter out undefined values from customer update data
+      const customerUpdateFields = Object.fromEntries(
+        Object.entries(updateData).filter(([_, value]) => value !== undefined)
+      );
+      
+      // Update customer fields (only if there are fields to update)
+      let customerData;
+      if (Object.keys(customerUpdateFields).length > 0) {
+        const { data, error: customerError } = await ctx.supabase
+          .from('customers')
+          .update(customerUpdateFields)
+          .eq('id', id)
+          .select()
+          .single();
 
-      if (customerError) {
-        if (customerError.code === 'PGRST116') {
+        if (customerError) {
+          if (customerError.code === 'PGRST116') {
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'Customer not found'
+            });
+          }
+          ctx.logger.error('Update customer error:', customerError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: customerError.message
+          });
+        }
+        customerData = data;
+      } else {
+        // If no customer fields to update, just fetch current data
+        const { data, error } = await ctx.supabase
+          .from('customers')
+          .select()
+          .eq('id', id)
+          .single();
+        
+        if (error) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Customer not found'
           });
         }
-        ctx.logger.error('Update customer error:', customerError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: customerError.message
-        });
+        customerData = data;
       }
 
-      // Update address if provided
-      if (address) {
-        ctx.logger.info('Updating customer address');
+      // Update address if provided (PARTIAL UPDATE with filtering)
+      if (address && Object.keys(address).length > 0) {
+        ctx.logger.info('Updating customer address (partial):', address);
         
         // Get the primary address ID for this customer
         const { data: addressData, error: addressFetchError } = await ctx.supabase
@@ -470,21 +494,31 @@ export const customersRouter = router({
           });
         }
 
-        // Update the address with the new data
-        const { error: addressUpdateError } = await ctx.supabase
-          .from('addresses')
-          .update({
-            ...address,
-          })
-          .eq('id', addressData.id)
-          ;
+        // Filter out undefined/null values from address object
+        const addressUpdateFields = Object.fromEntries(
+          Object.entries(address).filter(([_, value]) => 
+            value !== undefined && value !== null && value !== ''
+          )
+        );
 
-        if (addressUpdateError) {
-          ctx.logger.error('Update address error:', addressUpdateError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: addressUpdateError.message
-          });
+        // Only update if there are actual fields to update
+        if (Object.keys(addressUpdateFields).length > 0) {
+          const { error: addressUpdateError } = await ctx.supabase
+            .from('addresses')
+            .update(addressUpdateFields) // Use filtered fields instead of spreading
+            .eq('id', addressData.id);
+
+          if (addressUpdateError) {
+            ctx.logger.error('Update address error:', addressUpdateError);
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: addressUpdateError.message
+            });
+          }
+
+          ctx.logger.info('Address updated successfully with fields:', addressUpdateFields);
+        } else {
+          ctx.logger.info('No valid address fields to update');
         }
       }
 

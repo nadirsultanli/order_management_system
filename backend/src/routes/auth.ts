@@ -142,18 +142,39 @@ export const authRouter = router({
 
   // Get current user session
   me: protectedProcedure
-    .query(async ({ ctx }) => {
-      if (!ctx.user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Not authenticated',
-        });
-      }
+  .query(async ({ ctx }) => {
+    if (!ctx.user) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'Not authenticated',
+      });
+    }
 
-      return {
-        user: ctx.user,
-      };
-    }),
+    // Query admin_users table to get full user data including name
+    const { data: adminUser, error: adminError } = await supabaseAdmin
+      .from('admin_users')
+      .select('*')
+      .eq('auth_user_id', ctx.user.id) // ctx.user.id is the Supabase auth user ID
+      .eq('active', true)
+      .single();
+
+    if (adminError || !adminUser) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'Access denied: Admin user not found',
+      });
+    }
+
+    return {
+      user: {
+        id: ctx.user.id,
+        email: ctx.user.email || adminUser.email,
+        name: adminUser.name,
+        role: adminUser.role || 'admin',
+        user_id: ctx.user.id,
+      },
+    };
+  }),
 
   // Refresh token endpoint
   refresh: publicProcedure

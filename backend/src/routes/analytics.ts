@@ -5,130 +5,139 @@ import { TRPCError } from '@trpc/server';
 
 export const analyticsRouter = router({
   // GET /dashboard/stats - Get dashboard statistics
-  getDashboardStats: protectedProcedure
-    .input(z.object({
-      period: z.enum(['today', 'week', 'month', 'quarter', 'year']).default('month'),
-    }))
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Fetching dashboard statistics:', input);
-      
-      const periodDays = {
-        today: 1,
-        week: 7,
-        month: 30,
-        quarter: 90,
-        year: 365,
-      }[input.period];
-      
-      const startDate = new Date();
-      if (input.period === 'today') {
-        startDate.setHours(0, 0, 0, 0);
-      } else {
-        startDate.setDate(startDate.getDate() - periodDays);
-      }
-      
-      // Get order statistics
-      const { data: orders, error: ordersError } = await ctx.supabase
-        .from('orders')
-        .select('status, total_amount, order_date, customer_id')
+    getDashboardStats: protectedProcedure
+      .input(z.object({
+        period: z.enum(['today', 'week', 'month', 'quarter', 'year']).default('month'),
+      }))
+      .query(async ({ input, ctx }) => {
+        const user = requireAuth(ctx);
         
-        .gte('order_date', startDate.toISOString());
-
-      if (ordersError) {
-        ctx.logger.error('Dashboard orders error:', ordersError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: ordersError.message
-        });
-      }
-
-      // Get customer statistics
-      const { data: customers, error: customersError } = await ctx.supabase
-        .from('customers')
-        .select('id, created_at')
+        ctx.logger.info('Fetching dashboard statistics:', input);
         
-        .gte('created_at', startDate.toISOString());
-
-      if (customersError) {
-        ctx.logger.error('Dashboard customers error:', customersError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: customersError.message
-        });
-      }
-
-      // Get additional stats for the dashboard
-      const { data: allCustomers, error: allCustomersError } = await ctx.supabase
-        .from('customers')
-        .select('id, created_at, account_status');
-
-      const { data: products, error: productsError } = await ctx.supabase
-        .from('products')
-        .select('id, is_active');
-
-      const { data: warehouses, error: warehousesError } = await ctx.supabase
-        .from('warehouses')
-        .select('id');
-
-      const { data: inventoryBalances, error: inventoryError } = await ctx.supabase
-        .from('inventory_balances')
-        .select('available_quantity, reorder_point, product:products(name)');
-
-      if (allCustomersError || productsError || warehousesError || inventoryError) {
-        ctx.logger.error('Dashboard stats additional data error:', {
-          allCustomersError,
-          productsError,
-          warehousesError,
-          inventoryError
-        });
-      }
-
-      // Calculate metrics
-      const totalOrders = orders?.length || 0;
-      const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-      const newCustomers = customers?.length || 0;
-      const uniqueCustomers = new Set(orders?.map(o => o.customer_id)).size;
-      
-      const statusCounts = orders?.reduce((acc, order) => {
-        acc[order.status] = (acc[order.status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>) || {};
-
-      // Calculate additional dashboard metrics
-      const totalCustomers = allCustomers?.length || 0;
-      const activeCustomers = allCustomers?.filter(c => c.account_status === 'active').length || 0;
-      const totalProducts = products?.length || 0;
-      const activeProducts = products?.filter(p => p.is_active !== false).length || 0;
-      const totalWarehouses = warehouses?.length || 0;
-      
-      // Calculate total cylinders and low stock
-      const totalCylinders = inventoryBalances?.reduce((sum, item) => sum + (item.available_quantity || 0), 0) || 0;
-      const lowStockProducts = inventoryBalances?.filter(item => 
-        (item.available_quantity || 0) <= (item.reorder_point || 10)
-      ).length || 0;
-
-      return {
-        period: input.period,
-        totalOrders,
-        totalRevenue,
-        avgOrderValue,
-        newCustomers,
-        uniqueCustomers,
-        statusCounts,
-        // Additional dashboard stats
-        totalCustomers,
-        activeCustomers,
-        totalProducts,
-        activeProducts,
-        totalWarehouses,
-        totalCylinders,
-        lowStockProducts,
-      };
-    }),
-
+        const periodDays = {
+          today: 1,
+          week: 7,
+          month: 30,
+          quarter: 90,
+          year: 365,
+        }[input.period];
+        
+        const startDate = new Date();
+        if (input.period === 'today') {
+          startDate.setHours(0, 0, 0, 0);
+        } else {
+          startDate.setDate(startDate.getDate() - periodDays);
+        }
+        
+        // Get order statistics
+        const { data: orders, error: ordersError } = await ctx.supabase
+          .from('orders')
+          .select('status, total_amount, order_date, customer_id')
+          .gte('order_date', startDate.toISOString());
+  
+        if (ordersError) {
+          ctx.logger.error('Dashboard orders error:', ordersError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: ordersError.message
+          });
+        }
+  
+        // Get customer statistics
+        const { data: customers, error: customersError } = await ctx.supabase
+          .from('customers')
+          .select('id, created_at')
+          .gte('created_at', startDate.toISOString());
+  
+        if (customersError) {
+          ctx.logger.error('Dashboard customers error:', customersError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: customersError.message
+          });
+        }
+  
+        // Get additional stats for the dashboard
+        const { data: allCustomers, error: allCustomersError } = await ctx.supabase
+          .from('customers')
+          .select('id, created_at, account_status');
+  
+        // FIXED: Updated to use actual schema fields
+        const { data: products, error: productsError } = await ctx.supabase
+          .from('products')
+          .select('id, status');
+  
+        const { data: warehouses, error: warehousesError } = await ctx.supabase
+          .from('warehouses')
+          .select('id');
+  
+        // FIXED: Updated to use actual schema fields with product join for reorder_level
+        const { data: inventoryBalances, error: inventoryError } = await ctx.supabase
+          .from('inventory_balances')
+          .select('qty_full, qty_empty, qty_reserved, product:products(name, reorder_level)');
+  
+        if (allCustomersError || productsError || warehousesError || inventoryError) {
+          ctx.logger.error('Dashboard stats additional data error:', {
+            allCustomersError,
+            productsError,
+            warehousesError,
+            inventoryError
+          });
+        }
+  
+        // Calculate metrics
+        const totalOrders = orders?.length || 0;
+        const totalRevenue = orders?.reduce((sum, order) => sum + (order.total_amount || 0), 0) || 0;
+        const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+        const newCustomers = customers?.length || 0;
+        const uniqueCustomers = new Set(orders?.map(o => o.customer_id)).size;
+        
+        const statusCounts = orders?.reduce((acc, order) => {
+          acc[order.status] = (acc[order.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>) || {};
+  
+        // Calculate additional dashboard metrics
+        const totalCustomers = allCustomers?.length || 0;
+        const activeCustomers = allCustomers?.filter(c => c.account_status === 'active').length || 0;
+        const totalProducts = products?.length || 0;
+        
+        // FIXED: Updated to use actual schema field (status instead of is_active)
+        const activeProducts = products?.filter(p => p.status === 'active').length || 0;
+        const totalWarehouses = warehouses?.length || 0;
+        
+        // FIXED: Calculate total cylinders using actual schema fields
+        const totalCylinders = inventoryBalances?.reduce((sum, item) => {
+          // Calculate available quantity from actual columns
+          const availableQty = (item.qty_full || 0) + (item.qty_empty || 0) - (item.qty_reserved || 0);
+          return sum + availableQty;
+        }, 0) || 0;
+        
+        // FIXED: Calculate low stock using actual schema fields
+        const lowStockProducts = inventoryBalances?.filter(item => {
+          const availableQty = (item.qty_full || 0) + (item.qty_empty || 0) - (item.qty_reserved || 0);
+          const reorderPoint = (item.product as any)?.reorder_level || 10;
+          return availableQty <= reorderPoint;
+        }).length || 0;
+  
+        return {
+          period: input.period,
+          totalOrders,
+          totalRevenue,
+          avgOrderValue,
+          newCustomers,
+          uniqueCustomers,
+          statusCounts,
+          // Additional dashboard stats
+          totalCustomers,
+          activeCustomers,
+          totalProducts,
+          activeProducts,
+          totalWarehouses,
+          totalCylinders,
+          lowStockProducts,
+        };
+      }),
   // GET /analytics/revenue - Get revenue analytics
   getRevenueAnalytics: protectedProcedure
     .input(z.object({
@@ -487,90 +496,101 @@ export const analyticsRouter = router({
 
   // GET /analytics/inventory - Get inventory analytics
   getInventoryAnalytics: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid().optional(),
-    }))
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  .input(z.object({
+    warehouse_id: z.string().uuid().optional(),
+  }))
+  .query(async ({ input, ctx }) => {
+    const user = requireAuth(ctx);
+    
+    ctx.logger.info('Fetching inventory analytics:', input);
+    
+    let query = ctx.supabase
+      .from('inventory_balances')
+      .select(`
+        qty_full,
+        qty_empty,
+        qty_reserved,
+        warehouse_id,
+        product:products(id, sku, name, unit_of_measure, reorder_level),
+        warehouse:warehouses(id, name)
+      `);
+    
+    if (input.warehouse_id) {
+      query = query.eq('warehouse_id', input.warehouse_id);
+    }
+    
+    const { data: inventoryBalances, error } = await query;
+
+    if (error) {
+      ctx.logger.error('Inventory analytics error:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message
+      });
+    }
+
+    const totalProducts = inventoryBalances?.length || 0;
+    
+    // FIXED: Calculate using actual schema fields
+    const totalStockValue = inventoryBalances?.reduce((sum, item) => {
+      const availableQty = (item.qty_full || 0) + (item.qty_empty || 0) - (item.qty_reserved || 0);
+      return sum + (availableQty * 0); // You'd need unit_cost field for this calculation
+    }, 0) || 0;
+    
+    const lowStockItems = inventoryBalances?.filter(item => {
+      const availableQty = (item.qty_full || 0) + (item.qty_empty || 0) - (item.qty_reserved || 0);
+      const reorderPoint = (item.product as any)?.reorder_level || 10;
+      return availableQty <= reorderPoint;
+    }) || [];
+    
+    const outOfStockItems = inventoryBalances?.filter(item => {
+      const availableQty = (item.qty_full || 0) + (item.qty_empty || 0) - (item.qty_reserved || 0);
+      return availableQty === 0;
+    }) || [];
+    
+    // Group by warehouse if multiple warehouses
+    const warehouseBreakdown = inventoryBalances?.reduce((acc, item) => {
+      const warehouseId = item.warehouse_id;
+      const warehouseName = (item.warehouse as any)?.name || 'Unknown';
       
-      ctx.logger.info('Fetching inventory analytics:', input);
-      
-      let query = ctx.supabase
-        .from('inventory_balances')
-        .select(`
-          *,
-          product:products(id, sku, name, unit_of_measure),
-          warehouse:warehouses(id, name)
-        `)
-        ;
-      
-      if (input.warehouse_id) {
-        query = query.eq('warehouse_id', input.warehouse_id);
+      if (!acc[warehouseId]) {
+        acc[warehouseId] = {
+          warehouse_id: warehouseId,
+          warehouse_name: warehouseName,
+          total_products: 0,
+          total_stock_value: 0,
+          low_stock_count: 0,
+          out_of_stock_count: 0,
+        };
       }
       
-      const { data: inventoryBalances, error } = await query;
-
-      if (error) {
-        ctx.logger.error('Inventory analytics error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
-        });
+      const availableQty = (item.qty_full || 0) + (item.qty_empty || 0) - (item.qty_reserved || 0);
+      const reorderPoint = (item.product as any)?.reorder_level || 10;
+      
+      acc[warehouseId].total_products += 1;
+      acc[warehouseId].total_stock_value += availableQty * 0; // Need unit_cost field for proper calculation
+      
+      if (availableQty <= reorderPoint) {
+        acc[warehouseId].low_stock_count += 1;
       }
+      
+      if (availableQty === 0) {
+        acc[warehouseId].out_of_stock_count += 1;
+      }
+      
+      return acc;
+    }, {} as Record<string, any>) || {};
 
-      const totalProducts = inventoryBalances?.length || 0;
-      const totalStockValue = inventoryBalances?.reduce((sum, item) => 
-        sum + ((item.available_quantity || 0) * (item.unit_cost || 0)), 0
-      ) || 0;
-      
-      const lowStockItems = inventoryBalances?.filter(item => 
-        (item.available_quantity || 0) <= (item.reorder_point || 0)
-      ) || [];
-      
-      const outOfStockItems = inventoryBalances?.filter(item => 
-        (item.available_quantity || 0) === 0
-      ) || [];
-      
-      // Group by warehouse if multiple warehouses
-      const warehouseBreakdown = inventoryBalances?.reduce((acc, item) => {
-        const warehouseId = item.warehouse_id;
-        const warehouseName = item.warehouse?.name || 'Unknown';
-        
-        if (!acc[warehouseId]) {
-          acc[warehouseId] = {
-            warehouse_id: warehouseId,
-            warehouse_name: warehouseName,
-            total_products: 0,
-            total_stock_value: 0,
-            low_stock_count: 0,
-            out_of_stock_count: 0,
-          };
-        }
-        
-        acc[warehouseId].total_products += 1;
-        acc[warehouseId].total_stock_value += (item.available_quantity || 0) * (item.unit_cost || 0);
-        
-        if ((item.available_quantity || 0) <= (item.reorder_point || 0)) {
-          acc[warehouseId].low_stock_count += 1;
-        }
-        
-        if ((item.available_quantity || 0) === 0) {
-          acc[warehouseId].out_of_stock_count += 1;
-        }
-        
-        return acc;
-      }, {} as Record<string, any>) || {};
-
-      return {
-        totalProducts,
-        totalStockValue,
-        lowStockCount: lowStockItems.length,
-        outOfStockCount: outOfStockItems.length,
-        lowStockItems: lowStockItems.slice(0, 10), // Top 10 low stock items
-        outOfStockItems: outOfStockItems.slice(0, 10), // Top 10 out of stock items
-        warehouseBreakdown: Object.values(warehouseBreakdown),
-      };
-    }),
+    return {
+      totalProducts,
+      totalStockValue,
+      lowStockCount: lowStockItems.length,
+      outOfStockCount: outOfStockItems.length,
+      lowStockItems: lowStockItems.slice(0, 10), // Top 10 low stock items
+      outOfStockItems: outOfStockItems.slice(0, 10), // Top 10 out of stock items
+      warehouseBreakdown: Object.values(warehouseBreakdown),
+    };
+  }),
 
   // GET /analytics/comprehensive-order-analytics - Complete order analytics for reports
   getComprehensiveOrderAnalytics: protectedProcedure
