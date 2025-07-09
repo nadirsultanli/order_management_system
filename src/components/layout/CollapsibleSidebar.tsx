@@ -123,6 +123,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
           transition-all duration-500 ease-in-out z-40
           ${isExpanded ? 'w-64 shadow-2xl' : 'w-16 shadow-lg'}
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          flex flex-col
         `}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -211,7 +212,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
         </nav>
 
         {/* User Avatar Section */}
-        <div className="p-2 border-t border-gray-800">
+        <div className="p-2 border-t border-gray-800 mt-auto order-last">
           <div className={`
             flex items-center px-3 py-2.5 rounded-lg
             transition-all duration-200 relative group
