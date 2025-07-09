@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Package, ArrowDownToLine, ArrowUpToLine, Loader2 } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
+import { useInventoryByWarehouseNew } from '../../hooks/useInventory';
 import { trpc } from '../../lib/trpc-client';
 import toast from 'react-hot-toast';
 
@@ -24,10 +25,7 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
 
   const { data: warehouses = [] } = useWarehouseOptions();
   // Inventory for selected warehouse (for load)
-  const { data: warehouseInventory = [] } = (trpc.inventory as any).getByWarehouse.useQuery(
-    { warehouse_id: selectedWarehouse },
-    { enabled: !!selectedWarehouse }
-  );
+  const { data: warehouseInventory = [] } = useInventoryByWarehouseNew(selectedWarehouse);
 
   // Truck data to get inventory (for unload)
   const { data: truckDetails } = (trpc.trucks as any).get.useQuery({ id: truckId });
@@ -35,8 +33,14 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
 
   // Derive product options based on transfer type
   const products = transferType === 'load'
-    ? warehouseInventory.map((inv: any) => inv.product).filter(Boolean)
-    : truckInventory.map((inv: any) => inv).filter(Boolean);
+    ? (warehouseInventory as any[]).map(inv => inv.product).filter(Boolean)
+    : Array.from(new Map(
+        (truckInventory as any[]).map(inv => [inv.product_id, {
+          id: inv.product_id,
+          name: inv.product_name,
+          sku: inv.product_sku
+        }])
+      ).values());
 
   const loadTruckMutation = trpc.trucks.loadInventory.useMutation();
   const unloadTruckMutation = trpc.trucks.unloadInventory.useMutation();
@@ -208,7 +212,7 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
         <button
           onClick={handleTransfer}
           disabled={isProcessing || !selectedWarehouse || !selectedProduct || (qtyFull === 0 && qtyEmpty === 0)}
-          className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isProcessing ? (
             <>
