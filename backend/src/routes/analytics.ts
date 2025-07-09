@@ -73,7 +73,7 @@ export const analyticsRouter = router({
   
         // FIXED: Updated to use actual schema fields with product join for reorder_level
         const { data: inventoryBalances, error: inventoryError } = await ctx.supabase
-          .from('inventory_balances')
+          .from('inventory_balance')
           .select('qty_full, qty_empty, qty_reserved, product:products(name, reorder_level)');
   
         if (allCustomersError || productsError || warehousesError || inventoryError) {
@@ -505,7 +505,7 @@ export const analyticsRouter = router({
     ctx.logger.info('Fetching inventory analytics:', input);
     
     let query = ctx.supabase
-      .from('inventory_balances')
+      .from('inventory_balance')
       .select(`
         qty_full,
         qty_empty,
