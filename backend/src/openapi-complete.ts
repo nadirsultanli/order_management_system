@@ -320,135 +320,166 @@ export const openApiDocument = {
 
     // Orders endpoints  
     '/api/v1/trpc/orders.list': {
-      post: {
+      get: {
         summary: 'List orders',
         description: 'Get paginated list of orders with advanced filtering (Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  status: { 
-                    type: 'string', 
-                    enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'],
-                    description: 'Filter by order status'
-                  },
-                  customer_id: { 
-                    type: 'string', 
-                    format: 'uuid',
-                    description: 'Filter by customer ID'
-                  },
-                  search: { 
-                    type: 'string',
-                    description: 'Search in order details, customer name, etc.'
-                  },
-                  order_date_from: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter orders from this date (YYYY-MM-DD)'
-                  },
-                  order_date_to: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter orders to this date (YYYY-MM-DD)'
-                  },
-                  scheduled_date_from: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter by scheduled delivery date from (YYYY-MM-DD)'
-                  },
-                  scheduled_date_to: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter by scheduled delivery date to (YYYY-MM-DD)'
-                  },
-                  amount_min: { 
-                    type: 'number',
-                    minimum: 0,
-                    description: 'Minimum order amount'
-                  },
-                  amount_max: { 
-                    type: 'number',
-                    minimum: 0,
-                    description: 'Maximum order amount'
-                  },
-                  delivery_area: { 
-                    type: 'string',
-                    description: 'Filter by delivery area'
-                  },
-                  is_overdue: { 
-                    type: 'boolean',
-                    description: 'Filter overdue orders only'
-                  },
-                  delivery_method: { 
-                    type: 'string', 
-                    enum: ['pickup', 'delivery'],
-                    description: 'Filter by delivery method'
-                  },
-                  priority: { 
-                    type: 'string', 
-                    enum: ['low', 'normal', 'high', 'urgent'],
-                    description: 'Filter by order priority'
-                  },
-                  payment_status: { 
-                    type: 'string', 
-                    enum: ['pending', 'paid', 'overdue'],
-                    description: 'Filter by payment status'
-                  },
-                  sort_by: { 
-                    type: 'string',
-                    enum: ['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name'],
-                    default: 'created_at',
-                    description: 'Sort field'
-                  },
-                  sort_order: { 
-                    type: 'string', 
-                    enum: ['asc', 'desc'],
-                    default: 'desc',
-                    description: 'Sort order'
-                  },
-                  include_analytics: {
-                    type: 'boolean',
-                    default: false,
-                    description: 'Include analytics data in response'
-                  },
-                  page: { 
-                    type: 'integer', 
-                    minimum: 1, 
-                    default: 1,
-                    description: 'Page number for pagination'
-                  },
-                  limit: { 
-                    type: 'integer', 
-                    minimum: 1, 
-                    maximum: 100, 
-                    default: 50,
-                    description: 'Number of orders per page'
-                  }
-                },
-                additionalProperties: false,
-                example: {
-                  status: "confirmed",
-                  customer_id: "123e4567-e89b-12d3-a456-426614174000",
-                  search: "gas cylinder",
-                  order_date_from: "2024-01-01",
-                  order_date_to: "2024-12-31",
-                  delivery_method: "delivery",
-                  priority: "normal",
-                  payment_status: "pending",
-                  sort_by: "order_date",
-                  sort_order: "desc",
-                  page: 1,
-                  limit: 20
-                }
-              }
-            }
+        parameters: [
+          { 
+            name: 'status', 
+            in: 'query', 
+            schema: { 
+              type: 'string', 
+              enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] 
+            },
+            description: 'Filter by order status',
+            example: 'confirmed'
+          },
+          { 
+            name: 'customer_id', 
+            in: 'query', 
+            schema: { 
+              type: 'string', 
+              format: 'uuid' 
+            },
+            description: 'Filter by customer ID',
+            example: '12345678-1234-1234-1234-123456789abc'
+          },
+          { 
+            name: 'order_date_from', 
+            in: 'query', 
+            schema: { 
+              type: 'string', 
+              format: 'date' 
+            },
+            description: 'Filter orders from this date (YYYY-MM-DD)',
+            example: '2024-01-01'
+          },
+          { 
+            name: 'order_date_to', 
+            in: 'query', 
+            schema: { 
+              type: 'string', 
+              format: 'date' 
+            },
+            description: 'Filter orders to this date (YYYY-MM-DD)',
+            example: '2024-12-31'
+          },
+          { 
+            name: 'scheduled_date_from', 
+            in: 'query', 
+            schema: { 
+              type: 'string', 
+              format: 'date' 
+            },
+            description: 'Filter by scheduled delivery date from (YYYY-MM-DD)',
+            example: '2024-01-01'
+          },
+          { 
+            name: 'scheduled_date_to', 
+            in: 'query', 
+            schema: { 
+              type: 'string', 
+              format: 'date' 
+            },
+            description: 'Filter by scheduled delivery date to (YYYY-MM-DD)',
+            example: '2024-12-31'
+          },
+          { 
+            name: 'amount_min', 
+            in: 'query', 
+            schema: { 
+              type: 'number',
+              minimum: 0 
+            },
+            description: 'Minimum order amount',
+            example: 100
+          },
+          { 
+            name: 'amount_max', 
+            in: 'query', 
+            schema: { 
+              type: 'number',
+              minimum: 0 
+            },
+            description: 'Maximum order amount',
+            example: 5000
+          },
+          { 
+            name: 'delivery_area', 
+            in: 'query', 
+            schema: { 
+              type: 'string' 
+            },
+            description: 'Filter by delivery area',
+            example: 'Downtown'
+          },
+          { 
+            name: 'is_overdue', 
+            in: 'query', 
+            schema: { 
+              type: 'boolean' 
+            },
+            description: 'Filter overdue orders only',
+            example: false
+          },
+          { 
+            name: 'sort_by', 
+            in: 'query', 
+            schema: { 
+              type: 'string',
+              enum: ['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name'],
+              default: 'created_at' 
+            },
+            description: 'Sort field',
+            example: 'order_date'
+          },
+          { 
+            name: 'sort_order', 
+            in: 'query', 
+            schema: { 
+              type: 'string', 
+              enum: ['asc', 'desc'],
+              default: 'desc' 
+            },
+            description: 'Sort order',
+            example: 'desc'
+          },
+          { 
+            name: 'include_analytics', 
+            in: 'query', 
+            schema: { 
+              type: 'boolean',
+              default: false 
+            },
+            description: 'Include analytics data in response',
+            example: false
+          },
+          { 
+            name: 'page', 
+            in: 'query', 
+            schema: { 
+              type: 'integer', 
+              minimum: 1, 
+              default: 1 
+            },
+            description: 'Page number for pagination',
+            example: 1
+          },
+          { 
+            name: 'limit', 
+            in: 'query', 
+            schema: { 
+              type: 'integer', 
+              minimum: 1, 
+              maximum: 100, 
+              default: 50 
+            },
+            description: 'Number of orders per page',
+            example: 20
           }
-        },
+        ],
         responses: {
           '200': {
             description: 'Orders retrieved successfully',
