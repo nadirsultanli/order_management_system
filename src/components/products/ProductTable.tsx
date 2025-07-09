@@ -67,7 +67,7 @@ export const ProductTable: React.FC<ProductTableProps> = ({
 
   const handleReactivate = async (product: Product) => {
     try {
-      await reactivateProduct.mutateAsync(product.id);
+      await reactivateProduct.mutateAsync({ id: product.id });
     } catch (error) {
       // Error handling is done in the hook
     }
