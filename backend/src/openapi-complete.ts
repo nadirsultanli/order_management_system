@@ -325,161 +325,205 @@ export const openApiDocument = {
         description: 'Get paginated list of orders with advanced filtering (Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { 
-            name: 'status', 
-            in: 'query', 
-            schema: { 
-              type: 'string', 
-              enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] 
-            },
-            description: 'Filter by order status',
-            example: 'confirmed'
-          },
-          { 
-            name: 'customer_id', 
-            in: 'query', 
-            schema: { 
-              type: 'string', 
-              format: 'uuid' 
-            },
-            description: 'Filter by customer ID',
-            example: '12345678-1234-1234-1234-123456789abc'
-          },
-          { 
-            name: 'order_date_from', 
-            in: 'query', 
-            schema: { 
-              type: 'string', 
-              format: 'date' 
-            },
-            description: 'Filter orders from this date (YYYY-MM-DD)',
-            example: '2024-01-01'
-          },
-          { 
-            name: 'order_date_to', 
-            in: 'query', 
-            schema: { 
-              type: 'string', 
-              format: 'date' 
-            },
-            description: 'Filter orders to this date (YYYY-MM-DD)',
-            example: '2024-12-31'
-          },
-          { 
-            name: 'scheduled_date_from', 
-            in: 'query', 
-            schema: { 
-              type: 'string', 
-              format: 'date' 
-            },
-            description: 'Filter by scheduled delivery date from (YYYY-MM-DD)',
-            example: '2024-01-01'
-          },
-          { 
-            name: 'scheduled_date_to', 
-            in: 'query', 
-            schema: { 
-              type: 'string', 
-              format: 'date' 
-            },
-            description: 'Filter by scheduled delivery date to (YYYY-MM-DD)',
-            example: '2024-12-31'
-          },
-          { 
-            name: 'amount_min', 
-            in: 'query', 
-            schema: { 
-              type: 'number',
-              minimum: 0 
-            },
-            description: 'Minimum order amount',
-            example: 100
-          },
-          { 
-            name: 'amount_max', 
-            in: 'query', 
-            schema: { 
-              type: 'number',
-              minimum: 0 
-            },
-            description: 'Maximum order amount',
-            example: 5000
-          },
-          { 
-            name: 'delivery_area', 
-            in: 'query', 
-            schema: { 
-              type: 'string' 
-            },
-            description: 'Filter by delivery area',
-            example: 'Downtown'
-          },
-          { 
-            name: 'is_overdue', 
-            in: 'query', 
-            schema: { 
-              type: 'boolean' 
-            },
-            description: 'Filter overdue orders only',
-            example: false
-          },
-          { 
-            name: 'sort_by', 
-            in: 'query', 
-            schema: { 
-              type: 'string',
-              enum: ['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name'],
-              default: 'created_at' 
-            },
-            description: 'Sort field',
-            example: 'order_date'
-          },
-          { 
-            name: 'sort_order', 
-            in: 'query', 
-            schema: { 
-              type: 'string', 
-              enum: ['asc', 'desc'],
-              default: 'desc' 
-            },
-            description: 'Sort order',
-            example: 'desc'
-          },
-          { 
-            name: 'include_analytics', 
-            in: 'query', 
-            schema: { 
-              type: 'boolean',
-              default: false 
-            },
-            description: 'Include analytics data in response',
-            example: false
-          },
-          { 
-            name: 'page', 
-            in: 'query', 
-            schema: { 
-              type: 'integer', 
-              minimum: 1, 
-              default: 1 
-            },
-            description: 'Page number for pagination',
-            example: 1
-          },
-          { 
-            name: 'limit', 
-            in: 'query', 
-            schema: { 
-              type: 'integer', 
-              minimum: 1, 
-              maximum: 100, 
-              default: 50 
-            },
-            description: 'Number of orders per page',
-            example: 20
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  status: {
+                    oneOf: [
+                      {
+                        type: 'string',
+                        enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'],
+                        description: 'Single order status'
+                      },
+                      {
+                        type: 'string',
+                        pattern: '^(draft|confirmed|scheduled|en_route|delivered|invoiced|cancelled)(,(draft|confirmed|scheduled|en_route|delivered|invoiced|cancelled))*$',
+                        description: 'Comma-separated list of order statuses (e.g., "confirmed,scheduled,en_route")'
+                      },
+                      {
+                        type: 'array',
+                        items: {
+                          type: 'string',
+                          enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']
+                        },
+                        minItems: 1,
+                        uniqueItems: true,
+                        description: 'Array of order statuses'
+                      }
+                    ],
+                    description: 'Filter by order status. Supports single status, comma-separated multiple statuses, or array of statuses'
+                  },
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter by customer ID'
+                  },
+                  search: { 
+                    type: 'string',
+                    description: 'Search in order details, customer name, product SKU, etc.'
+                  },
+                  order_date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter orders from this date (YYYY-MM-DD)'
+                  },
+                  order_date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter orders to this date (YYYY-MM-DD)'
+                  },
+                  scheduled_date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter by scheduled delivery date from (YYYY-MM-DD)'
+                  },
+                  scheduled_date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter by scheduled delivery date to (YYYY-MM-DD)'
+                  },
+                  amount_min: { 
+                    type: 'number',
+                    minimum: 0,
+                    description: 'Minimum order amount'
+                  },
+                  amount_max: { 
+                    type: 'number',
+                    minimum: 0,
+                    description: 'Maximum order amount'
+                  },
+                  delivery_area: { 
+                    type: 'string',
+                    description: 'Filter by delivery area (city, state, or postal code)'
+                  },
+                  is_overdue: { 
+                    type: 'boolean',
+                    description: 'Filter overdue orders only'
+                  },
+                  delivery_method: { 
+                    type: 'string', 
+                    enum: ['pickup', 'delivery'],
+                    description: 'Filter by delivery method'
+                  },
+                  priority: { 
+                    type: 'string', 
+                    enum: ['low', 'normal', 'high', 'urgent'],
+                    description: 'Filter by order priority'
+                  },
+                  payment_status: { 
+                    type: 'string', 
+                    enum: ['pending', 'paid', 'overdue'],
+                    description: 'Filter by payment status'
+                  },
+                  sort_by: { 
+                    type: 'string',
+                    enum: ['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name'],
+                    default: 'created_at',
+                    description: 'Sort field'
+                  },
+                  sort_order: { 
+                    type: 'string', 
+                    enum: ['asc', 'desc'],
+                    default: 'desc',
+                    description: 'Sort order'
+                  },
+                  include_analytics: {
+                    type: 'boolean',
+                    default: false,
+                    description: 'Include analytics data in response'
+                  },
+                  page: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    default: 1,
+                    description: 'Page number for pagination'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 100, 
+                    default: 50,
+                    description: 'Number of orders per page'
+                  }
+                },
+                additionalProperties: false,
+                examples: {
+                  singleStatus: {
+                    summary: 'Single status filter',
+                    description: 'Filter orders by a single status',
+                    value: {
+                      status: "confirmed",
+                      customer_id: "123e4567-e89b-12d3-a456-426614174000",
+                      search: "gas cylinder",
+                      order_date_from: "2024-01-01",
+                      order_date_to: "2024-12-31",
+                      delivery_method: "delivery",
+                      priority: "normal",
+                      payment_status: "pending",
+                      sort_by: "order_date",
+                      sort_order: "desc",
+                      page: 1,
+                      limit: 20
+                    }
+                  },
+                  multipleStatusString: {
+                    summary: 'Multiple statuses (comma-separated)',
+                    description: 'Filter orders by multiple statuses using comma-separated string',
+                    value: {
+                      status: "confirmed,scheduled,en_route",
+                      search: "urgent delivery",
+                      delivery_method: "delivery",
+                      priority: "high",
+                      sort_by: "scheduled_date",
+                      sort_order: "asc",
+                      page: 1,
+                      limit: 50
+                    }
+                  },
+                  multipleStatusArray: {
+                    summary: 'Multiple statuses (array)',
+                    description: 'Filter orders by multiple statuses using array format',
+                    value: {
+                      status: ["confirmed", "scheduled", "en_route"],
+                      order_date_from: "2024-01-01",
+                      delivery_area: "Los Angeles",
+                      include_analytics: true,
+                      sort_by: "total_amount",
+                      sort_order: "desc",
+                      page: 1,
+                      limit: 25
+                    }
+                  },
+                  complexFiltering: {
+                    summary: 'Complex filtering example',
+                    description: 'Example with multiple filters including multiple statuses',
+                    value: {
+                      status: "confirmed,scheduled",
+                      customer_id: "123e4567-e89b-12d3-a456-426614174000",
+                      order_date_from: "2024-01-01",
+                      order_date_to: "2024-12-31",
+                      amount_min: 100,
+                      amount_max: 5000,
+                      delivery_method: "delivery",
+                      priority: "high",
+                      payment_status: "pending",
+                      delivery_area: "California",
+                      include_analytics: true,
+                      sort_by: "scheduled_date",
+                      sort_order: "asc",
+                      page: 1,
+                      limit: 30
+                    }
+                  }
+                }
+              }
+            }
           }
-        ],
+        },
         responses: {
           '200': {
             description: 'Orders retrieved successfully',
@@ -502,22 +546,56 @@ export const openApiDocument = {
                                   id: { type: 'string', format: 'uuid' },
                                   order_date: { type: 'string', format: 'date' },
                                   scheduled_date: { type: 'string', format: 'date-time' },
-                                  status: { type: 'string' },
+                                  status: { 
+                                    type: 'string',
+                                    enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']
+                                  },
                                   total_amount: { type: 'number' },
+                                  delivery_method: {
+                                    type: 'string',
+                                    enum: ['pickup', 'delivery']
+                                  },
+                                  priority: {
+                                    type: 'string',
+                                    enum: ['low', 'normal', 'high', 'urgent']
+                                  },
+                                  // Enhanced business metrics
+                                  is_high_value: { type: 'boolean', description: 'True if order amount > 1000' },
+                                  days_since_order: { type: 'integer', description: 'Number of days since order was placed' },
+                                  estimated_delivery_window: { type: 'string', description: 'Estimated delivery timeframe' },
+                                  risk_level: { type: 'string', description: 'Order risk assessment' },
+                                  payment_balance: { type: 'number', description: 'Remaining payment balance' },
+                                  payment_status: { type: 'string', description: 'Current payment status' },
                                   customer: {
                                     type: 'object',
                                     properties: {
-                                      id: { type: 'string' },
+                                      id: { type: 'string', format: 'uuid' },
                                       name: { type: 'string' },
-                                      email: { type: 'string' }
+                                      email: { type: 'string', format: 'email' },
+                                      phone: { type: 'string' },
+                                      account_status: { type: 'string' },
+                                      credit_terms_days: { type: 'integer' }
                                     }
                                   },
                                   delivery_address: {
                                     type: 'object',
                                     properties: {
+                                      id: { type: 'string', format: 'uuid' },
                                       line1: { type: 'string' },
+                                      line2: { type: 'string' },
                                       city: { type: 'string' },
-                                      state: { type: 'string' }
+                                      state: { type: 'string' },
+                                      postal_code: { type: 'string' },
+                                      country: { type: 'string' },
+                                      instructions: { type: 'string' }
+                                    }
+                                  },
+                                  source_warehouse: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', format: 'uuid' },
+                                      name: { type: 'string' },
+                                      is_mobile: { type: 'boolean' }
                                     }
                                   },
                                   order_lines: {
@@ -525,18 +603,71 @@ export const openApiDocument = {
                                     items: {
                                       type: 'object',
                                       properties: {
-                                        product_id: { type: 'string' },
+                                        id: { type: 'string', format: 'uuid' },
+                                        product_id: { type: 'string', format: 'uuid' },
                                         quantity: { type: 'number' },
-                                        unit_price: { type: 'number' }
+                                        unit_price: { type: 'number' },
+                                        subtotal: { type: 'number' },
+                                        product: {
+                                          type: 'object',
+                                          properties: {
+                                            id: { type: 'string', format: 'uuid' },
+                                            sku: { type: 'string' },
+                                            name: { type: 'string' },
+                                            unit_of_measure: { type: 'string' }
+                                          }
+                                        }
                                       }
+                                    }
+                                  },
+                                  payments: {
+                                    type: 'array',
+                                    items: {
+                                      type: 'object',
+                                      properties: {
+                                        id: { type: 'string', format: 'uuid' },
+                                        amount: { type: 'number' },
+                                        payment_method: { type: 'string' },
+                                        payment_status: { type: 'string' },
+                                        payment_date: { type: 'string', format: 'date-time' },
+                                        transaction_id: { type: 'string' }
+                                      }
+                                    }
+                                  },
+                                  payment_summary: {
+                                    type: 'object',
+                                    description: 'Calculated payment summary',
+                                    properties: {
+                                      total_paid: { type: 'number' },
+                                      balance: { type: 'number' },
+                                      status: { type: 'string' }
                                     }
                                   }
                                 }
                               }
                             },
-                            totalCount: { type: 'integer' },
-                            totalPages: { type: 'integer' },
-                            currentPage: { type: 'integer' }
+                            totalCount: { 
+                              type: 'integer',
+                              description: 'Total number of orders matching the filters'
+                            },
+                            totalPages: { 
+                              type: 'integer',
+                              description: 'Total number of pages available'
+                            },
+                            currentPage: { 
+                              type: 'integer',
+                              description: 'Current page number'
+                            },
+                            analytics: {
+                              type: 'object',
+                              description: 'Analytics data (only included if include_analytics is true)',
+                              properties: {
+                                total_value: { type: 'number' },
+                                average_order_value: { type: 'number' },
+                                status_distribution: { type: 'object' },
+                                trends: { type: 'object' }
+                              }
+                            }
                           }
                         }
                       }
@@ -557,7 +688,12 @@ export const openApiDocument = {
                       type: 'object',
                       properties: {
                         code: { type: 'string', example: 'BAD_REQUEST' },
-                        message: { type: 'string', example: 'Invalid filter parameters' }
+                        message: { type: 'string', example: 'Invalid filter parameters' },
+                        details: { 
+                          type: 'array',
+                          items: { type: 'string' },
+                          example: ['Invalid status value', 'Status must be one of: draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled']
+                        }
                       }
                     }
                   }
@@ -575,7 +711,7 @@ export const openApiDocument = {
           }
         }
       }
-    },
+    }, 
     '/api/v1/trpc/orders.getById': {
       get: {
         summary: 'Get order by ID',
