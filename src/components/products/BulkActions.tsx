@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Download, Upload, Edit3 } from 'lucide-react';
+import { ChevronDown, Edit3 } from 'lucide-react';
 import { useBulkUpdateProductStatus } from '../../hooks/useProducts';
 
 interface BulkActionsProps {
@@ -25,12 +25,6 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
     } catch (error) {
       // Error handling is done in the hook
     }
-  };
-
-  const handleExport = () => {
-    // TODO: Implement CSV export
-    console.log('Exporting products:', selectedProducts);
-    setShowDropdown(false);
   };
 
   if (selectedProducts.length === 0) return null;
@@ -81,15 +75,7 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
                   Set as Obsolete
                 </button>
                 
-                <div className="border-t border-gray-100 mt-1">
-                  <button
-                    onClick={handleExport}
-                    className="flex items-center space-x-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>Export Selected</span>
-                  </button>
-                </div>
+                {/* Export Selected option removed as per requirements */}
               </div>
             </div>
           )}

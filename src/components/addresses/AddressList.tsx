@@ -48,7 +48,7 @@ export const AddressList: React.FC<AddressListProps> = ({ customerId }) => {
   const handleFormSubmit = async (data: CreateAddressData) => {
     try {
       if (editingAddress) {
-        await updateAddress.mutateAsync({ address_id: editingAddress.id, ...data });
+        await updateAddress.mutateAsync({ ...data, address_id: editingAddress.id });
       } else {
         await createAddress.mutateAsync(data);
       }
