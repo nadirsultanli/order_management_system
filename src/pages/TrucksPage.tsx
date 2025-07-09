@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { TruckTable } from '../components/trucks/TruckTable';
@@ -12,7 +12,29 @@ export const TrucksPage: React.FC = () => {
   const { data, isLoading: loading, error } = useTrucks(filters);
   const updateTruck = useUpdateTruck();
 
-  const trucks = data?.trucks || [];
+  // Sort trucks by capacity on frontend if sort_by filter is applied
+  const trucks = useMemo(() => {
+    const rawTrucks = data?.trucks || [];
+    
+    if (!filters.sort_by) {
+      return rawTrucks;
+    }
+    
+    const sortedTrucks = [...rawTrucks].sort((a, b) => {
+      const aCapacity = a.capacity_cylinders || 0;
+      const bCapacity = b.capacity_cylinders || 0;
+      
+      if (filters.sort_by === 'capacity_asc') {
+        return aCapacity - bCapacity;
+      } else if (filters.sort_by === 'capacity_desc') {
+        return bCapacity - aCapacity;
+      }
+      
+      return 0;
+    });
+    
+    return sortedTrucks;
+  }, [data?.trucks, filters.sort_by]);
 
   const handleStatusChange = async (truck: any, newStatus: boolean) => {
     try {
