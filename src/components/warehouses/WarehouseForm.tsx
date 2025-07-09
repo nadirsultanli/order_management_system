@@ -302,63 +302,13 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                         <div className="text-xs text-green-600 mt-1">Address selected</div>
                       )}
                       {/* Address field validation errors */}
-                      {(errors.address?.line1 || errors.address?.city || errors.address?.country) && (
-                        <p className="mt-1 text-sm text-red-600">All address fields are required.</p>
+                      {errors.address?.line1 && (
+                        <p className="mt-1 text-sm text-red-600">Address is required.</p>
                       )}
                       {/* Hidden validation fields for address components */}
-                      <input
-                        type="hidden"
-                        {...register('address.line1', { required: 'This field is required.' })}
-                      />
-                      <input
-                        type="hidden"
-                        {...register('address.city', { required: 'This field is required.' })}
-                      />
-                      <input
-                        type="hidden"
-                        {...register('address.country', { required: 'This field is required.' })}
-                      />
-                      <label htmlFor="address.state" className="block text-sm font-medium text-gray-700 mt-4">
-                        State/Province <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="address.state"
-                        {...register('address.state', { required: 'This field is required.' })}
-                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.address?.state ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
-                        placeholder="State or province"
-                      />
-                      {errors.address?.state && (
-                        <p className="mt-1 text-sm text-red-600">{errors.address.state.message}</p>
-                      )}
-                      <label htmlFor="address.postal_code" className="block text-sm font-medium text-gray-700 mt-4">
-                        Postal Code <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="address.postal_code"
-                        {...register('address.postal_code', { required: 'This field is required.' })}
-                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.address?.postal_code ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
-                        placeholder="Postal code"
-                      />
-                      {errors.address?.postal_code && (
-                        <p className="mt-1 text-sm text-red-600">{errors.address.postal_code.message}</p>
-                      )}
-                      <label htmlFor="address.country" className="block text-sm font-medium text-gray-700 mt-4">
-                        Country <span className="text-red-600">*</span>
-                      </label>
-                      <select
-                        id="address.country"
-                        {...register('address.country', { required: 'This field is required.' })}
-                        className={`mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 ${errors.address?.country ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'}`}
-                      >
-                        {countryOptions.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                      {errors.address?.country && (
-                        <p className="mt-1 text-sm text-red-600">{errors.address.country.message}</p>
-                      )}
+                      <input type="hidden" {...register('address.line1', { required: 'This field is required.' })} />
+                      <input type="hidden" {...register('address.city')} />
+                      <input type="hidden" {...register('address.country')} />
                       <label htmlFor="address.instructions" className="block text-sm font-medium text-gray-700 mt-4">
                         Access Instructions <span className="text-red-600">*</span>
                       </label>

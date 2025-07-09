@@ -154,9 +154,9 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
               </div>
 
               {/* Transfer Direction - Equal sized sections */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-center">
                 {/* Source Warehouse */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="bg-white border border-gray-200 rounded-lg p-6 lg:col-span-2">
                   <h4 className="text-md font-semibold text-gray-900 mb-4 text-center">From Warehouse</h4>
                   <div className="text-center">
                     <div className="text-base font-bold text-blue-800 mb-4">
@@ -180,14 +180,14 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
                 </div>
 
                 {/* Arrow */}
-                <div className="flex justify-center">
+                <div className="flex justify-center lg:col-span-1">
                   <div className="bg-gray-100 rounded-full p-4">
                     <ArrowRight className="h-8 w-8 text-gray-600" />
                   </div>
                 </div>
 
                 {/* Destination Warehouse */}
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                <div className="bg-white border border-gray-200 rounded-lg p-6 lg:col-span-2">
                   <h4 className="text-md font-semibold text-gray-900 mb-4 text-center">To Warehouse</h4>
                   <div className="space-y-4">
                     <WarehouseSelector

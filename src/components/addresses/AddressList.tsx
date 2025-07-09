@@ -120,10 +120,10 @@ export const AddressList: React.FC<AddressListProps> = ({ customerId }) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {addresses.map((address: Address) => (
+          {addresses.map((address: Address, idx: number) => (
             <AddressCard
               key={address.id}
-              address={address}
+              address={{ ...address, label: address.label || `Address #${idx + 1}` }}
               onEdit={handleEditAddress}
               onDelete={handleDeleteAddress}
               onSetPrimary={handleSetPrimary}

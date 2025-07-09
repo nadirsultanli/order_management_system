@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus } from 'lucide-react';
+import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
+import { SearchableProductSelector } from '../components/products/SearchableProductSelector';
 import { useAdjustStockNew, useTransferStockNew, useCreateInventoryNew } from '../hooks/useInventory';
 import { useInventoryWithClientSearch } from '../hooks/useInventoryWithClientSearch';
 import { useProducts } from '../hooks/useProducts';
@@ -248,38 +250,23 @@ const AddStockModal: React.FC<AddStockModalProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Warehouse *
                   </label>
-                  <select
+                  <SearchableWarehouseSelector
                     value={formData.warehouse_id}
-                    onChange={(e) => handleChange('warehouse_id', e.target.value)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onChange={(id) => handleChange('warehouse_id', id)}
                     required
-                  >
-                    <option value="">Select a warehouse...</option>
-                    {warehouses.map((warehouse) => (
-                      <option key={warehouse.id} value={warehouse.id}>
-                        {warehouse.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Product *
                   </label>
-                  <select
+                  <SearchableProductSelector
+                    products={products.filter((p:any)=>p.status==='active')}
                     value={formData.product_id}
-                    onChange={(e) => handleChange('product_id', e.target.value)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    onChange={(id) => handleChange('product_id', id)}
                     required
-                  >
-                    <option value="">Select a product...</option>
-                    {products.filter(p => p.status === 'active').map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} ({product.sku})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

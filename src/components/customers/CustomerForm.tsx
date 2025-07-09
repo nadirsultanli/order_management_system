@@ -6,6 +6,7 @@ import { getGeocodeSuggestions } from '../../utils/geocoding';
 // @ts-ignore - mapbox-gl types not available
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import toast from 'react-hot-toast';
 
 interface CustomerFormProps {
   isOpen: boolean;
@@ -204,6 +205,11 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
   }, []);
 
   const handleFormSubmit = async (data: CustomerFormData) => {
+    // Explicit guard to ensure full address selected when address fields are visible
+    if (showAddressFields && (!data.line1 || !data.city || !data.country)) {
+      toast.error('Please select a full address from the suggestions');
+      return;
+    }
     try {
       if (showAddressFields) {
         // Group address fields under 'address' when address fields are shown

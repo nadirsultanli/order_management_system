@@ -8,6 +8,7 @@ import { CreateWarehouseData } from '../types/warehouse';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { formatDateSync } from '../utils/order';
+import { trpc } from '../lib/trpc-client';
 
 export const WarehouseDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,11 +20,14 @@ export const WarehouseDetailPage: React.FC = () => {
   const { data: warehouse, isLoading, error } = useWarehouse(id!);
   const { data: inventory = [], isLoading: inventoryLoading } = useInventoryByWarehouseNew(id!);
   const updateWarehouse = useUpdateWarehouse();
+  const utils = trpc.useContext();
 
   const handleEditSubmit = async (data: CreateWarehouseData) => {
     if (warehouse) {
       try {
         await updateWarehouse.mutateAsync({ id: warehouse.id, ...data });
+        // Refresh warehouse data in this page
+        await utils.invalidate();
         setIsEditFormOpen(false);
       } catch {
         // Error handling is done in the hook
