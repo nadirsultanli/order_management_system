@@ -177,8 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Log token status for debugging
       TokenManager.debugTokenStatus();
 
-      // Redirect to dashboard after successful login
-      window.location.href = '/dashboard';
+      // No full page reload; LoginPage's Navigate will handle redirect
     } catch (error: any) {
       console.error('❌ Login error:', error);
       setState(prev => ({
