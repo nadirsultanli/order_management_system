@@ -128,9 +128,9 @@ export interface TaxCategory {
 
 // Common tax categories for Kenya
 export const TAX_CATEGORIES: TaxCategory[] = [
-  { id: 'standard', name: 'Standard Rate', rate: 0.16, description: '16% VAT' },
-  { id: 'exempt', name: 'Exempt', rate: 0, description: 'VAT Exempt' },
-  { id: 'zero_rated', name: 'Zero Rated', rate: 0, description: '0% VAT (can claim input tax)' },
-  { id: 'luxury', name: 'Luxury', rate: 0.25, description: '25% Luxury Tax' },
-  { id: 'reduced', name: 'Reduced Rate', rate: 0.08, description: '8% Reduced VAT' },
+  { id: 'standard', name: 'Standard Rate (16% VAT)', rate: 0.16, description: '16% VAT' },
+  { id: 'exempt', name: 'VAT Exempt', rate: 0, description: 'VAT Exempt' },
+  { id: 'zero_rated', name: 'Zero Rated (0% VAT)', rate: 0, description: '0% VAT' },
+  { id: 'luxury', name: 'Luxury (25% luxury tax)', rate: 0.25, description: '25% luxury tax' },
+  { id: 'reduced', name: 'Reduced Rate (8% reduced)', rate: 0.08, description: '8% reduced' },
 ];
