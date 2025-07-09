@@ -469,7 +469,7 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({
                       )}
                       {(errors.line1 || errors.city || errors.country) && (
                         <p className="mt-1 text-sm text-red-600">
-                          Please select a complete address from the suggestions
+                          Please select a full address from the suggestions
                         </p>
                       )}
                     </div>

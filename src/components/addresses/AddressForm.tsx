@@ -321,7 +321,7 @@ export const AddressForm: React.FC<AddressFormProps> = ({
                   )}
                   {shouldShowValidationError && (
                     <p className="mt-1 text-sm text-red-600">
-                      Please select a complete address from the suggestions
+                      Please select a full address from the suggestions
                     </p>
                   )}
                 </div>
