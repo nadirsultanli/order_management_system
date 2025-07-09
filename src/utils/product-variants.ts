@@ -73,8 +73,9 @@ export const getStandardCylinderVariants = async (): Promise<Array<{ name: strin
 // Display name functions for backward compatibility
 export const getOrderTypeDisplayName = (orderType: string): string => {
   const orderTypeMap: Record<string, string> = {
-    delivery: 'Delivery',
+    outright: 'Outright',
     refill: 'Refill',
+    delivery: 'Delivery',
     exchange: 'Exchange',
     pickup: 'Pickup',
   };
@@ -108,12 +109,20 @@ export const calculateExchangeQuantity = async (order: CreateOrderData): Promise
 };
 
 export const shouldRequirePickup = (orderType: string): boolean => {
-  // Simple business logic: exchanges and pickups require empty cylinder pickup
-  return orderType === 'exchange' || orderType === 'pickup';
+  // Simple business logic: refills, exchanges and pickups require empty cylinder pickup
+  return orderType === 'refill' || orderType === 'exchange' || orderType === 'pickup';
 };
 
 export const getOrderTypeBusinessRules = (orderType: string) => {
   switch (orderType) {
+    case 'outright':
+      return {
+        requiresPickup: false,
+        allowsExchangeQty: false,
+        description: 'Standard delivery of full cylinders to customer',
+        deliveryRequired: true,
+        pickupRequired: false,
+      };
     case 'delivery':
       return {
         requiresPickup: false,

@@ -19,6 +19,8 @@ export interface Product {
   // Tax-related fields
   tax_category?: string;
   tax_rate?: number;
+  // Variant field for Outright/Refill
+  variant?: 'outright' | 'refill';
   // Derived fields for UI
   parent_product?: Product; // populated when fetching variants
   variants?: Product[]; // populated when fetching parent products
@@ -43,6 +45,8 @@ export interface CreateProductData {
   // Tax-related fields
   tax_category?: string;
   tax_rate?: number;
+  // Variant field for Outright/Refill
+  variant?: 'outright' | 'refill';
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {

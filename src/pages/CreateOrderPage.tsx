@@ -17,6 +17,7 @@ import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
+import { ProductVariantSelector } from '../components/products/ProductVariantSelector';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useWarehouses } from '../hooks/useWarehouses';
@@ -52,13 +53,15 @@ export const CreateOrderPage: React.FC = () => {
   const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
   
   // Order type state
-  const [orderType, setOrderType] = useState<'delivery' | 'refill' | 'exchange' | 'pickup'>('delivery');
-  const [serviceType, setServiceType] = useState<'standard' | 'express' | 'scheduled'>('standard');
+  const [orderType, setOrderType] = useState<'outright' | 'refill'>('outright');
   const [exchangeEmptyQty, setExchangeEmptyQty] = useState(0);
   const [requiresPickup, setRequiresPickup] = useState(false);
   
   // Warehouse selection state
   const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+  
+  // Product variant selection state
+  const [selectedVariant, setSelectedVariant] = useState<'outright' | 'refill'>('outright');
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
@@ -160,6 +163,18 @@ export const CreateOrderPage: React.FC = () => {
     
     // Clear order lines when customer changes to reset pricing
     setOrderLines([]);
+  };
+
+  const handleVariantChange = (variant: 'outright' | 'refill') => {
+    setSelectedVariant(variant);
+    // Clear order lines when variant changes to prevent mixing variants
+    setOrderLines([]);
+  };
+
+  const handleCustomerCreated = (newCustomer: Customer) => {
+    // The customer list will be automatically refetched by the useCustomers hook
+    // due to the invalidation in the mutation's onSuccess callback
+    console.log('New customer created:', newCustomer);
   };
 
   // Auto-select primary address when customer is selected
@@ -294,14 +309,8 @@ export const CreateOrderPage: React.FC = () => {
     }
 
     try {
-      // Validate scheduled delivery for scheduled service
-      if (serviceType === 'scheduled' && (!scheduledDate || !scheduledTime)) {
-        alert('Please select both date and time for scheduled delivery.');
-        return;
-      }
-      
       // Create scheduled_date if needed
-      const scheduledDateTime = serviceType === 'scheduled' && scheduledDate && scheduledTime 
+      const scheduledDateTime = scheduledDate && scheduledTime 
         ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
         : undefined;
       
@@ -326,7 +335,6 @@ export const CreateOrderPage: React.FC = () => {
         })),
         // Order type fields
         order_type: orderType,
-        service_type: serviceType,
         exchange_empty_qty: exchangeEmptyQty,
         requires_pickup: requiresPickup,
       };
@@ -368,7 +376,6 @@ export const CreateOrderPage: React.FC = () => {
   const canProceedToStep2 = selectedCustomerId && selectedAddressId && selectedWarehouseId &&
     (!selectedCustomer || selectedCustomer.account_status !== 'closed');
   const canCreateOrder = canProceedToStep2 && orderLines.length > 0 && 
-    (serviceType !== 'scheduled' || (scheduledDate && scheduledTime)) &&
     !isProductsLoading && !createOrder.isPending;
 
   const getStockInfo = (productId: string) => {
@@ -487,11 +494,9 @@ export const CreateOrderPage: React.FC = () => {
             <div className="mb-6">
               <OrderTypeSelector
                 orderType={orderType}
-                serviceType={serviceType}
                 exchangeEmptyQty={exchangeEmptyQty}
                 requiresPickup={requiresPickup}
                 onOrderTypeChange={setOrderType}
-                onServiceTypeChange={setServiceType}
                 onExchangeEmptyQtyChange={setExchangeEmptyQty}
                 onRequiresPickupChange={setRequiresPickup}
               />
@@ -502,13 +507,14 @@ export const CreateOrderPage: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <User className="inline h-4 w-4 mr-1" />
-                  Select Customer *
+                  Customer *
                 </label>
                 <CustomerSelector
                   value={selectedCustomerId}
                   onChange={handleCustomerChange}
                   customers={customers}
                   placeholder="Search for a customer..."
+                  onCustomerCreated={handleCustomerCreated}
                 />
               </div>
 
@@ -536,45 +542,13 @@ export const CreateOrderPage: React.FC = () => {
                 <SearchableWarehouseSelector
                   value={selectedWarehouseId}
                   onChange={setSelectedWarehouseId}
-                  placeholder="Select warehouse to fulfill from..."
+                  placeholder="Warehouse"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Stock availability will be checked from the selected warehouse
                 </p>
               </div>
-              
-              {/* Scheduled Date/Time (for scheduled service type) */}
-              {serviceType === 'scheduled' && (
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <Calendar className="inline h-4 w-4 mr-1" />
-                    Scheduled Delivery Date & Time *
-                  </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      type="date"
-                      value={scheduledDate}
-                      onChange={(e) => setScheduledDate(e.target.value)}
-                      min={orderDate}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Select date"
-                    />
-                    <input
-                      type="time"
-                      value={scheduledTime}
-                      onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Select time"
-                    />
-                  </div>
-                  {scheduledDate && scheduledTime && (
-                    <p className="mt-1 text-sm text-gray-600">
-                      Scheduled for: {new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString()}
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Address Selection */}
@@ -730,6 +704,14 @@ export const CreateOrderPage: React.FC = () => {
         {/* Step 2: Add Products */}
         {step === 2 && (
           <div className="space-y-6">
+            {/* Product Variant Selection */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <ProductVariantSelector
+                value={selectedVariant}
+                onChange={handleVariantChange}
+              />
+            </div>
+            
             {/* Warehouse Stock Indicator */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center space-x-2">
@@ -786,13 +768,17 @@ export const CreateOrderPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Product Selection */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Available Products</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">
+                  Available Products ({selectedVariant === 'outright' ? 'Outright' : 'Refill'})
+                </h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {(() => {
                     const availableProducts = products.filter((p: Product) => {
                       // Only show active products that have stock in the selected warehouse
                       if (p.status !== 'active') return false;
                       const stockAvailable = getStockInfo(p.id);
+                      // Filter by selected variant
+                      if (p.variant && p.variant !== selectedVariant) return false;
                       return stockAvailable > 0;
                     });
                     
@@ -800,10 +786,10 @@ export const CreateOrderPage: React.FC = () => {
                       return (
                         <div className="text-center py-8 text-gray-500">
                           <Package className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                          <p className="text-lg font-medium">No products available</p>
+                          <p className="text-lg font-medium">No {selectedVariant} products available</p>
                           <p className="text-sm">
                             {selectedWarehouseId 
-                              ? 'No products have stock in the selected warehouse.' 
+                              ? `No ${selectedVariant} products have stock in the selected warehouse.` 
                               : 'Please select a warehouse to see available products.'}
                           </p>
                         </div>

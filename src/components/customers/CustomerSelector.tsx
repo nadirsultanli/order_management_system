@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronDown, X } from 'lucide-react';
-import { Customer } from '../../types/customer';
+import { Search, ChevronDown, X, Plus } from 'lucide-react';
+import { Customer, CreateCustomerData } from '../../types/customer';
+import { CustomerForm } from './CustomerForm';
+import { useCreateCustomer } from '../../hooks/useCustomers';
 
 interface CustomerSelectorProps {
   value: string;
@@ -8,6 +10,7 @@ interface CustomerSelectorProps {
   customers: Customer[];
   placeholder?: string;
   className?: string;
+  onCustomerCreated?: (customer: Customer) => void;
 }
 
 export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
@@ -16,10 +19,14 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
   customers,
   placeholder = 'Search customer...',
   className = '',
+  onCustomerCreated,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
+  const [isAddCustomerModalOpen, setIsAddCustomerModalOpen] = useState(false);
+  
+  const createCustomer = useCreateCustomer();
 
   useEffect(() => {
     if (searchTerm) {
@@ -45,6 +52,33 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
   const handleClear = () => {
     onChange('');
     setSearchTerm('');
+  };
+
+  const handleAddCustomer = () => {
+    setIsAddCustomerModalOpen(true);
+    setIsOpen(false);
+  };
+
+  const handleCustomerCreated = async (customerData: CreateCustomerData) => {
+    try {
+      const newCustomer = await createCustomer.mutateAsync(customerData);
+      setIsAddCustomerModalOpen(false);
+      
+      // Call the optional callback
+      if (onCustomerCreated) {
+        onCustomerCreated(newCustomer);
+      }
+      
+      // Select the newly created customer
+      onChange(newCustomer.id);
+      setSearchTerm('');
+    } catch (error) {
+      console.error('Error creating customer:', error);
+    }
+  };
+
+  const handleCloseAddCustomerModal = () => {
+    setIsAddCustomerModalOpen(false);
   };
 
   return (
@@ -97,6 +131,18 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
             </div>
           </div>
           <div className="max-h-60 overflow-auto">
+            {/* Add Customer Option */}
+            <div
+              onClick={handleAddCustomer}
+              className="px-4 py-2 hover:bg-green-50 cursor-pointer border-b border-gray-200 bg-green-50"
+            >
+              <div className="flex items-center text-green-700">
+                <Plus className="h-4 w-4 mr-2" />
+                <span className="font-medium">Add New Customer</span>
+              </div>
+            </div>
+            
+            {/* Existing Customers */}
             {filteredCustomers.length === 0 ? (
               <div className="px-4 py-2 text-sm text-gray-500">No customers found</div>
             ) : (
@@ -119,6 +165,16 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
           </div>
         </div>
       )}
+      
+      {/* Add Customer Modal */}
+      <CustomerForm
+        isOpen={isAddCustomerModalOpen}
+        onClose={handleCloseAddCustomerModal}
+        onSubmit={handleCustomerCreated}
+        loading={createCustomer.isLoading}
+        title="Add New Customer"
+        showAddressFields={false}
+      />
     </div>
   );
 }; 
