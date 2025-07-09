@@ -420,52 +420,124 @@ export const warehousesRouter = router({
       return data;
     }),
 
-  // DELETE /warehouses/:id - Delete warehouse
-  delete: protectedProcedure
+    delete: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
-      
       ctx.logger.info('Deleting warehouse:', input.id);
-      
-      // Get warehouse with address info
+  
+      // 1. Get warehouse with address info and check if it exists
       const { data: warehouse } = await ctx.supabase
         .from('warehouses')
-        .select('address_id')
+        .select('address_id, name, truck_id, is_mobile')
         .eq('id', input.id)
-        
         .single();
-
+  
       if (!warehouse) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Warehouse not found',
         });
       }
-
-      // Delete warehouse first
-      const { error } = await ctx.supabase
+  
+      // 2. Check for related data that would prevent deletion
+      
+      // Check if there's inventory in this warehouse
+      const { data: inventory } = await ctx.supabase
+        .from('inventory')
+        .select('id')
+        .eq('warehouse_id', input.id)
+        .limit(1);
+  
+      if (inventory && inventory.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot delete warehouse with existing inventory',
+        });
+      }
+  
+      // Combined truck check - covers both directions
+      const truckChecks = [];
+      
+      // Check if this warehouse has an associated truck
+      if (warehouse.truck_id) {
+        truckChecks.push('This warehouse has an associated truck');
+      }
+      
+      // Check if any trucks reference this warehouse
+      const { data: trucksUsingWarehouse } = await ctx.supabase
+        .from('trucks')
+        .select('id, fleet_number')
+        .or(`warehouse_id.eq.${input.id},current_warehouse_id.eq.${input.id}`)
+        .limit(1);
+  
+      if (trucksUsingWarehouse && trucksUsingWarehouse.length > 0) {
+        truckChecks.push('Trucks are assigned to this warehouse');
+      }
+  
+      if (truckChecks.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot delete warehouse: ${truckChecks.join('. ')}. Remove truck associations first.`,
+        });
+      }
+  
+      // Check for pending orders/transfers
+      const { data: pendingOrders } = await ctx.supabase
+        .from('orders')
+        .select('id')
+        .or(`pickup_warehouse_id.eq.${input.id},delivery_warehouse_id.eq.${input.id}`)
+        .eq('status', 'pending')
+        .limit(1);
+  
+      if (pendingOrders && pendingOrders.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot delete warehouse with pending orders',
+        });
+      }
+  
+      // 3. Delete warehouse
+      const { error: deleteError } = await ctx.supabase
         .from('warehouses')
         .delete()
-        .eq('id', input.id)
-        ;
-
-      if (error) {
-        ctx.logger.error('Delete warehouse error:', error);
+        .eq('id', input.id);
+  
+      if (deleteError) {
+        ctx.logger.error('Delete warehouse error:', deleteError);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to delete warehouse',
         });
       }
-
-      // Delete associated address if it exists
+  
+      // 4. Delete associated address if it exists and is not used by other warehouses
       if (warehouse.address_id) {
-        await ctx.supabase
-          .from('addresses')
-          .delete()
-          .eq('id', warehouse.address_id);
+        // Small race condition still exists here, but minimal impact
+        const { data: otherWarehousesWithSameAddress } = await ctx.supabase
+          .from('warehouses')
+          .select('id')
+          .eq('address_id', warehouse.address_id)
+          .limit(1);
+  
+        if (!otherWarehousesWithSameAddress || otherWarehousesWithSameAddress.length === 0) {
+          const { error: addressError } = await ctx.supabase
+            .from('addresses')
+            .delete()
+            .eq('id', warehouse.address_id);
+  
+          if (addressError) {
+            ctx.logger.warn('Failed to delete associated address:', addressError);
+            // Don't throw error since warehouse deletion succeeded
+          } else {
+            ctx.logger.info('Successfully deleted associated address');
+          }
+        } else {
+          ctx.logger.info('Address retained - used by other warehouses');
+        }
       }
-
+  
+      ctx.logger.info(`Successfully deleted warehouse: ${warehouse.name}`);
       return { success: true };
     }),
-});
+  });
