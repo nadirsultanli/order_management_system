@@ -164,7 +164,7 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
         newMap.resize();
       });
     }
-  }, [mapContainer, latitude, longitude, isOpen]);
+  }, [mapContainer, latitude, longitude, isOpen, isPinDraggable, setValue]);
 
   useEffect(() => {
     if (map && marker && latitude && longitude) {
