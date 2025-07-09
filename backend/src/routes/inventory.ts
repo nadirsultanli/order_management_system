@@ -20,8 +20,6 @@ const InventoryFiltersSchema = z.object({
   include_reserved: z.boolean().default(true),
   sort_by: z.enum(['updated_at', 'qty_available', 'product_name', 'warehouse_name', 'stock_level_ratio']).default('updated_at'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
 });
 
 const StockAdjustmentSchema = z.object({
@@ -67,8 +65,6 @@ export const inventoryRouter = router({
       
       // Provide default values if input is undefined
       const filters = input || {} as any;
-      const page = filters.page || 1;
-      const limit = filters.limit || 50;
       const sort_by = filters.sort_by || 'updated_at';
       const sort_order = filters.sort_order || 'desc';
       const include_reserved = filters.include_reserved || false;
@@ -176,15 +172,10 @@ export const inventoryRouter = router({
 
       // Apply pagination after filtering
       const totalFiltered = inventory.length;
-      const from = (page - 1) * limit;
-      const to = from + limit;
-      inventory = inventory.slice(from, to);
 
       return {
         inventory,
         totalCount: totalFiltered,
-        totalPages: Math.ceil(totalFiltered / limit),
-        currentPage: page,
         // Include summary analytics
         summary: generateInventorySummary(data || []),
       };

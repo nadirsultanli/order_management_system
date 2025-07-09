@@ -994,73 +994,78 @@ export const customersRouter = router({
 
   // PUT /addresses/{id} - Update address
   updateAddress: protectedProcedure
-    .input(z.object({
-      address_id: z.string().uuid(),
-      customer_id: z.string().uuid(),
-      label: z.string().optional(),
-      line1: z.string().min(1).optional(),
-      line2: z.string().optional(),
-      city: z.string().min(1).optional(),
-      state: z.string().optional(),
-      postal_code: z.string().optional(),
-      country: z.string().min(2).optional(),
-      latitude: z.number().optional(),
-      longitude: z.number().optional(),
-      delivery_window_start: z.string().optional(),
-      delivery_window_end: z.string().optional(),
-      is_primary: z.boolean().optional(),
-      instructions: z.string().optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Updating address:', input.address_id);
-      
-      const { address_id, customer_id, ...updateData } = input;
-      
-      const { data: address, error: addressError } = await ctx.supabase
+  .input(z.object({
+    address_id: z.string().uuid(),
+    customer_id: z.string().uuid(),
+    label: z.string().optional(),
+    line1: z.string().optional(),
+    line2: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    postal_code: z.string().optional(),
+    country: z.string().optional(),
+    latitude: z.number().optional(),
+    longitude: z.number().optional(),
+    delivery_window_start: z.string().optional(),
+    delivery_window_end: z.string().optional(),
+    is_primary: z.boolean().optional(),
+    instructions: z.string().optional(),
+    
+    special_instructions: z.string().optional(),
+    preferred_delivery_days: z.string().optional(),
+    avoid_delivery_dates: z.string().optional(),
+    access_code: z.string().optional(),
+    gate_code: z.string().optional(),
+  }))
+  .mutation(async ({ input, ctx }) => {
+    const user = requireAuth(ctx);
+    ctx.logger.info('Updating address:', input.address_id);
+    
+    const { address_id, customer_id, ...updateData } = input;
+    
+    const { data: address, error: addressError } = await ctx.supabase
+      .from('addresses')
+      .select('customer_id')
+      .eq('id', address_id)
+      .single();
+    
+    if (addressError || !address) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Address not found'
+      });
+    }
+    
+    // If setting as primary, first unset other primary addresses for this customer
+    if (updateData.is_primary && customer_id) {
+      await ctx.supabase
         .from('addresses')
-        .select('customer_id')
-        .eq('id', address_id)
-        .single();
-
-      if (addressError || !address) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Address not found'
-        });
-      }
-      
-      // If setting as primary, first unset other primary addresses for this customer
-      if (updateData.is_primary && customer_id) {
-        await ctx.supabase
-          .from('addresses')
-          .update({ is_primary: false })
-          .eq('customer_id', customer_id)
-          .eq('is_primary', true)
-          .neq('id', address_id);
-      }
-
-      const { data, error } = await ctx.supabase
-        .from('addresses')
-        .update({
-          ...updateData,
-        })
-        .eq('id', address_id)
-        .select()
-        .single();
-
-      if (error) {
-        ctx.logger.error('Update address error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
-        });
-      }
-
-      ctx.logger.info('Address updated successfully:', data);
-      return data;
-    }),
+        .update({ is_primary: false })
+        .eq('customer_id', customer_id)
+        .eq('is_primary', true)
+        .neq('id', address_id);
+    }
+    
+    const { data, error } = await ctx.supabase
+      .from('addresses')
+      .update({
+        ...updateData,
+      })
+      .eq('id', address_id)
+      .select()
+      .single();
+    
+    if (error) {
+      ctx.logger.error('Update address error:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message
+      });
+    }
+    
+    ctx.logger.info('Address updated successfully:', data);
+    return data;
+  }),
 
   // DELETE /addresses/{id} - Delete address
   deleteAddress: protectedProcedure
