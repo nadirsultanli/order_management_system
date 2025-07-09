@@ -647,35 +647,72 @@ export const productsRouter = router({
       return data;
     }),
 
-  // POST /products/bulk-update-status - Bulk update product status
+  // POST /products/bulk-update-status - Update product status one by one
   bulkUpdateStatus: protectedProcedure
     .input(BulkStatusUpdateSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Bulk updating product status:', input);
+      ctx.logger.info('Bulk updating product status (individual updates):', input);
       
-      const { data, error } = await ctx.supabase
-        .from('products')
-        .update({
-          status: input.status,
-        })
-        .in('id', input.product_ids)
-        
-        .select();
-
-      if (error) {
-        ctx.logger.error('Error bulk updating product status:', error);
+      const results = [];
+      const errors = [];
+      let successCount = 0;
+      
+      // Loop through each product ID and update individually
+      for (const productId of input.product_ids) {
+        try {
+          ctx.logger.info(`Updating product status for ID: ${productId}`);
+          
+          const { data, error } = await ctx.supabase
+            .from('products')
+            .update({
+              status: input.status,
+            })
+            .eq('id', productId)  // ← Individual update per ID
+            .select()
+            .single();
+          
+          if (error) {
+            ctx.logger.error(`Error updating product ${productId}:`, error);
+            errors.push({
+              product_id: productId,
+              error: error.message,
+            });
+          } else if (data) {
+            successCount++;
+            results.push(data);
+            ctx.logger.info(`Successfully updated product ${productId} to status: ${input.status}`);
+          } else {
+            errors.push({
+              product_id: productId,
+              error: 'Product not found',
+            });
+          }
+        } catch (err) {
+          ctx.logger.error(`Unexpected error updating product ${productId}:`, err);
+          errors.push({
+            product_id: productId,
+            error: err instanceof Error ? err.message : 'Unknown error',
+          });
+        }
+      }
+      
+      // If all updates failed, throw an error
+      if (successCount === 0 && errors.length > 0) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to bulk update product status',
+          message: `Failed to update any products. Errors: ${errors.map(e => e.error).join(', ')}`,
         });
       }
-
-      return { 
-        success: true, 
-        updated_count: data?.length || 0,
-        products: data || []
+      
+      return {
+        success: true,
+        updated_count: successCount,
+        total_requested: input.product_ids.length,
+        products: results,
+        errors: errors.length > 0 ? errors : undefined,
+        partial_success: errors.length > 0 && successCount > 0,
       };
     }),
 
