@@ -2535,7 +2535,7 @@ export const openApiDocument = {
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'date_range', in: 'query', schema: { type: 'string', enum: ['today', 'week', 'month', 'year'] } },
+          { name: 'period', in: 'query', schema: { type: 'string', enum: ['today', 'week', 'month', 'quarter', 'year'], default: 'month' } },
         ],
         responses: {
           '200': {
@@ -2551,10 +2551,2071 @@ export const openApiDocument = {
                         data: {
                           type: 'object',
                           properties: {
+                            period: { type: 'string' },
+                            totalOrders: { type: 'number' },
+                            totalRevenue: { type: 'number' },
+                            avgOrderValue: { type: 'number' },
+                            newCustomers: { type: 'number' },
+                            uniqueCustomers: { type: 'number' },
+                            statusCounts: { type: 'object' },
+                            totalCustomers: { type: 'number' },
+                            activeCustomers: { type: 'number' },
+                            totalProducts: { type: 'number' },
+                            activeProducts: { type: 'number' },
+                            totalWarehouses: { type: 'number' },
+                            totalCylinders: { type: 'number' },
+                            lowStockProducts: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Analytics endpoints
+    '/api/v1/trpc/analytics.getRevenueAnalytics': {
+      get: {
+        summary: 'Revenue analytics',
+        description: 'Get revenue analytics with time-series data (Query)',
+        tags: ['analytics'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'period', in: 'query', schema: { type: 'string', enum: ['week', 'month', 'quarter', 'year'], default: 'month' } },
+          { name: 'breakdown_by', in: 'query', schema: { type: 'string', enum: ['day', 'week', 'month'], default: 'day' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Revenue analytics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            period: { type: 'string' },
+                            breakdown_by: { type: 'string' },
+                            totalRevenue: { type: 'number' },
+                            totalOrders: { type: 'number' },
+                            chartData: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  date: { type: 'string' },
+                                  revenue: { type: 'number' },
+                                  orders: { type: 'number' },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/analytics.getOrderAnalytics': {
+      get: {
+        summary: 'Order analytics',
+        description: 'Get order analytics with grouping options (Query)',
+        tags: ['analytics'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'period', in: 'query', schema: { type: 'string', enum: ['week', 'month', 'quarter', 'year'], default: 'month' } },
+          { name: 'group_by', in: 'query', schema: { type: 'string', enum: ['status', 'customer', 'product'] } },
+        ],
+        responses: {
+          '200': {
+            description: 'Order analytics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            period: { type: 'string' },
+                            group_by: { type: 'string' },
+                            totalOrders: { type: 'number' },
+                            totalRevenue: { type: 'number' },
+                            statusBreakdown: { type: 'object' },
+                            groupedData: {
+                              type: 'array',
+                              items: { type: 'object' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/analytics.getCustomerAnalytics': {
+      get: {
+        summary: 'Customer analytics',
+        description: 'Get customer analytics with breakdown options (Query)',
+        tags: ['analytics'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'period', in: 'query', schema: { type: 'string', enum: ['week', 'month', 'quarter', 'year'], default: 'month' } },
+          { name: 'breakdown_by', in: 'query', schema: { type: 'string', enum: ['new', 'returning', 'top_spending'], default: 'new' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Customer analytics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            period: { type: 'string' },
+                            breakdown_by: { type: 'string' },
+                            totalNewCustomers: { type: 'number' },
+                            customersByDate: { type: 'object' },
+                            customers: { type: 'array', items: { type: 'object' } },
+                            topCustomers: { type: 'array', items: { type: 'object' } },
+                            totalReturningCustomers: { type: 'number' },
+                            returningCustomers: { type: 'array', items: { type: 'object' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/analytics.getInventoryAnalytics': {
+      get: {
+        summary: 'Inventory analytics',
+        description: 'Get inventory analytics with warehouse breakdown (Query)',
+        tags: ['analytics'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Inventory analytics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            totalProducts: { type: 'number' },
+                            totalStockValue: { type: 'number' },
+                            lowStockCount: { type: 'number' },
+                            outOfStockCount: { type: 'number' },
+                            lowStockItems: { type: 'array', items: { type: 'object' } },
+                            outOfStockItems: { type: 'array', items: { type: 'object' } },
+                            warehouseBreakdown: { type: 'array', items: { type: 'object' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/analytics.getComprehensiveOrderAnalytics': {
+      get: {
+        summary: 'Comprehensive order analytics',
+        description: 'Get comprehensive order analytics for date range (Query)',
+        tags: ['analytics'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'start_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+          { name: 'end_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Comprehensive order analytics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            summary: { type: 'object' },
+                            orders_by_status: { type: 'array', items: { type: 'object' } },
+                            daily_trends: { type: 'array', items: { type: 'object' } },
+                            top_customers: { type: 'array', items: { type: 'object' } },
+                            top_products: { type: 'array', items: { type: 'object' } },
+                            delivery_performance: { type: 'object' },
+                            regional_breakdown: { type: 'array', items: { type: 'object' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/analytics.getOrderStats': {
+      get: {
+        summary: 'Order statistics',
+        description: 'Get order statistics for a period (Query)',
+        tags: ['analytics'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'period', in: 'query', schema: { type: 'string', enum: ['today', 'week', 'month', 'quarter', 'year'], default: 'month' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Order statistics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
                             total_orders: { type: 'number' },
+                            draft_orders: { type: 'number' },
+                            confirmed_orders: { type: 'number' },
+                            scheduled_orders: { type: 'number' },
+                            en_route_orders: { type: 'number' },
+                            delivered_orders: { type: 'number' },
+                            invoiced_orders: { type: 'number' },
+                            cancelled_orders: { type: 'number' },
+                            todays_deliveries: { type: 'number' },
+                            overdue_orders: { type: 'number' },
                             total_revenue: { type: 'number' },
-                            active_customers: { type: 'number' },
-                            pending_deliveries: { type: 'number' },
+                            avg_order_value: { type: 'number' },
+                            orders_this_month: { type: 'number' },
+                            orders_last_month: { type: 'number' },
+                            revenue_this_month: { type: 'number' },
+                            revenue_last_month: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Admin endpoints
+    '/api/v1/trpc/admin.testRLSPolicies': {
+      get: {
+        summary: 'Test RLS policies',
+        description: 'Test Row Level Security policies (Query)',
+        tags: ['admin'],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'RLS policies tested successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            success: { type: 'boolean' },
+                            results: { type: 'array', items: { type: 'object' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/admin.getRLSViolations': {
+      get: {
+        summary: 'Get RLS violations',
+        description: 'Get Row Level Security violations (Query)',
+        tags: ['admin'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 1000, default: 100 } },
+        ],
+        responses: {
+          '200': {
+            description: 'RLS violations retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            violations: { type: 'array', items: { type: 'object' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/admin.validateRLSStatus': {
+      get: {
+        summary: 'Validate RLS status',
+        description: 'Validate Row Level Security status (Query)',
+        tags: ['admin'],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'RLS status validated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            allEnabled: { type: 'boolean' },
+                            missingRLS: { type: 'array', items: { type: 'string' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/admin.getSystemStats': {
+      get: {
+        summary: 'System statistics',
+        description: 'Get system statistics (Query)',
+        tags: ['admin'],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'System statistics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            totalCustomers: { type: 'number' },
+                            totalOrders: { type: 'number' },
+                            activeOrders: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    // Additional Orders endpoints
+    '/api/v1/trpc/orders.updateStatus': {
+      post: {
+        summary: 'Update order status',
+        description: 'Update order status with transition validation (Mutation)',
+        tags: ['orders'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  order_id: { type: 'string', format: 'uuid' },
+                  new_status: { type: 'string', enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] },
+                  scheduled_date: { type: 'string', format: 'date-time' },
+                  reason: { type: 'string' },
+                  metadata: { type: 'object' },
+                },
+                required: ['order_id', 'new_status'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Order status updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/orders.getOverdue': {
+      get: {
+        summary: 'Get overdue orders',
+        description: 'Get orders that are overdue for delivery (Query)',
+        tags: ['orders'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'days_overdue_min', in: 'query', schema: { type: 'integer', minimum: 0, default: 1 } },
+          { name: 'include_cancelled', in: 'query', schema: { type: 'boolean', default: false } },
+          { name: 'priority_filter', in: 'query', schema: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] } },
+        ],
+        responses: {
+          '200': {
+            description: 'Overdue orders retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: { type: 'object' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/orders.getDeliveryCalendar': {
+      get: {
+        summary: 'Get delivery calendar',
+        description: 'Get delivery schedule calendar with logistics optimization (Query)',
+        tags: ['orders'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'date_from', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+          { name: 'date_to', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+          { name: 'delivery_area', in: 'query', schema: { type: 'string' } },
+          { name: 'truck_capacity_filter', in: 'query', schema: { type: 'boolean', default: false } },
+          { name: 'optimize_routes', in: 'query', schema: { type: 'boolean', default: false } },
+        ],
+        responses: {
+          '200': {
+            description: 'Delivery calendar retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            calendar: { type: 'array', items: { type: 'object' } },
+                            metrics: { type: 'object' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/orders.allocateToTruck': {
+      post: {
+        summary: 'Allocate order to truck',
+        description: 'Allocate order to a truck for delivery (Mutation)',
+        tags: ['orders'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  order_id: { type: 'string', format: 'uuid' },
+                  truck_id: { type: 'string', format: 'uuid' },
+                  allocation_date: { type: 'string', format: 'date' },
+                  force_allocation: { type: 'boolean', default: false },
+                },
+                required: ['order_id', 'allocation_date'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Order allocated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            success: { type: 'boolean' },
+                            allocation_id: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/orders.validateOrderPricing': {
+      post: {
+        summary: 'Validate order pricing',
+        description: 'Validate pricing for order lines (Mutation)',
+        tags: ['orders'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { type: 'string', format: 'uuid' },
+                  order_lines: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        product_id: { type: 'string', format: 'uuid' },
+                        quantity: { type: 'number', minimum: 1 },
+                        expected_price: { type: 'number', minimum: 0 },
+                        price_list_id: { type: 'string', format: 'uuid' },
+                      },
+                      required: ['product_id', 'quantity'],
+                    },
+                    minItems: 1,
+                  },
+                },
+                required: ['customer_id', 'order_lines'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Order pricing validated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            valid: { type: 'boolean' },
+                            pricing_results: { type: 'array', items: { type: 'object' } },
+                            warnings: { type: 'array', items: { type: 'string' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Customer Address Management endpoints
+    '/api/v1/trpc/customers.getAddresses': {
+      get: {
+        summary: 'Get customer addresses',
+        description: 'Get all addresses for a customer (Query)',
+        tags: ['customers'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Customer addresses retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              label: { type: 'string' },
+                              line1: { type: 'string' },
+                              line2: { type: 'string' },
+                              city: { type: 'string' },
+                              state: { type: 'string' },
+                              postal_code: { type: 'string' },
+                              country: { type: 'string' },
+                              is_primary: { type: 'boolean' },
+                              delivery_window_start: { type: 'string' },
+                              delivery_window_end: { type: 'string' },
+                              instructions: { type: 'string' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/customers.createAddress': {
+      post: {
+        summary: 'Create customer address',
+        description: 'Create new address for customer (Mutation)',
+        tags: ['customers'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { type: 'string', format: 'uuid' },
+                  label: { type: 'string' },
+                  line1: { type: 'string' },
+                  line2: { type: 'string' },
+                  city: { type: 'string' },
+                  state: { type: 'string' },
+                  postal_code: { type: 'string' },
+                  country: { type: 'string', minLength: 2 },
+                  latitude: { type: 'number' },
+                  longitude: { type: 'number' },
+                  delivery_window_start: { type: 'string' },
+                  delivery_window_end: { type: 'string' },
+                  instructions: { type: 'string' },
+                },
+                required: ['customer_id', 'line1', 'city', 'country'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Address created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/customers.getOrderHistory': {
+      get: {
+        summary: 'Get customer order history',
+        description: 'Get paginated order history for customer (Query)',
+        tags: ['customers'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 1000, default: 50 } },
+          { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] } },
+        ],
+        responses: {
+          '200': {
+            description: 'Customer order history retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            orders: { type: 'array', items: { type: 'object' } },
+                            totalCount: { type: 'integer' },
+                            hasMore: { type: 'boolean' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Product Management endpoints
+    '/api/v1/trpc/products.getVariants': {
+      get: {
+        summary: 'Get product variants',
+        description: 'Get variants for a parent product (Query)',
+        tags: ['products'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'parent_product_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Product variants retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: { type: 'object' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/products.createVariant': {
+      post: {
+        summary: 'Create product variant',
+        description: 'Create new product variant (Mutation)',
+        tags: ['products'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  parent_product_id: { type: 'string', format: 'uuid' },
+                  variant_name: { type: 'string' },
+                  sku: { type: 'string' },
+                  capacity_kg: { type: 'number', minimum: 0 },
+                  tare_weight_kg: { type: 'number', minimum: 0 },
+                  valve_type: { type: 'string' },
+                },
+                required: ['parent_product_id', 'variant_name', 'sku'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Product variant created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/products.validateSku': {
+      post: {
+        summary: 'Validate product SKU',
+        description: 'Validate SKU for uniqueness (Mutation)',
+        tags: ['products'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  sku: { type: 'string' },
+                  exclude_id: { type: 'string', format: 'uuid' },
+                },
+                required: ['sku'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'SKU validation completed',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            valid: { type: 'boolean' },
+                            errors: { type: 'array', items: { type: 'string' } },
+                            warnings: { type: 'array', items: { type: 'string' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Inventory Management endpoints
+    '/api/v1/trpc/inventory.getByWarehouse': {
+      get: {
+        summary: 'Get inventory by warehouse',
+        description: 'Get inventory for specific warehouse (Query)',
+        tags: ['inventory'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'warehouse_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Warehouse inventory retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: { type: 'object' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/inventory.transferStock': {
+      post: {
+        summary: 'Transfer stock between warehouses',
+        description: 'Transfer inventory between warehouses (Mutation)',
+        tags: ['inventory'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  from_warehouse_id: { type: 'string', format: 'uuid' },
+                  to_warehouse_id: { type: 'string', format: 'uuid' },
+                  product_id: { type: 'string', format: 'uuid' },
+                  qty_full: { type: 'integer', minimum: 0 },
+                  qty_empty: { type: 'integer', minimum: 0 },
+                  notes: { type: 'string' },
+                },
+                required: ['from_warehouse_id', 'to_warehouse_id', 'product_id'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Stock transferred successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            success: { type: 'boolean' },
+                            transfer_id: { type: 'string' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/inventory.getLowStock': {
+      get: {
+        summary: 'Get low stock items',
+        description: 'Get items with low stock levels (Query)',
+        tags: ['inventory'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+          { name: 'threshold_days', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 365, default: 30 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Low stock items retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: { type: 'object' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Pricing Management endpoints
+    '/api/v1/trpc/pricing.createPriceList': {
+      post: {
+        summary: 'Create price list',
+        description: 'Create new price list (Mutation)',
+        tags: ['pricing'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', minLength: 1, maxLength: 255 },
+                  description: { type: 'string' },
+                  currency_code: { type: 'string', length: 3, default: 'KES' },
+                  start_date: { type: 'string', format: 'date' },
+                  end_date: { type: 'string', format: 'date' },
+                  is_default: { type: 'boolean', default: false },
+                },
+                required: ['name', 'start_date'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Price list created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/pricing.getPriceListItems': {
+      get: {
+        summary: 'Get price list items',
+        description: 'Get items in a price list (Query)',
+        tags: ['pricing'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'price_list_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Price list items retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            items: { type: 'array', items: { type: 'object' } },
+                            totalCount: { type: 'integer' },
+                            totalPages: { type: 'integer' },
+                            currentPage: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/pricing.bulkAddProducts': {
+      post: {
+        summary: 'Bulk add products to price list',
+        description: 'Add multiple products to price list with bulk pricing (Mutation)',
+        tags: ['pricing'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  price_list_id: { type: 'string', format: 'uuid' },
+                  product_ids: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                  pricing_method: { type: 'string', enum: ['fixed', 'copy_from_list', 'markup', 'cost_plus'] },
+                  unit_price: { type: 'number', minimum: 0 },
+                  source_price_list_id: { type: 'string', format: 'uuid' },
+                  markup_percentage: { type: 'number' },
+                  min_qty: { type: 'integer', minimum: 1 },
+                  surcharge_pct: { type: 'number', minimum: 0, maximum: 100 },
+                },
+                required: ['price_list_id', 'product_ids', 'pricing_method'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Products added to price list successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            items: { type: 'array', items: { type: 'object' } },
+                            errors: { type: 'array', items: { type: 'object' } },
+                            successCount: { type: 'integer' },
+                            errorCount: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/pricing.calculate': {
+      post: {
+        summary: 'Calculate dynamic pricing',
+        description: 'Calculate pricing for customer and items (Mutation)',
+        tags: ['pricing'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { type: 'string', format: 'uuid' },
+                  items: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        product_id: { type: 'string', format: 'uuid' },
+                        quantity: { type: 'number', minimum: 1 },
+                      },
+                      required: ['product_id', 'quantity'],
+                    },
+                  },
+                },
+                required: ['customer_id', 'items'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Pricing calculated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            items: { type: 'array', items: { type: 'object' } },
+                            totals: { type: 'object' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Payment Management endpoints
+    '/api/v1/trpc/payments.getByOrderId': {
+      get: {
+        summary: 'Get payments by order ID',
+        description: 'Get all payments for a specific order (Query)',
+        tags: ['payments'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'order_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'include_summary', in: 'query', schema: { type: 'boolean', default: true } },
+        ],
+        responses: {
+          '200': {
+            description: 'Order payments retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            order: { type: 'object' },
+                            payments: { type: 'array', items: { type: 'object' } },
+                            summary: { type: 'object' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/payments.updateStatus': {
+      put: {
+        summary: 'Update payment status',
+        description: 'Update payment status and details (Mutation)',
+        tags: ['payments'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  payment_id: { type: 'string', format: 'uuid' },
+                  payment_status: { type: 'string', enum: ['pending', 'completed', 'failed', 'refunded'] },
+                  transaction_id: { type: 'string' },
+                  notes: { type: 'string' },
+                },
+                required: ['payment_id', 'payment_status'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Payment status updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/payments.getSummary': {
+      get: {
+        summary: 'Get payment summary',
+        description: 'Get payment summary statistics (Query)',
+        tags: ['payments'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'payment_method', in: 'query', schema: { type: 'string', enum: ['Cash', 'Mpesa', 'Card'] } },
+        ],
+        responses: {
+          '200': {
+            description: 'Payment summary retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            summary: { type: 'object' },
+                            by_method: { type: 'object' },
+                            by_status: { type: 'object' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/payments.getOverdueOrders': {
+      get: {
+        summary: 'Get overdue payment orders',
+        description: 'Get orders with overdue payments (Query)',
+        tags: ['payments'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'days_overdue_min', in: 'query', schema: { type: 'integer', minimum: 0, default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
+        ],
+        responses: {
+          '200': {
+            description: 'Overdue orders retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            orders: { type: 'array', items: { type: 'object' } },
+                            summary: { type: 'object' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Truck Management endpoints
+    '/api/v1/trpc/trucks.getById': {
+      get: {
+        summary: 'Get truck details',
+        description: 'Get detailed information about a specific truck (Query)',
+        tags: ['trucks'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'truck_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Truck details retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            truck: { type: 'object' },
+                            current_inventory: { type: 'array', items: { type: 'object' } },
+                            current_route: { type: 'object' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/trucks.getAllocations': {
+      get: {
+        summary: 'Get truck allocations',
+        description: 'Get truck allocations for a specific date (Query)',
+        tags: ['trucks'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
+          { name: 'truck_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Truck allocations retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: { type: 'object' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/trucks.loadInventory': {
+      post: {
+        summary: 'Load inventory onto truck',
+        description: 'Load items from warehouse onto truck (Mutation)',
+        tags: ['trucks'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  truck_id: { type: 'string', format: 'uuid' },
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                  items: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        product_id: { type: 'string', format: 'uuid' },
+                        qty_full: { type: 'integer', minimum: 0 },
+                        qty_empty: { type: 'integer', minimum: 0 },
+                      },
+                      required: ['product_id'],
+                    },
+                  },
+                },
+                required: ['truck_id', 'warehouse_id', 'items'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Inventory loaded successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            success: { type: 'boolean' },
+                            loaded_items: { type: 'array', items: { type: 'object' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Transfer Management endpoints
+    '/api/v1/trpc/transfers.getById': {
+      get: {
+        summary: 'Get transfer details',
+        description: 'Get detailed information about a specific transfer (Query)',
+        tags: ['transfers'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'transfer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Transfer details retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/transfers.validate': {
+      post: {
+        summary: 'Validate transfer request',
+        description: 'Validate transfer request before creation (Mutation)',
+        tags: ['transfers'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  source_warehouse_id: { type: 'string', format: 'uuid' },
+                  destination_warehouse_id: { type: 'string', format: 'uuid' },
+                  transfer_date: { type: 'string', format: 'date' },
+                  items: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        product_id: { type: 'string', format: 'uuid' },
+                        quantity_to_transfer: { type: 'number', minimum: 1 },
+                      },
+                      required: ['product_id', 'quantity_to_transfer'],
+                    },
+                  },
+                },
+                required: ['source_warehouse_id', 'destination_warehouse_id', 'transfer_date', 'items'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Transfer validation completed',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            is_valid: { type: 'boolean' },
+                            errors: { type: 'array', items: { type: 'string' } },
+                            warnings: { type: 'array', items: { type: 'string' } },
+                            blocked_items: { type: 'array', items: { type: 'string' } },
+                            total_weight_kg: { type: 'number' },
+                            estimated_cost: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/transfers.updateStatus': {
+      post: {
+        summary: 'Update transfer status',
+        description: 'Update transfer status and completion details (Mutation)',
+        tags: ['transfers'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  transfer_id: { type: 'string', format: 'uuid' },
+                  new_status: { type: 'string', enum: ['draft', 'pending', 'approved', 'in_transit', 'completed', 'cancelled'] },
+                  notes: { type: 'string' },
+                  completed_items: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                },
+                required: ['transfer_id', 'new_status'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Transfer status updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Warehouse Management endpoints
+    '/api/v1/trpc/warehouses.getById': {
+      get: {
+        summary: 'Get warehouse details',
+        description: 'Get detailed information about a specific warehouse (Query)',
+        tags: ['warehouses'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'warehouse_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Warehouse details retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/warehouses.getStats': {
+      get: {
+        summary: 'Get warehouse statistics',
+        description: 'Get warehouse system statistics (Query)',
+        tags: ['warehouses'],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Warehouse statistics retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            total: { type: 'number' },
+                            total_capacity: { type: 'number' },
+                            average_capacity: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/warehouses.getOptions': {
+      get: {
+        summary: 'Get warehouse options',
+        description: 'Get simplified warehouse list for UI dropdowns (Query)',
+        tags: ['warehouses'],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          '200': {
+            description: 'Warehouse options retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              name: { type: 'string' },
+                              capacity_cylinders: { type: 'number' },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    // Stock Movement endpoints
+    '/api/v1/trpc/stockMovements.get': {
+      get: {
+        summary: 'Get stock movement details',
+        description: 'Get detailed information about a specific stock movement (Query)',
+        tags: ['stock-movements'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'movement_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Stock movement details retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'object' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/stockMovements.createBulk': {
+      post: {
+        summary: 'Create bulk stock movements',
+        description: 'Create multiple stock movements in one operation (Mutation)',
+        tags: ['stock-movements'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  movements: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        product_id: { type: 'string', format: 'uuid' },
+                        warehouse_id: { type: 'string', format: 'uuid' },
+                        truck_id: { type: 'string', format: 'uuid' },
+                        order_id: { type: 'string', format: 'uuid' },
+                        movement_type: { type: 'string', enum: ['delivery', 'pickup', 'refill', 'exchange', 'transfer', 'adjustment'] },
+                        qty_full_in: { type: 'integer', minimum: 0 },
+                        qty_full_out: { type: 'integer', minimum: 0 },
+                        qty_empty_in: { type: 'integer', minimum: 0 },
+                        qty_empty_out: { type: 'integer', minimum: 0 },
+                        movement_date: { type: 'string', format: 'date' },
+                        reference_number: { type: 'string' },
+                        notes: { type: 'string' },
+                      },
+                      required: ['product_id', 'movement_type', 'movement_date'],
+                    },
+                  },
+                },
+                required: ['movements'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Bulk stock movements created successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'array',
+                          items: { type: 'object' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/stockMovements.getSummary': {
+      get: {
+        summary: 'Get stock movement summary',
+        description: 'Get summary of stock movements with breakdowns (Query)',
+        tags: ['stock-movements'],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
+          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+          { name: 'truck_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          '200': {
+            description: 'Stock movement summary retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            summary: { type: 'object' },
+                            by_type: { type: 'object' },
+                            by_product: { type: 'array', items: { type: 'object' } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/api/v1/trpc/stockMovements.processRefillOrder': {
+      post: {
+        summary: 'Process refill order',
+        description: 'Process a refill order with stock movements (Mutation)',
+        tags: ['stock-movements'],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  order_id: { type: 'string', format: 'uuid' },
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                  truck_id: { type: 'string', format: 'uuid' },
+                  items: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        product_id: { type: 'string', format: 'uuid' },
+                        quantity: { type: 'integer', minimum: 1 },
+                      },
+                      required: ['product_id', 'quantity'],
+                    },
+                  },
+                },
+                required: ['order_id', 'warehouse_id', 'items'],
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Refill order processed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    result: {
+                      type: 'object',
+                      properties: {
+                        data: {
+                          type: 'object',
+                          properties: {
+                            success: { type: 'boolean' },
                           },
                         },
                       },
