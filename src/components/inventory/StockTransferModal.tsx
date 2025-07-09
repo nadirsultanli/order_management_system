@@ -119,18 +119,18 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="relative transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all w-full max-w-4xl">
+        <div className="relative transform overflow-hidden rounded-lg bg-white shadow-xl transition-all w-full max-w-3xl max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSubmit(handleFormSubmit)}>
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-green-600 px-6 py-4">
+            <div className="px-6 py-4 border-b border-gray-200 bg-white sticky top-0 z-10">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-semibold text-white">
+                <h3 className="text-lg font-semibold text-gray-900">
                   Transfer Stock
                 </h3>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-full bg-white/20 p-2 text-white hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white"
+                  className="rounded-md p-2 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -156,8 +156,8 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
               {/* Transfer Direction - Equal sized sections */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
                 {/* Source Warehouse */}
-                <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
-                  <h4 className="text-lg font-semibold text-blue-900 mb-4 text-center">From Warehouse</h4>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 text-center">From Warehouse</h4>
                   <div className="text-center">
                     <div className="text-base font-bold text-blue-800 mb-4">
                       {inventory.warehouse?.name}
@@ -187,8 +187,8 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
                 </div>
 
                 {/* Destination Warehouse */}
-                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
-                  <h4 className="text-lg font-semibold text-green-900 mb-4 text-center">To Warehouse</h4>
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h4 className="text-md font-semibold text-gray-900 mb-4 text-center">To Warehouse</h4>
                   <div className="space-y-4">
                     <WarehouseSelector
                       value={toWarehouseId}
