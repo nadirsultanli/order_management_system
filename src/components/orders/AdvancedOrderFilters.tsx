@@ -73,14 +73,8 @@ export const AdvancedOrderFilters: React.FC<AdvancedOrderFiltersProps> = ({
     }
   };
 
-  const quickFilters = [
-    { name: "Today's Deliveries", filters: { scheduled_date_from: new Date().toISOString().split('T')[0], scheduled_date_to: new Date().toISOString().split('T')[0] } },
-    { name: 'Overdue Orders', filters: { is_overdue: true } },
-    { name: 'Draft Orders', filters: { status: 'draft' } },
-    { name: 'High Value Orders', filters: { amount_min: 1000 } },
-    { name: 'This Week', filters: { order_date_from: new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] } },
-    { name: 'Payment Overdue', filters: { payment_status: 'overdue' } },
-  ];
+  // Quick filters removed as per latest UI change
+  const quickFilters: never[] = [];
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 space-y-4">
@@ -141,18 +135,7 @@ export const AdvancedOrderFilters: React.FC<AdvancedOrderFiltersProps> = ({
         </div>
       </div>
 
-      {/* Quick Filters */}
-      <div className="flex flex-wrap gap-2">
-        {quickFilters.map((quickFilter) => (
-          <button
-            key={quickFilter.name}
-            onClick={() => onFiltersChange({ ...quickFilter.filters, page: 1 })}
-            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
-          >
-            {quickFilter.name}
-          </button>
-        ))}
-      </div>
+      {/* Quick filters removed */}
 
       {/* Saved Filters */}
       {savedFilters.length > 0 && (
