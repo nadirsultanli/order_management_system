@@ -5,6 +5,7 @@ import { AddressCard } from './AddressCard';
 import { AddressForm } from './AddressForm';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Address, CreateAddressData } from '../../types/address';
+import toast from 'react-hot-toast';
 
 interface AddressListProps {
   customerId: string;
@@ -32,6 +33,10 @@ export const AddressList: React.FC<AddressListProps> = ({ customerId }) => {
   };
 
   const handleDeleteAddress = (address: Address) => {
+    if (address.is_primary) {
+      toast.error('Primary address cannot be deleted. Please set another address as primary before deleting.');
+      return;
+    }
     setDeletingAddress(address);
   };
 
