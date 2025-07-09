@@ -187,6 +187,8 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
         map.remove();
         setMap(null);
       }
+      // Reset pin draggable state
+      setIsPinDraggable(false);
     }
   }, [isOpen, map, marker]);
 
@@ -339,7 +341,11 @@ export const WarehouseForm: React.FC<WarehouseFormProps> = ({
                       {/* Show the map if lat/lng are set */}
                       {latitude && longitude && (
                         <div className="mt-4">
-                          <div ref={mapContainer} style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden', position: 'relative' }} />
+                          <div 
+                            key={`map-${isOpen}-${warehouse?.id || 'new'}`}
+                            ref={mapContainer} 
+                            style={{ width: '100%', height: 200, borderRadius: 8, overflow: 'hidden', position: 'relative' }} 
+                          />
                           <div className="flex justify-end mt-2">
                             {!isPinDraggable ? (
                               <button
