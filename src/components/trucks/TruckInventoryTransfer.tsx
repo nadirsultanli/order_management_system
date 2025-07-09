@@ -23,12 +23,20 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
 
   const { data: warehouses = [] } = useWarehouseOptions();
-  const { data: productsData } = trpc.products.list.useQuery({ 
-    page: 1, 
-    limit: 100, 
-    status: 'active' 
-  });
-  const products = productsData?.products || [];
+  // Inventory for selected warehouse (for load)
+  const { data: warehouseInventory = [] } = (trpc.inventory as any).getByWarehouse.useQuery(
+    { warehouse_id: selectedWarehouse },
+    { enabled: !!selectedWarehouse }
+  );
+
+  // Truck data to get inventory (for unload)
+  const { data: truckDetails } = (trpc.trucks as any).get.useQuery({ id: truckId });
+  const truckInventory = truckDetails?.inventory || [];
+
+  // Derive product options based on transfer type
+  const products = transferType === 'load'
+    ? warehouseInventory.map((inv: any) => inv.product).filter(Boolean)
+    : truckInventory.map((inv: any) => inv).filter(Boolean);
 
   const loadTruckMutation = trpc.trucks.loadInventory.useMutation();
   const unloadTruckMutation = trpc.trucks.unloadInventory.useMutation();
@@ -136,7 +144,7 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="">Select warehouse...</option>
-            {warehouses.map((warehouse) => (
+            {(warehouses as any[]).map((warehouse: any) => (
               <option key={warehouse.id} value={warehouse.id}>
                 {warehouse.name}
               </option>
@@ -152,10 +160,15 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
           <select
             value={selectedProduct}
             onChange={(e) => setSelectedProduct(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={transferType === 'load' && !selectedWarehouse}
+            className={`w-full px-3 py-2 border rounded-md focus:ring-2 focus:border-blue-500 ${
+              transferType === 'load' && !selectedWarehouse ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'border-gray-300'
+            }`}
           >
-            <option value="">Select product...</option>
-            {products.map((product) => (
+            <option value="">
+              {transferType === 'load' && !selectedWarehouse ? 'Select a warehouse first' : 'Select product...'}
+            </option>
+            {products.map((product: any) => (
               <option key={product.id} value={product.id}>
                 {product.name} ({product.sku})
               </option>
