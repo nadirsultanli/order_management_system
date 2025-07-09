@@ -52,17 +52,6 @@ export const PricingPage: React.FC = () => {
     navigate(`/pricing/${priceList.id}`);
   };
 
-  const handleDuplicatePriceList = (priceList: PriceList) => {
-    console.log('Duplicating price list:', priceList);
-    // Create a new price list with the same data but a different name
-    setEditingPriceList({
-      ...priceList,
-      id: '', // Clear ID to create a new one
-      name: `Copy of ${priceList.name}`,
-      is_default: false, // Never copy default status
-    });
-    setIsFormOpen(true);
-  };
 
   const handleSetDefault = async (priceList: PriceList) => {
     console.log('Setting default price list:', priceList);
@@ -147,7 +136,6 @@ export const PricingPage: React.FC = () => {
         loading={isLoading}
         onView={handleViewPriceList}
         onEdit={handleEditPriceList}
-        onDuplicate={handleDuplicatePriceList}
         onSetDefault={handleSetDefault}
         onDelete={handleDeletePriceList}
       />

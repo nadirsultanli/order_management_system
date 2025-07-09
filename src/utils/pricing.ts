@@ -1,5 +1,6 @@
 import { CurrencyOption } from '../types/pricing';
 import { trpc } from '../lib/trpc-client';
+import { getCurrencyByCode } from './currencies';
 
 export const getCurrencyOptions = (): CurrencyOption[] => [
   { code: 'KES', name: 'Kenyan Shilling', symbol: 'Ksh' },
@@ -20,7 +21,7 @@ export const formatCurrency = async (amount: number, currencyCode: string = 'KES
 
 // Synchronous fallback for backward compatibility
 export const formatCurrencySync = (amount: number, currencyCode: string = 'KES'): string => {
-  const currency = getCurrencyOptions().find(c => c.code === currencyCode);
+  const currency = getCurrencyByCode(currencyCode);
   const symbol = currency?.symbol || 'Ksh';
   return `${symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };

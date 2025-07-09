@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit, Copy, Star, Trash2, Loader2, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
+import { Edit, Star, Trash2, Loader2, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 import { PriceList } from '../../types/pricing';
 import { formatDateRange, formatCurrencySync } from '../../utils/pricing';
 import { formatDateSync } from '../../utils/order';
@@ -9,7 +9,6 @@ interface PriceListTableProps {
   loading?: boolean;
   onView: (priceList: PriceList) => void;
   onEdit: (priceList: PriceList) => void;
-  onDuplicate: (priceList: PriceList) => void;
   onSetDefault: (priceList: PriceList) => void;
   onDelete: (priceList: PriceList) => void;
 }
@@ -19,7 +18,6 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
   loading = false,
   onView,
   onEdit,
-  onDuplicate,
   onSetDefault,
   onDelete,
 }) => {
@@ -156,13 +154,6 @@ export const PriceListTable: React.FC<PriceListTableProps> = ({
                         title="Edit price list"
                       >
                         <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => onDuplicate(priceList)}
-                        className="text-purple-600 hover:text-purple-900 p-1 rounded hover:bg-purple-50 transition-colors"
-                        title="Duplicate price list"
-                      >
-                        <Copy className="h-4 w-4" />
                       </button>
                       {!priceList.is_default && (
                         <button

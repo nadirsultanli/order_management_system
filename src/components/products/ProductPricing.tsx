@@ -203,16 +203,16 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <span className="text-sm font-medium text-gray-900">
-                          {formatCurrencySync(item.unit_price)}
+                          {formatCurrencySync(item.unit_price, priceList.currency_code)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="text-sm text-gray-900">
                           {item.price_excluding_tax && item.tax_amount ? (
                             <>
-                              <div className="text-xs text-gray-500">Ex-tax: {formatCurrencySync(item.price_excluding_tax)}</div>
-                              <div className="text-xs text-gray-500">Tax: {formatCurrencySync(item.tax_amount)}</div>
-                              <div className="font-medium">Inc-tax: {formatCurrencySync(item.price_including_tax || item.unit_price)}</div>
+                              <div className="text-xs text-gray-500">Ex-tax: {formatCurrencySync(item.price_excluding_tax, priceList.currency_code)}</div>
+                              <div className="text-xs text-gray-500">Tax: {formatCurrencySync(item.tax_amount, priceList.currency_code)}</div>
+                              <div className="font-medium">Inc-tax: {formatCurrencySync(item.price_including_tax || item.unit_price, priceList.currency_code)}</div>
                             </>
                           ) : (
                             <div className="text-xs text-gray-500">Tax calculated</div>
@@ -229,7 +229,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <span className="text-sm font-medium text-green-600">
-                          {formatCurrencySync(finalPrice)}
+                          {formatCurrencySync(finalPrice, priceList.currency_code)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -263,6 +263,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
           item={editingItem || undefined}
           loading={createPriceListItem.isPending}
           title={editingItem ? 'Edit Product Price' : 'Add Product to Price List'}
+          currencyCode={allPriceLists.find(list => list.id === selectedPriceList)?.currency_code || 'KES'}
         />
       )}
     </div>

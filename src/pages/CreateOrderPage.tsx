@@ -16,7 +16,7 @@ import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
-import { WarehouseSelector } from '../components/warehouses/WarehouseSelector';
+import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useWarehouses } from '../hooks/useWarehouses';
@@ -45,7 +45,8 @@ export const CreateOrderPage: React.FC = () => {
   const [scheduledTime, setScheduledTime] = useState('');
   const [orderLines, setOrderLines] = useState<OrderLineItem[]>([]);
   const [notes, setNotes] = useState('');
-  const [taxPercent, setTaxPercent] = useState(0);
+  // Tax is now calculated automatically from product pricing
+  // const [taxPercent, setTaxPercent] = useState(0);
   
   // Add state for inline address creation
   const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
@@ -114,31 +115,39 @@ export const CreateOrderPage: React.FC = () => {
   });
   const [calculatingTotals, setCalculatingTotals] = useState(false);
 
-  // Calculate totals using backend API whenever order lines or tax changes
+  // Calculate totals automatically from product pricing data
   useEffect(() => {
-    const calculateTotals = async () => {
+    const calculateTotals = () => {
       if (orderLines.length === 0) {
         setOrderCalculations({ subtotal: 0, taxAmount: 0, grandTotal: 0 });
         return;
       }
 
-      setCalculatingTotals(true);
-      try {
-        const result = await calculateOrderTotals.mutateAsync({
-          lines: orderLines,
-          tax_percent: taxPercent, // Frontend stores as percentage (0-100), backend expects percentage format
-        });
-        setOrderCalculations(result);
-      } catch (error) {
-        console.error('Failed to calculate order totals:', error);
-        // Keep previous values on error
-      } finally {
-        setCalculatingTotals(false);
-      }
+      // Calculate subtotal and tax from order lines with product pricing
+      let subtotal = 0;
+      let taxAmount = 0;
+      
+      orderLines.forEach(line => {
+        const lineSubtotal = line.quantity * line.unit_price;
+        subtotal += lineSubtotal;
+        
+        // Use tax amount from product pricing if available
+        if (line.tax_amount) {
+          taxAmount += line.tax_amount * line.quantity;
+        }
+      });
+
+      const grandTotal = subtotal + taxAmount;
+      
+      setOrderCalculations({
+        subtotal,
+        taxAmount,
+        grandTotal
+      });
     };
 
     calculateTotals();
-  }, [orderLines, taxPercent]);
+  }, [orderLines]);
 
   // Extract values for backward compatibility
   const orderTotal = orderCalculations.subtotal;
@@ -524,7 +533,7 @@ export const CreateOrderPage: React.FC = () => {
                   <Package className="inline h-4 w-4 mr-1" />
                   Source Warehouse *
                 </label>
-                <WarehouseSelector
+                <SearchableWarehouseSelector
                   value={selectedWarehouseId}
                   onChange={setSelectedWarehouseId}
                   placeholder="Select warehouse to fulfill from..."
@@ -1015,25 +1024,7 @@ export const CreateOrderPage: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex justify-between items-center mb-2">
-                        <label className="text-sm font-medium text-gray-700">Tax (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={taxPercent}
-                          onChange={e => {
-                            const value = Number(e.target.value);
-                            // Ensure value is within valid range (0-100)
-                            if (value >= 0 && value <= 100) {
-                              setTaxPercent(value);
-                            }
-                          }}
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right"
-                        />
-                      </div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-lg font-medium text-gray-900">Tax:</span>
+                        <span className="text-lg font-medium text-gray-900">Tax (from product pricing):</span>
                         <span className="text-lg font-bold text-gray-900">
                           {formatCurrencySync(taxAmount)}
                         </span>
@@ -1111,15 +1102,10 @@ export const CreateOrderPage: React.FC = () => {
                     </div>
                   )}
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Tax (%)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={taxPercent}
-                      onChange={e => setTaxPercent(Number(e.target.value))}
-                      className="w-24 px-2 py-1 border border-gray-300 rounded text-sm text-right"
-                    />
+                    <label className="text-sm font-medium text-gray-600">Tax:</label>
+                    <div className="text-gray-900">
+                      {formatCurrencySync(taxAmount)} (from product pricing)
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1148,7 +1134,7 @@ export const CreateOrderPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-medium text-gray-900">Tax:</span>
+                    <span className="text-lg font-medium text-gray-900">Tax (from products):</span>
                     <span className="text-lg font-bold text-gray-900">
                       {formatCurrencySync(taxAmount)}
                     </span>

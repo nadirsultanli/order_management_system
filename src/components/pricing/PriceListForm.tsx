@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { PriceList, CreatePriceListData } from '../../types/pricing';
 import { validateDateRangeSync } from '../../utils/pricing';
+import { CurrencySelect } from '../ui/CurrencySelect';
 
 interface PriceListFormProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CreatePriceListData>({
     defaultValues: {
@@ -41,13 +43,14 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
   const startDate = watch('start_date');
   const endDate = watch('end_date');
   const isDefault = watch('is_default');
+  const currencyCode = watch('currency_code');
 
   useEffect(() => {
     if (priceList) {
       reset({
         name: priceList.name,
         description: priceList.description || '',
-        currency_code: 'KES', // Always use KES
+        currency_code: priceList.currency_code || 'KES',
         start_date: priceList.start_date,
         end_date: priceList.end_date || '',
         is_default: priceList.is_default,
@@ -56,7 +59,7 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
       reset({
         name: '',
         description: '',
-        currency_code: 'KES', // Always use KES
+        currency_code: 'KES',
         start_date: new Date().toISOString().split('T')[0],
         end_date: '',
         is_default: false,
@@ -68,7 +71,6 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
     // Clean up data
     const cleanedData = {
       ...data,
-      currency_code: 'KES', // Always use KES
       end_date: data.end_date || undefined,
       description: data.description || undefined,
     };
@@ -133,12 +135,14 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
 
                 <div>
                   <label htmlFor="currency_code" className="block text-sm font-medium text-gray-700">
-                    Currency
+                    Currency *
                   </label>
-                  <div className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm bg-gray-50">
-                    <span className="text-gray-900">KES - Kenyan Shilling (KSh)</span>
-                  </div>
-                  <input type="hidden" {...register('currency_code')} value="KES" />
+                  <CurrencySelect
+                    value={currencyCode}
+                    onChange={(value) => setValue('currency_code', value)}
+                    className="mt-1"
+                  />
+                  <input type="hidden" {...register('currency_code')} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

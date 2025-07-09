@@ -15,6 +15,7 @@ interface PriceListItemFormProps {
   loading?: boolean;
   title: string;
   existingProductIds?: string[];
+  currencyCode?: string;
 }
 
 export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
@@ -26,6 +27,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
   loading = false,
   title,
   existingProductIds = [],
+  currencyCode = 'KES',
 }) => {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [bulkPrice, setBulkPrice] = useState<number>(0);
@@ -215,7 +217,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                     {useBulkPrice && (
                       <div className="mt-2">
                         <label className="block text-sm font-medium text-blue-800 mb-1">
-                          Bulk Price (KSh)
+                          Bulk Price ({currencyCode})
                         </label>
                         <input
                           type="number"
@@ -234,7 +236,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                 {(item || !useBulkPrice) && (
                   <div>
                     <label htmlFor="unit_price" className="block text-sm font-medium text-gray-700">
-                      Unit Price (KSh) *
+                      Unit Price ({currencyCode}) *
                     </label>
                     <input
                       type="number"
@@ -305,7 +307,8 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                         calculateFinalPrice(
                           useBulkPrice ? bulkPrice : watchedPrice, 
                           watchedSurcharge
-                        )
+                        ),
+                        currencyCode
                       )}
                       <div className="text-xs mt-1">
                         (Base price + {watchedSurcharge}% surcharge)

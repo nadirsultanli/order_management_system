@@ -250,24 +250,19 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
             <button
               onClick={togglePin}
               className={`
-                w-full flex items-center justify-center space-x-2 px-3 py-2
+                w-full flex items-center justify-center px-3 py-2
                 rounded-lg transition-all duration-200 transform hover:scale-105
                 ${isPinned 
                   ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg' 
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white border border-gray-600'
                 }
               `}
+              title={isPinned ? 'Unpin Sidebar' : 'Keep Sidebar Open'}
             >
               {isPinned ? (
-                <>
-                  <PinOff className="h-4 w-4" />
-                  <span>Unpin Sidebar</span>
-                </>
+                <PinOff className="h-4 w-4" />
               ) : (
-                <>
-                  <Pin className="h-4 w-4" />
-                  <span>Keep Sidebar Open</span>
-                </>
+                <Pin className="h-4 w-4" />
               )}
             </button>
           </div>

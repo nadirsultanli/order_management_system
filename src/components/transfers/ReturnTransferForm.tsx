@@ -252,9 +252,10 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
                     <div className="flex space-x-4">
                       <div className="w-32">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Full Cylinders
-                          {line.max_qty_full !== undefined && (
-                            <span className="text-xs text-gray-500 ml-1">(max: {line.max_qty_full})</span>
+                          Full
+                          <br />
+                          Cylinders {line.max_qty_full !== undefined && (
+                            <span className="text-xs text-gray-500">(max: {line.max_qty_full})</span>
                           )}
                         </label>
                         <input
@@ -269,9 +270,10 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
                       </div>
                       <div className="w-32">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Empty Cylinders
-                          {line.max_qty_empty !== undefined && (
-                            <span className="text-xs text-gray-500 ml-1">(max: {line.max_qty_empty})</span>
+                          Empty
+                          <br />
+                          Cylinders {line.max_qty_empty !== undefined && (
+                            <span className="text-xs text-gray-500">(max: {line.max_qty_empty})</span>
                           )}
                         </label>
                         <input
