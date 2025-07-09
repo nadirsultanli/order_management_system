@@ -81,7 +81,7 @@ export const ProductsPage: React.FC = () => {
     if (deletingProduct) {
       console.log('Confirming mark as obsolete:', deletingProduct);
       try {
-        await deleteProduct.mutateAsync(deletingProduct.id);
+        await deleteProduct.mutateAsync({ id: deletingProduct.id });
         setDeletingProduct(null);
       } catch (error) {
         console.error('Mark obsolete error:', error);
