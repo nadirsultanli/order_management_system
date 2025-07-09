@@ -139,13 +139,7 @@ export const WarehouseTable: React.FC<WarehouseTableProps> = ({
                     >
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => onDelete(warehouse)}
-                      className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
-                      title="Delete warehouse"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {/* Delete action removed per updated requirements */}
                   </div>
                 </td>
               </tr>
