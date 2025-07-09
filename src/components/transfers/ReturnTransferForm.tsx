@@ -3,9 +3,10 @@ import { TruckInventory } from '../trucks/TruckInventory';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Search, Truck, Package, Plus, X, Warehouse } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
-import { ProductSelector } from '../products/ProductSelector';
+import { TruckProductSelector } from '../products/TruckProductSelector';
 import { trpc } from '../../lib/trpc-client';
 import toast from 'react-hot-toast';
+import { clampQuantityToMax } from '../../utils/transfer-quantity-validation';
 
 // Define types locally since they were removed from lib/transfers
 interface TransferLine {
@@ -15,6 +16,8 @@ interface TransferLine {
   unit_of_measure: string;
   qty_full: number | string;
   qty_empty: number | string;
+  max_qty_full?: number;
+  max_qty_empty?: number;
 }
 
 interface ReturnTransferFormProps {
@@ -130,7 +133,7 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
     setShowProductSelector(true);
   };
 
-  const handleProductSelect = (product: { id: string; name: string; sku: string; unit_of_measure: string }) => {
+  const handleProductSelect = (product: { id: string; name: string; sku: string; unit_of_measure: string; qty_full?: number; qty_empty?: number }) => {
     if (selectedLineIndex !== null) {
       const newLines = [...lines];
       if (selectedLineIndex < lines.length) {
@@ -140,7 +143,9 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           product_id: product.id,
           product_name: product.name,
           product_sku: product.sku,
-          unit_of_measure: product.unit_of_measure
+          unit_of_measure: product.unit_of_measure,
+          max_qty_full: product.qty_full,
+          max_qty_empty: product.qty_empty
         };
       } else {
         // Add new line
@@ -150,13 +155,39 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
           product_sku: product.sku,
           unit_of_measure: product.unit_of_measure,
           qty_full: '',
-          qty_empty: ''
+          qty_empty: '',
+          max_qty_full: product.qty_full,
+          max_qty_empty: product.qty_empty
         });
       }
       setLines(newLines);
     }
     setShowProductSelector(false);
     setSelectedLineIndex(null);
+  };
+
+  // Function to validate and clamp quantities for truck return
+  const handleQuantityChange = (index: number, field: 'qty_full' | 'qty_empty', value: string) => {
+    const newLines = [...lines];
+    const numValue = value === '' ? 0 : parseInt(value);
+    const maxValue = field === 'qty_full' ? newLines[index].max_qty_full || 0 : newLines[index].max_qty_empty || 0;
+    
+    // Clamp the value to the maximum available
+    const clampedValue = clampQuantityToMax(numValue, maxValue);
+    
+    newLines[index][field] = value === '' ? '' : clampedValue;
+    
+    // Show warning if user tried to enter more than available
+    if (numValue > maxValue && maxValue > 0) {
+      toast(`Only ${maxValue} ${field === 'qty_full' ? 'full' : 'empty'} cylinders available on truck for ${newLines[index].product_name}`, {
+        icon: '⚠️',
+        style: {
+          borderLeft: '4px solid #f59e0b',
+        },
+      });
+    }
+    
+    setLines(newLines);
   };
 
   const filteredTrucks = trucks.filter(truck =>
@@ -372,14 +403,18 @@ export const ReturnTransferForm: React.FC<ReturnTransferFormProps> = ({ onSucces
         loading={loading}
       />
 
-      <ProductSelector
-        isOpen={showProductSelector}
-        onClose={() => {
-          setShowProductSelector(false);
-          setSelectedLineIndex(null);
-        }}
-        onSelect={handleProductSelect}
-      />
+      {selectedTruck && (
+        <TruckProductSelector
+          isOpen={showProductSelector}
+          onClose={() => {
+            setShowProductSelector(false);
+            setSelectedLineIndex(null);
+          }}
+          onSelect={handleProductSelect}
+          truckId={selectedTruck}
+          selectedProductIds={lines.map(line => line.product_id)}
+        />
+      )}
     </div>
   );
 }; 

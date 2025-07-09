@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Calendar, BarChart3 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useOrdersNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderTable } from '../components/orders/OrderTable';
 import { AdvancedOrderFilters } from '../components/orders/AdvancedOrderFilters';
@@ -157,21 +157,6 @@ export const OrdersPage: React.FC = () => {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={() => navigate('/orders/reports')}
-            className="flex items-center space-x-2 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            <BarChart3 className="h-4 w-4" />
-            <span>Reports</span>
-          </button>
-          <button
-            onClick={() => navigate('/orders/schedule')}
-            className="flex items-center space-x-2 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Calendar className="h-4 w-4" />
-            <span>Schedule</span>
-          </button>
-
           <button
             onClick={handleCreateOrder}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"

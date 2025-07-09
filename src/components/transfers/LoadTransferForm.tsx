@@ -3,10 +3,12 @@ import { WarehouseInventory } from './WarehouseInventory';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Search, Truck, Package, Plus, X, Warehouse, CheckCircle, AlertCircle } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
-import { ProductSelector } from '../products/ProductSelector';
+import { WarehouseProductSelector } from '../products/WarehouseProductSelector';
+import { useInventoryByWarehouseNew } from '../../hooks/useInventory';
 import { trpc } from '../../lib/trpc-client';
 import toast from 'react-hot-toast';
 import { verifyTransferIntegrity } from '../../utils/transfer-verification';
+import { validateTransferQuantity, clampQuantityToMax } from '../../utils/transfer-quantity-validation';
 
 // Define types locally since they were removed from lib/transfers
 interface TransferLine {
@@ -16,6 +18,8 @@ interface TransferLine {
   unit_of_measure: string;
   qty_full: number | string;
   qty_empty: number | string;
+  max_qty_full?: number;
+  max_qty_empty?: number;
 }
 
 interface LoadTransferFormProps {
@@ -242,7 +246,10 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
     setShowProductSelector(true);
   };
 
-  const handleProductSelect = (product: { id: string; name: string; sku: string; unit_of_measure: string }) => {
+  // Get warehouse inventory for validation
+  const { data: warehouseInventory = [] } = useInventoryByWarehouseNew(selectedWarehouse);
+
+  const handleProductSelect = (product: { id: string; name: string; sku: string; unit_of_measure: string; qty_full?: number; qty_empty?: number }) => {
     if (selectedLineIndex !== null) {
       const newLines = [...lines];
       if (selectedLineIndex < lines.length) {
@@ -252,7 +259,9 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
           product_id: product.id,
           product_name: product.name,
           product_sku: product.sku,
-          unit_of_measure: product.unit_of_measure
+          unit_of_measure: product.unit_of_measure,
+          max_qty_full: product.qty_full,
+          max_qty_empty: product.qty_empty
         };
       } else {
         // Add new line
@@ -262,13 +271,34 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
           product_sku: product.sku,
           unit_of_measure: product.unit_of_measure,
           qty_full: '',
-          qty_empty: ''
+          qty_empty: '',
+          max_qty_full: product.qty_full,
+          max_qty_empty: product.qty_empty
         });
       }
       setLines(newLines);
     }
     setShowProductSelector(false);
     setSelectedLineIndex(null);
+  };
+
+  // Function to validate and clamp quantities
+  const handleQuantityChange = (index: number, field: 'qty_full' | 'qty_empty', value: string) => {
+    const newLines = [...lines];
+    const numValue = value === '' ? 0 : parseInt(value);
+    const maxValue = field === 'qty_full' ? newLines[index].max_qty_full || 0 : newLines[index].max_qty_empty || 0;
+    
+    // Clamp the value to the maximum available
+    const clampedValue = clampQuantityToMax(numValue, maxValue);
+    
+    newLines[index][field] = value === '' ? '' : clampedValue;
+    
+    // Show warning if user tried to enter more than available
+    if (numValue > maxValue && maxValue > 0) {
+      toast.warning(`Only ${maxValue} ${field === 'qty_full' ? 'full' : 'empty'} cylinders available for ${newLines[index].product_name}`);
+    }
+    
+    setLines(newLines);
   };
 
   const filteredTrucks = trucks.filter(truck =>
@@ -414,31 +444,35 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
                 </div>
                 <div className="flex space-x-4">
                   <div className="w-32">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Cylinders</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Full Cylinders
+                      {line.max_qty_full !== undefined && (
+                        <span className="text-xs text-gray-500 ml-1">(max: {line.max_qty_full})</span>
+                      )}
+                    </label>
                     <input
                       type="number"
                       min="0"
+                      max={line.max_qty_full || undefined}
                       value={line.qty_full}
-                      onChange={(e) => {
-                        const newLines = [...lines];
-                        newLines[index].qty_full = e.target.value === '' ? '' : parseInt(e.target.value);
-                        setLines(newLines);
-                      }}
+                      onChange={(e) => handleQuantityChange(index, 'qty_full', e.target.value)}
                       placeholder="Quantity"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                   <div className="w-32">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Empty Cylinders</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Empty Cylinders
+                      {line.max_qty_empty !== undefined && (
+                        <span className="text-xs text-gray-500 ml-1">(max: {line.max_qty_empty})</span>
+                      )}
+                    </label>
                     <input
                       type="number"
                       min="0"
+                      max={line.max_qty_empty || undefined}
                       value={line.qty_empty}
-                      onChange={(e) => {
-                        const newLines = [...lines];
-                        newLines[index].qty_empty = e.target.value === '' ? '' : parseInt(e.target.value);
-                        setLines(newLines);
-                      }}
+                      onChange={(e) => handleQuantityChange(index, 'qty_empty', e.target.value)}
                       placeholder="Quantity"
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -527,15 +561,19 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         </div>
       )}
 
-      {/* Product Selector Modal */}
-      <ProductSelector
-        isOpen={showProductSelector}
-        onClose={() => {
-          setShowProductSelector(false);
-          setSelectedLineIndex(null);
-        }}
-        onSelect={handleProductSelect}
-      />
+      {/* Warehouse Product Selector Modal */}
+      {selectedWarehouse && (
+        <WarehouseProductSelector
+          isOpen={showProductSelector}
+          onClose={() => {
+            setShowProductSelector(false);
+            setSelectedLineIndex(null);
+          }}
+          onSelect={handleProductSelect}
+          warehouseId={selectedWarehouse}
+          selectedProductIds={lines.map(line => line.product_id)}
+        />
+      )}
     </div>
   );
 }; 
