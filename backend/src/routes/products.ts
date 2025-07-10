@@ -64,7 +64,9 @@ const UpdateProductSchema = z.object({
   status: ProductStatusEnum.optional(),
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().optional(),
+
   variant: VariantEnum.optional(),
+
   variant_type: VariantTypeEnum.optional(),
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
