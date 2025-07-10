@@ -714,33 +714,23 @@ export const openApiDocument = {
       }
     },
     '/api/v1/trpc/orders.getById': {
-      post: {
+      get: {
         summary: 'Get order by ID',
         description: 'Get detailed information about a specific order (tRPC Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  order_id: {
-                    type: 'string',
-                    format: 'uuid',
-                    description: 'The unique identifier of the order'
-                  }
-                },
-                required: ['id'],
-                additionalProperties: false,
-                example: {
-                  id: "123e4567-e89b-12d3-a456-426614174000"
-                }
-              }
-            }
+        parameters: [
+          {
+            name: 'input',
+            in: 'query',
+            required: true,
+            schema: {
+              type: 'string',
+              description: 'JSON object containing the order ID'
+            },
+            example: '{"id":"123e4567-e89b-12d3-a456-426614174000"}'
           }
-        },
+        ],
         responses: {
           '200': {
             description: 'Order details retrieved successfully',
