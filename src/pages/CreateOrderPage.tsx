@@ -124,20 +124,32 @@ export const CreateOrderPage: React.FC = () => {
       }
 
       // Calculate subtotal and tax from order lines with product pricing
-      let subtotal = 0;
-      let taxAmount = 0;
+      let subtotal = 0;  // Sum of ex-tax amounts
+      let taxAmount = 0; // Sum of tax amounts
+      let grandTotal = 0; // Sum of including-tax amounts
       
       orderLines.forEach(line => {
-        const lineSubtotal = line.quantity * line.unit_price;
-        subtotal += lineSubtotal;
+        // Use price_excluding_tax for subtotal
+        if (line.price_excluding_tax !== undefined) {
+          subtotal += line.price_excluding_tax * line.quantity;
+        } else {
+          // Fallback to unit_price if tax fields not available
+          subtotal += line.unit_price * line.quantity;
+        }
         
-        // Use tax amount from product pricing if available
-        if (line.tax_amount) {
+        // Use tax amount from product pricing
+        if (line.tax_amount !== undefined) {
           taxAmount += line.tax_amount * line.quantity;
         }
+        
+        // Use price_including_tax for grand total
+        if (line.price_including_tax !== undefined) {
+          grandTotal += line.price_including_tax * line.quantity;
+        } else {
+          // Fallback to unit_price + tax if tax fields not available
+          grandTotal += line.unit_price * line.quantity + (line.tax_amount || 0) * line.quantity;
+        }
       });
-
-      const grandTotal = subtotal + taxAmount;
       
       setOrderCalculations({
         subtotal,
@@ -1003,7 +1015,7 @@ export const CreateOrderPage: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-lg font-medium text-gray-900">Tax (from product pricing):</span>
+                        <span className="text-lg font-medium text-gray-900">Tax:</span>
                         <span className="text-lg font-bold text-gray-900">
                           {formatCurrencySync(taxAmount)}
                         </span>
@@ -1083,7 +1095,7 @@ export const CreateOrderPage: React.FC = () => {
                   <div>
                     <label className="text-sm font-medium text-gray-600">Tax:</label>
                     <div className="text-gray-900">
-                      {formatCurrencySync(taxAmount)} (from product pricing)
+                      {formatCurrencySync(taxAmount)}
                     </div>
                   </div>
                 </div>
@@ -1113,7 +1125,7 @@ export const CreateOrderPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-medium text-gray-900">Tax (from products):</span>
+                    <span className="text-lg font-medium text-gray-900">Tax:</span>
                     <span className="text-lg font-bold text-gray-900">
                       {formatCurrencySync(taxAmount)}
                     </span>

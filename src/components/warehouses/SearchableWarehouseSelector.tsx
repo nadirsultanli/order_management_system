@@ -122,18 +122,20 @@ export const SearchableWarehouseSelector: React.FC<SearchableWarehouseSelectorPr
 
           {/* Options list */}
           <div className="max-h-48 overflow-y-auto">
-            {/* Clear selection option */}
-            <button
-              type="button"
-              onClick={() => handleSelect('')}
-              className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
-                !value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-              }`}
-            >
-              {placeholder}
-            </button>
+            {/* Clear selection option - only show if not required */}
+            {!required && (
+              <button
+                type="button"
+                onClick={() => handleSelect('')}
+                className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 transition-colors ${
+                  !value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                }`}
+              >
+                {placeholder}
+              </button>
+            )}
 
-                         {filteredWarehouses.length > 0 ? (
+            {filteredWarehouses.length > 0 ? (
                filteredWarehouses.map((warehouse: any) => {
                  const isSelected = warehouse.id === value;
                  const location = [warehouse.city, warehouse.state].filter(Boolean).join(', ');
