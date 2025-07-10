@@ -332,33 +332,60 @@ export const openApiDocument = {
             required: false,
             schema: {
               type: 'string',
-              description: 'URL-encoded JSON object containing filter parameters'
+              description: 'URL-encoded JSON object containing filter parameters',
             },
             examples: {
               empty_request: {
-                summary: 'Empty request (get all orders with defaults)',
-                description: 'No filters applied, uses default pagination and sorting',
-                value: '{}'
+                summary: 'Empty request (get all orders)',
+                value: `{}`
               },
               single_status: {
                 summary: 'Single status filter',
-                description: 'Filter orders by a single status',
-                value: '{"status":"confirmed","page":1,"limit":20}'
+                value: `{
+          "status": "confirmed",
+          "page": 1,
+          "limit": 20
+        }`
               },
-              multiple_statuses_string: {
+              multiple_statuses_csv: {
                 summary: 'Multiple statuses (comma-separated)',
-                description: 'Filter orders by multiple statuses using comma-separated string',
-                value: '{"status":"confirmed,scheduled,en_route","sort_by":"scheduled_date","sort_order":"asc"}'
+                value: `{
+          "status": "confirmed,scheduled,en_route",
+          "sort_by": "scheduled_date",
+          "sort_order": "asc"
+        }`
               },
               multiple_statuses_array: {
-                summary: 'Multiple statuses (array)',
-                description: 'Filter orders by multiple statuses using array format',
-                value: '{"status":["confirmed","scheduled","en_route"],"include_analytics":true,"limit":25}'
+                summary: 'Multiple statuses (as array)',
+                value: `{
+          "status": ["confirmed", "scheduled", "en_route"],
+          "include_analytics": true,
+          "limit": 25
+        }`
               },
               complex_filtering: {
                 summary: 'Complex filtering with all parameters',
-                description: 'Example using multiple filters and search',
-                value: '{"status":"confirmed,scheduled","customer_id":"123e4567-e89b-12d3-a456-426614174000","search":"gas cylinder","order_date_from":"2024-01-01","order_date_to":"2024-12-31","amount_min":100,"amount_max":5000,"delivery_method":"delivery","priority":"high","payment_status":"pending","delivery_area":"California","is_overdue":false,"include_analytics":true,"sort_by":"scheduled_date","sort_order":"asc","page":1,"limit":30}'
+                value: `{
+          "status": "confirmed,scheduled",
+          "customer_id": "123e4567-e89b-12d3-a456-426614174000",
+          "search": "gas cylinder",
+          "order_date_from": "2024-01-01",
+          "order_date_to": "2024-12-31",
+          "scheduled_date_from": "2024-01-01",
+          "scheduled_date_to": "2024-12-31",
+          "amount_min": 100,
+          "amount_max": 5000,
+          "delivery_method": "delivery",
+          "priority": "high",
+          "payment_status": "pending",
+          "delivery_area": "California",
+          "is_overdue": false,
+          "include_analytics": true,
+          "sort_by": "scheduled_date",
+          "sort_order": "asc",
+          "page": 1,
+          "limit": 30
+        }`
               }
             }
           }
