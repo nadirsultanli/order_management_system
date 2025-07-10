@@ -320,7 +320,7 @@ export const openApiDocument = {
 
     // Orders endpoints  
     '/api/v1/trpc/orders.list': {
-      get: {
+      post: {
         summary: 'List orders',
         description: 'Get paginated list of orders with advanced filtering',
         tags: ['orders'],
@@ -713,7 +713,7 @@ export const openApiDocument = {
       }
     }, 
     '/api/v1/trpc/orders.getById': {
-      get: {
+      post: {
         summary: 'Get order by ID',
         description: 'Get detailed information about a specific order (Query)',
         tags: ['orders'],
