@@ -173,7 +173,7 @@ export const CustomerSelector: React.FC<CustomerSelectorProps> = ({
         onSubmit={handleCustomerCreated}
         loading={createCustomer.isLoading}
         title="Add New Customer"
-        showAddressFields={false}
+        showAddressFields={true}
       />
     </div>
   );

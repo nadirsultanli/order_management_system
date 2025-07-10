@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, Download, Calendar, CheckCircle, FileText, X } from 'lucide-react';
+import { ChevronDown, Download, Calendar, CheckCircle, X } from 'lucide-react';
 import { Order, BulkOrderOperation } from '../../types/order';
 
 interface BulkOrderActionsProps {
@@ -75,13 +75,6 @@ export const BulkOrderActions: React.FC<BulkOrderActionsProps> = ({
     setShowDropdown(false);
   };
 
-  const handlePrint = () => {
-    onBulkOperation({
-      order_ids: selectedOrders.map(o => o.id),
-      operation: 'print',
-    });
-    setShowDropdown(false);
-  };
 
   const totalValue = selectedOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
 
@@ -164,7 +157,7 @@ export const BulkOrderActions: React.FC<BulkOrderActionsProps> = ({
 
                   <div className="border-t border-gray-100 mt-1">
                     <div className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Export & Print
+                      Export
                     </div>
                     
                     <button
@@ -173,14 +166,6 @@ export const BulkOrderActions: React.FC<BulkOrderActionsProps> = ({
                     >
                       <Download className="h-4 w-4 text-green-600" />
                       <span>Export to CSV</span>
-                    </button>
-
-                    <button
-                      onClick={handlePrint}
-                      className="flex items-center space-x-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <FileText className="h-4 w-4 text-gray-600" />
-                      <span>Print Manifests</span>
                     </button>
                   </div>
                 </div>

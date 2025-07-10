@@ -15,9 +15,8 @@ import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
-import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
-import { ProductVariantSelector } from '../components/products/ProductVariantSelector';
+import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useWarehouses } from '../hooks/useWarehouses';
@@ -52,16 +51,14 @@ export const CreateOrderPage: React.FC = () => {
   // Add state for inline address creation
   const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
   
-  // Order type state
-  const [orderType, setOrderType] = useState<'outright' | 'refill'>('outright');
-  const [exchangeEmptyQty, setExchangeEmptyQty] = useState(0);
-  const [requiresPickup, setRequiresPickup] = useState(false);
   
   // Warehouse selection state
   const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
   
-  // Product variant selection state
+  // Order type selection state
   const [selectedVariant, setSelectedVariant] = useState<'outright' | 'refill'>('outright');
+  const [exchangeEmptyQty, setExchangeEmptyQty] = useState(0);
+  const [requiresPickup, setRequiresPickup] = useState(false);
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
@@ -169,6 +166,14 @@ export const CreateOrderPage: React.FC = () => {
     setSelectedVariant(variant);
     // Clear order lines when variant changes to prevent mixing variants
     setOrderLines([]);
+  };
+
+  const handleExchangeEmptyQtyChange = (qty: number) => {
+    setExchangeEmptyQty(qty);
+  };
+
+  const handleRequiresPickupChange = (requires: boolean) => {
+    setRequiresPickup(requires);
   };
 
   const handleCustomerCreated = (newCustomer: Customer) => {
@@ -333,10 +338,6 @@ export const CreateOrderPage: React.FC = () => {
           price_including_tax: line.price_including_tax,
           tax_rate: line.tax_rate,
         })),
-        // Order type fields
-        order_type: orderType,
-        exchange_empty_qty: exchangeEmptyQty,
-        requires_pickup: requiresPickup,
       };
 
       console.log('Creating order with data:', orderData);
@@ -490,18 +491,6 @@ export const CreateOrderPage: React.FC = () => {
         {/* Step 1: Customer & Delivery */}
         {step === 1 && (
           <div className="space-y-6">
-            {/* Order Type Selection */}
-            <div className="mb-6">
-              <OrderTypeSelector
-                orderType={orderType}
-                exchangeEmptyQty={exchangeEmptyQty}
-                requiresPickup={requiresPickup}
-                onOrderTypeChange={setOrderType}
-                onExchangeEmptyQtyChange={setExchangeEmptyQty}
-                onRequiresPickupChange={setRequiresPickup}
-              />
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Customer Selection */}
               <div>
@@ -704,11 +693,15 @@ export const CreateOrderPage: React.FC = () => {
         {/* Step 2: Add Products */}
         {step === 2 && (
           <div className="space-y-6">
-            {/* Product Variant Selection */}
+            {/* Order Type Selection */}
             <div className="bg-white border border-gray-200 rounded-lg p-4">
-              <ProductVariantSelector
-                value={selectedVariant}
-                onChange={handleVariantChange}
+              <OrderTypeSelector
+                orderType={selectedVariant}
+                exchangeEmptyQty={exchangeEmptyQty}
+                requiresPickup={requiresPickup}
+                onOrderTypeChange={handleVariantChange}
+                onExchangeEmptyQtyChange={handleExchangeEmptyQtyChange}
+                onRequiresPickupChange={handleRequiresPickupChange}
               />
             </div>
             

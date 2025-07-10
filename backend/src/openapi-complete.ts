@@ -717,9 +717,25 @@ export const openApiDocument = {
         summary: 'Get order by ID',
         description: 'Get detailed information about a specific order (Query)',
         tags: ['orders'],
-        parameters: [
-          { name: 'order_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } }
-        ],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  order_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'The unique identifier of the order'
+                  }
+                },
+                required: ['order_id']
+              }
+            }
+          }
+        },
         responses: {
           '200': {
             description: 'Order details retrieved successfully',
@@ -919,12 +935,22 @@ export const openApiDocument = {
         description: 'Get paginated list of customers with filtering (Query)',
         tags: ['customers'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'search', in: 'query', schema: { type: 'string' } },
-          { name: 'account_status', in: 'query', schema: { type: 'string', enum: ['active', 'credit_hold', 'closed'] } },
-          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  search: { type: 'string' },
+                  account_status: { type: 'string', enum: ['active', 'credit_hold', 'closed'] },
+                  page: { type: 'integer', default: 1 },
+                  limit: { type: 'integer', default: 50 },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Customers retrieved successfully',
@@ -965,9 +991,20 @@ export const openApiDocument = {
         description: 'Get single customer with full details (Query)',
         tags: ['customers'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                },
+                required: ['id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Customer retrieved successfully',
@@ -1225,12 +1262,22 @@ export const openApiDocument = {
         description: 'Get product catalog with filtering (Query)',
         tags: ['products'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'search', in: 'query', schema: { type: 'string' } },
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['active', 'discontinued', 'out_of_stock'] } },
-          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  search: { type: 'string' },
+                  status: { type: 'string', enum: ['active', 'discontinued', 'out_of_stock'] },
+                  page: { type: 'integer', default: 1 },
+                  limit: { type: 'integer', default: 50 },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Products retrieved successfully',
@@ -1273,9 +1320,20 @@ export const openApiDocument = {
         description: 'Get single product with specifications (Query)',
         tags: ['products'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                },
+                required: ['id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Product retrieved successfully',
@@ -1374,11 +1432,21 @@ export const openApiDocument = {
         description: 'Get inventory levels with filtering (Query)',
         tags: ['inventory'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'low_stock_only', in: 'query', schema: { type: 'boolean' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                  product_id: { type: 'string', format: 'uuid' },
+                  low_stock_only: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Inventory retrieved successfully',
@@ -1468,11 +1536,22 @@ export const openApiDocument = {
 
     // Warehouses endpoints
     '/api/v1/trpc/warehouses.list': {
-      get: {
+      post: {
         summary: 'List warehouses',
         description: 'Get all warehouses (Query)',
         tags: ['warehouses'],
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {},
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Warehouses retrieved successfully',
@@ -1568,10 +1647,27 @@ export const openApiDocument = {
         description: 'Get fleet listing with status filters (Query)',
         tags: ['trucks'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['active', 'maintenance', 'inactive'] } },
-          { name: 'available_only', in: 'query', schema: { type: 'boolean' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  status: { 
+                    type: 'string', 
+                    enum: ['active', 'maintenance', 'inactive'],
+                    description: 'Filter trucks by status'
+                  },
+                  available_only: { 
+                    type: 'boolean',
+                    description: 'Only return available trucks'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Trucks retrieved successfully',
@@ -1667,21 +1763,29 @@ export const openApiDocument = {
         description: 'Get current inventory of products in a specific truck (Query)',
         tags: ['trucks'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { 
-            name: 'truck_id', 
-            in: 'query', 
-            required: true, 
-            schema: { type: 'string', format: 'uuid' },
-            description: 'ID of the truck to get inventory for'
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  truck_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the truck to get inventory for'
+                  },
+                  include_product_details: { 
+                    type: 'boolean', 
+                    default: true,
+                    description: 'Whether to include detailed product information'
+                  },
+                },
+                required: ['truck_id'],
+              },
+            },
           },
-          { 
-            name: 'include_product_details', 
-            in: 'query', 
-            schema: { type: 'boolean', default: true },
-            description: 'Whether to include detailed product information'
-          },
-        ],
+        },
         responses: {
           '200': {
             description: 'Truck inventory retrieved successfully',
@@ -1808,10 +1912,26 @@ export const openApiDocument = {
         description: 'Get all price lists with filtering (Query)',
         tags: ['pricing'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'active_only', in: 'query', schema: { type: 'boolean' } },
-          { name: 'search', in: 'query', schema: { type: 'string' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  active_only: { 
+                    type: 'boolean',
+                    description: 'Filter to only active price lists'
+                  },
+                  search: { 
+                    type: 'string',
+                    description: 'Search term for price list names'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Price lists retrieved successfully',
@@ -1853,11 +1973,33 @@ export const openApiDocument = {
         description: 'Get current price for product (Query)',
         tags: ['pricing'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'product_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-          { name: 'customer_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'quantity', in: 'query', schema: { type: 'number' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  product_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the product to get price for'
+                  },
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the customer for personalized pricing'
+                  },
+                  quantity: { 
+                    type: 'number',
+                    description: 'Quantity for bulk pricing calculation'
+                  },
+                },
+                required: ['product_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Product price retrieved successfully',
@@ -1897,12 +2039,38 @@ export const openApiDocument = {
         description: 'Get paginated list of payments (Query)',
         tags: ['payments'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending', 'completed', 'failed', 'refunded'] } },
-          { name: 'order_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  status: { 
+                    type: 'string', 
+                    enum: ['pending', 'completed', 'failed', 'refunded'],
+                    description: 'Filter payments by status'
+                  },
+                  order_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter payments by order ID'
+                  },
+                  page: { 
+                    type: 'integer', 
+                    default: 1,
+                    description: 'Page number for pagination'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    default: 20,
+                    description: 'Number of items per page'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Payments retrieved successfully',
@@ -2002,11 +2170,33 @@ export const openApiDocument = {
         description: 'Get inventory transfers with filtering (Query)',
         tags: ['transfers'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending', 'in_transit', 'completed', 'cancelled'] } },
-          { name: 'from_warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'to_warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  status: { 
+                    type: 'string', 
+                    enum: ['pending', 'in_transit', 'completed', 'cancelled'],
+                    description: 'Filter transfers by status'
+                  },
+                  from_warehouse_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter transfers by source warehouse'
+                  },
+                  to_warehouse_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter transfers by destination warehouse'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Transfers retrieved successfully',
@@ -2113,13 +2303,23 @@ export const openApiDocument = {
         description: 'Get stock movements with filtering (Query)',
         tags: ['stock-movements'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'movement_type', in: 'query', schema: { type: 'string', enum: ['adjustment', 'transfer', 'order', 'return'] } },
-          { name: 'start_date', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'end_date', in: 'query', schema: { type: 'string', format: 'date' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                  product_id: { type: 'string', format: 'uuid' },
+                  movement_type: { type: 'string', enum: ['adjustment', 'transfer', 'order', 'return'] },
+                  start_date: { type: 'string', format: 'date' },
+                  end_date: { type: 'string', format: 'date' },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Stock movements retrieved successfully',
@@ -2221,11 +2421,33 @@ export const openApiDocument = {
         description: 'Get deliveries with filtering and status tracking (Query)',
         tags: ['deliveries'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['scheduled', 'en_route', 'delivered', 'failed'] } },
-          { name: 'delivery_date', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'truck_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  status: { 
+                    type: 'string', 
+                    enum: ['scheduled', 'en_route', 'delivered', 'failed'],
+                    description: 'Filter deliveries by status'
+                  },
+                  delivery_date: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter deliveries by date'
+                  },
+                  truck_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter deliveries by truck ID'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Deliveries retrieved successfully',
@@ -2462,15 +2684,56 @@ export const openApiDocument = {
         description: 'Get paginated list of pickups with filtering (Query)',
         tags: ['deliveries'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'customer_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'truck_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['pending', 'in_transit', 'completed', 'failed', 'cancelled'] } },
-          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter pickups by customer ID'
+                  },
+                  truck_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter pickups by truck ID'
+                  },
+                  status: { 
+                    type: 'string', 
+                    enum: ['pending', 'in_transit', 'completed', 'failed', 'cancelled'],
+                    description: 'Filter pickups by status'
+                  },
+                  date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter pickups from this date'
+                  },
+                  date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter pickups to this date'
+                  },
+                  page: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    default: 1,
+                    description: 'Page number for pagination'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 100, 
+                    default: 20,
+                    description: 'Number of items per page'
+                  }
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Pickups retrieved successfully',
@@ -2523,10 +2786,29 @@ export const openApiDocument = {
         description: 'Get customer cylinder balance for tracking inventory (Query)',
         tags: ['deliveries'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } }
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Customer ID to get balance for'
+                  },
+                  product_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Optional product ID to filter balance'
+                  }
+                },
+                required: ['customer_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Customer balance retrieved successfully',
@@ -2568,9 +2850,24 @@ export const openApiDocument = {
         description: 'Get detailed information about a specific delivery (Query)',
         tags: ['deliveries'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'delivery_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } }
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  delivery_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the delivery to get details for'
+                  }
+                },
+                required: ['delivery_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Delivery details retrieved successfully',
@@ -2664,9 +2961,24 @@ export const openApiDocument = {
         description: 'Get detailed information about a specific pickup (Query)',
         tags: ['deliveries'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'pickup_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } }
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  pickup_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the pickup to get details for'
+                  }
+                },
+                required: ['pickup_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Pickup details retrieved successfully',
@@ -2760,14 +3072,52 @@ export const openApiDocument = {
         description: 'Get paginated transaction history for a customer (Query)',
         tags: ['deliveries'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Customer ID to get transactions for'
+                  },
+                  product_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Optional product ID to filter transactions'
+                  },
+                  date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter transactions from this date'
+                  },
+                  date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Filter transactions to this date'
+                  },
+                  page: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    default: 1,
+                    description: 'Page number for pagination'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 100, 
+                    default: 20,
+                    description: 'Number of items per page'
+                  }
+                },
+                required: ['customer_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Customer transactions retrieved successfully',
@@ -2869,9 +3219,24 @@ export const openApiDocument = {
         description: 'Get comprehensive dashboard KPIs (Query)',
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'period', in: 'query', schema: { type: 'string', enum: ['today', 'week', 'month', 'quarter', 'year'], default: 'month' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  period: { 
+                    type: 'string', 
+                    enum: ['today', 'week', 'month', 'quarter', 'year'], 
+                    default: 'month',
+                    description: 'Time period for dashboard statistics'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Dashboard stats retrieved successfully',
@@ -2920,10 +3285,30 @@ export const openApiDocument = {
         description: 'Get revenue analytics with time-series data (Query)',
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'period', in: 'query', schema: { type: 'string', enum: ['week', 'month', 'quarter', 'year'], default: 'month' } },
-          { name: 'breakdown_by', in: 'query', schema: { type: 'string', enum: ['day', 'week', 'month'], default: 'day' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  period: { 
+                    type: 'string', 
+                    enum: ['week', 'month', 'quarter', 'year'], 
+                    default: 'month',
+                    description: 'Time period for analytics'
+                  },
+                  breakdown_by: { 
+                    type: 'string', 
+                    enum: ['day', 'week', 'month'], 
+                    default: 'day',
+                    description: 'Breakdown granularity for the data'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Revenue analytics retrieved successfully',
@@ -2972,10 +3357,29 @@ export const openApiDocument = {
         description: 'Get order analytics with grouping options (Query)',
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'period', in: 'query', schema: { type: 'string', enum: ['week', 'month', 'quarter', 'year'], default: 'month' } },
-          { name: 'group_by', in: 'query', schema: { type: 'string', enum: ['status', 'customer', 'product'] } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  period: { 
+                    type: 'string', 
+                    enum: ['week', 'month', 'quarter', 'year'], 
+                    default: 'month',
+                    description: 'Time period for analytics'
+                  },
+                  group_by: { 
+                    type: 'string', 
+                    enum: ['status', 'customer', 'product'],
+                    description: 'Group data by specified field'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Order analytics retrieved successfully',
@@ -3018,10 +3422,30 @@ export const openApiDocument = {
         description: 'Get customer analytics with breakdown options (Query)',
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'period', in: 'query', schema: { type: 'string', enum: ['week', 'month', 'quarter', 'year'], default: 'month' } },
-          { name: 'breakdown_by', in: 'query', schema: { type: 'string', enum: ['new', 'returning', 'top_spending'], default: 'new' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  period: { 
+                    type: 'string', 
+                    enum: ['week', 'month', 'quarter', 'year'], 
+                    default: 'month',
+                    description: 'Time period for analytics'
+                  },
+                  breakdown_by: { 
+                    type: 'string', 
+                    enum: ['new', 'returning', 'top_spending'], 
+                    default: 'new',
+                    description: 'Breakdown type for customer analytics'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Customer analytics retrieved successfully',
@@ -3063,9 +3487,19 @@ export const openApiDocument = {
         description: 'Get inventory analytics with warehouse breakdown (Query)',
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Inventory analytics retrieved successfully',
@@ -3106,10 +3540,29 @@ export const openApiDocument = {
         description: 'Get comprehensive order analytics for date range (Query)',
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'start_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
-          { name: 'end_date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  start_date: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Start date for analytics range'
+                  },
+                  end_date: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'End date for analytics range'
+                  },
+                },
+                required: ['start_date', 'end_date'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Comprehensive order analytics retrieved successfully',
@@ -3150,9 +3603,24 @@ export const openApiDocument = {
         description: 'Get order statistics for a period (Query)',
         tags: ['analytics'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'period', in: 'query', schema: { type: 'string', enum: ['today', 'week', 'month', 'quarter', 'year'], default: 'month' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  period: { 
+                    type: 'string', 
+                    enum: ['today', 'week', 'month', 'quarter', 'year'], 
+                    default: 'month',
+                    description: 'Time period for order statistics'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Order statistics retrieved successfully',
@@ -3238,10 +3706,30 @@ export const openApiDocument = {
         description: 'Get Row Level Security violations (Query)',
         tags: ['admin'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 1000, default: 100 } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  since: { 
+                    type: 'string', 
+                    format: 'date-time',
+                    description: 'Get violations since this timestamp'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 1000, 
+                    default: 100,
+                    description: 'Maximum number of violations to return'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'RLS violations retrieved successfully',
@@ -3394,11 +3882,34 @@ export const openApiDocument = {
         description: 'Get orders that are overdue for delivery (Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'days_overdue_min', in: 'query', schema: { type: 'integer', minimum: 0, default: 1 } },
-          { name: 'include_cancelled', in: 'query', schema: { type: 'boolean', default: false } },
-          { name: 'priority_filter', in: 'query', schema: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  days_overdue_min: { 
+                    type: 'integer', 
+                    minimum: 0, 
+                    default: 1,
+                    description: 'Minimum number of days overdue to filter by'
+                  },
+                  include_cancelled: { 
+                    type: 'boolean', 
+                    default: false,
+                    description: 'Whether to include cancelled orders in the results'
+                  },
+                  priority_filter: { 
+                    type: 'string', 
+                    enum: ['low', 'normal', 'high', 'urgent'],
+                    description: 'Filter by order priority level'
+                  }
+                }
+              }
+            }
+          }
+        },
         responses: {
           '200': {
             description: 'Overdue orders retrieved successfully',
@@ -3431,13 +3942,43 @@ export const openApiDocument = {
         description: 'Get delivery schedule calendar with logistics optimization (Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'date_from', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
-          { name: 'date_to', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
-          { name: 'delivery_area', in: 'query', schema: { type: 'string' } },
-          { name: 'truck_capacity_filter', in: 'query', schema: { type: 'boolean', default: false } },
-          { name: 'optimize_routes', in: 'query', schema: { type: 'boolean', default: false } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Start date for the delivery calendar (YYYY-MM-DD)'
+                  },
+                  date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'End date for the delivery calendar (YYYY-MM-DD)'
+                  },
+                  delivery_area: { 
+                    type: 'string',
+                    description: 'Filter by specific delivery area'
+                  },
+                  truck_capacity_filter: { 
+                    type: 'boolean', 
+                    default: false,
+                    description: 'Apply truck capacity constraints in the calendar'
+                  },
+                  optimize_routes: { 
+                    type: 'boolean', 
+                    default: false,
+                    description: 'Apply route optimization to the delivery schedule'
+                  }
+                },
+                required: ['date_from', 'date_to']
+              }
+            }
+          }
+        },
         responses: {
           '200': {
             description: 'Delivery calendar retrieved successfully',
@@ -3590,9 +4131,20 @@ export const openApiDocument = {
         description: 'Get all addresses for a customer (Query)',
         tags: ['customers'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { type: 'string', format: 'uuid' },
+                },
+                required: ['customer_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Customer addresses retrieved successfully',
@@ -3696,12 +4248,23 @@ export const openApiDocument = {
         description: 'Get paginated order history for customer (Query)',
         tags: ['customers'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'customer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 1000, default: 50 } },
-          { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0, default: 0 } },
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customer_id: { type: 'string', format: 'uuid' },
+                  limit: { type: 'integer', minimum: 1, maximum: 1000, default: 50 },
+                  offset: { type: 'integer', minimum: 0, default: 0 },
+                  status: { type: 'string', enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] },
+                },
+                required: ['customer_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Customer order history retrieved successfully',
@@ -3739,9 +4302,20 @@ export const openApiDocument = {
         description: 'Get variants for a parent product (Query)',
         tags: ['products'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'parent_product_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  parent_product_id: { type: 'string', format: 'uuid' },
+                },
+                required: ['parent_product_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Product variants retrieved successfully',
@@ -3874,9 +4448,20 @@ export const openApiDocument = {
         description: 'Get inventory for specific warehouse (Query)',
         tags: ['inventory'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'warehouse_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                },
+                required: ['warehouse_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Warehouse inventory retrieved successfully',
@@ -3963,10 +4548,20 @@ export const openApiDocument = {
         description: 'Get items with low stock levels (Query)',
         tags: ['inventory'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'threshold_days', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 365, default: 30 } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                  threshold_days: { type: 'integer', minimum: 1, maximum: 365, default: 30 },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Low stock items retrieved successfully',
@@ -4048,12 +4643,41 @@ export const openApiDocument = {
         description: 'Get items in a price list (Query)',
         tags: ['pricing'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'price_list_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-          { name: 'search', in: 'query', schema: { type: 'string' } },
-          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  price_list_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the price list to get items for'
+                  },
+                  search: { 
+                    type: 'string',
+                    description: 'Search term for item names'
+                  },
+                  page: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    default: 1,
+                    description: 'Page number for pagination'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 100, 
+                    default: 50,
+                    description: 'Number of items per page'
+                  },
+                },
+                required: ['price_list_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Price list items retrieved successfully',
@@ -4210,10 +4834,29 @@ export const openApiDocument = {
         description: 'Get all payments for a specific order (Query)',
         tags: ['payments'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'order_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-          { name: 'include_summary', in: 'query', schema: { type: 'boolean', default: true } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  order_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the order to get payments for'
+                  },
+                  include_summary: { 
+                    type: 'boolean', 
+                    default: true,
+                    description: 'Include payment summary information'
+                  },
+                },
+                required: ['order_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Order payments retrieved successfully',
@@ -4296,11 +4939,33 @@ export const openApiDocument = {
         description: 'Get payment summary statistics (Query)',
         tags: ['payments'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'payment_method', in: 'query', schema: { type: 'string', enum: ['Cash', 'Mpesa', 'Card'] } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  date_from: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Start date for payment summary'
+                  },
+                  date_to: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'End date for payment summary'
+                  },
+                  payment_method: { 
+                    type: 'string', 
+                    enum: ['Cash', 'Mpesa', 'Card'],
+                    description: 'Filter by payment method'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Payment summary retrieved successfully',
@@ -4337,10 +5002,31 @@ export const openApiDocument = {
         description: 'Get orders with overdue payments (Query)',
         tags: ['payments'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'days_overdue_min', in: 'query', schema: { type: 'integer', minimum: 0, default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 50 } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  days_overdue_min: { 
+                    type: 'integer', 
+                    minimum: 0, 
+                    default: 1,
+                    description: 'Minimum number of days overdue'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 100, 
+                    default: 50,
+                    description: 'Maximum number of orders to return'
+                  },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Overdue orders retrieved successfully',
@@ -4377,9 +5063,24 @@ export const openApiDocument = {
         description: 'Get detailed information about a specific truck (Query)',
         tags: ['trucks'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'truck_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  truck_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the truck to get details for'
+                  },
+                },
+                required: ['truck_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Truck details retrieved successfully',
@@ -4416,10 +5117,29 @@ export const openApiDocument = {
         description: 'Get truck allocations for a specific date (Query)',
         tags: ['trucks'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'date', in: 'query', required: true, schema: { type: 'string', format: 'date' } },
-          { name: 'truck_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  date: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Date to get allocations for'
+                  },
+                  truck_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Optional truck ID to filter allocations'
+                  },
+                },
+                required: ['date'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Truck allocations retrieved successfully',
@@ -4515,9 +5235,24 @@ export const openApiDocument = {
         description: 'Get detailed information about a specific transfer (Query)',
         tags: ['transfers'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'transfer_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  transfer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'ID of the transfer to get details for'
+                  },
+                },
+                required: ['transfer_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Transfer details retrieved successfully',
@@ -4655,14 +5390,25 @@ export const openApiDocument = {
 
     // Warehouse Management endpoints
     '/api/v1/trpc/warehouses.getById': {
-      get: {
+      post: {
         summary: 'Get warehouse details',
         description: 'Get detailed information about a specific warehouse (Query)',
         tags: ['warehouses'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'warehouse_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                },
+                required: ['warehouse_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Warehouse details retrieved successfully',
@@ -4687,11 +5433,22 @@ export const openApiDocument = {
     },
 
     '/api/v1/trpc/warehouses.getStats': {
-      get: {
+      post: {
         summary: 'Get warehouse statistics',
         description: 'Get warehouse system statistics (Query)',
         tags: ['warehouses'],
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {},
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Warehouse statistics retrieved successfully',
@@ -4723,11 +5480,22 @@ export const openApiDocument = {
     },
 
     '/api/v1/trpc/warehouses.getOptions': {
-      get: {
+      post: {
         summary: 'Get warehouse options',
         description: 'Get simplified warehouse list for UI dropdowns (Query)',
         tags: ['warehouses'],
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {},
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Warehouse options retrieved successfully',
@@ -4768,9 +5536,20 @@ export const openApiDocument = {
         description: 'Get detailed information about a specific stock movement (Query)',
         tags: ['stock-movements'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'movement_id', in: 'query', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  movement_id: { type: 'string', format: 'uuid' },
+                },
+                required: ['movement_id'],
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Stock movement details retrieved successfully',
@@ -4866,13 +5645,23 @@ export const openApiDocument = {
         description: 'Get summary of stock movements with breakdowns (Query)',
         tags: ['stock-movements'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'date_from', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'date_to', in: 'query', schema: { type: 'string', format: 'date' } },
-          { name: 'product_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'warehouse_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-          { name: 'truck_id', in: 'query', schema: { type: 'string', format: 'uuid' } },
-        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  date_from: { type: 'string', format: 'date' },
+                  date_to: { type: 'string', format: 'date' },
+                  product_id: { type: 'string', format: 'uuid' },
+                  warehouse_id: { type: 'string', format: 'uuid' },
+                  truck_id: { type: 'string', format: 'uuid' },
+                },
+              },
+            },
+          },
+        },
         responses: {
           '200': {
             description: 'Stock movement summary retrieved successfully',
