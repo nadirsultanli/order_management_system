@@ -322,7 +322,7 @@ export const openApiDocument = {
     '/api/v1/trpc/orders.list': {
       get: {
         summary: 'List orders',
-        description: 'Get paginated list of orders with advanced filtering (Query)',
+        description: 'Get paginated list of orders with advanced filtering',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -451,8 +451,8 @@ export const openApiDocument = {
                   }
                 },
                 additionalProperties: false,
-                examples: {
-                  singleStatus: {
+                examples: [
+                  {
                     summary: 'Single status filter',
                     description: 'Filter orders by a single status',
                     value: {
@@ -470,7 +470,7 @@ export const openApiDocument = {
                       limit: 20
                     }
                   },
-                  multipleStatusString: {
+                  {
                     summary: 'Multiple statuses (comma-separated)',
                     description: 'Filter orders by multiple statuses using comma-separated string',
                     value: {
@@ -484,7 +484,7 @@ export const openApiDocument = {
                       limit: 50
                     }
                   },
-                  multipleStatusArray: {
+                  {
                     summary: 'Multiple statuses (array)',
                     description: 'Filter orders by multiple statuses using array format',
                     value: {
@@ -498,7 +498,7 @@ export const openApiDocument = {
                       limit: 25
                     }
                   },
-                  complexFiltering: {
+                  {
                     summary: 'Complex filtering example',
                     description: 'Example with multiple filters including multiple statuses',
                     value: {
@@ -519,7 +519,7 @@ export const openApiDocument = {
                       limit: 30
                     }
                   }
-                }
+                ]
               }
             }
           }
