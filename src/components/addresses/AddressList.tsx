@@ -43,7 +43,7 @@ export const AddressList: React.FC<AddressListProps> = ({ customerId }) => {
   const handleSetPrimary = async (address: Address) => {
     if (!address.is_primary) {
       try {
-        await setPrimaryAddress.mutateAsync(address);
+        await setPrimaryAddress.mutateAsync({ address_id: address.id });
       } catch (error) {
         // Error handling is done in the hook
       }
