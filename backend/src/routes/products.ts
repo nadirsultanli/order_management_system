@@ -44,6 +44,7 @@ const CreateProductSchema = z.object({
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().default(false),
   variant_type: VariantTypeEnum,
+  variant: VariantTypeEnum,
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
   is_variant: z.boolean().default(false),
@@ -61,6 +62,7 @@ const UpdateProductSchema = z.object({
   status: ProductStatusEnum.optional(),
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().optional(),
+  variant: VariantTypeEnum.optional(),
   variant_type: VariantTypeEnum.optional(),
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
@@ -108,7 +110,7 @@ export const productsRouter = router({
       // Only include inventory data if explicitly requested
       // Note: When using nested selects in PostgREST, we can't use '*' in combination with nested fields
       if (include_inventory_data) {
-        selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_product_id, variant_name, is_variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
+        selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_product_id, variant_name, is_variant, variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
       }
       
       let query = ctx.supabase
