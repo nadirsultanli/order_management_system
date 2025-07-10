@@ -322,19 +322,189 @@ export const openApiDocument = {
     '/api/v1/trpc/orders.list': {
       get: {
         summary: 'List orders',
+        description: 'Get paginated list of orders with advanced filtering (tRPC Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'input',
-            in: 'query',
-            required: false,
-            schema: {
-              type: 'string',
-              description: 'URL-encoded JSON object with filters'
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  // Entire input object is optional in tRPC
+                  status: {
+                    oneOf: [
+                      {
+                        type: 'string',
+                        enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'],
+                        description: 'Single order status'
+                      },
+                      {
+                        type: 'string',
+                        description: 'Comma-separated order statuses (e.g., "confirmed,scheduled,en_route")'
+                      },
+                      {
+                        type: 'array',
+                        items: {
+                          type: 'string',
+                          enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']
+                        },
+                        description: 'Array of order statuses'
+                      }
+                    ],
+                    description: 'Filter by order status. Optional.'
+                  },
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Filter by customer ID. Optional.'
+                  },
+                  search: { 
+                    type: 'string',
+                    description: 'Search in order details, customer name, product SKU, etc. Optional.'
+                  },
+                  order_date_from: { 
+                    type: 'string',
+                    description: 'Filter orders from this date. Optional.'
+                  },
+                  order_date_to: { 
+                    type: 'string',
+                    description: 'Filter orders to this date. Optional.'
+                  },
+                  scheduled_date_from: { 
+                    type: 'string',
+                    description: 'Filter by scheduled delivery date from. Optional.'
+                  },
+                  scheduled_date_to: { 
+                    type: 'string',
+                    description: 'Filter by scheduled delivery date to. Optional.'
+                  },
+                  amount_min: { 
+                    type: 'number',
+                    description: 'Minimum order amount. Optional.'
+                  },
+                  amount_max: { 
+                    type: 'number',
+                    description: 'Maximum order amount. Optional.'
+                  },
+                  delivery_area: { 
+                    type: 'string',
+                    description: 'Filter by delivery area (city, state, or postal code). Optional.'
+                  },
+                  is_overdue: { 
+                    type: 'boolean',
+                    description: 'Filter overdue orders only. Optional.'
+                  },
+                  delivery_method: { 
+                    type: 'string', 
+                    enum: ['pickup', 'delivery'],
+                    description: 'Filter by delivery method. Optional.'
+                  },
+                  priority: { 
+                    type: 'string', 
+                    enum: ['low', 'normal', 'high', 'urgent'],
+                    description: 'Filter by order priority. Optional.'
+                  },
+                  payment_status: { 
+                    type: 'string', 
+                    enum: ['pending', 'paid', 'overdue'],
+                    description: 'Filter by payment status. Optional.'
+                  },
+                  sort_by: { 
+                    type: 'string',
+                    enum: ['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name'],
+                    default: 'created_at',
+                    description: 'Sort field. Defaults to created_at.'
+                  },
+                  sort_order: { 
+                    type: 'string', 
+                    enum: ['asc', 'desc'],
+                    default: 'desc',
+                    description: 'Sort order. Defaults to desc.'
+                  },
+                  include_analytics: {
+                    type: 'boolean',
+                    default: false,
+                    description: 'Include analytics data in response. Defaults to false.'
+                  },
+                  page: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    default: 1,
+                    description: 'Page number for pagination. Defaults to 1.'
+                  },
+                  limit: { 
+                    type: 'integer', 
+                    minimum: 1, 
+                    maximum: 100, 
+                    default: 50,
+                    description: 'Number of orders per page. Defaults to 50, max 100.'
+                  }
+                },
+                additionalProperties: false,
+                description: 'All fields are optional. Empty object {} is valid input.',
+                examples: [
+                  {
+                    summary: 'Empty request (get all orders with defaults)',
+                    description: 'No filters applied, uses default pagination and sorting',
+                    value: {}
+                  },
+                  {
+                    summary: 'Single status filter',
+                    description: 'Filter orders by a single status',
+                    value: {
+                      status: "confirmed",
+                      page: 1,
+                      limit: 20
+                    }
+                  },
+                  {
+                    summary: 'Multiple statuses (comma-separated)',
+                    description: 'Filter orders by multiple statuses using comma-separated string',
+                    value: {
+                      status: "confirmed,scheduled,en_route",
+                      sort_by: "scheduled_date",
+                      sort_order: "asc"
+                    }
+                  },
+                  {
+                    summary: 'Multiple statuses (array)',
+                    description: 'Filter orders by multiple statuses using array format',
+                    value: {
+                      status: ["confirmed", "scheduled", "en_route"],
+                      include_analytics: true,
+                      limit: 25
+                    }
+                  },
+                  {
+                    summary: 'Complex filtering with all parameters',
+                    description: 'Example using multiple filters and search',
+                    value: {
+                      status: "confirmed,scheduled",
+                      customer_id: "123e4567-e89b-12d3-a456-426614174000",
+                      search: "gas cylinder",
+                      order_date_from: "2024-01-01",
+                      order_date_to: "2024-12-31",
+                      amount_min: 100,
+                      amount_max: 5000,
+                      delivery_method: "delivery",
+                      priority: "high",
+                      payment_status: "pending",
+                      delivery_area: "California",
+                      is_overdue: false,
+                      include_analytics: true,
+                      sort_by: "scheduled_date",
+                      sort_order: "asc",
+                      page: 1,
+                      limit: 30
+                    }
+                  }
+                ]
+              }
             }
-          },
-        ],
+          }
+        },
         responses: {
           '200': {
             description: 'Orders retrieved successfully',
@@ -562,10 +732,10 @@ export const openApiDocument = {
                     description: 'The unique identifier of the order'
                   }
                 },
-                required: ['order_id'],
+                required: ['id'],
                 additionalProperties: false,
                 example: {
-                  order_id: "123e4567-e89b-12d3-a456-426614174000"
+                  id: "123e4567-e89b-12d3-a456-426614174000"
                 }
               }
             }
