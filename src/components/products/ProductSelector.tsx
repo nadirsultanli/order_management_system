@@ -67,9 +67,19 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
                       <div className="font-medium text-gray-900">{product.name}</div>
                       <div className="text-sm text-gray-500">
                         SKU: {product.sku} • {product.unit_of_measure}
+                        {product.variant && ` • ${product.variant}`}
                       </div>
                     </div>
                     <div className="text-sm text-gray-500">
+                      {product.variant && (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mr-2 ${
+                          product.variant === 'outright' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {product.variant === 'outright' ? 'Outright' : 'Refill'}
+                        </span>
+                      )}
                       {product.unit_of_measure}
                     </div>
                   </div>

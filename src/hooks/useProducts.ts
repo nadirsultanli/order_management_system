@@ -6,6 +6,7 @@ export const useProducts = (filters: ProductFilters = {}) => {
   return trpc.products.list.useQuery({
     search: filters.search,
     status: filters.status as any,
+    variant: filters.variant as any,
     page: filters.page || 1,
     limit: filters.limit || 15,
     sort_by: filters.sort_by || 'created_at',

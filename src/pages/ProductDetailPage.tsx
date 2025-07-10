@@ -180,6 +180,21 @@ export const ProductDetailPage: React.FC = () => {
                     />
                   </div>
 
+                  {product.variant && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">
+                        Variant
+                      </label>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        product.variant === 'outright' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {product.variant === 'outright' ? 'Outright' : 'Refill'}
+                      </span>
+                    </div>
+                  )}
+
                   {product.unit_of_measure === 'cylinder' && (
                     <>
                       {product.capacity_kg && (

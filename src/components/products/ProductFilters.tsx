@@ -33,6 +33,15 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     });
   };
 
+  const handleVariantChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedVariant = e.target.value || undefined;
+    onFiltersChange({
+      ...filters,
+      variant: selectedVariant as 'outright' | 'refill' | undefined,
+      page: 1,
+    });
+  };
+
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const [sort_by, sort_order] = e.target.value.split(':');
@@ -86,6 +95,18 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                 <option value="obsolete">Obsolete</option>
               </select>
             </div>
+          </div>
+
+          <div className="sm:w-40">
+            <select
+              value={filters.variant || ''}
+              onChange={handleVariantChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+            >
+              <option value="">All Variants</option>
+              <option value="outright">Outright</option>
+              <option value="refill">Refill</option>
+            </select>
           </div>
 
 

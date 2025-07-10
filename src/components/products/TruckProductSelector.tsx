@@ -7,6 +7,7 @@ interface ProductWithStock {
   name: string;
   sku: string;
   unit_of_measure: string;
+  variant?: 'outright' | 'refill';
   qty_full: number;
   qty_empty: number;
 }
@@ -50,6 +51,7 @@ export const TruckProductSelector: React.FC<TruckProductSelectorProps> = ({
       name: item.product?.name || 'Unknown Product',
       sku: item.product?.sku || 'Unknown SKU',
       unit_of_measure: item.product?.unit_of_measure || 'units',
+      variant: item.product?.variant,
       qty_full: item.qty_full || 0,
       qty_empty: item.qty_empty || 0,
     }))
@@ -122,6 +124,15 @@ export const TruckProductSelector: React.FC<TruckProductSelectorProps> = ({
                       <div className="font-medium text-gray-900">{product.name}</div>
                       <div className="text-sm text-gray-500">
                         SKU: {product.sku} • {product.unit_of_measure}
+                        {product.variant && (
+                          <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            product.variant === 'outright' 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-blue-100 text-blue-800'
+                          }`}>
+                            {product.variant === 'outright' ? 'Outright' : 'Refill'}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Package, ChevronDown, Search } from 'lucide-react';
 
 interface SearchableProductSelectorProps {
-  products: { id: string; name: string; sku: string }[];
+  products: { id: string; name: string; sku: string; variant?: 'outright' | 'refill' }[];
   value?: string;
   onChange: (productId: string) => void;
   placeholder?: string;
@@ -29,7 +29,7 @@ export const SearchableProductSelector: React.FC<SearchableProductSelectorProps>
 
   const selected = products.find((p) => p.id === value);
 
-  const displayText = selected ? `${selected.name} (${selected.sku})` : placeholder;
+  const displayText = selected ? `${selected.name} (${selected.sku}${selected.variant ? ` • ${selected.variant}` : ''})` : placeholder;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -107,7 +107,20 @@ export const SearchableProductSelector: React.FC<SearchableProductSelectorProps>
                     onClick={() => handleSelect(product.id)}
                     className={`w-full px-4 py-2 text-left text-sm hover:bg-gray-50 ${isSel ? 'bg-blue-50 text-blue-700' : 'text-gray-700'}`}
                   >
-                    {product.name} ({product.sku})
+                    <div className="flex items-center justify-between">
+                      <div>
+                        {product.name} ({product.sku})
+                      </div>
+                      {product.variant && (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          product.variant === 'outright' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {product.variant === 'outright' ? 'Outright' : 'Refill'}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 );
               })

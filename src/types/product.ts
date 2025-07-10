@@ -56,6 +56,7 @@ export interface UpdateProductData extends Partial<CreateProductData> {
 export interface ProductFilters {
   search?: string;
   status?: string;
+  variant?: 'outright' | 'refill';
   page?: number;
   limit?: number;
   sort_by?: string;

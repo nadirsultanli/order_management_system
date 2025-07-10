@@ -7,13 +7,14 @@ import { TRPCError } from '@trpc/server';
 const ProductStatusEnum = z.enum(['active', 'obsolete']);
 const UnitOfMeasureEnum = z.enum(['cylinder', 'kg']);
 const VariantTypeEnum = z.enum(['cylinder', 'refillable', 'disposable']);
-const VarinatEnum = z.enum(['outright', 'refill']);
+const VariantEnum = z.enum(['outright', 'refill']);
 
 const ProductFiltersSchema = z.object({
   search: z.string().optional(),
   status: ProductStatusEnum.optional(),
   unit_of_measure: UnitOfMeasureEnum.optional(),
   variant_type: VariantTypeEnum.optional(),
+  variant: VariantEnum.optional(),
   has_inventory: z.boolean().optional(),
   low_stock_only: z.boolean().default(false),
   availability_status: z.enum(['available', 'low_stock', 'out_of_stock']).optional(),
@@ -45,7 +46,7 @@ const CreateProductSchema = z.object({
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().default(false),
   variant_type: VariantTypeEnum,
-  variant: VarinatEnum,
+  variant: VariantEnum,
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
   is_variant: z.boolean().default(false),
@@ -63,8 +64,8 @@ const UpdateProductSchema = z.object({
   status: ProductStatusEnum.optional(),
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().optional(),
-  variant: VarinatEnum.optional(),
-  variant_type: VarinatEnum.optional(),
+  variant: VariantEnum.optional(),
+  variant_type: VariantTypeEnum.optional(),
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
   is_variant: z.boolean().optional(),
@@ -143,6 +144,11 @@ export const productsRouter = router({
       // Apply variant type filter
       if (filters.variant_type) {
         query = query.eq('variant_type', filters.variant_type);
+      }
+
+      // Apply variant filter
+      if (filters.variant) {
+        query = query.eq('variant', filters.variant);
       }
 
       // Apply capacity range filters
