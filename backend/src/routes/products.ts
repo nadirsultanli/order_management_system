@@ -7,14 +7,13 @@ import { TRPCError } from '@trpc/server';
 const ProductStatusEnum = z.enum(['active', 'obsolete']);
 const UnitOfMeasureEnum = z.enum(['cylinder', 'kg']);
 const VariantTypeEnum = z.enum(['cylinder', 'refillable', 'disposable']);
-const VariantEnum = z.enum(['outright', 'refill']);
+const VariantEnum= z.enum(['outright', 'refill']);
 
 const ProductFiltersSchema = z.object({
   search: z.string().optional(),
   status: ProductStatusEnum.optional(),
   unit_of_measure: UnitOfMeasureEnum.optional(),
-  variant_type: VariantTypeEnum.optional(),
-  variant: VariantEnum.optional(),
+  variant_type: VariantTypeEnum.default('cylinder'),
   has_inventory: z.boolean().optional(),
   low_stock_only: z.boolean().default(false),
   availability_status: z.enum(['available', 'low_stock', 'out_of_stock']).optional(),
@@ -45,12 +44,15 @@ const CreateProductSchema = z.object({
   status: ProductStatusEnum.default('active'),
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().default(false),
-  variant_type: VariantTypeEnum,
-  variant: VariantEnum,
+  variant_type: VariantTypeEnum.default('cylinder'),
+  variant: VariantEnum.default('outright'),
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
   is_variant: z.boolean().default(false),
+  tax_category: z.string().optional(),
+  tax_rate: z.number().min(0).max(1).optional(),
 });
+
 
 const UpdateProductSchema = z.object({
   id: z.string().uuid(),
@@ -64,9 +66,7 @@ const UpdateProductSchema = z.object({
   status: ProductStatusEnum.optional(),
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().optional(),
-
   variant: VariantEnum.optional(),
-
   variant_type: VariantTypeEnum.optional(),
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
