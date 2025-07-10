@@ -49,6 +49,8 @@ const CreateProductSchema = z.object({
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
   is_variant: z.boolean().default(false),
+  tax_category: z.string().optional(),
+  tax_rate: z.number().min(0).max(1).optional(),
 });
 
 
