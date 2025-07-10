@@ -44,7 +44,7 @@ const CreateProductSchema = z.object({
   status: ProductStatusEnum.default('active'),
   barcode_uid: z.string().optional(),
   requires_tag: z.boolean().default(false),
-  variant_type: VariantTypeEnum,
+  variant_type: VariantTypeEnum.default('cylinder'),
   variant: VariantEnum.default('outright'),
   parent_product_id: z.string().uuid().optional(),
   variant_name: z.string().optional(),
