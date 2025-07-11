@@ -4,75 +4,83 @@ import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { PricingService } from '../lib/pricing';
 
-// Zod schemas for validation
-const PriceListStatusEnum = z.enum(['active', 'future', 'expired']);
-const PricingMethodEnum = z.enum(['fixed', 'copy_from_list', 'markup', 'cost_plus']);
+// Import input schemas
+import {
+  PriceListFiltersSchema,
+  GetPriceListByIdSchema,
+  CreatePriceListSchema,
+  UpdatePriceListSchema,
+  DeletePriceListSchema,
+  SetDefaultPriceListSchema,
+  PriceListItemFiltersSchema,
+  CreatePriceListItemSchema,
+  UpdatePriceListItemSchema,
+  DeletePriceListItemSchema,
+  BulkPricingSchema,
+  CalculateFinalPriceSchema,
+  GetPriceListStatusSchema,
+  ValidateDateRangeSchema,
+  IsExpiringSoonSchema,
+  GetProductPriceSchema,
+  GetProductPricesSchema,
+  GetProductPriceListItemsSchema,
+  CalculateOrderTotalsSchema,
+  ValidateProductPricingSchema,
+  GetActivePriceListsSchema,
+  FormatCurrencySchema,
+  CalculatePricingSchema,
+  ValidatePriceListSchema,
+  BulkUpdatePricesSchema,
+  GetCustomerPricingTiersSchema,
+  LegacyPriceListFiltersSchema,
+} from '../schemas/input/pricing-input';
 
-const CreatePriceListSchema = z.object({
-  name: z.string().min(1).max(255),
-  description: z.string().optional(),
-  currency_code: z.string().length(3).default('KES'),
-  start_date: z.string(),
-  end_date: z.string().optional(),
-  is_default: z.boolean().default(false),
-});
-
-const UpdatePriceListSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).max(255).optional(),
-  description: z.string().optional(),
-  currency_code: z.string().length(3).optional(),
-  start_date: z.string().optional(),
-  end_date: z.string().optional(),
-  is_default: z.boolean().optional(),
-});
-
-const CreatePriceListItemSchema = z.object({
-  price_list_id: z.string().uuid(),
-  product_id: z.string().uuid(),
-  unit_price: z.number().positive(),
-  min_qty: z.number().int().min(1).optional(),
-  surcharge_pct: z.number().min(0).max(100).optional(),
-  // Tax-related fields (optional, calculated if not provided)
-  price_excluding_tax: z.number().positive().optional(),
-  tax_amount: z.number().min(0).optional(),
-  price_including_tax: z.number().positive().optional(),
-});
-
-const UpdatePriceListItemSchema = z.object({
-  id: z.string().uuid(),
-  unit_price: z.number().positive().optional(),
-  min_qty: z.number().int().min(1).optional(),
-  surcharge_pct: z.number().min(0).max(100).optional(),
-  // Tax-related fields (optional, calculated if not provided)
-  price_excluding_tax: z.number().positive().optional(),
-  tax_amount: z.number().min(0).optional(),
-  price_including_tax: z.number().positive().optional(),
-});
-
-const BulkPricingSchema = z.object({
-  price_list_id: z.string().uuid(),
-  product_ids: z.array(z.string().uuid()),
-  pricing_method: PricingMethodEnum,
-  unit_price: z.number().positive().optional(),
-  source_price_list_id: z.string().uuid().optional(),
-  markup_percentage: z.number().optional(),
-  min_qty: z.number().int().min(1).optional(),
-  surcharge_pct: z.number().min(0).max(100).optional(),
-});
-
-// Helper functions moved to PricingService
+// Import output schemas
+import {
+  PriceListListResponseSchema,
+  PriceListDetailResponseSchema,
+  CreatePriceListResponseSchema,
+  UpdatePriceListResponseSchema,
+  DeletePriceListResponseSchema,
+  SetDefaultPriceListResponseSchema,
+  PriceListItemsResponseSchema,
+  CreatePriceListItemResponseSchema,
+  UpdatePriceListItemResponseSchema,
+  DeletePriceListItemResponseSchema,
+  BulkAddProductsResponseSchema,
+  CalculateFinalPriceResponseSchema,
+  GetPriceListStatusResponseSchema,
+  ValidateDateRangeResponseSchema,
+  IsExpiringSoonResponseSchema,
+  ProductPriceResponseSchema,
+  ProductPricesResponseSchema,
+  ProductPriceListItemsResponseSchema,
+  OrderTotalsResponseSchema,
+  ValidateProductPricingResponseSchema,
+  ActivePriceListsResponseSchema,
+  FormatCurrencyResponseSchema,
+  PricingStatsResponseSchema,
+  CalculatePricingResponseSchema,
+  ValidatePriceListResponseSchema,
+  BulkUpdatePricesResponseSchema,
+  CustomerPricingTiersResponseSchema,
+} from '../schemas/output/pricing-output';
 
 export const pricingRouter = router({
   // Alias endpoints for frontend compatibility
   listPriceLists: protectedProcedure
-    .input(z.object({
-      search: z.string().optional(),
-      currency_code: z.string().length(3).optional(),
-      status: PriceListStatusEnum.optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(1000).default(50),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/price-lists',
+        tags: ['pricing'],
+        summary: 'List price lists with filtering and pagination',
+        description: 'Retrieve a paginated list of price lists with optional filtering by search text, currency, and status.',
+        protect: true,
+      }
+    })
+    .input(PriceListFiltersSchema)
+    .output(PriceListListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -139,9 +147,18 @@ export const pricingRouter = router({
     }),
 
   getPriceList: protectedProcedure
-    .input(z.object({
-      price_list_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/price-lists/{price_list_id}',
+        tags: ['pricing'],
+        summary: 'Get price list by ID',
+        description: 'Retrieve detailed information about a specific price list.',
+        protect: true,
+      }
+    })
+    .input(LegacyPriceListFiltersSchema)
+    .output(PriceListDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -166,7 +183,18 @@ export const pricingRouter = router({
     }),
 
   createPriceList: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/price-lists',
+        tags: ['pricing'],
+        summary: 'Create new price list',
+        description: 'Create a new price list with validation for date ranges and name uniqueness.',
+        protect: true,
+      }
+    })
     .input(CreatePriceListSchema)
+    .output(CreatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -228,7 +256,18 @@ export const pricingRouter = router({
     }),
 
   updatePriceList: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/pricing/price-lists/{id}',
+        tags: ['pricing'],
+        summary: 'Update price list',
+        description: 'Update price list information including name, dates, currency, and default status.',
+        protect: true,
+      }
+    })
     .input(UpdatePriceListSchema)
+    .output(UpdatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -307,12 +346,18 @@ export const pricingRouter = router({
     }),
 
   getPriceListItems: protectedProcedure
-    .input(z.object({
-      price_list_id: z.string().uuid(),
-      search: z.string().optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(1000).default(50),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/price-lists/{price_list_id}/items',
+        tags: ['pricing'],
+        summary: 'Get price list items',
+        description: 'Retrieve paginated list of items in a specific price list with product details.',
+        protect: true,
+      }
+    })
+    .input(PriceListItemFiltersSchema)
+    .output(PriceListItemsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -370,7 +415,18 @@ export const pricingRouter = router({
     }),
 
   createPriceListItem: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/price-list-items',
+        tags: ['pricing'],
+        summary: 'Create price list item',
+        description: 'Add a new product to a price list with pricing information.',
+        protect: true,
+      }
+    })
     .input(CreatePriceListItemSchema)
+    .output(CreatePriceListItemResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -429,10 +485,18 @@ export const pricingRouter = router({
 
   // Business logic endpoints
   calculateFinalPrice: protectedProcedure
-    .input(z.object({
-      unitPrice: z.number().positive(),
-      surchargePercent: z.number().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate-final-price',
+        tags: ['pricing'],
+        summary: 'Calculate final price with surcharge',
+        description: 'Calculate the final price for a product including any surcharge percentage.',
+        protect: true,
+      }
+    })
+    .input(CalculateFinalPriceSchema)
+    .output(CalculateFinalPriceResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -442,10 +506,18 @@ export const pricingRouter = router({
     }),
 
   getPriceListStatus: protectedProcedure
-    .input(z.object({
-      startDate: z.string(),
-      endDate: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/price-list-status',
+        tags: ['pricing'],
+        summary: 'Get price list status',
+        description: 'Determine the status of a price list based on start and end dates.',
+        protect: true,
+      }
+    })
+    .input(GetPriceListStatusSchema)
+    .output(GetPriceListStatusResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -453,10 +525,18 @@ export const pricingRouter = router({
     }),
 
   validateDateRange: protectedProcedure
-    .input(z.object({
-      startDate: z.string(),
-      endDate: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/validate-date-range',
+        tags: ['pricing'],
+        summary: 'Validate date range',
+        description: 'Validate that a start and end date range is valid for a price list.',
+        protect: true,
+      }
+    })
+    .input(ValidateDateRangeSchema)
+    .output(ValidateDateRangeResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -466,10 +546,18 @@ export const pricingRouter = router({
     }),
 
   isExpiringSoon: protectedProcedure
-    .input(z.object({
-      endDate: z.string().optional(),
-      days: z.number().optional().default(30),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/is-expiring-soon',
+        tags: ['pricing'],
+        summary: 'Check if expiring soon',
+        description: 'Check if a price list is expiring within a specified number of days.',
+        protect: true,
+      }
+    })
+    .input(IsExpiringSoonSchema)
+    .output(IsExpiringSoonResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -479,11 +567,18 @@ export const pricingRouter = router({
     }),
 
   getProductPrice: protectedProcedure
-    .input(z.object({
-      productId: z.string().uuid(),
-      customerId: z.string().uuid().optional(),
-      date: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/product-price/{productId}',
+        tags: ['pricing'],
+        summary: 'Get product price',
+        description: 'Get the current price for a specific product, optionally for a specific customer and date.',
+        protect: true,
+      }
+    })
+    .input(GetProductPriceSchema)
+    .output(ProductPriceResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -492,11 +587,18 @@ export const pricingRouter = router({
     }),
 
   getProductPrices: protectedProcedure
-    .input(z.object({
-      productIds: z.array(z.string().uuid()),
-      customerId: z.string().uuid().optional(),
-      date: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/product-prices',
+        tags: ['pricing'],
+        summary: 'Get multiple product prices',
+        description: 'Get current prices for multiple products, optionally for a specific customer and date.',
+        protect: true,
+      }
+    })
+    .input(GetProductPricesSchema)
+    .output(ProductPricesResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -505,9 +607,18 @@ export const pricingRouter = router({
     }),
 
   getProductPriceListItems: protectedProcedure
-    .input(z.object({
-      productId: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/product/{productId}/price-list-items',
+        tags: ['pricing'],
+        summary: 'Get product price list items',
+        description: 'Get all price list items for a specific product across all price lists.',
+        protect: true,
+      }
+    })
+    .input(GetProductPriceListItemsSchema)
+    .output(ProductPriceListItemsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -563,14 +674,18 @@ export const pricingRouter = router({
     }),
 
   calculateOrderTotals: protectedProcedure
-    .input(z.object({
-      lines: z.array(z.object({
-        quantity: z.number().positive(),
-        unit_price: z.number().nonnegative(),
-        subtotal: z.number().optional(),
-      })),
-      taxPercent: z.number().default(0),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate-order-totals',
+        tags: ['pricing'],
+        summary: 'Calculate order totals',
+        description: 'Calculate subtotal, tax amount, and grand total for an order with line items.',
+        protect: true,
+      }
+    })
+    .input(CalculateOrderTotalsSchema)
+    .output(OrderTotalsResponseSchema)
     .mutation(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -584,12 +699,18 @@ export const pricingRouter = router({
     }),
 
   validateProductPricing: protectedProcedure
-    .input(z.object({
-      productId: z.string().uuid(),
-      requestedPrice: z.number().positive(),
-      quantity: z.number().positive(),
-      priceListId: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/validate-product-pricing',
+        tags: ['pricing'],
+        summary: 'Validate product pricing',
+        description: 'Validate if a requested price for a product is within acceptable ranges.',
+        protect: true,
+      }
+    })
+    .input(ValidateProductPricingSchema)
+    .output(ValidateProductPricingResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -602,9 +723,18 @@ export const pricingRouter = router({
     }),
 
   getActivePriceLists: protectedProcedure
-    .input(z.object({
-      date: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/active-price-lists',
+        tags: ['pricing'],
+        summary: 'Get active price lists',
+        description: 'Get all price lists that are currently active for a specific date.',
+        protect: true,
+      }
+    })
+    .input(GetActivePriceListsSchema)
+    .output(ActivePriceListsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -612,10 +742,18 @@ export const pricingRouter = router({
     }),
 
   formatCurrency: protectedProcedure
-    .input(z.object({
-      amount: z.number(),
-      currencyCode: z.string().default('KES'),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/format-currency',
+        tags: ['pricing'],
+        summary: 'Format currency',
+        description: 'Format a numeric amount as a currency string.',
+        protect: true,
+      }
+    })
+    .input(FormatCurrencySchema)
+    .output(FormatCurrencyResponseSchema)
     .mutation(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -625,13 +763,18 @@ export const pricingRouter = router({
     }),
   // GET /price-lists - List price lists with filtering
   list: protectedProcedure
-    .input(z.object({
-      search: z.string().optional(),
-      currency_code: z.string().length(3).optional(),
-      status: PriceListStatusEnum.optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(1000).default(50),
-    }).optional())
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/price-lists',
+        tags: ['pricing'],
+        summary: 'List price lists with filtering and pagination',
+        description: 'Retrieve a paginated list of price lists with optional filtering by search text, currency, and status.',
+        protect: true,
+      }
+    })
+    .input(PriceListFiltersSchema.optional())
+    .output(PriceListListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -704,9 +847,18 @@ export const pricingRouter = router({
 
   // GET /price-lists/{id} - Get single price list
   getById: protectedProcedure
-    .input(z.object({
-      id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/price-lists/{id}',
+        tags: ['pricing'],
+        summary: 'Get price list by ID',
+        description: 'Retrieve detailed information about a specific price list.',
+        protect: true,
+      }
+    })
+    .input(GetPriceListByIdSchema)
+    .output(PriceListDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -732,7 +884,18 @@ export const pricingRouter = router({
 
   // POST /price-lists - Create price list
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/price-lists',
+        tags: ['pricing'],
+        summary: 'Create new price list',
+        description: 'Create a new price list with validation for date ranges and name uniqueness.',
+        protect: true,
+      }
+    })
     .input(CreatePriceListSchema)
+    .output(CreatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -795,7 +958,18 @@ export const pricingRouter = router({
 
   // PUT /price-lists/{id} - Update price list
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/price-lists/{id}',
+        tags: ['pricing'],
+        summary: 'Update price list',
+        description: 'Update price list information including name, dates, currency, and default status.',
+        protect: true,
+      }
+    })
     .input(UpdatePriceListSchema)
+    .output(UpdatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -875,9 +1049,18 @@ export const pricingRouter = router({
 
   // DELETE /price-lists/{id} - Delete price list
   delete: protectedProcedure
-    .input(z.object({
-      id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/price-lists/{id}',
+        tags: ['pricing'],
+        summary: 'Delete price list',
+        description: 'Delete a price list after validating that it is not referenced by existing orders.',
+        protect: true,
+      }
+    })
+    .input(DeletePriceListSchema)
+    .output(DeletePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -918,9 +1101,18 @@ export const pricingRouter = router({
 
   // PUT /price-lists/{id}/set-default - Set as default price list
   setDefault: protectedProcedure
-    .input(z.object({
-      id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/price-lists/{id}/set-default',
+        tags: ['pricing'],
+        summary: 'Set price list as default',
+        description: 'Set a specific price list as the default price list for the organization.',
+        protect: true,
+      }
+    })
+    .input(SetDefaultPriceListSchema)
+    .output(SetDefaultPriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -956,12 +1148,18 @@ export const pricingRouter = router({
 
   // GET /price-lists/{id}/items - Get price list items
   getItems: protectedProcedure
-    .input(z.object({
-      price_list_id: z.string().uuid(),
-      search: z.string().optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(1000).default(50),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/price-lists/{price_list_id}/items',
+        tags: ['pricing'],
+        summary: 'Get price list items',
+        description: 'Retrieve paginated list of items in a specific price list with product details.',
+        protect: true,
+      }
+    })
+    .input(PriceListItemFiltersSchema)
+    .output(PriceListItemsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1020,7 +1218,18 @@ export const pricingRouter = router({
 
   // POST /price-list-items - Create price list item
   createItem: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/price-list-items',
+        tags: ['pricing'],
+        summary: 'Create price list item',
+        description: 'Add a new product to a price list with pricing information.',
+        protect: true,
+      }
+    })
     .input(CreatePriceListItemSchema)
+    .output(CreatePriceListItemResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1079,7 +1288,18 @@ export const pricingRouter = router({
 
   // PUT /price-list-items/{id} - Update price list item
   updateItem: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/price-list-items/{id}',
+        tags: ['pricing'],
+        summary: 'Update price list item',
+        description: 'Update pricing information for a specific item in a price list.',
+        protect: true,
+      }
+    })
     .input(UpdatePriceListItemSchema)
+    .output(UpdatePriceListItemResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1128,9 +1348,18 @@ export const pricingRouter = router({
 
   // DELETE /price-list-items/{id} - Delete price list item
   deleteItem: protectedProcedure
-    .input(z.object({
-      id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/price-list-items/{id}',
+        tags: ['pricing'],
+        summary: 'Delete price list item',
+        description: 'Remove a product from a price list.',
+        protect: true,
+      }
+    })
+    .input(DeletePriceListItemSchema)
+    .output(DeletePriceListItemResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1171,9 +1400,20 @@ export const pricingRouter = router({
       return { success: true, price_list_id: item.price_list_id };
     }),
 
-  // POST /price-lists/{id}/bulk-add - Bulk add products to price list
+  // POST /price-lists/bulk-add - Bulk add products to price list
   bulkAddProducts: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/price-lists/bulk-add',
+        tags: ['pricing'],
+        summary: 'Bulk add products to price list',
+        description: 'Add multiple products to a price list with various pricing methods including copy from another list, markup, or fixed pricing.',
+        protect: true,
+      }
+    })
     .input(BulkPricingSchema)
+    .output(BulkAddProductsResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1283,6 +1523,18 @@ export const pricingRouter = router({
 
   // GET /pricing/stats - Get pricing statistics
   getStats: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/stats',
+        tags: ['pricing'],
+        summary: 'Get pricing statistics',
+        description: 'Retrieve comprehensive statistics about price lists, products, and pricing coverage.',
+        protect: true,
+      }
+    })
+    .input(z.void())
+    .output(PricingStatsResponseSchema)
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1325,15 +1577,18 @@ export const pricingRouter = router({
 
   // POST /pricing/calculate - Calculate dynamic pricing
   calculate: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid().optional(),
-      items: z.array(z.object({
-        product_id: z.string().uuid(),
-        quantity: z.number().positive(),
-        price_list_id: z.string().uuid().optional(),
-      })),
-      pricing_date: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate',
+        tags: ['pricing'],
+        summary: 'Calculate dynamic pricing for multiple items',
+        description: 'Calculate the final price for multiple products based on their pricing in active price lists.',
+        protect: true,
+      }
+    })
+    .input(CalculatePricingSchema)
+    .output(CalculatePricingResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1446,13 +1701,18 @@ export const pricingRouter = router({
 
   // POST /price-lists/validate - Validate price list
   validatePriceList: protectedProcedure
-    .input(z.object({
-      price_list_id: z.string().uuid(),
-      items: z.array(z.object({
-        product_id: z.string().uuid(),
-        unit_price: z.number().positive(),
-      })),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/price-lists/validate',
+        tags: ['pricing'],
+        summary: 'Validate price list items',
+        description: 'Validate the pricing information for multiple items in a price list.',
+        protect: true,
+      }
+    })
+    .input(ValidatePriceListSchema)
+    .output(ValidatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1525,15 +1785,18 @@ export const pricingRouter = router({
 
   // POST /price-lists/bulk-update - Bulk update prices
   bulkUpdatePrices: protectedProcedure
-    .input(z.object({
-      price_list_id: z.string().uuid(),
-      updates: z.array(z.object({
-        product_id: z.string().uuid(),
-        unit_price: z.number().positive(),
-        min_qty: z.number().int().min(1).optional(),
-        surcharge_pct: z.number().min(0).max(100).optional(),
-      })),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/bulk-update',
+        tags: ['pricing'],
+        summary: 'Bulk update prices for a price list',
+        description: 'Update multiple price list items in a single price list with new pricing information.',
+        protect: true,
+      }
+    })
+    .input(BulkUpdatePricesSchema)
+    .output(BulkUpdatePricesResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1607,9 +1870,18 @@ export const pricingRouter = router({
 
   // GET /customers/{id}/pricing-tiers - Get customer pricing tiers
   getCustomerPricingTiers: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{customer_id}/pricing-tiers',
+        tags: ['pricing'],
+        summary: 'Get customer pricing tiers',
+        description: 'Get pricing tier information and applicable price lists for a specific customer.',
+        protect: true,
+      }
+    })
+    .input(GetCustomerPricingTiersSchema)
+    .output(CustomerPricingTiersResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1637,7 +1909,6 @@ export const pricingRouter = router({
       }
 
       // Get applicable price lists based on customer tier
-      // This is a placeholder - you might have specific price lists for customer tiers
       const { data: priceLists, error: priceListError } = await ctx.supabase
         .from('price_list')
         .select(`
@@ -1646,7 +1917,10 @@ export const pricingRouter = router({
           start_date,
           end_date,
           is_default,
-          currency_code
+          currency_code,
+          description,
+          created_at,
+          updated_at
         `)
         
         .lte('start_date', new Date().toISOString().split('T')[0])
@@ -1669,6 +1943,12 @@ export const pricingRouter = router({
 
       const customerDiscount = tierDiscounts[customer.customer_tier] || 0;
 
+      // Filter out null values from special pricing rules
+      const specialRules = [
+        customer.customer_tier === 'premium' ? 'Free shipping on orders > 10,000 KES' : null,
+        customer.customer_tier === 'gold' ? 'Priority order processing' : null,
+      ].filter((rule): rule is string => rule !== null);
+
       return {
         customer: {
           id: customer.id,
@@ -1679,12 +1959,18 @@ export const pricingRouter = router({
         },
         pricing_info: {
           tier_discount_percentage: customerDiscount * 100,
-          applicable_price_lists: priceLists || [],
-          special_pricing_rules: [
-            // Add any special rules based on customer tier
-            customer.customer_tier === 'premium' ? 'Free shipping on orders > 10,000 KES' : null,
-            customer.customer_tier === 'gold' ? 'Priority order processing' : null,
-          ].filter(Boolean),
+          applicable_price_lists: (priceLists || []).map(pl => ({
+            id: pl.id,
+            name: pl.name,
+            start_date: pl.start_date,
+            end_date: pl.end_date,
+            is_default: pl.is_default,
+            currency_code: pl.currency_code,
+            description: pl.description,
+            created_at: pl.created_at,
+            updated_at: pl.updated_at,
+          })),
+          special_pricing_rules: specialRules,
         },
       };
     }),

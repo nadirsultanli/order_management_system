@@ -3,47 +3,45 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
-// Zod schemas for input validation
-const PaymentMethodEnum = z.enum(['Cash', 'Mpesa', 'Card']);
-const PaymentStatusEnum = z.enum(['pending', 'completed', 'failed', 'refunded']);
+// Import input schemas
+import {
+  PaymentMethodEnum,
+  PaymentStatusEnum,
+  RecordPaymentSchema,
+  PaymentFiltersSchema,
+  GetPaymentByIdSchema,
+  GetPaymentsByOrderSchema,
+  UpdatePaymentStatusSchema,
+  PaymentSummaryFiltersSchema,
+  OverdueOrdersFiltersSchema,
+} from '../schemas/input/payments-input';
 
-const RecordPaymentSchema = z.object({
-  order_id: z.string().uuid(),
-  amount: z.number().positive(),
-  payment_method: PaymentMethodEnum,
-  transaction_id: z.string().optional(),
-  payment_date: z.string().datetime().optional(),
-  reference_number: z.string().optional(),
-  notes: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
-});
-
-const PaymentFiltersSchema = z.object({
-  order_id: z.string().uuid().optional(),
-  payment_method: PaymentMethodEnum.optional(),
-  payment_status: PaymentStatusEnum.optional(),
-  date_from: z.string().optional(),
-  date_to: z.string().optional(),
-  amount_min: z.number().optional(),
-  amount_max: z.number().optional(),
-  search: z.string().optional(), // Search by payment_id, transaction_id, or reference_number
-  sort_by: z.enum(['payment_date', 'amount', 'created_at', 'payment_id']).default('payment_date'),
-  sort_order: z.enum(['asc', 'desc']).default('desc'),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
-});
-
-const UpdatePaymentStatusSchema = z.object({
-  payment_id: z.string().uuid(),
-  payment_status: PaymentStatusEnum,
-  transaction_id: z.string().optional(),
-  notes: z.string().optional(),
-});
+// Import output schemas
+import {
+  CreatePaymentResponseSchema,
+  PaymentListResponseSchema,
+  PaymentDetailResponseSchema,
+  OrderPaymentsResponseSchema,
+  UpdatePaymentResponseSchema,
+  PaymentSummaryResponseSchema,
+  OverdueOrdersResponseSchema,
+} from '../schemas/output/payments-output';
 
 export const paymentsRouter = router({
   // POST /payments - Record a new payment
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/payments',
+        tags: ['payments'],
+        summary: 'Record a new payment',
+        description: 'Record a payment for an order with validation against order totals and business rules. Automatically updates order payment status.',
+        protect: true,
+      }
+    })
     .input(RecordPaymentSchema)
+    .output(CreatePaymentResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -125,7 +123,18 @@ export const paymentsRouter = router({
 
   // GET /payments - List payments with filtering
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/payments',
+        tags: ['payments'],
+        summary: 'List payments with advanced filtering',
+        description: 'Retrieve a paginated list of payments with comprehensive filtering options including date ranges, amounts, payment methods, and status.',
+        protect: true,
+      }
+    })
     .input(PaymentFiltersSchema.optional())
+    .output(PaymentListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -251,11 +260,20 @@ export const paymentsRouter = router({
       };
     }),
 
-  // GET /payments/{id} - Get single payment
+  // GET /payments/{payment_id} - Get single payment
   getById: protectedProcedure
-    .input(z.object({
-      payment_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/payments/{payment_id}',
+        tags: ['payments'],
+        summary: 'Get payment by ID',
+        description: 'Retrieve detailed information about a specific payment including associated order and customer details.',
+        protect: true,
+      }
+    })
+    .input(GetPaymentByIdSchema)
+    .output(PaymentDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -294,12 +312,20 @@ export const paymentsRouter = router({
       return data;
     }),
 
-  // GET /orders/{id}/payments - Get payments for a specific order
+  // GET /orders/{order_id}/payments - Get payments for a specific order
   getByOrderId: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-      include_summary: z.boolean().default(true),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/{order_id}/payments',
+        tags: ['payments'],
+        summary: 'Get payments by order ID',
+        description: 'Retrieve all payments for a specific order with optional payment summary including balance calculations.',
+        protect: true,
+      }
+    })
+    .input(GetPaymentsByOrderSchema)
+    .output(OrderPaymentsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -376,9 +402,20 @@ export const paymentsRouter = router({
       };
     }),
 
-  // PUT /payments/{id}/status - Update payment status
+  // PUT /payments/{payment_id}/status - Update payment status
   updateStatus: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/payments/{payment_id}/status',
+        tags: ['payments'],
+        summary: 'Update payment status',
+        description: 'Update the status of a payment (pending, completed, failed, refunded) with optional transaction details and notes.',
+        protect: true,
+      }
+    })
     .input(UpdatePaymentStatusSchema)
+    .output(UpdatePaymentResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -448,11 +485,18 @@ export const paymentsRouter = router({
 
   // GET /payments/summary - Get payment summary statistics
   getSummary: protectedProcedure
-    .input(z.object({
-      date_from: z.string().optional(),
-      date_to: z.string().optional(),
-      payment_method: PaymentMethodEnum.optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/payments/summary',
+        tags: ['payments'],
+        summary: 'Get payment summary statistics',
+        description: 'Get comprehensive payment statistics including totals by status, payment method, and time periods with optional filtering.',
+        protect: true,
+      }
+    })
+    .input(PaymentSummaryFiltersSchema)
+    .output(PaymentSummaryResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -488,10 +532,18 @@ export const paymentsRouter = router({
 
   // GET /payments/overdue-orders - Get orders with overdue payments
   getOverdueOrders: protectedProcedure
-    .input(z.object({
-      days_overdue_min: z.number().min(0).default(1),
-      limit: z.number().min(1).max(100).default(50),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/payments/overdue-orders',
+        tags: ['payments'],
+        summary: 'Get orders with overdue payments',
+        description: 'Retrieve orders that have overdue payments with urgency levels and detailed customer information for collections.',
+        protect: true,
+      }
+    })
+    .input(OverdueOrdersFiltersSchema)
+    .output(OverdueOrdersResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -532,8 +584,9 @@ export const paymentsRouter = router({
 
         return {
           ...order,
+          customer: Array.isArray(order.customer) ? order.customer[0] : order.customer,
           days_overdue: daysOverdue,
-          urgency_level: daysOverdue > 60 ? 'critical' : daysOverdue > 30 ? 'high' : 'medium'
+          urgency_level: (daysOverdue > 60 ? 'critical' : daysOverdue > 30 ? 'high' : 'medium') as 'critical' | 'high' | 'medium'
         };
       });
 

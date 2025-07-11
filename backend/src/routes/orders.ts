@@ -31,253 +31,301 @@ import {
 } from '../lib/order-workflow';
 import { PricingService } from '../lib/pricing';
 
-const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']);
+// Import input schemas
+import {
+  OrderStatusEnum,
+  OrderFiltersSchema,
+  GetOrderByIdSchema,
+  GetOverdueOrdersSchema,
+  GetDeliveryCalendarSchema,
+  CreateOrderSchema,
+  CalculateOrderTotalSchema,
+  UpdateOrderStatusSchema,
+  UpdateOrderTaxSchema,
+  StatusTransitionSchema as InputStatusTransitionSchema,
+  CalculateTotalsSchema as InputCalculateTotalsSchema,
+  ValidateOrderSchema,
+  GetWorkflowInfoSchema,
+  FormatOrderIdSchema,
+  FormatCurrencySchema,
+  FormatDateSchema,
+  ValidateOrderPricingSchema,
+  ValidateTruckCapacitySchema,
+  AllocateToTruckSchema,
+  GetAllocationSuggestionsSchema,
+  CalculateOrderWeightSchema,
+  RemoveAllocationSchema,
+  GetDailyScheduleSchema,
+  ProcessRefillOrderSchema,
+} from '../schemas/input/orders-input';
+
+// Import output schemas
+import {
+  OrderListResponseSchema,
+  OrderDetailResponseSchema,
+  OverdueOrdersResponseSchema,
+  DeliveryCalendarResponseSchema,
+  CreateOrderResponseSchema,
+  CalculateOrderTotalResponseSchema,
+  UpdateOrderStatusResponseSchema,
+  UpdateOrderTaxResponseSchema,
+  WorkflowResponseSchema,
+  StatusTransitionResponseSchema,
+  CalculateTotalsResponseSchema,
+  ValidateOrderResponseSchema,
+  WorkflowInfoResponseSchema,
+  FormatOrderIdResponseSchema,
+  FormatCurrencyResponseSchema,
+  FormatDateResponseSchema,
+  ValidateOrderPricingResponseSchema,
+  ValidateTruckCapacityResponseSchema,
+  AllocateToTruckResponseSchema,
+  AllocationSuggestionsResponseSchema,
+  CalculateOrderWeightResponseSchema,
+  RemoveAllocationResponseSchema,
+  DailyScheduleResponseSchema,
+  ProcessRefillOrderResponseSchema,
+} from '../schemas/output/orders-output';
 
 export const ordersRouter = router({
   // GET /orders - List orders with advanced filtering and business logic
   list: protectedProcedure
-  .input(z.object({
-    // Change this line to support multiple statuses
-    status: z.union([
-      OrderStatusEnum,                           // Single status
-      z.string(),                               // Comma-separated statuses
-      z.array(OrderStatusEnum)                  // Array of statuses
-    ]).optional(),
-    
-    customer_id: z.string().uuid().optional(),
-    search: z.string().optional(),
-    order_date_from: z.string().optional(),
-    order_date_to: z.string().optional(),
-    scheduled_date_from: z.string().optional(),
-    scheduled_date_to: z.string().optional(),
-    amount_min: z.number().optional(),
-    amount_max: z.number().optional(),
-    delivery_area: z.string().optional(),
-    is_overdue: z.boolean().optional(),
-    delivery_method: z.enum(['pickup', 'delivery']).optional(),
-    priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
-    payment_status: z.enum(['pending', 'paid', 'overdue']).optional(),
-    sort_by: z.enum(['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name']).default('created_at'),
-    sort_order: z.enum(['asc', 'desc']).default('desc'),
-    include_analytics: z.boolean().default(false),
-    page: z.number().min(1).default(1),
-    limit: z.number().min(1).max(100).default(50),
-  }).optional())
-  .query(async ({ input, ctx }) => {
-    const user = requireAuth(ctx);
-    
-    // Provide default values if input is undefined
-    const filters = input || {} as any;
-    const page = filters.page || 1;
-    const limit = filters.limit || 50;
-    const sort_by = filters.sort_by || 'created_at';
-    const sort_order = filters.sort_order || 'desc';
-    const include_analytics = filters.include_analytics || false;
-    
-    ctx.logger.info('Fetching orders with advanced filters:', filters);
-    
-    let query = ctx.supabase
-      .from('orders')
-      .select(`
-        *,
-        customer:customers(id, name, email, phone, account_status, credit_terms_days),
-        delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
-        source_warehouse:warehouses(id, name, is_mobile),
-        order_lines(
-          id,
-          product_id,
-          quantity,
-          unit_price,
-          subtotal,
-          product:products(id, sku, name, unit_of_measure)
-        ),
-        payments(
-          id,
-          amount,
-          payment_method,
-          payment_status,
-          payment_date,
-          transaction_id
-        )
-      `, { count: 'exact' });
-
-    // Build filter conditions array for complex queries
-    const filterConditions: string[] = [];
-    
-    // 2. UPDATE THE STATUS FILTERING LOGIC
-    if (filters.status) {
-      let statuses: string[] = [];
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders',
+        tags: ['orders'],
+        summary: 'List orders with advanced filtering',
+        description: 'Retrieve a paginated list of orders with comprehensive filtering options, business logic calculations, and optional analytics.',
+        protect: true,
+      }
+    })
+    .input(OrderFiltersSchema.optional())
+    .output(OrderListResponseSchema)
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
       
-      // Handle different input formats
-      if (Array.isArray(filters.status)) {
-        // Array format: ['confirmed', 'scheduled']
-        statuses = filters.status;
-      } else if (typeof filters.status === 'string') {
-        // Check if it's comma-separated
-        if (filters.status.includes(',')) {
-          // Comma-separated: "confirmed,scheduled,en_route"
-          statuses = filters.status.split(',').map(s => s.trim());
-        } else {
-          // Single status: "confirmed"
-          statuses = [filters.status];
+      // Provide default values if input is undefined
+      const filters = input || {} as any;
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const sort_by = filters.sort_by || 'created_at';
+      const sort_order = filters.sort_order || 'desc';
+      const include_analytics = filters.include_analytics || false;
+      
+      ctx.logger.info('Fetching orders with advanced filters:', filters);
+      
+      let query = ctx.supabase
+        .from('orders')
+        .select(`
+          *,
+          customer:customers(id, name, email, phone, account_status, credit_terms_days),
+          delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
+          source_warehouse:warehouses(id, name, is_mobile),
+          order_lines(
+            id,
+            product_id,
+            quantity,
+            unit_price,
+            subtotal,
+            product:products(id, sku, name, unit_of_measure)
+          ),
+          payments(
+            id,
+            amount,
+            payment_method,
+            payment_status,
+            payment_date,
+            transaction_id
+          )
+        `, { count: 'exact' });
+
+      // Build filter conditions array for complex queries
+      const filterConditions: string[] = [];
+      
+      // 2. UPDATE THE STATUS FILTERING LOGIC
+      if (filters.status) {
+        let statuses: string[] = [];
+        
+        // Handle different input formats
+        if (Array.isArray(filters.status)) {
+          // Array format: ['confirmed', 'scheduled']
+          statuses = filters.status;
+        } else if (typeof filters.status === 'string') {
+          // Check if it's comma-separated
+          if (filters.status.includes(',')) {
+            // Comma-separated: "confirmed,scheduled,en_route"
+            statuses = filters.status.split(',').map((s: string) => s.trim());
+          } else {
+            // Single status: "confirmed"
+            statuses = [filters.status];
+          }
+        }
+        
+        // Apply the filter
+        if (statuses.length === 1) {
+          query = query.eq('status', statuses[0]);
+        } else if (statuses.length > 1) {
+          query = query.in('status', statuses);
         }
       }
-      
-      // Apply the filter
-      if (statuses.length === 1) {
-        query = query.eq('status', statuses[0]);
-      } else if (statuses.length > 1) {
-        query = query.in('status', statuses);
+
+      // Apply customer filter
+      if (filters.customer_id) {
+        query = query.eq('customer_id', filters.customer_id);
       }
-    }
 
-    // Apply customer filter
-    if (filters.customer_id) {
-      query = query.eq('customer_id', filters.customer_id);
-    }
+      // Enhanced search with multi-field support including product SKU
+      if (filters.search) {
+        query = query.or(`
+          id.ilike.%${filters.search}%,
+          customer.name.ilike.%${filters.search}%,
+          customer.email.ilike.%${filters.search}%,
+          order_lines.product.sku.ilike.%${filters.search}%,
+          order_lines.product.name.ilike.%${filters.search}%,
+          delivery_address.city.ilike.%${filters.search}%
+        `);
+      }
 
-    // Enhanced search with multi-field support including product SKU
-    if (filters.search) {
-      query = query.or(`
-        id.ilike.%${filters.search}%,
-        customer.name.ilike.%${filters.search}%,
-        customer.email.ilike.%${filters.search}%,
-        order_lines.product.sku.ilike.%${filters.search}%,
-        order_lines.product.name.ilike.%${filters.search}%,
-        delivery_address.city.ilike.%${filters.search}%
-      `);
-    }
+      // ... rest of your existing filters remain the same ...
 
-    // ... rest of your existing filters remain the same ...
+      // Apply date filters
+      if (filters.order_date_from) {
+        query = query.gte('order_date', filters.order_date_from);
+      }
+      if (filters.order_date_to) {
+        query = query.lte('order_date', filters.order_date_to);
+      }
+      if (filters.scheduled_date_from) {
+        query = query.gte('scheduled_date', filters.scheduled_date_from);
+      }
+      if (filters.scheduled_date_to) {
+        query = query.lte('scheduled_date', filters.scheduled_date_to);
+      }
 
-    // Apply date filters
-    if (filters.order_date_from) {
-      query = query.gte('order_date', filters.order_date_from);
-    }
-    if (filters.order_date_to) {
-      query = query.lte('order_date', filters.order_date_to);
-    }
-    if (filters.scheduled_date_from) {
-      query = query.gte('scheduled_date', filters.scheduled_date_from);
-    }
-    if (filters.scheduled_date_to) {
-      query = query.lte('scheduled_date', filters.scheduled_date_to);
-    }
+      // Apply amount range filter (business logic)
+      if (filters.amount_min !== undefined) {
+        query = query.gte('total_amount', filters.amount_min);
+      }
+      if (filters.amount_max !== undefined) {
+        query = query.lte('total_amount', filters.amount_max);
+      }
 
-    // Apply amount range filter (business logic)
-    if (filters.amount_min !== undefined) {
-      query = query.gte('total_amount', filters.amount_min);
-    }
-    if (filters.amount_max !== undefined) {
-      query = query.lte('total_amount', filters.amount_max);
-    }
+      // Apply delivery area filter (business logic)
+      if (filters.delivery_area) {
+        query = query.or(`
+          delivery_address.city.ilike.%${filters.delivery_area}%,
+          delivery_address.state.ilike.%${filters.delivery_area}%,
+          delivery_address.postal_code.ilike.%${filters.delivery_area}%
+        `);
+      }
 
-    // Apply delivery area filter (business logic)
-    if (filters.delivery_area) {
-      query = query.or(`
-        delivery_address.city.ilike.%${filters.delivery_area}%,
-        delivery_address.state.ilike.%${filters.delivery_area}%,
-        delivery_address.postal_code.ilike.%${filters.delivery_area}%
-      `);
-    }
-
-    // Apply overdue filter (complex business logic)
-    if (filters.is_overdue) {
-      const today = new Date().toISOString().split('T')[0];
-      query = query
-        .eq('status', 'scheduled')
-        .lt('scheduled_date', today);
-    }
-
-    // Apply delivery method filter
-    if (filters.delivery_method) {
-      query = query.eq('delivery_method', filters.delivery_method);
-    }
-
-    // Apply priority filter
-    if (filters.priority) {
-      query = query.eq('priority', filters.priority);
-    }
-
-    // Apply payment status filter (business logic)
-    if (filters.payment_status) {
-      if (filters.payment_status === 'overdue') {
-        // Orders that are invoiced but past due date
-        const overdueDate = new Date();
-        overdueDate.setDate(overdueDate.getDate() - 30); // 30 days overdue
+      // Apply overdue filter (complex business logic)
+      if (filters.is_overdue) {
+        const today = new Date().toISOString().split('T')[0];
         query = query
-          .eq('status', 'invoiced')
-          .lt('invoice_date', overdueDate.toISOString());
-      } else if (filters.payment_status === 'paid') {
-        query = query.not('payment_date', 'is', null);
-      } else if (filters.payment_status === 'pending') {
-        query = query.is('payment_date', null);
+          .eq('status', 'scheduled')
+          .lt('scheduled_date', today);
       }
-    }
 
-    // Apply advanced sorting
-    const sortMapping: Record<string, string> = {
-      'created_at': 'created_at',
-      'order_date': 'order_date',
-      'scheduled_date': 'scheduled_date',
-      'total_amount': 'total_amount',
-      'customer_name': 'customer.name'
-    };
-    
-    const sortField = sortMapping[sort_by] || 'created_at';
-    query = query.order(sortField, { ascending: sort_order === 'asc' });
+      // Apply delivery method filter
+      if (filters.delivery_method) {
+        query = query.eq('delivery_method', filters.delivery_method);
+      }
 
-    // Apply pagination
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-    query = query.range(from, to);
+      // Apply priority filter
+      if (filters.priority) {
+        query = query.eq('priority', filters.priority);
+      }
 
-    const { data, error, count } = await query;
+      // Apply payment status filter (business logic)
+      if (filters.payment_status) {
+        if (filters.payment_status === 'overdue') {
+          // Orders that are invoiced but past due date
+          const overdueDate = new Date();
+          overdueDate.setDate(overdueDate.getDate() - 30); // 30 days overdue
+          query = query
+            .eq('status', 'invoiced')
+            .lt('invoice_date', overdueDate.toISOString());
+        } else if (filters.payment_status === 'paid') {
+          query = query.not('payment_date', 'is', null);
+        } else if (filters.payment_status === 'pending') {
+          query = query.is('payment_date', null);
+        }
+      }
 
-    if (error) {
-      ctx.logger.error('Supabase orders error:', error);
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: error.message
-      });
-    }
-
-    // Apply additional business logic filters on the results
-    let orders = data || [];
-
-    // Post-process for complex business logic that can't be done in SQL
-    orders = orders.map(order => {
-      const paymentSummary = calculateOrderPaymentSummary(order);
-      
-      return {
-        ...order,
-        // Calculate business metrics
-        is_high_value: (order.total_amount || 0) > 1000,
-        days_since_order: Math.floor((new Date().getTime() - new Date(order.order_date).getTime()) / (1000 * 60 * 60 * 24)),
-        estimated_delivery_window: calculateDeliveryWindow(order),
-        risk_level: calculateOrderRisk(order),
-        // Payment information
-        payment_summary: paymentSummary,
-        payment_balance: paymentSummary.balance,
-        payment_status: order.payment_status_cache || paymentSummary.status,
+      // Apply advanced sorting
+      const sortMapping: Record<string, string> = {
+        'created_at': 'created_at',
+        'order_date': 'order_date',
+        'scheduled_date': 'scheduled_date',
+        'total_amount': 'total_amount',
+        'customer_name': 'customer.name'
       };
-    });
+      
+      const sortField = sortMapping[sort_by] || 'created_at';
+      query = query.order(sortField, { ascending: sort_order === 'asc' });
 
-    return {
-      orders,
-      totalCount: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
-      currentPage: page,
-      // Include analytics if requested
-      analytics: include_analytics ? await generateOrderAnalytics(ctx, orders) : undefined,
-    };
-  }),
+      // Apply pagination
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        ctx.logger.error('Supabase orders error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      // Apply additional business logic filters on the results
+      let orders = data || [];
+
+      // Post-process for complex business logic that can't be done in SQL
+      orders = orders.map(order => {
+        const paymentSummary = calculateOrderPaymentSummary(order);
+        
+        return {
+          ...order,
+          // Calculate business metrics
+          is_high_value: (order.total_amount || 0) > 1000,
+          days_since_order: Math.floor((new Date().getTime() - new Date(order.order_date).getTime()) / (1000 * 60 * 60 * 24)),
+          estimated_delivery_window: calculateDeliveryWindow(order),
+          risk_level: calculateOrderRisk(order),
+          // Payment information
+          payment_summary: paymentSummary,
+          payment_balance: paymentSummary.balance,
+          payment_status: order.payment_status_cache || paymentSummary.status,
+        };
+      });
+
+      return {
+        orders,
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
+        // Include analytics if requested
+        analytics: include_analytics ? await generateOrderAnalytics(ctx, orders) : undefined,
+      };
+    }),
 
   // GET /orders/{id} - Get single order
   getById: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/{order_id}',
+        tags: ['orders'],
+        summary: 'Get order by ID',
+        description: 'Retrieve detailed information about a specific order including customer, address, order lines, and payment information.',
+        protect: true,
+      }
+    })
+    .input(GetOrderByIdSchema)
+    .output(OrderDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -338,11 +386,18 @@ export const ordersRouter = router({
 
   // GET /orders/overdue - Get overdue orders with business logic
   getOverdue: protectedProcedure
-    .input(z.object({
-      days_overdue_min: z.number().min(0).default(1),
-      include_cancelled: z.boolean().default(false),
-      priority_filter: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/overdue',
+        tags: ['orders'],
+        summary: 'Get overdue orders',
+        description: 'Retrieve orders that are past their scheduled delivery date with urgency scoring and summary statistics.',
+        protect: true,
+      }
+    })
+    .input(GetOverdueOrdersSchema)
+    .output(OverdueOrdersResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -400,13 +455,18 @@ export const ordersRouter = router({
 
   // GET /orders/delivery-calendar - Get orders by delivery date with route optimization data
   getDeliveryCalendar: protectedProcedure
-    .input(z.object({
-      date_from: z.string(),
-      date_to: z.string(),
-      delivery_area: z.string().optional(),
-      truck_capacity_filter: z.boolean().default(false),
-      optimize_routes: z.boolean().default(false),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/delivery-calendar',
+        tags: ['orders'],
+        summary: 'Get delivery calendar',
+        description: 'Retrieve orders scheduled for delivery within a date range with route optimization data and logistics metrics.',
+        protect: true,
+      }
+    })
+    .input(GetDeliveryCalendarSchema)
+    .output(DeliveryCalendarResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -505,29 +565,18 @@ export const ordersRouter = router({
 
   // POST /orders - Create new order
   create: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-      delivery_address_id: z.string().uuid().optional(),
-      source_warehouse_id: z.string().uuid(),
-      order_date: z.string().optional(),
-      scheduled_date: z.string().datetime().optional(),
-      notes: z.string().optional(),
-      idempotency_key: z.string().optional(),
-      validate_pricing: z.boolean().default(true),
-      skip_inventory_check: z.boolean().default(false),
-      // Order type fields
-      order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']).default('delivery'),
-      service_type: z.enum(['standard', 'express', 'scheduled']).default('standard'),
-      exchange_empty_qty: z.number().min(0).default(0),
-      requires_pickup: z.boolean().default(false),
-      order_lines: z.array(z.object({
-        product_id: z.string().uuid(),
-        quantity: z.number().positive(),
-        unit_price: z.number().positive().optional(),
-        expected_price: z.number().positive().optional(),
-        price_list_id: z.string().uuid().optional(),
-      })).min(1, 'At least one order line is required'),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders',
+        tags: ['orders'],
+        summary: 'Create new order',
+        description: 'Create a new order with comprehensive validation including pricing, inventory, customer status, and business rules.',
+        protect: true,
+      }
+    })
+    .input(CreateOrderSchema)
+    .output(CreateOrderResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -917,9 +966,18 @@ export const ordersRouter = router({
 
   // POST /orders/{id}/calculate-total - Calculate order total
   calculateTotal: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/{order_id}/calculate-total',
+        tags: ['orders'],
+        summary: 'Calculate order total',
+        description: 'Calculate the total amount for an order including tax calculations and line item breakdowns.',
+        protect: true,
+      }
+    })
+    .input(CalculateOrderTotalSchema)
+    .output(CalculateOrderTotalResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -928,13 +986,18 @@ export const ordersRouter = router({
 
   // POST /orders/{id}/status - Update order status
   updateStatus: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-      new_status: OrderStatusEnum,
-      scheduled_date: z.string().datetime().optional(),
-      reason: z.string().optional(),
-      metadata: z.record(z.any()).optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/{order_id}/status',
+        tags: ['orders'],
+        summary: 'Update order status',
+        description: 'Update order status with inventory management, business rule validation, and automated workflows.',
+        protect: true,
+      }
+    })
+    .input(UpdateOrderStatusSchema)
+    .output(UpdateOrderStatusResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1079,20 +1142,38 @@ export const ordersRouter = router({
 
   // POST /orders/{id}/update-tax - Update order tax
   updateTax: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-      tax_percent: z.number().min(0).max(100),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/{order_id}/update-tax',
+        tags: ['orders'],
+        summary: 'Update order tax',
+        description: 'Update the tax percentage for an order and recalculate totals.',
+        protect: true,
+      }
+    })
+    .input(UpdateOrderTaxSchema)
+    .output(UpdateOrderTaxResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
       return await updateOrderTax(ctx, input.order_id, input.tax_percent);
     }),
 
-  // Workflow endpoints
-  
   // GET /orders/workflow - Get order workflow steps
   getWorkflow: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/workflow',
+        tags: ['orders', 'workflow'],
+        summary: 'Get order workflow steps',
+        description: 'Retrieve the complete order workflow with status definitions and transition rules.',
+        protect: true,
+      }
+    })
+    .input(z.void())
+    .output(WorkflowResponseSchema)
     .query(async ({ ctx }) => {
       requireAuth(ctx);
       
@@ -1103,7 +1184,18 @@ export const ordersRouter = router({
 
   // POST /orders/workflow/validate-transition - Validate status transition
   validateTransition: protectedProcedure
-    .input(StatusTransitionSchema)
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/validate-transition',
+        tags: ['orders', 'workflow'],
+        summary: 'Validate status transition',
+        description: 'Validate whether a status transition is allowed according to business rules.',
+        protect: true,
+      }
+    })
+    .input(InputStatusTransitionSchema)
+    .output(StatusTransitionResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1114,7 +1206,18 @@ export const ordersRouter = router({
 
   // POST /orders/workflow/calculate-totals - Calculate order totals with tax
   calculateTotals: protectedProcedure
-    .input(CalculateTotalsSchema)
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/calculate-totals',
+        tags: ['orders', 'workflow'],
+        summary: 'Calculate order totals with tax',
+        description: 'Calculate order totals including tax for order lines with detailed breakdown.',
+        protect: true,
+      }
+    })
+    .input(InputCalculateTotalsSchema)
+    .output(CalculateTotalsResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1132,9 +1235,18 @@ export const ordersRouter = router({
 
   // POST /orders/workflow/validate-for-confirmation - Validate order for confirmation
   validateForConfirmation: protectedProcedure
-    .input(z.object({
-      order: z.any(), // We'll validate the structure in the function
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/validate-for-confirmation',
+        tags: ['orders', 'workflow'],
+        summary: 'Validate order for confirmation',
+        description: 'Validate whether an order can be confirmed according to business rules and inventory availability.',
+        protect: true,
+      }
+    })
+    .input(ValidateOrderSchema)
+    .output(ValidateOrderResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1145,9 +1257,18 @@ export const ordersRouter = router({
 
   // POST /orders/workflow/validate-for-scheduling - Validate order for scheduling
   validateForScheduling: protectedProcedure
-    .input(z.object({
-      order: z.any(), // We'll validate the structure in the function
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/validate-for-scheduling',
+        tags: ['orders', 'workflow'],
+        summary: 'Validate order for scheduling',
+        description: 'Validate whether an order can be scheduled for delivery according to business rules.',
+        protect: true,
+      }
+    })
+    .input(ValidateOrderSchema)
+    .output(ValidateOrderResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1158,9 +1279,18 @@ export const ordersRouter = router({
 
   // POST /orders/workflow/validate-delivery-window - Validate order delivery window
   validateDeliveryWindow: protectedProcedure
-    .input(z.object({
-      order: z.any(), // We'll validate the structure in the function
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/validate-delivery-window',
+        tags: ['orders', 'workflow'],
+        summary: 'Validate delivery window',
+        description: 'Validate the delivery window for an order based on address and service constraints.',
+        protect: true,
+      }
+    })
+    .input(ValidateOrderSchema)
+    .output(ValidateOrderResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1171,9 +1301,18 @@ export const ordersRouter = router({
 
   // GET /orders/{id}/workflow-info - Get workflow information for a specific order
   getWorkflowInfo: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/{order_id}/workflow-info',
+        tags: ['orders', 'workflow'],
+        summary: 'Get order workflow information',
+        description: 'Get detailed workflow information for a specific order including current status and possible transitions.',
+        protect: true,
+      }
+    })
+    .input(GetWorkflowInfoSchema)
+    .output(WorkflowInfoResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1215,13 +1354,20 @@ export const ordersRouter = router({
       };
     }),
 
-  // Utility endpoints for formatting
-  
   // POST /orders/workflow/format-order-id - Format order ID for display
   formatOrderId: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/format-order-id',
+        tags: ['orders', 'workflow'],
+        summary: 'Format order ID',
+        description: 'Format an order ID for display purposes.',
+        protect: true,
+      }
+    })
+    .input(FormatOrderIdSchema)
+    .output(FormatOrderIdResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1232,9 +1378,18 @@ export const ordersRouter = router({
 
   // POST /orders/workflow/format-currency - Format currency amount
   formatCurrency: protectedProcedure
-    .input(z.object({
-      amount: z.number(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/format-currency',
+        tags: ['orders', 'workflow'],
+        summary: 'Format currency amount',
+        description: 'Format a currency amount for display purposes.',
+        protect: true,
+      }
+    })
+    .input(FormatCurrencySchema)
+    .output(FormatCurrencyResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1245,9 +1400,18 @@ export const ordersRouter = router({
 
   // POST /orders/workflow/format-date - Format date for display
   formatDate: protectedProcedure
-    .input(z.object({
-      date: z.string().datetime(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/workflow/format-date',
+        tags: ['orders', 'workflow'],
+        summary: 'Format date',
+        description: 'Format a date for display purposes.',
+        protect: true,
+      }
+    })
+    .input(FormatDateSchema)
+    .output(FormatDateResponseSchema)
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -1258,15 +1422,18 @@ export const ordersRouter = router({
 
   // POST /orders/validate-order-pricing - Validate order pricing before creation
   validateOrderPricing: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-      order_lines: z.array(z.object({
-        product_id: z.string().uuid(),
-        quantity: z.number().positive(),
-        expected_price: z.number().positive().optional(),
-        price_list_id: z.string().uuid().optional(),
-      })).min(1),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/validate-order-pricing',
+        tags: ['orders', 'pricing'],
+        summary: 'Validate order pricing',
+        description: 'Validate order pricing before creation including price list validation and inventory checks.',
+        protect: true,
+      }
+    })
+    .input(ValidateOrderPricingSchema)
+    .output(ValidateOrderPricingResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1447,10 +1614,18 @@ export const ordersRouter = router({
 
   // POST /orders/validate-truck-capacity - Validate truck capacity for order assignment
   validateTruckCapacity: protectedProcedure
-    .input(z.object({
-      truck_id: z.string().uuid(),
-      order_ids: z.array(z.string().uuid()).min(1),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/validate-truck-capacity',
+        tags: ['orders', 'trucks'],
+        summary: 'Validate truck capacity',
+        description: 'Validate whether a truck has sufficient capacity for assigned orders.',
+        protect: true,
+      }
+    })
+    .input(ValidateTruckCapacitySchema)
+    .output(ValidateTruckCapacityResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1501,18 +1676,20 @@ export const ordersRouter = router({
       };
     }),
 
-  // =====================================================================
-  // TRUCK ALLOCATION ENDPOINTS
-  // =====================================================================
-
   // POST /orders/allocate-to-truck - Allocate order to truck
   allocateToTruck: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-      truck_id: z.string().uuid().optional(),
-      allocation_date: z.string(),
-      force_allocation: z.boolean().default(false),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/allocate-to-truck',
+        tags: ['orders', 'trucks'],
+        summary: 'Allocate order to truck',
+        description: 'Allocate an order to a specific truck for delivery with capacity validation.',
+        protect: true,
+      }
+    })
+    .input(AllocateToTruckSchema)
+    .output(AllocateToTruckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1532,12 +1709,20 @@ export const ordersRouter = router({
       return result;
     }),
 
-  // GET /orders/:id/allocation-suggestions - Get truck allocation suggestions for order
+  // GET /orders/{id}/allocation-suggestions - Get truck allocation suggestions for order
   getAllocationSuggestions: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-      allocation_date: z.string(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/{order_id}/allocation-suggestions',
+        tags: ['orders', 'trucks'],
+        summary: 'Get truck allocation suggestions',
+        description: 'Get suggested trucks for order allocation based on capacity and availability.',
+        protect: true,
+      }
+    })
+    .input(GetAllocationSuggestionsSchema)
+    .output(AllocationSuggestionsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1556,11 +1741,20 @@ export const ordersRouter = router({
       };
     }),
 
-  // GET /orders/:id/calculate-weight - Calculate order weight
+  // GET /orders/{id}/calculate-weight - Calculate order weight
   calculateOrderWeight: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/{order_id}/calculate-weight',
+        tags: ['orders', 'logistics'],
+        summary: 'Calculate order weight',
+        description: 'Calculate the total weight of an order for logistics planning.',
+        protect: true,
+      }
+    })
+    .input(CalculateOrderWeightSchema)
+    .output(CalculateOrderWeightResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1577,11 +1771,20 @@ export const ordersRouter = router({
       };
     }),
 
-  // DELETE /orders/allocations/:id - Remove truck allocation
+  // DELETE /orders/allocations/{id} - Remove truck allocation
   removeAllocation: protectedProcedure
-    .input(z.object({
-      allocation_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/orders/allocations/{allocation_id}',
+        tags: ['orders', 'trucks'],
+        summary: 'Remove truck allocation',
+        description: 'Remove a truck allocation for an order.',
+        protect: true,
+      }
+    })
+    .input(RemoveAllocationSchema)
+    .output(RemoveAllocationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1595,11 +1798,20 @@ export const ordersRouter = router({
       return { success: true };
     }),
 
-  // GET /orders/schedule/:date - Get daily order schedule
+  // GET /orders/schedule/{date} - Get daily order schedule
   getDailySchedule: protectedProcedure
-    .input(z.object({
-      date: z.string(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/schedule/{date}',
+        tags: ['orders', 'schedule'],
+        summary: 'Get daily order schedule',
+        description: 'Get the complete order schedule for a specific date with truck assignments and capacity information.',
+        protect: true,
+      }
+    })
+    .input(GetDailyScheduleSchema)
+    .output(DailyScheduleResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1624,12 +1836,20 @@ export const ordersRouter = router({
       };
     }),
 
-  // POST /orders/:id/process-refill - Process refill order with stock movements
+  // POST /orders/{id}/process-refill - Process refill order with stock movements
   processRefillOrder: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-      warehouse_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/{order_id}/process-refill',
+        tags: ['orders', 'inventory'],
+        summary: 'Process refill order',
+        description: 'Process a refill order creating appropriate stock movements for cylinder exchanges.',
+        protect: true,
+      }
+    })
+    .input(ProcessRefillOrderSchema)
+    .output(ProcessRefillOrderResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1716,7 +1936,7 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
   }
 
   if (lines) {
-    const subtotal = lines.reduce((sum, line) => {
+    const subtotal = lines.reduce((sum: number, line: any) => {
       const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
       return sum + lineSubtotal;
     }, 0);
@@ -1745,7 +1965,7 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
       subtotal,
       tax_amount: taxAmount,
       total_amount: grandTotal,
-      breakdown: lines.map(line => ({
+      breakdown: lines.map((line: any) => ({
         quantity: line.quantity,
         unit_price: line.unit_price,
         subtotal: line.subtotal || (line.quantity * line.unit_price)
@@ -1777,7 +1997,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
   }
 
   if (lines) {
-    const subtotal = lines.reduce((sum, line) => {
+    const subtotal = lines.reduce((sum: number, line: any) => {
       const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
       return sum + lineSubtotal;
     }, 0);

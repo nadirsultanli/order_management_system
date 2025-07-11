@@ -3,42 +3,42 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
-// Validation schemas
-const AddressSchema = z.object({
-  line1: z.string().min(1),
-  line2: z.string().optional(),
-  city: z.string().min(1),
-  state: z.string().optional(),
-  postal_code: z.string().optional(),
-  country: z.string().min(1),
-  instructions: z.string().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-});
+// Import input schemas
+import {
+  AddressSchema,
+  WarehouseFiltersSchema,
+  GetWarehouseByIdSchema,
+  CreateWarehouseSchema,
+  UpdateWarehouseSchema,
+  DeleteWarehouseSchema,
+} from '../schemas/input/warehouses-input';
 
-const CreateWarehouseSchema = z.object({
-  name: z.string().min(1),
-  capacity_cylinders: z.number().positive().optional(),
-  address: AddressSchema.optional(),
-});
-
-const UpdateWarehouseSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).optional(),
-  capacity_cylinders: z.number().positive().optional(),
-  address: AddressSchema.optional(),
-});
-
-const WarehouseFiltersSchema = z.object({
-  search: z.string().optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(1000).default(50),
-});
+// Import output schemas
+import {
+  WarehouseListResponseSchema,
+  WarehouseDetailResponseSchema,
+  WarehouseStatsResponseSchema,
+  WarehouseOptionsResponseSchema,
+  CreateWarehouseResponseSchema,
+  UpdateWarehouseResponseSchema,
+  DeleteWarehouseResponseSchema,
+} from '../schemas/output/warehouses-output';
 
 export const warehousesRouter = router({
   // GET /warehouses - List warehouses with optional filters
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/warehouses',
+        tags: ['warehouses'],
+        summary: 'List warehouses with filtering and pagination',
+        description: 'Retrieve a paginated list of warehouses with optional search filtering and address information.',
+        protect: true,
+      }
+    })
     .input(WarehouseFiltersSchema.optional())
+    .output(WarehouseListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -97,9 +97,20 @@ export const warehousesRouter = router({
       };
     }),
 
-  // GET /warehouses/:id - Get warehouse by ID
+  // GET /warehouses/{id} - Get warehouse by ID
   get: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/warehouses/{id}',
+        tags: ['warehouses'],
+        summary: 'Get warehouse by ID',
+        description: 'Retrieve detailed information about a specific warehouse including address details.',
+        protect: true,
+      }
+    })
+    .input(GetWarehouseByIdSchema)
+    .output(WarehouseDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -139,6 +150,18 @@ export const warehousesRouter = router({
 
   // GET /warehouses/stats - Get warehouse statistics
   getStats: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/warehouses/stats',
+        tags: ['warehouses'],
+        summary: 'Get warehouse statistics',
+        description: 'Retrieve aggregate statistics about warehouses including total count and capacity information.',
+        protect: true,
+      }
+    })
+    .input(z.void())
+    .output(WarehouseStatsResponseSchema)
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -172,6 +195,18 @@ export const warehousesRouter = router({
 
   // GET /warehouses/options - Get warehouse options for dropdowns
   getOptions: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/warehouses/options',
+        tags: ['warehouses'],
+        summary: 'Get warehouse options for dropdowns',
+        description: 'Retrieve simplified warehouse information suitable for dropdown lists and selection components.',
+        protect: true,
+      }
+    })
+    .input(z.void())
+    .output(WarehouseOptionsResponseSchema)
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -205,7 +240,18 @@ export const warehousesRouter = router({
 
   // POST /warehouses - Create warehouse
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/warehouses',
+        tags: ['warehouses'],
+        summary: 'Create new warehouse',
+        description: 'Create a new warehouse with optional address information and capacity details.',
+        protect: true,
+      }
+    })
     .input(CreateWarehouseSchema)
+    .output(CreateWarehouseResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -292,9 +338,20 @@ export const warehousesRouter = router({
       return data;
     }),
 
-  // PUT /warehouses/:id - Update warehouse
+  // PUT /warehouses/{id} - Update warehouse
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/warehouses/{id}',
+        tags: ['warehouses'],
+        summary: 'Update warehouse',
+        description: 'Update warehouse information including name, capacity, and address details.',
+        protect: true,
+      }
+    })
     .input(UpdateWarehouseSchema)
+    .output(UpdateWarehouseResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -420,8 +477,20 @@ export const warehousesRouter = router({
       return data;
     }),
 
+  // DELETE /warehouses/{id} - Delete warehouse
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/warehouses/{id}',
+        tags: ['warehouses'],
+        summary: 'Delete warehouse',
+        description: 'Delete a warehouse after validating that it has no associated inventory, trucks, or orders.',
+        protect: true,
+      }
+    })
+    .input(DeleteWarehouseSchema)
+    .output(DeleteWarehouseResponseSchema)
     .mutation(async ({ input, ctx }) => {
       // START DEBUG LOGGING
       console.log('🔥 DELETE FUNCTION STARTED');
@@ -626,4 +695,4 @@ export const warehousesRouter = router({
         });
       }
     }),
-  });
+});

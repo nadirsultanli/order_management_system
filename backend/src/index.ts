@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
+import { createOpenApiExpressMiddleware } from 'trpc-openapi';
 import { renderTrpcPanel } from 'trpc-panel';
 import { appRouter } from './routes';
 import { createContext } from './lib/context';
@@ -28,16 +29,16 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 // Security middleware - strict CSP for most endpoints
 app.use((req, res, next) => {
   // Relax CSP only for documentation endpoints
-  if (req.path === '/api/docs' || req.path === '/docs' || req.path === '/scalar') {
+  if (req.path === '/api/docs' || req.path === '/docs' || req.path === '/scalar' || req.path === '/swagger') {
     helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net", "https://unpkg.com"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://unpkg.com"],
           imgSrc: ["'self'", "data:", "https:"],
           fontSrc: ["'self'", "https:", "data:"],
-          connectSrc: ["'self'", "https:", "wss:", "https://cdn.jsdelivr.net"],
+          connectSrc: ["'self'", "https:", "wss:", "https://cdn.jsdelivr.net", "https://unpkg.com"],
           frameSrc: ["'none'"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
@@ -54,18 +55,20 @@ app.use((req, res, next) => {
   const allowedOrigins = [
     process.env.FRONTEND_URL || 'https://omsmvpapp.netlify.app',
     process.env.LOCAL_FRONTEND_URL || 'http://localhost:5173',
-    process.env.LOCAL_FRONTEND_ALT_URL || 'http://localhost:3000'
+    process.env.LOCAL_FRONTEND_ALT_URL || 'http://localhost:3000',
+    'http://localhost:3001', // Allow same-origin requests for Swagger UI
+    'null' // Allow local file access
   ].filter(Boolean);
   
   const origin = req.headers.origin;
   
   // Debug logging
-  logger.info('CORS Request - Origin:', origin, 'Allowed origins:', allowedOrigins);
+  logger.info('CORS Request - Origin:', origin);
   
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-    logger.info('CORS - Origin allowed:', origin);
-  } else if (origin) {
+  if (!origin || allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    logger.info('CORS - Origin allowed:', origin || 'no-origin');
+  } else {
     logger.warn('CORS - Origin not allowed:', origin);
     // For now, allow the specific frontend domain as fallback
     if (origin === 'https://omsmvpapp.netlify.app') {
@@ -106,11 +109,14 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       api: '/api/v1/trpc',
-      scalar: '/scalar'
+      scalar: '/scalar',
+      swagger: '/swagger'
     },
     documentation: {
-      scalar: `${req.protocol}://${req.get('host')}/scalar`,
-      openapi: `${req.protocol}://${req.get('host')}/openapi.json`,
+      scalar_manual: `${req.protocol}://${req.get('host')}/scalar`,
+      swagger_ui: `${req.protocol}://${req.get('host')}/swagger`,
+      openapi_manual: `${req.protocol}://${req.get('host')}/openapi.json`,
+      openapi_auto: `${req.protocol}://${req.get('host')}/openapi-auto.json`,
       readme: 'See README.md in project root for complete documentation'
     },
     environment: process.env.NODE_ENV,
@@ -148,7 +154,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Scalar API Documentation - Modern & Beautiful
+// Scalar API Documentation - Manual Spec
 app.get('/scalar', (req, res) => {
   const baseUrl = process.env.NODE_ENV === 'production' 
     ? `https://${req.get('host')}`
@@ -158,7 +164,7 @@ app.get('/scalar', (req, res) => {
   <!DOCTYPE html>
   <html>
     <head>
-      <title>Order Management System API</title>
+      <title>Order Management System API - Manual Spec</title>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
     </head>
@@ -185,9 +191,86 @@ app.get('/scalar', (req, res) => {
   res.type('html').send(html);
 });
 
-// OpenAPI JSON endpoint for Scalar
+// Swagger UI - Auto-generated spec
+app.get('/swagger', (req, res) => {
+  const baseUrl = process.env.NODE_ENV === 'production' 
+    ? `https://${req.get('host')}`
+    : `http://${req.get('host')}`;
+
+  const html = `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Order Management System API - Auto-generated</title>
+      <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
+      <style>
+        html {
+          box-sizing: border-box;
+          overflow: -moz-scrollbars-vertical;
+          overflow-y: scroll;
+        }
+        *, *:before, *:after {
+          box-sizing: inherit;
+        }
+        body {
+          margin:0;
+          background: #fafafa;
+        }
+      </style>
+    </head>
+    <body>
+      <div id="swagger-ui"></div>
+      <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js"></script>
+      <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-standalone-preset.js"></script>
+      <script>
+        window.onload = function() {
+          const ui = SwaggerUIBundle({
+            url: '${baseUrl}/openapi-auto.json',
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+              SwaggerUIBundle.presets.apis,
+              SwaggerUIStandalonePreset
+            ],
+            plugins: [
+              SwaggerUIBundle.plugins.DownloadUrl
+            ],
+            layout: "StandaloneLayout"
+          });
+        };
+      </script>
+    </body>
+  </html>
+  `;
+
+  res.type('html').send(html);
+});
+
+// OpenAPI JSON endpoint for manual spec (Scalar)
 app.get('/openapi.json', (req, res) => {
   res.json(openApiDocument);
+});
+
+// OpenAPI JSON endpoint for auto-generated spec (Swagger)
+app.get('/openapi-auto.json', (req, res) => {
+  try {
+    // Try to load auto-generated spec
+    const autoSpecPath = path.join(__dirname, '../docs/openapi-auto.json');
+    if (fs.existsSync(autoSpecPath)) {
+      const autoSpec = JSON.parse(fs.readFileSync(autoSpecPath, 'utf-8'));
+      res.json(autoSpec);
+    } else {
+      // Generate on-demand if file doesn't exist
+      const { autoGeneratedOpenApi } = require('./routes/trpc-openapi');
+      res.json(autoGeneratedOpenApi);
+    }
+  } catch (error) {
+    logger.error('Error serving auto-generated OpenAPI spec:', error);
+    res.status(500).json({
+      error: 'Failed to generate OpenAPI spec',
+      message: 'Run npm run generate:openapi to create the auto-generated specification'
+    });
+  }
 });
 
 // tRPC middleware  
@@ -196,6 +279,15 @@ app.use('/api/v1/trpc', createExpressMiddleware({
   createContext,
   onError: ({ path, error }) => {
     logger.error(`❌ tRPC failed on ${path ?? '<no-path>'}:`, error);
+  },
+}));
+
+// tRPC-OpenAPI REST middleware - handles direct HTTP requests from Swagger UI
+app.use('/api/v1', createOpenApiExpressMiddleware({
+  router: appRouter,
+  createContext,
+  onError: ({ path, error }) => {
+    logger.error(`❌ tRPC-OpenAPI failed on ${path ?? '<no-path>'}:`, error);
   },
 }));
 
@@ -220,7 +312,8 @@ app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
   logger.info(`📝 Frontend URL: ${process.env.FRONTEND_URL}`);
-  logger.info(`📖 API Documentation available at http://localhost:${PORT}/scalar`);
-  logger.info(`📊 tRPC Panel available at http://localhost:${PORT}/panel`);
-  logger.info(`🔗 OpenAPI Spec at http://localhost:${PORT}/openapi.json`);
+  logger.info(`📖 Manual API Documentation (Scalar): http://localhost:${PORT}/scalar`);
+  logger.info(`📖 Auto-generated API Documentation (Swagger): http://localhost:${PORT}/swagger`);
+  logger.info(`🔗 Manual OpenAPI Spec: http://localhost:${PORT}/openapi.json`);
+  logger.info(`🔗 Auto-generated OpenAPI Spec: http://localhost:${PORT}/openapi-auto.json`);
 });

@@ -1,0 +1,198 @@
+import { z } from 'zod';
+
+// ==============================================================
+// TRUCKS INPUT SCHEMAS
+// ==============================================================
+
+// ============ Base Enums ============
+
+export const TruckStatusEnum = z.enum(['active', 'inactive', 'maintenance']);
+export const RouteStatusEnum = z.enum(['planned', 'in_progress', 'completed', 'cancelled']);
+export const AllocationStatusEnum = z.enum(['planned', 'loaded', 'delivered', 'cancelled']);
+export const MaintenanceTypeEnum = z.enum(['routine', 'repair', 'inspection', 'emergency']);
+export const MaintenanceStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']);
+
+// ============ Core Truck Operations ============
+
+export const TruckFiltersSchema = z.object({
+  search: z.string().optional(),
+  status: TruckStatusEnum.optional(),
+  active: z.boolean().optional(),
+  page: z.number().min(1).default(1),
+  limit: z.number().min(1).max(100).default(50),
+});
+
+export const GetTruckByIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const CreateTruckSchema = z.object({
+  fleet_number: z.string().min(1),
+  license_plate: z.string().min(1),
+  capacity_cylinders: z.number().positive(),
+  capacity_kg: z.number().positive().optional(),
+  driver_name: z.string().nullable().optional(),
+  active: z.boolean().default(true),
+  status: TruckStatusEnum.default('active').optional(),
+  last_maintenance_date: z.string().nullable().optional(),
+  next_maintenance_due: z.string().nullable().optional(),
+  maintenance_interval_days: z.number().positive().optional(),
+  fuel_capacity_liters: z.number().positive().nullable().optional(),
+  avg_fuel_consumption: z.number().positive().nullable().optional(),
+});
+
+export const UpdateTruckSchema = z.object({
+  id: z.string().uuid(),
+  fleet_number: z.string().min(1).optional(),
+  license_plate: z.string().min(1).optional(),
+  capacity_cylinders: z.number().positive().optional(),
+  capacity_kg: z.number().positive().optional(),
+  driver_name: z.string().nullable().optional(),
+  active: z.boolean().optional(),
+  status: TruckStatusEnum.optional(),
+  last_maintenance_date: z.string().nullable().optional(),
+  next_maintenance_due: z.string().nullable().optional(),
+  maintenance_interval_days: z.number().positive().optional(),
+  fuel_capacity_liters: z.number().positive().nullable().optional(),
+  avg_fuel_consumption: z.number().positive().nullable().optional(),
+});
+
+export const DeleteTruckSchema = z.object({
+  id: z.string().uuid(),
+});
+
+// ============ Truck Allocations ============
+
+export const GetAllocationsSchema = z.object({
+  date: z.string().optional(),
+  truck_id: z.string().uuid().optional(),
+});
+
+export const TruckAllocationSchema = z.object({
+  truck_id: z.string().uuid(),
+  order_id: z.string().uuid(),
+  allocation_date: z.string(),
+  estimated_weight_kg: z.number().positive(),
+  stop_sequence: z.number().positive().optional(),
+});
+
+export const UpdateTruckAllocationSchema = z.object({
+  id: z.string().uuid(),
+  status: AllocationStatusEnum.optional(),
+  stop_sequence: z.number().positive().optional(),
+});
+
+// ============ Truck Routes ============
+
+export const GetRoutesSchema = z.object({
+  truck_id: z.string().uuid().optional(),
+  date: z.string().optional(),
+});
+
+export const CreateTruckRouteSchema = z.object({
+  truck_id: z.string().uuid(),
+  route_date: z.string(),
+  planned_start_time: z.string().optional(),
+  planned_end_time: z.string().optional(),
+  total_distance_km: z.number().positive().optional(),
+  estimated_duration_hours: z.number().positive().optional(),
+});
+
+export const UpdateTruckRouteSchema = z.object({
+  id: z.string().uuid(),
+  actual_start_time: z.string().optional(),
+  actual_end_time: z.string().optional(),
+  route_status: RouteStatusEnum.optional(),
+  actual_duration_hours: z.number().positive().optional(),
+  fuel_used_liters: z.number().positive().optional(),
+});
+
+// ============ Truck Maintenance ============
+
+export const GetMaintenanceSchema = z.object({
+  truck_id: z.string().uuid().optional(),
+});
+
+export const CreateMaintenanceSchema = z.object({
+  truck_id: z.string().uuid(),
+  maintenance_type: MaintenanceTypeEnum,
+  scheduled_date: z.string(),
+  description: z.string().min(1),
+  cost: z.number().positive().optional(),
+  mechanic: z.string().optional(),
+});
+
+export const UpdateMaintenanceSchema = z.object({
+  id: z.string().uuid(),
+  completed_date: z.string().optional(),
+  status: MaintenanceStatusEnum.optional(),
+  cost: z.number().positive().optional(),
+  mechanic: z.string().optional(),
+});
+
+// ============ Truck Capacity Calculations ============
+
+export const CalculateOrderWeightSchema = z.object({
+  order_lines: z.array(z.object({
+    id: z.string(),
+    order_id: z.string(),
+    product_id: z.string(),
+    quantity: z.number(),
+    unit_price: z.number(),
+  })),
+  product_ids: z.array(z.string()).optional(),
+});
+
+export const CalculateCapacitySchema = z.object({
+  truck_id: z.string().uuid(),
+  date: z.string(),
+});
+
+export const FindBestAllocationSchema = z.object({
+  order_id: z.string().uuid(),
+  order_weight: z.number(),
+  target_date: z.string(),
+});
+
+export const ValidateAllocationSchema = z.object({
+  truck_id: z.string().uuid(),
+  order_id: z.string().uuid(),
+  order_weight: z.number(),
+  target_date: z.string(),
+});
+
+export const GenerateScheduleSchema = z.object({
+  date: z.string(),
+});
+
+export const OptimizeAllocationsSchema = z.object({
+  order_ids: z.array(z.string().uuid()),
+  target_date: z.string(),
+});
+
+// ============ Truck Inventory Operations ============
+
+export const LoadInventorySchema = z.object({
+  truck_id: z.string().uuid(),
+  warehouse_id: z.string().uuid(),
+  items: z.array(z.object({
+    product_id: z.string().uuid(),
+    qty_full: z.number().min(0),
+    qty_empty: z.number().min(0),
+  })).min(1),
+});
+
+export const UnloadInventorySchema = z.object({
+  truck_id: z.string().uuid(),
+  warehouse_id: z.string().uuid(),
+  items: z.array(z.object({
+    product_id: z.string().uuid(),
+    qty_full: z.number().min(0),
+    qty_empty: z.number().min(0),
+  })).min(1),
+});
+
+export const GetInventorySchema = z.object({
+  truck_id: z.string().uuid(),
+  include_product_details: z.boolean().optional().default(true),
+}); 

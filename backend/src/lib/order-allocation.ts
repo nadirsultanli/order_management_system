@@ -131,7 +131,7 @@ export class OrderAllocationService {
         });
       }
 
-      const allocatedWeight = allocations?.reduce((sum, alloc) => sum + (alloc.estimated_weight_kg || 0), 0) || 0;
+      const allocatedWeight = allocations?.reduce((sum: number, alloc: any) => sum + (alloc.estimated_weight_kg || 0), 0) || 0;
       const availableCapacity = totalCapacity - allocatedWeight;
       const utilizationPercentage = totalCapacity > 0 ? (allocatedWeight / totalCapacity) * 100 : 0;
 
