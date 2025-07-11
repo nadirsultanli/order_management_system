@@ -286,7 +286,7 @@ app.use('/api/v1/trpc', createExpressMiddleware({
 app.use('/api/v1', createOpenApiExpressMiddleware({
   router: appRouter,
   createContext,
-  onError: ({ path, error }) => {
+  onError: ({ path, error }: { path?: string; error: any }) => { // Fix: Add type annotations to fix implicit any
     logger.error(`❌ tRPC-OpenAPI failed on ${path ?? '<no-path>'}:`, error);
   },
 }));

@@ -8,6 +8,8 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+    "types": ["node", "jest"], // Fix: Include Node.js and Jest types
+    "typeRoots": ["./node_modules/@types"], // Fix: Explicitly set type roots
     "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationMap": true,
