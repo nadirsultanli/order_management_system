@@ -49,7 +49,7 @@ export const CustomerListItemSchema = z.object({
   phone: z.string().nullable(),
   account_status: z.enum(['active', 'credit_hold', 'closed']),
   created_at: z.string(),
-  primary_address: AddressOutputSchema.nullable(),  // Full address object or null (matches Supabase join)
+  primary_address: z.array(AddressOutputSchema).nullable(),  // Supabase LEFT JOIN returns array
 });
 
 // Customer statistics response
@@ -68,9 +68,9 @@ export const CustomerListOutputSchema = z.object({
   currentPage: z.number(),
 });
 
-// Full customer details response (for getById) - can have single address or null
+// Full customer details response (for getById) - can have address array or null
 export const CustomerDetailsOutputSchema = CustomerOutputSchema.extend({
-  primary_address: AddressOutputSchema.nullable(),  // Single address or null
+  primary_address: z.array(AddressOutputSchema).nullable(),  // Supabase LEFT JOIN returns array
 });
 
 // Customer creation response - returns customer with single primary address

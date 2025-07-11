@@ -177,14 +177,9 @@ export const customersRouter = router({
 
       // Combine and sort all customers
       const allCustomers = [
-        ...(customersWithAddress || []).map(c => ({
-          ...c,
-          // Transform array to single object since Supabase returns joined data as array
-          primary_address: Array.isArray(c.primary_address) && c.primary_address.length > 0 
-            ? c.primary_address[0] 
-            : null
-        })),
-        ...(customersWithoutAddress || []).map(c => ({ ...c, primary_address: null }))
+
+        ...(customersWithAddress || []),
+        ...(customersWithoutAddress || []).map(c => ({ ...c, primary_address: [] }))
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       // Apply pagination to the combined and sorted result
@@ -305,7 +300,7 @@ export const customersRouter = router({
       }
 
       // Return customer without primary address
-      return { ...customerOnly, primary_address: null };
+      return { ...customerOnly, primary_address: [] };
     }),
 
   // POST /customers - Create new customer with address
