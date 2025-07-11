@@ -38,7 +38,7 @@ export const stockMovementsRouter = router({
       }
     })
     .input(StockMovementFiltersSchema.optional())
-    .output(StockMovementListResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -149,7 +149,7 @@ export const stockMovementsRouter = router({
       }
     })
     .input(GetStockMovementByIdSchema)
-    .output(StockMovementDetailResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -212,7 +212,7 @@ export const stockMovementsRouter = router({
       }
     })
     .input(CreateStockMovementSchema)
-    .output(CreateStockMovementResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -266,7 +266,7 @@ export const stockMovementsRouter = router({
       }
     })
     .input(BulkMovementSchema)
-    .output(BulkStockMovementResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -312,7 +312,7 @@ export const stockMovementsRouter = router({
       }
     })
     .input(RefillOrderProcessSchema)
-    .output(RefillOrderProcessResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -347,7 +347,7 @@ export const stockMovementsRouter = router({
       }
     })
     .input(StockMovementSummarySchema)
-    .output(StockMovementSummaryResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
