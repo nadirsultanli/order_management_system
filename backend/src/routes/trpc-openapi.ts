@@ -38,7 +38,7 @@ const getBaseUrl = () => {
     return process.env.PRODUCTION_URL || 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1';
   }
   // Local development
-  return 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1';
+  return `http://localhost:${process.env.PORT || 3001}/api/v1`;
 };
 
 const openApiDocument = generateOpenApiDocument(openApiRouter, {

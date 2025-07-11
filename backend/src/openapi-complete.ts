@@ -11,7 +11,7 @@ export const openApiDocument = {
   },
   servers: [
     {
-      url: process.env.NODE_ENV === 'production' ? 'https://ordermanagementsystem-production-3ed7.up.railway.app' : 'http://localhost:3001',
+      url: process.env.NODE_ENV === 'production' ? 'https://ordermanagementsystem-production-3ed7.up.railway.app' : `http://localhost:${process.env.PORT || 3001}`,
       description: 'API Server',
     },
   ],
