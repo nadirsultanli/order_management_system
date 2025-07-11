@@ -3,67 +3,46 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { formatErrorMessage } from '../lib/logger';
-
-// Schemas for validation
-const DeliveryItemSchema = z.object({
-  product_id: z.string().uuid(),
-  quantity_delivered: z.number().int().min(0),
-  quantity_returned: z.number().int().min(0).optional(),
-  unit_price: z.number().optional(),
-});
-
-const PickupItemSchema = z.object({
-  product_id: z.string().uuid(),
-  quantity_picked_up: z.number().int().min(0),
-  condition: z.enum(['good', 'damaged', 'needs_repair']).optional(),
-});
-
-const ProcessDeliverySchema = z.object({
-  order_id: z.string().uuid().optional(),
-  customer_id: z.string().uuid(),
-  delivery_address_id: z.string().uuid().optional(),
-  truck_id: z.string().uuid(),
-  delivery_items: z.array(DeliveryItemSchema).min(1),
-  driver_name: z.string().optional(),
-  driver_notes: z.string().optional(),
-  delivery_latitude: z.number().optional(),
-  delivery_longitude: z.number().optional(),
-});
-
-const ProcessPickupSchema = z.object({
-  customer_id: z.string().uuid(),
-  pickup_address_id: z.string().uuid().optional(),
-  truck_id: z.string().uuid(),
-  pickup_items: z.array(PickupItemSchema).min(1),
-  driver_name: z.string().optional(),
-  driver_notes: z.string().optional(),
-  pickup_latitude: z.number().optional(),
-  pickup_longitude: z.number().optional(),
-});
-
-const CompleteDeliverySchema = z.object({
-  delivery_id: z.string().uuid(),
-  customer_signature: z.string().optional(),
-  photo_proof: z.string().optional(),
-  delivery_latitude: z.number().optional(),
-  delivery_longitude: z.number().optional(),
-});
-
-const CompletePickupSchema = z.object({
-  pickup_id: z.string().uuid(),
-  customer_signature: z.string().optional(),
-  photo_proof: z.string().optional(),
-  pickup_latitude: z.number().optional(),
-  pickup_longitude: z.number().optional(),
-});
+import {
+  ProcessSchema,
+  CompleteSchema,
+  ListDeliveriesSchema,
+  ListPickupsSchema,
+  CustomerBalanceSchema,
+  DeliveryIdSchema,
+  PickupIdSchema,
+  CustomerTransactionsSchema,
+  ProcessDeliverySchema,
+  ProcessPickupSchema,
+  CompleteDeliverySchema,
+  CompletePickupSchema,
+} from '../schemas/input/deliveries-input';
+import {
+  ProcessResultSchema,
+  CompleteResultSchema,
+  DeliveriesListSchema,
+  PickupsListSchema,
+  CustomerBalanceOutputSchema,
+  DeliveryDetailsSchema,
+  PickupDetailsSchema,
+  CustomerTransactionsOutputSchema,
+} from '../schemas/output/deliveries-output';
 
 export const deliveriesRouter = router({
   // Process delivery/pickup in a unified endpoint
   process: protectedProcedure
-    .input(z.object({
-      type: z.enum(['delivery', 'pickup']),
-      data: z.union([ProcessDeliverySchema, ProcessPickupSchema]),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/deliveries/process',
+        tags: ['deliveries'],
+        summary: 'Process delivery or pickup',
+        description: 'Process a delivery or pickup operation with items and location data',
+        protect: true,
+      }
+    })
+    .input(ProcessSchema)
+    .output(ProcessResultSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -148,10 +127,18 @@ export const deliveriesRouter = router({
 
   // Complete delivery/pickup
   complete: protectedProcedure
-    .input(z.object({
-      type: z.enum(['delivery', 'pickup']),
-      data: z.union([CompleteDeliverySchema, CompletePickupSchema]),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/deliveries/complete',
+        tags: ['deliveries'],
+        summary: 'Complete delivery or pickup',
+        description: 'Mark a delivery or pickup as completed with optional signature and photo proof',
+        protect: true,
+      }
+    })
+    .input(CompleteSchema)
+    .output(CompleteResultSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -228,15 +215,18 @@ export const deliveriesRouter = router({
 
   // List deliveries
   listDeliveries: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid().optional(),
-      truck_id: z.string().uuid().optional(),
-      status: z.enum(['pending', 'in_transit', 'delivered', 'failed', 'cancelled']).optional(),
-      date_from: z.string().optional(),
-      date_to: z.string().optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(20),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/deliveries',
+        tags: ['deliveries'],
+        summary: 'List deliveries',
+        description: 'Get a paginated list of deliveries with optional filtering',
+        protect: true,
+      }
+    })
+    .input(ListDeliveriesSchema)
+    .output(DeliveriesListSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -290,15 +280,18 @@ export const deliveriesRouter = router({
 
   // List pickups
   listPickups: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid().optional(),
-      truck_id: z.string().uuid().optional(),
-      status: z.enum(['pending', 'in_transit', 'completed', 'failed', 'cancelled']).optional(),
-      date_from: z.string().optional(),
-      date_to: z.string().optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(20),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pickups',
+        tags: ['deliveries', 'pickups'],
+        summary: 'List pickups',
+        description: 'Get a paginated list of pickups with optional filtering',
+        protect: true,
+      }
+    })
+    .input(ListPickupsSchema)
+    .output(PickupsListSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -352,10 +345,18 @@ export const deliveriesRouter = router({
 
   // Get customer cylinder balance
   getCustomerBalance: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-      product_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{customer_id}/cylinder-balance',
+        tags: ['deliveries', 'customers'],
+        summary: 'Get customer cylinder balance',
+        description: 'Get the current cylinder balance for a customer',
+        protect: true,
+      }
+    })
+    .input(CustomerBalanceSchema)
+    .output(CustomerBalanceOutputSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -377,9 +378,18 @@ export const deliveriesRouter = router({
 
   // Get delivery details
   getDelivery: protectedProcedure
-    .input(z.object({
-      delivery_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/deliveries/{delivery_id}',
+        tags: ['deliveries'],
+        summary: 'Get delivery details',
+        description: 'Get detailed information about a specific delivery including items',
+        protect: true,
+      }
+    })
+    .input(DeliveryIdSchema)
+    .output(DeliveryDetailsSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -430,9 +440,18 @@ export const deliveriesRouter = router({
 
   // Get pickup details
   getPickup: protectedProcedure
-    .input(z.object({
-      pickup_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pickups/{pickup_id}',
+        tags: ['deliveries', 'pickups'],
+        summary: 'Get pickup details',
+        description: 'Get detailed information about a specific pickup including items',
+        protect: true,
+      }
+    })
+    .input(PickupIdSchema)
+    .output(PickupDetailsSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -483,14 +502,18 @@ export const deliveriesRouter = router({
 
   // Get customer transaction history
   getCustomerTransactions: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-      product_id: z.string().uuid().optional(),
-      date_from: z.string().optional(),
-      date_to: z.string().optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(20),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{customer_id}/transactions',
+        tags: ['deliveries', 'customers'],
+        summary: 'Get customer transactions',
+        description: 'Get paginated transaction history for a customer with optional filtering',
+        protect: true,
+      }
+    })
+    .input(CustomerTransactionsSchema)
+    .output(CustomerTransactionsOutputSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       

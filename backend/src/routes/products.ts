@@ -3,95 +3,80 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
-// Validation schemas
-const ProductStatusEnum = z.enum(['active', 'obsolete']);
-const UnitOfMeasureEnum = z.enum(['cylinder', 'kg']);
-const VariantTypeEnum = z.enum(['cylinder', 'refillable', 'disposable']);
-const VariantEnum= z.enum(['outright', 'refill']);
+// Import input schemas
+import {
+  ProductStatusEnum,
+  UnitOfMeasureEnum,
+  VariantTypeEnum,
+  VariantEnum,
+  ProductFiltersSchema,
+  GetProductByIdSchema,
+  GetProductStatsSchema,
+  GetProductOptionsSchema,
+  CreateProductSchema,
+  UpdateProductSchema,
+  DeleteProductSchema,
+  GetVariantsSchema,
+  CreateVariantSchema,
+  BulkStatusUpdateSchema,
+  ReactivateProductSchema,
+  ValidateProductSchema,
+  ValidateSkuSchema,
+  ValidateWeightSchema,
+  ValidateStatusChangeSchema,
+  GetAvailabilityMatrixSchema,
+  CalculateInventoryMovementsSchema,
+  ValidateOrderTypeSchema,
+  CalculateExchangeQuantitySchema,
+  ShouldRequirePickupSchema,
+  GetStandardCylinderVariantsSchema,
+  GenerateVariantSkuSchema,
+  CreateVariantDataSchema,
+} from '../schemas/input/products-input';
 
-const ProductFiltersSchema = z.object({
-  search: z.string().optional(),
-  status: ProductStatusEnum.optional(),
-  unit_of_measure: UnitOfMeasureEnum.optional(),
-  variant_type: VariantTypeEnum.default('cylinder'),
-  has_inventory: z.boolean().optional(),
-  low_stock_only: z.boolean().default(false),
-  availability_status: z.enum(['available', 'low_stock', 'out_of_stock']).optional(),
-  capacity_min: z.number().min(0).optional(),
-  capacity_max: z.number().min(0).optional(),
-  weight_min: z.number().min(0).optional(),
-  weight_max: z.number().min(0).optional(),
-  requires_tag: z.boolean().optional(),
-  is_variant: z.boolean().optional(),
-  created_after: z.string().optional(),
-  updated_after: z.string().optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(1000).default(50),
-  sort_by: z.enum(['created_at', 'name', 'sku', 'capacity_kg', 'inventory_level', 'last_sold']).default('created_at'),
-  sort_order: z.enum(['asc', 'desc']).default('desc'),
-  show_obsolete: z.boolean().default(false),
-  include_inventory_data: z.boolean().default(false),
-});
+// Import output schemas
+import {
+  ProductListResponseSchema,
+  ProductDetailResponseSchema,
+  ProductStatsResponseSchema,
+  ProductOptionsResponseSchema,
+  CreateProductResponseSchema,
+  UpdateProductResponseSchema,
+  DeleteProductResponseSchema,
+  ProductVariantsResponseSchema,
+  CreateVariantResponseSchema,
+  BulkStatusUpdateResponseSchema,
+  ReactivateProductResponseSchema,
+  ValidateProductResponseSchema,
+  ValidateSkuResponseSchema,
+  ValidateWeightResponseSchema,
+  ValidateStatusChangeResponseSchema,
+  AvailabilityMatrixResponseSchema,
+  InventoryMovementsResponseSchema,
+  ValidateOrderTypeResponseSchema,
+  ExchangeCalculationResponseSchema,
+  PickupRequirementResponseSchema,
+  StandardCylinderVariantsResponseSchema,
+  GeneratedSkuResponseSchema,
+  CreateVariantDataResponseSchema,
+} from '../schemas/output/products-output';
 
-const CreateProductSchema = z.object({
-  sku: z.string().min(1, 'SKU is required'),
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
-  unit_of_measure: UnitOfMeasureEnum,
-  capacity_kg: z.number().positive().optional(),
-  tare_weight_kg: z.number().positive().optional(),
-  valve_type: z.string().optional(),
-  status: ProductStatusEnum.default('active'),
-  barcode_uid: z.string().optional(),
-  requires_tag: z.boolean().default(false),
-  variant_type: VariantTypeEnum.default('cylinder'),
-  variant: VariantEnum.default('outright'),
-  parent_product_id: z.string().uuid().optional(),
-  variant_name: z.string().optional(),
-  is_variant: z.boolean().default(false),
-  tax_category: z.string().optional(),
-  tax_rate: z.number().min(0).max(1).optional(),
-});
-
-
-const UpdateProductSchema = z.object({
-  id: z.string().uuid(),
-  sku: z.string().min(1).optional(),
-  name: z.string().min(1).optional(),
-  description: z.string().optional(),
-  unit_of_measure: UnitOfMeasureEnum.optional(),
-  capacity_kg: z.number().positive().optional(),
-  tare_weight_kg: z.number().positive().optional(),
-  valve_type: z.string().optional(),
-  status: ProductStatusEnum.optional(),
-  barcode_uid: z.string().optional(),
-  requires_tag: z.boolean().optional(),
-  variant: VariantEnum.optional(),
-  variant_type: VariantTypeEnum.optional(),
-  parent_product_id: z.string().uuid().optional(),
-  variant_name: z.string().optional(),
-  is_variant: z.boolean().optional(),
-});
-
-const CreateVariantSchema = z.object({
-  parent_product_id: z.string().uuid(),
-  variant_name: z.string().min(1, 'Variant name is required'),
-  sku: z.string().min(1, 'SKU is required'),
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
-  status: ProductStatusEnum.default('active'),
-  barcode_uid: z.string().optional(),
-});
-
-const BulkStatusUpdateSchema = z.object({
-  product_ids: z.array(z.string().uuid()).min(1),
-  status: ProductStatusEnum,
-});
 
 export const productsRouter = router({
   // GET /products - List products with advanced filtering and business logic
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products',
+        tags: ['products'],
+        summary: 'List products with advanced filtering',
+        description: 'Retrieve a comprehensive list of products with advanced filtering, inventory data, and business intelligence including popularity and compliance scores.',
+        protect: true,
+      }
+    })
     .input(ProductFiltersSchema.optional())
+    .output(ProductListResponseSchema)
     .query(async ({ input, ctx }) => {
       try {
         const user = requireAuth(ctx);
@@ -312,7 +297,18 @@ export const productsRouter = router({
 
   // GET /products/:id - Get single product by ID
   getById: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/{id}',
+        tags: ['products'],
+        summary: 'Get product by ID',
+        description: 'Retrieve detailed information about a specific product by its ID.',
+        protect: true,
+      }
+    })
+    .input(GetProductByIdSchema)
+    .output(ProductDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -337,6 +333,18 @@ export const productsRouter = router({
 
   // GET /products/stats - Get product statistics
   getStats: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/stats',
+        tags: ['products'],
+        summary: 'Get product statistics',
+        description: 'Get basic statistics about products',
+        protect: true,
+      }
+    })
+    .input(GetProductStatsSchema)
+    .output(ProductStatsResponseSchema) 
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -367,10 +375,18 @@ export const productsRouter = router({
 
   // GET /products/options - Get product options for dropdowns
   getOptions: protectedProcedure
-    .input(z.object({
-      status: z.array(ProductStatusEnum).default(['active']),
-      include_variants: z.boolean().default(true),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/options',
+        tags: ['products'],
+        summary: 'Get product options for dropdowns',
+        description: 'Retrieve simplified product data for use in dropdowns and selection components.',
+        protect: true,
+      }
+    })
+    .input(GetProductOptionsSchema)
+    .output(ProductOptionsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -409,7 +425,18 @@ export const productsRouter = router({
 
   // POST /products - Create new product
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products',
+        tags: ['products'],
+        summary: 'Create new product',
+        description: 'Create a new product with full validation including SKU uniqueness and parent product verification for variants.',
+        protect: true,
+      }
+    })
     .input(CreateProductSchema)
+    .output(CreateProductResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -468,7 +495,18 @@ export const productsRouter = router({
 
   // PUT /products/:id - Update product
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/products/{id}',
+        tags: ['products'],
+        summary: 'Update product',
+        description: 'Update an existing product with validation. SKU uniqueness is checked if SKU is being updated.',
+        protect: true,
+      }
+    })
     .input(UpdateProductSchema)
+    .output(UpdateProductResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -517,7 +555,18 @@ export const productsRouter = router({
 
   // DELETE /products/:id - Delete product (soft delete by setting status to obsolete)
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/products/{id}',
+        tags: ['products'],
+        summary: 'Delete product (soft delete)',
+        description: 'Soft delete a product by setting its status to obsolete. Validates that product has no existing inventory.',
+        protect: true,
+      }
+    })
+    .input(DeleteProductSchema)
+    .output(DeleteProductResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -570,7 +619,18 @@ export const productsRouter = router({
 
   // GET /products/:id/variants - Get product variants
   getVariants: protectedProcedure
-    .input(z.object({ parent_product_id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/{parent_product_id}/variants',
+        tags: ['products'],
+        summary: 'Get product variants',
+        description: 'Retrieve all variants for a specific parent product.',
+        protect: true,
+      }
+    })
+    .input(GetVariantsSchema)
+    .output(ProductVariantsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -595,7 +655,18 @@ export const productsRouter = router({
 
   // POST /products/:id/variants - Create product variant
   createVariant: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/{parent_product_id}/variants',
+        tags: ['products'],
+        summary: 'Create product variant',
+        description: 'Create a new variant for an existing parent product with full validation.',
+        protect: true,
+      }
+    })
     .input(CreateVariantSchema)
+    .output(CreateVariantResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -660,7 +731,18 @@ export const productsRouter = router({
 
   // POST /products/bulk-update-status - Update product status one by one
   bulkUpdateStatus: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/bulk-update-status',
+        tags: ['products'],
+        summary: 'Bulk update product status',
+        description: 'Update the status of multiple products individually with detailed success/error tracking.',
+        protect: true,
+      }
+    })
     .input(BulkStatusUpdateSchema)
+    .output(BulkStatusUpdateResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -729,7 +811,18 @@ export const productsRouter = router({
 
   // POST /products/reactivate - Reactivate obsolete product
   reactivate: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/reactivate',
+        tags: ['products'],
+        summary: 'Reactivate obsolete product',
+        description: 'Reactivate a previously obsoleted product by setting its status to active.',
+        protect: true,
+      }
+    })
+    .input(ReactivateProductSchema)
+    .output(ReactivateProductResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -762,11 +855,18 @@ export const productsRouter = router({
 
   // POST /products/validate - Validate product data
   validate: protectedProcedure
-    .input(z.object({
-      sku: z.string().min(1),
-      name: z.string().min(1),
-      exclude_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/validate',
+        tags: ['products'],
+        summary: 'Validate product data',
+        description: 'Validate product data including SKU uniqueness and name similarity checks.',
+        protect: true,
+      }
+    })
+    .input(ValidateProductSchema)
+    .output(ValidateProductResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -811,10 +911,18 @@ export const productsRouter = router({
 
   // POST /products/validate-sku - Validate SKU format and uniqueness
   validateSku: protectedProcedure
-    .input(z.object({
-      sku: z.string().min(1),
-      exclude_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/validate-sku',
+        tags: ['products'],
+        summary: 'Validate SKU format and uniqueness',
+        description: 'Validate SKU format, length constraints, reserved prefixes, and uniqueness.',
+        protect: true,
+      }
+    })
+    .input(ValidateSkuSchema)
+    .output(ValidateSkuResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -873,11 +981,18 @@ export const productsRouter = router({
 
   // POST /products/validate-weight - Validate weight constraints
   validateWeight: protectedProcedure
-    .input(z.object({
-      capacity_kg: z.number().optional(),
-      tare_weight_kg: z.number().optional(),
-      unit_of_measure: UnitOfMeasureEnum,
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/validate-weight',
+        tags: ['products'],
+        summary: 'Validate weight constraints',
+        description: 'Validate cylinder capacity and tare weight constraints with business rule validation.',
+        protect: true,
+      }
+    })
+    .input(ValidateWeightSchema)
+    .output(ValidateWeightResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -932,10 +1047,18 @@ export const productsRouter = router({
 
   // POST /products/validate-status-change - Validate status change business rules
   validateStatusChange: protectedProcedure
-    .input(z.object({
-      product_id: z.string().uuid(),
-      new_status: ProductStatusEnum,
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/validate-status-change',
+        tags: ['products'],
+        summary: 'Validate status change business rules',
+        description: 'Validate product status changes including inventory checks and variant dependencies.',
+        protect: true,
+      }
+    })
+    .input(ValidateStatusChangeSchema)
+    .output(ValidateStatusChangeResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1003,15 +1126,21 @@ export const productsRouter = router({
       };
     }),
 
-  // GET /products/availability-matrix - Get product availability across warehouses
+  // POST /products/availability-matrix - Get product availability across warehouses
   getAvailabilityMatrix: protectedProcedure
-    .input(z.object({
-      product_ids: z.array(z.string().uuid()).optional(),
-      warehouse_ids: z.array(z.string().uuid()).optional(),
-      include_reserved: z.boolean().default(false),
-      min_quantity: z.number().min(0).default(1),
-    }))
-    .query(async ({ input, ctx }) => {
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/availability-matrix',
+        tags: ['products'],
+        summary: 'Get product availability matrix',
+        description: 'Get comprehensive product availability data across all warehouses with filtering options.',
+        protect: true,
+      }
+    })
+    .input(GetAvailabilityMatrixSchema)
+    .output(AvailabilityMatrixResponseSchema)
+    .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
       ctx.logger.info('Fetching product availability matrix:', input);
@@ -1057,22 +1186,18 @@ export const productsRouter = router({
 
   // POST /products/calculate-inventory-movements - Calculate inventory movements for orders
   calculateInventoryMovements: protectedProcedure
-    .input(z.object({
-      order: z.object({
-        id: z.string().uuid(),
-        order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
-        exchange_empty_qty: z.number().min(0).default(0),
-        order_lines: z.array(z.object({
-          id: z.string().uuid(),
-          product_id: z.string().uuid(),
-          quantity: z.number().min(1),
-          product: z.object({
-            id: z.string().uuid(),
-            name: z.string(),
-          }),
-        })),
-      }),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/calculate-inventory-movements',
+        tags: ['products'],
+        summary: 'Calculate inventory movements for orders',
+        description: 'Calculate inventory movements based on order type and line items for delivery, refill, exchange, and pickup orders.',
+        protect: true,
+      }
+    })
+    .input(CalculateInventoryMovementsSchema)
+    .output(InventoryMovementsResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1167,13 +1292,18 @@ export const productsRouter = router({
 
   // POST /products/validate-order-type - Validate order type business rules
   validateOrderType: protectedProcedure
-    .input(z.object({
-      order: z.object({
-        order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
-        exchange_empty_qty: z.number().min(0).default(0),
-        requires_pickup: z.boolean().default(false),
-      }),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/validate-order-type',
+        tags: ['products'],
+        summary: 'Validate order type business rules',
+        description: 'Validate order type constraints for refill, exchange, and pickup orders.',
+        protect: true,
+      }
+    })
+    .input(ValidateOrderTypeSchema)
+    .output(ValidateOrderTypeResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1213,12 +1343,18 @@ export const productsRouter = router({
 
   // POST /products/calculate-exchange-quantity - Calculate exchange quantity for order types
   calculateExchangeQuantity: protectedProcedure
-    .input(z.object({
-      order: z.object({
-        order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
-        exchange_empty_qty: z.number().min(0).default(0),
-      }),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/calculate-exchange-quantity',
+        tags: ['products'],
+        summary: 'Calculate exchange quantity for order types',
+        description: 'Calculate the appropriate exchange quantity based on order type (refill/exchange).',
+        protect: true,
+      }
+    })
+    .input(CalculateExchangeQuantitySchema)
+    .output(ExchangeCalculationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1236,9 +1372,18 @@ export const productsRouter = router({
 
   // POST /products/should-require-pickup - Determine if order type requires pickup
   shouldRequirePickup: protectedProcedure
-    .input(z.object({
-      order_type: z.enum(['delivery', 'refill', 'exchange', 'pickup']),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/should-require-pickup',
+        tags: ['products'],
+        summary: 'Determine if order type requires pickup',
+        description: 'Determine whether an order type requires pickup of empty cylinders.',
+        protect: true,
+      }
+    })
+    .input(ShouldRequirePickupSchema)
+    .output(PickupRequirementResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1251,6 +1396,18 @@ export const productsRouter = router({
 
   // GET /products/standard-cylinder-variants - Get standard cylinder variants
   getStandardCylinderVariants: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/standard-cylinder-variants',
+        tags: ['products'],
+        summary: 'Get standard cylinder variants',
+        description: 'Get the standard cylinder variants (full/empty) used in the system.',
+        protect: true,
+      }
+    })
+    .input(GetStandardCylinderVariantsSchema)
+    .output(StandardCylinderVariantsResponseSchema)
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1266,10 +1423,18 @@ export const productsRouter = router({
 
   // POST /products/generate-variant-sku - Generate SKU for product variant
   generateVariantSku: protectedProcedure
-    .input(z.object({
-      parent_sku: z.string().min(1),
-      variant_name: z.string().min(1),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/generate-variant-sku',
+        tags: ['products'],
+        summary: 'Generate SKU for product variant',
+        description: 'Generate a properly formatted SKU for a product variant based on parent SKU and variant name.',
+        protect: true,
+      }
+    })
+    .input(GenerateVariantSkuSchema)
+    .output(GeneratedSkuResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1282,16 +1447,18 @@ export const productsRouter = router({
 
   // POST /products/create-variant-data - Create variant product data
   createVariantData: protectedProcedure
-    .input(z.object({
-      parent_product: z.object({
-        id: z.string().uuid(),
-        sku: z.string(),
-        name: z.string(),
-        status: ProductStatusEnum,
-      }),
-      variant_name: z.string().min(1),
-      description: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/create-variant-data',
+        tags: ['products'],
+        summary: 'Create variant product data',
+        description: 'Generate complete variant product data structure based on parent product and variant details.',
+        protect: true,
+      }
+    })
+    .input(CreateVariantDataSchema)
+    .output(CreateVariantDataResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

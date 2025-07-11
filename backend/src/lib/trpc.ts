@@ -1,27 +1,32 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import { Context } from './context';
+import { OpenApiMeta } from 'trpc-openapi';
 import { ZodError } from 'zod';
+import type { Context } from './context';
 
-const t = initTRPC.context<Context>().create({
-  errorFormatter({ shape, error }) {
-    return {
-      ...shape,
-      data: {
-        ...shape.data,
-        zodError:
-          error.cause instanceof ZodError
-            ? error.cause.flatten()
+// Initialize tRPC with OpenAPI support
+const t = initTRPC
+  .meta<OpenApiMeta>()
+  .context<Context>()
+  .create({
+    errorFormatter({ shape, error }) {
+      return {
+        ...shape,
+        data: {
+          ...shape.data,
+          zodError: error.cause instanceof ZodError 
+            ? error.cause.flatten() 
             : null,
-      },
-    };
-  },
-});
+        },
+      };
+    },
+  });
 
+// Base router and procedure helpers
 export const router = t.router;
 export const publicProcedure = t.procedure;
 
-// Protected procedure that requires authentication
-export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
+// Protected procedure with authentication
+export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   if (!ctx.user) {
     throw new TRPCError({ code: 'UNAUTHORIZED' });
   }

@@ -3,86 +3,57 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import axios from 'axios';
-
-// Zod schemas for input validation
-const CustomerFiltersSchema = z.object({
-  search: z.string().optional(),
-  account_status: z.enum(['active', 'credit_hold', 'closed']).optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(1000).default(50),
-});
-
-const CreateCustomerSchema = z.object({
-  external_id: z.string().optional(),
-  name: z.string().min(1, 'Name is required'),
-  tax_id: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
-  account_status: z.enum(['active', 'credit_hold', 'closed']).default('active'),
-  credit_terms_days: z.number().int().min(0).default(30),
-  address: z.object({
-    label: z.string().optional(),
-    line1: z.string().min(1, 'Address line 1 is required'),
-    line2: z.string().optional(),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().optional(),
-    postal_code: z.string().optional(),
-    country: z.string().min(2, 'Country is required'),
-    latitude: z.number().optional(),
-    longitude: z.number().optional(),
-    delivery_window_start: z.string().optional(),
-    delivery_window_end: z.string().optional(),
-    instructions: z.string().optional(),
-  }),
-});
-
-const UpdateCustomerSchema = z.object({
-  id: z.string().uuid(),
-  external_id: z.string().optional(),
-  name: z.string().min(1).optional(),
-  tax_id: z.string().optional(),
-  phone: z.string().optional(),
-  email: z.string().email().optional(),
-  account_status: z.enum(['active', 'credit_hold', 'closed']).optional(),
-  credit_terms_days: z.number().int().min(0).optional(),
-  address: z.object({
-    label: z.string().optional(),
-    line1: z.string().optional(),
-    line2: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    postal_code: z.string().optional(),
-    country: z.string().optional(),
-    latitude: z.number().optional(),
-    longitude: z.number().optional(),
-    delivery_window_start: z.string().optional(),
-    delivery_window_end: z.string().optional(),
-    instructions: z.string().optional(),
-  }).optional(),
-});
-
-const AddressSchema = z.object({
-  customer_id: z.string().uuid(),
-  label: z.string().optional(),
-  line1: z.string().min(1, 'Address line 1 is required'),
-  line2: z.string().optional(),
-  city: z.string().min(1, 'City is required'),
-  state: z.string().optional(),
-  postal_code: z.string().optional(),
-  country: z.string().min(2, 'Country is required'),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-  delivery_window_start: z.string().optional(),
-  delivery_window_end: z.string().optional(),
-  is_primary: z.boolean().default(false),
-  instructions: z.string().optional(),
-});
+import {
+  CustomerStatsOutputSchema,
+  CustomerListOutputSchema,
+  CustomerDetailsOutputSchema,
+  CustomerCreateOutputSchema,
+  CustomerUpdateOutputSchema,
+  ValidationOutputSchema,
+  CustomerOrderHistoryOutputSchema,
+  CustomerAnalyticsOutputSchema,
+  AddressListOutputSchema,
+  GeocodeOutputSchema,
+  AddressValidationOutputSchema,
+  SuccessOutputSchema,
+  AddressOutputSchema,
+} from '../schemas/output/customers-output';
+import {
+  CustomerFiltersSchema,
+  CreateCustomerSchema,
+  UpdateCustomerSchema,
+  CustomerIdOptionalSchema,
+  DeleteCustomerSchema,
+  CustomerOrderHistorySchema,
+  CustomerAnalyticsSchema,
+  CustomerValidationSchema,
+  CreditTermsValidationSchema,
+  CustomerIdSchema,
+  AddressSchema,
+  UpdateAddressSchema,
+  AddressIdSchema,
+  SetPrimaryAddressSchema,
+  GeocodeAddressSchema,
+  AddressValidationSchema,
+  DeliveryWindowValidationSchema,
+  EmptyInputSchema,
+} from '../schemas/input/customers-input';
 
 export const customersRouter = router({
-  // GET /customers - List customers with filtering and pagination
+  // GET /customers - List customers with filtering and pagination (OpenAPI disabled - needs output schema)
   list: protectedProcedure
-    .input(CustomerFiltersSchema.optional())
-    .query(async ({ input, ctx }) => {
+  .meta({
+    openapi: {
+      method: 'GET',
+      path: '/customers',
+      tags: ['customers'],
+      summary: 'List customers',
+      protect: true,
+    }
+  })
+  .input(CustomerFiltersSchema)
+  .output(CustomerListOutputSchema)
+  .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
       // Provide default values if input is undefined
@@ -235,9 +206,18 @@ export const customersRouter = router({
 
   // GET /customers/{id} - Get single customer by ID
   getById: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-    }).optional())
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{customer_id}',
+        tags: ['customers'],
+        summary: 'Get customer by ID',
+        description: 'Get a single customer by their ID',
+        protect: true,
+      }
+    })
+    .input(CustomerIdOptionalSchema)
+    .output(CustomerDetailsOutputSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -318,7 +298,17 @@ export const customersRouter = router({
 
   // POST /customers - Create new customer with address
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/customers',
+        tags: ['customers'],
+        summary: 'Create customer',
+        protect: true,
+      }
+    })
     .input(CreateCustomerSchema)
+    .output(CustomerCreateOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -378,7 +368,6 @@ export const customersRouter = router({
         .from('addresses')
         .insert([{
           customer_id: customerData.id,
-          label: address.label,
           line1: address.line1,
           line2: address.line2,
           city: address.city,
@@ -420,7 +409,17 @@ export const customersRouter = router({
 
   // PUT /customers/{id} - Update customer
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/customers/{id}',
+        tags: ['customers'],
+        summary: 'Update customer',
+        protect: true,
+      }
+    })
     .input(UpdateCustomerSchema)
+    .output(CustomerUpdateOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -528,9 +527,17 @@ export const customersRouter = router({
 
   // DELETE /customers/{id} - Delete customer
   delete: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/customers/{customer_id}',
+        tags: ['customers'],
+        summary: 'Delete customer',
+        protect: true,
+      }
+    })
+    .input(DeleteCustomerSchema)
+    .output(SuccessOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -555,12 +562,17 @@ export const customersRouter = router({
 
   // GET /customers/{id}/orders - Get customer order history
   getOrderHistory: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-      limit: z.number().min(1).max(1000).default(50),
-      offset: z.number().min(0).default(0),
-      status: z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']).optional(),
-    }).optional())
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{customer_id}/orders',
+        tags: ['customers', 'orders'],
+        summary: 'Get customer order history',
+        protect: true,
+      }
+    })
+    .input(CustomerOrderHistorySchema)
+    .output(CustomerOrderHistoryOutputSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -636,10 +648,17 @@ export const customersRouter = router({
 
   // GET /customers/{id}/analytics - Get customer analytics
   getAnalytics: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-      period: z.enum(['month', 'quarter', 'year']).default('year'),
-    }).optional())
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{customer_id}/analytics',
+        tags: ['customers', 'analytics'],
+        summary: 'Get customer analytics',
+        protect: true,
+      }
+    })
+    .input(CustomerAnalyticsSchema)
+    .output(CustomerAnalyticsOutputSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -737,14 +756,17 @@ export const customersRouter = router({
 
   // POST /customers/validate - Validate customer data
   validate: protectedProcedure
-    .input(z.object({
-      name: z.string().min(1),
-      email: z.string().email().optional(),
-      phone: z.string().optional(),
-      external_id: z.string().optional(),
-      tax_id: z.string().optional(),
-      exclude_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/customers/validate',
+        tags: ['customers', 'validation'],
+        summary: 'Validate customer data',
+        protect: true,
+      }
+    })
+    .input(CustomerValidationSchema)
+    .output(ValidationOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -816,11 +838,17 @@ export const customersRouter = router({
 
   // POST /customers/validate-credit-terms - Validate credit terms business rules
   validateCreditTerms: protectedProcedure
-    .input(z.object({
-      credit_terms_days: z.number(),
-      account_status: z.enum(['active', 'credit_hold', 'closed']),
-      customer_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/customers/validate-credit-terms',
+        tags: ['customers', 'validation'],
+        summary: 'Validate credit terms',
+        protect: true,
+      }
+    })
+    .input(CreditTermsValidationSchema)
+    .output(ValidationOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -876,9 +904,17 @@ export const customersRouter = router({
   
   // GET /customers/{id}/addresses - Get all addresses for a customer
   getAddresses: protectedProcedure
-    .input(z.object({
-      customer_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{customer_id}/addresses',
+        tags: ['customers', 'addresses'],
+        summary: 'Get customer addresses',
+        protect: true,
+      }
+    })
+    .input(CustomerIdSchema)
+    .output(AddressListOutputSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -917,7 +953,18 @@ export const customersRouter = router({
 
   // POST /customers/{id}/addresses - Create new address
   createAddress: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/customers/{customer_id}/addresses',
+        tags: ['customers', 'addresses'],
+        summary: 'Create customer address',
+        description: 'Add a new address for a customer',
+        protect: true,
+      }
+    })
     .input(AddressSchema)
+    .output(AddressOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -994,29 +1041,18 @@ export const customersRouter = router({
 
   // PUT /addresses/{id} - Update address
   updateAddress: protectedProcedure
-  .input(z.object({
-    address_id: z.string().uuid(),
-    customer_id: z.string().uuid(),
-    label: z.string().optional(),
-    line1: z.string().optional(),
-    line2: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
-    postal_code: z.string().optional(),
-    country: z.string().optional(),
-    latitude: z.number().optional(),
-    longitude: z.number().optional(),
-    delivery_window_start: z.string().optional(),
-    delivery_window_end: z.string().optional(),
-    is_primary: z.boolean().optional(),
-    instructions: z.string().optional(),
-    
-    special_instructions: z.string().optional(),
-    preferred_delivery_days: z.string().optional(),
-    avoid_delivery_dates: z.string().optional(),
-    access_code: z.string().optional(),
-    gate_code: z.string().optional(),
-  }))
+  .meta({
+    openapi: {
+      method: 'PUT',
+      path: '/addresses/{address_id}',
+      tags: ['addresses'],
+      summary: 'Update address',
+      description: 'Update an existing address',
+      protect: true,
+    }
+  })
+  .input(UpdateAddressSchema)
+  .output(AddressOutputSchema)
   .mutation(async ({ input, ctx }) => {
     const user = requireAuth(ctx);
     ctx.logger.info('Updating address:', input.address_id);
@@ -1069,9 +1105,20 @@ export const customersRouter = router({
 
   // DELETE /addresses/{id} - Delete address
   deleteAddress: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/addresses/{address_id}',
+        tags: ['addresses'],
+        summary: 'Delete address',
+        description: 'Delete an address',
+        protect: true,
+      }
+    })
     .input(z.object({
       address_id: z.string().uuid(),
     }))
+    .output(SuccessOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1096,10 +1143,18 @@ export const customersRouter = router({
 
   // POST /addresses/{id}/set-primary - Set address as primary
   setPrimaryAddress: protectedProcedure
-    .input(z.object({
-      address_id: z.string().uuid(),
-      customer_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/addresses/{address_id}/set-primary',
+        tags: ['addresses'],
+        summary: 'Set primary address',
+        description: 'Set an address as the primary address for a customer',
+        protect: true,
+      }
+    })
+    .input(SetPrimaryAddressSchema)
+    .output(AddressOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1150,14 +1205,18 @@ export const customersRouter = router({
 
   // POST /addresses/geocode - Geocode address
   geocodeAddress: protectedProcedure
-    .input(z.object({
-      line1: z.string().min(1),
-      line2: z.string().optional(),
-      city: z.string().min(1),
-      state: z.string().optional(),
-      country: z.string().min(2),
-      postal_code: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/addresses/geocode',
+        tags: ['addresses', 'geocoding'],
+        summary: 'Geocode address',
+        description: 'Get latitude and longitude coordinates for an address',
+        protect: true,
+      }
+    })
+    .input(GeocodeAddressSchema)
+    .output(GeocodeOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1205,14 +1264,18 @@ export const customersRouter = router({
 
   // POST /addresses/validate - Validate address
   validateAddress: protectedProcedure
-    .input(z.object({
-      line1: z.string().min(1),
-      line2: z.string().optional(),
-      city: z.string().min(1),
-      state: z.string().optional(),
-      country: z.string().min(2),
-      postal_code: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/addresses/validate',
+        tags: ['addresses', 'validation'],
+        summary: 'Validate address',
+        description: 'Validate address format and existence through geocoding',
+        protect: true,
+      }
+    })
+    .input(AddressValidationSchema)
+    .output(AddressValidationOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1264,10 +1327,18 @@ export const customersRouter = router({
 
   // POST /addresses/validate-delivery-window - Validate delivery window business rules
   validateDeliveryWindow: protectedProcedure
-    .input(z.object({
-      delivery_window_start: z.string().optional(),
-      delivery_window_end: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/addresses/validate-delivery-window',
+        tags: ['addresses', 'validation'],
+        summary: 'Validate delivery window',
+        description: 'Validate delivery window times against business rules',
+        protect: true,
+      }
+    })
+    .input(DeliveryWindowValidationSchema)
+    .output(ValidationOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

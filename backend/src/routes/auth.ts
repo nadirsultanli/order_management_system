@@ -22,7 +22,29 @@ const RefreshTokenSchema = z.object({
 export const authRouter = router({
   // Login endpoint
   login: publicProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/auth/login',
+        tags: ['auth'],
+        summary: 'User login',
+        description: 'Authenticate user with email and password',
+      }
+    })
     .input(LoginSchema)
+    .output(z.object({
+      user: z.object({
+        id: z.string(),
+        email: z.string(),
+        name: z.string(),
+        role: z.string(),
+      }),
+      session: z.object({
+        access_token: z.string(),
+        refresh_token: z.string(),
+        expires_at: z.number().optional(),
+      }),
+    }))
     .mutation(async ({ input }) => {
       try {
         const { data, error } = await supabaseAdmin.auth.signInWithPassword({
@@ -78,7 +100,24 @@ export const authRouter = router({
 
   // Register endpoint
   register: publicProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/auth/register',
+        tags: ['auth'],
+        summary: 'User registration',
+        description: 'Register a new admin user',
+      }
+    })
     .input(RegisterSchema)
+    .output(z.object({
+      user: z.object({
+        id: z.string(),
+        email: z.string(),
+        name: z.string(),
+        role: z.string(),
+      }),
+    }))
     .mutation(async ({ input }) => {
       try {
         // Create user in Supabase Auth
@@ -142,43 +181,79 @@ export const authRouter = router({
 
   // Get current user session
   me: protectedProcedure
-  .query(async ({ ctx }) => {
-    if (!ctx.user) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'Not authenticated',
-      });
-    }
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/auth/me',
+        tags: ['auth'],
+        summary: 'Get current user',
+        description: 'Get current authenticated user information',
+        protect: true,
+      }
+    })
+    .input(z.void())
+    .output(z.object({
+      user: z.object({
+        id: z.string(),
+        email: z.string(),
+        name: z.string(),
+        role: z.string(),
+        user_id: z.string(),
+      }),
+    }))
+    .query(async ({ ctx }) => {
+      if (!ctx.user) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Not authenticated',
+        });
+      }
 
-    // Query admin_users table to get full user data including name
-    const { data: adminUser, error: adminError } = await supabaseAdmin
-      .from('admin_users')
-      .select('*')
-      .eq('auth_user_id', ctx.user.id) // ctx.user.id is the Supabase auth user ID
-      .eq('active', true)
-      .single();
+      // Query admin_users table to get full user data including name
+      const { data: adminUser, error: adminError } = await supabaseAdmin
+        .from('admin_users')
+        .select('*')
+        .eq('auth_user_id', ctx.user.id) // ctx.user.id is the Supabase auth user ID
+        .eq('active', true)
+        .single();
 
-    if (adminError || !adminUser) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'Access denied: Admin user not found',
-      });
-    }
+      if (adminError || !adminUser) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Access denied: Admin user not found',
+        });
+      }
 
-    return {
-      user: {
-        id: ctx.user.id,
-        email: ctx.user.email || adminUser.email,
-        name: adminUser.name,
-        role: adminUser.role || 'admin',
-        user_id: ctx.user.id,
-      },
-    };
-  }),
+      return {
+        user: {
+          id: ctx.user.id,
+          email: ctx.user.email || adminUser.email,
+          name: adminUser.name,
+          role: adminUser.role || 'admin',
+          user_id: ctx.user.id,
+        },
+      };
+    }),
 
   // Refresh token endpoint
   refresh: publicProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/auth/refresh',
+        tags: ['auth'],
+        summary: 'Refresh token',
+        description: 'Refresh authentication token',
+      }
+    })
     .input(RefreshTokenSchema)
+    .output(z.object({
+      session: z.object({
+        access_token: z.string(),
+        refresh_token: z.string(),
+        expires_at: z.number().optional(),
+      }),
+    }))
     .mutation(async ({ input }) => {
       try {
         const { data, error } = await supabaseAdmin.auth.refreshSession({
@@ -212,6 +287,20 @@ export const authRouter = router({
 
   // Logout endpoint
   logout: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/auth/logout',
+        tags: ['auth'],
+        summary: 'User logout',
+        description: 'Logout current user',
+        protect: true,
+      }
+    })
+    .input(z.void())
+    .output(z.object({
+      success: z.boolean(),
+    }))
     .mutation(async ({ ctx }) => {
       try {
         // Supabase doesn't need explicit logout on server side

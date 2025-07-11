@@ -3,6 +3,46 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { formatErrorMessage } from '../lib/logger';
+
+// Import input schemas
+import {
+  TransferFiltersSchema,
+  GetTransferByIdSchema,
+  ValidateTransferSchema,
+  CreateTransferSchema,
+  UpdateTransferStatusSchema,
+  GetWarehouseStockSchema,
+  GetCostAnalysisSchema,
+  SearchProductsSchema,
+  ValidateMultiSkuTransferSchema,
+  CalculateTransferDetailsSchema,
+  ValidateTransferCapacitySchema,
+  ValidateInventoryAvailabilitySchema,
+  CheckTransferConflictsSchema,
+  EstimateTransferDurationSchema,
+  FormatValidationErrorsSchema,
+  TransferItemSchema,
+} from '../schemas/input/transfers-input';
+
+// Import output schemas
+import {
+  TransferListResponseSchema,
+  TransferDetailResponseSchema,
+  TransferValidationResponseSchema,
+  CreateTransferResponseSchema,
+  UpdateTransferStatusResponseSchema,
+  WarehouseStockListResponseSchema,
+  CostAnalysisResponseSchema,
+  ProductSearchResponseSchema,
+  MultiSkuValidationResponseSchema,
+  TransferDetailsResponseSchema,
+  CapacityValidationResponseSchema,
+  InventoryAvailabilityResponseSchema,
+  ConflictCheckResponseSchema,
+  DurationEstimateResponseSchema,
+  FormattedValidationErrorsResponseSchema,
+} from '../schemas/output/transfers-output';
+
 import {
   validateMultiSkuTransfer,
   validateTransferItem,
@@ -22,57 +62,7 @@ import {
   type Product
 } from '../lib/transfer-validation';
 
-// Validation schemas
-const TransferItemSchema = z.object({
-  product_id: z.string().uuid(),
-  product_sku: z.string().optional(),
-  product_name: z.string().optional(),
-  variant_name: z.string().optional(),
-  variant_type: z.enum(['cylinder', 'refillable', 'disposable']).optional(),
-  quantity_to_transfer: z.number().positive(),
-  available_stock: z.number().min(0).optional(),
-  reserved_stock: z.number().min(0).optional(),
-  unit_weight_kg: z.number().min(0).optional(),
-  unit_cost: z.number().min(0).optional(),
-  source_location: z.string().optional(),
-  batch_number: z.string().optional(),
-  expiry_date: z.string().optional(),
-});
-
-const CreateTransferSchema = z.object({
-  source_warehouse_id: z.string().uuid(),
-  destination_warehouse_id: z.string().uuid(),
-  transfer_date: z.string(),
-  scheduled_date: z.string().optional(),
-  priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
-  transfer_reference: z.string().optional(),
-  reason: z.string().optional(),
-  notes: z.string().optional(),
-  instructions: z.string().optional(),
-  items: z.array(TransferItemSchema).min(1),
-});
-
-const TransferFiltersSchema = z.object({
-  source_warehouse_id: z.string().uuid().optional(),
-  destination_warehouse_id: z.string().uuid().optional(),
-  status: z.array(z.enum(['draft', 'pending', 'approved', 'in_transit', 'completed', 'cancelled'])).optional(),
-  transfer_type: z.enum(['internal', 'external', 'adjustment', 'return']).optional(),
-  date_from: z.string().optional(),
-  date_to: z.string().optional(),
-  created_by_user_id: z.string().uuid().optional(),
-  search_text: z.string().optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(20),
-  sort_by: z.enum(['created_at', 'transfer_date', 'total_items', 'total_weight_kg']).default('created_at'),
-  sort_order: z.enum(['asc', 'desc']).default('desc'),
-});
-
-const UpdateTransferStatusSchema = z.object({
-  transfer_id: z.string().uuid(),
-  new_status: z.enum(['draft', 'pending', 'approved', 'in_transit', 'completed', 'cancelled']),
-  notes: z.string().optional(),
-  completed_items: z.array(z.string().uuid()).optional(),
-});
+// Helper functions and types remain the same
 
 // Helper function to check if destination is a truck
 async function isTruckDestination(supabase: any, destinationId: string): Promise<boolean> {
@@ -108,13 +98,6 @@ function createTransferItem(item: any): MultiSkuTransferItem {
     validation_warnings: []
   };
 }
-
-const ValidateTransferSchema = z.object({
-  source_warehouse_id: z.string().uuid(),
-  destination_warehouse_id: z.string().uuid(),
-  transfer_date: z.string(),
-  items: z.array(TransferItemSchema).min(1),
-});
 
 // Helper functions extracted from frontend validation logic
 function validateTransferBasics(transfer: any) {
@@ -194,7 +177,18 @@ function generateTransferReference(
 export const transfersRouter = router({
   // GET /transfers - List transfers with filtering and pagination
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/transfers',
+        tags: ['transfers'],
+        summary: 'List transfers with filtering and pagination',
+        description: 'Retrieve a paginated list of transfers with filtering options including source/destination warehouses, status, dates, and search text.',
+        protect: true,
+      }
+    })
     .input(TransferFiltersSchema.optional())
+    .output(TransferListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -285,9 +279,18 @@ export const transfersRouter = router({
 
   // GET /transfers/{id} - Get single transfer with details
   getById: protectedProcedure
-    .input(z.object({
-      transfer_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/transfers/{transfer_id}',
+        tags: ['transfers'],
+        summary: 'Get transfer by ID',
+        description: 'Retrieve detailed information about a specific transfer including all items and warehouse details.',
+        protect: true,
+      }
+    })
+    .input(GetTransferByIdSchema)
+    .output(TransferDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -331,7 +334,18 @@ export const transfersRouter = router({
 
   // POST /transfers/validate - Validate transfer request using atomic validation
   validate: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/validate',
+        tags: ['transfers'],
+        summary: 'Validate transfer request',
+        description: 'Validate a transfer request including inventory availability, warehouse capacity, and business rules. Uses atomic validation for single items and enhanced validation for multi-item transfers.',
+        protect: true,
+      }
+    })
     .input(ValidateTransferSchema)
+    .output(TransferValidationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -539,7 +553,18 @@ export const transfersRouter = router({
 
   // POST /transfers/create - Create new transfer
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers',
+        tags: ['transfers'],
+        summary: 'Create new transfer',
+        description: 'Create a new inventory transfer between warehouses with validation and automatic reference generation.',
+        protect: true,
+      }
+    })
     .input(CreateTransferSchema)
+    .output(CreateTransferResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -725,7 +750,18 @@ export const transfersRouter = router({
 
   // POST /transfers/{id}/status - Update transfer status
   updateStatus: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/{transfer_id}/status',
+        tags: ['transfers'],
+        summary: 'Update transfer status',
+        description: 'Update the status of a transfer with validation and automatic inventory updates upon completion.',
+        protect: true,
+      }
+    })
     .input(UpdateTransferStatusSchema)
+    .output(UpdateTransferStatusResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -962,15 +998,18 @@ export const transfersRouter = router({
 
   // GET /transfers/warehouse-stock - Get warehouse stock information for transfer planning
   getWarehouseStock: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid(),
-      search_text: z.string().optional(),
-      variant_type: z.enum(['cylinder', 'refillable', 'disposable']).optional(),
-      variant_name: z.string().optional(),
-      has_stock: z.boolean().default(true),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(50),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/transfers/warehouse-stock',
+        tags: ['transfers'],
+        summary: 'Get warehouse stock for transfer planning',
+        description: 'Retrieve warehouse stock information filtered by product types and availability for transfer planning purposes.',
+        protect: true,
+      }
+    })
+    .input(GetWarehouseStockSchema)
+    .output(WarehouseStockListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1049,9 +1088,18 @@ export const transfersRouter = router({
 
   // GET /transfers/{id}/cost-analysis - Get transfer cost analysis
   getCostAnalysis: protectedProcedure
-    .input(z.object({
-      transfer_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/transfers/{transfer_id}/cost-analysis',
+        tags: ['transfers'],
+        summary: 'Get transfer cost analysis',
+        description: 'Calculate comprehensive cost analysis for a transfer including handling, transport costs, and efficiency metrics.',
+        protect: true,
+      }
+    })
+    .input(GetCostAnalysisSchema)
+    .output(CostAnalysisResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1135,14 +1183,18 @@ export const transfersRouter = router({
 
   // POST /transfers/search-products - Search products for transfer
   searchProducts: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid().optional(),
-      search_text: z.string().optional(),
-      variant_type: z.enum(['cylinder', 'refillable', 'disposable']).optional(),
-      variant_name: z.string().optional(),
-      page: z.number().min(1).default(1),
-      limit: z.number().min(1).max(100).default(50),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/transfers/search-products',
+        tags: ['transfers'],
+        summary: 'Search products for transfer',
+        description: 'Search and filter products available for transfer by variant type, warehouse, and text search.',
+        protect: true,
+      }
+    })
+    .input(SearchProductsSchema)
+    .output(ProductSearchResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1155,7 +1207,6 @@ export const transfersRouter = router({
         .eq('status', 'active')
         .order('name');
 
-      // Apply filters
       if (input.variant_type) {
         query = query.eq('variant_type', input.variant_type);
       }
@@ -1194,15 +1245,18 @@ export const transfersRouter = router({
 
   // POST /transfers/validate-multi-sku - Validate multi-SKU transfer with enhanced logic
   validateMultiSkuTransfer: protectedProcedure
-    .input(z.object({
-      source_warehouse_id: z.string().uuid(),
-      destination_warehouse_id: z.string().uuid(),
-      transfer_date: z.string(),
-      items: z.array(TransferItemSchema).min(1),
-      notes: z.string().optional(),
-      reason: z.string().optional(),
-      priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/validate-multi-sku',
+        tags: ['transfers'],
+        summary: 'Validate multi-SKU transfer',
+        description: 'Perform comprehensive validation for multi-SKU transfers with enhanced business logic and conflict detection.',
+        protect: true,
+      }
+    })
+    .input(ValidateMultiSkuTransferSchema)
+    .output(MultiSkuValidationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1273,9 +1327,18 @@ export const transfersRouter = router({
 
   // POST /transfers/calculate-details - Calculate transfer item details
   calculateTransferDetails: protectedProcedure
-    .input(z.object({
-      items: z.array(TransferItemSchema).min(1),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/calculate-details',
+        tags: ['transfers'],
+        summary: 'Calculate transfer item details',
+        description: 'Calculate detailed information for transfer items including weights, costs, and validation status.',
+        protect: true,
+      }
+    })
+    .input(CalculateTransferDetailsSchema)
+    .output(TransferDetailsResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1327,11 +1390,18 @@ export const transfersRouter = router({
 
   // POST /transfers/validate-capacity - Validate warehouse capacity
   validateTransferCapacity: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid(),
-      items: z.array(TransferItemSchema).min(1),
-      warehouse_capacity_kg: z.number().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/validate-capacity',
+        tags: ['transfers'],
+        summary: 'Validate warehouse capacity',
+        description: 'Validate if the destination warehouse has sufficient capacity for the proposed transfer.',
+        protect: true,
+      }
+    })
+    .input(ValidateTransferCapacitySchema)
+    .output(CapacityValidationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1368,10 +1438,18 @@ export const transfersRouter = router({
 
   // POST /transfers/validate-inventory - Validate inventory availability
   validateInventoryAvailability: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid(),
-      items: z.array(TransferItemSchema).min(1),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/validate-inventory',
+        tags: ['transfers'],
+        summary: 'Validate inventory availability',
+        description: 'Validate if sufficient inventory is available at the source warehouse for the transfer.',
+        protect: true,
+      }
+    })
+    .input(ValidateInventoryAvailabilitySchema)
+    .output(InventoryAvailabilityResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1393,12 +1471,18 @@ export const transfersRouter = router({
 
   // POST /transfers/check-conflicts - Check for transfer conflicts
   checkTransferConflicts: protectedProcedure
-    .input(z.object({
-      source_warehouse_id: z.string().uuid(),
-      destination_warehouse_id: z.string().uuid(),
-      transfer_date: z.string(),
-      items: z.array(TransferItemSchema).min(1),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/check-conflicts',
+        tags: ['transfers'],
+        summary: 'Check for transfer conflicts',
+        description: 'Check for potential conflicts with existing transfers on the same date and warehouse.',
+        protect: true,
+      }
+    })
+    .input(CheckTransferConflictsSchema)
+    .output(ConflictCheckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1458,10 +1542,18 @@ export const transfersRouter = router({
 
   // POST /transfers/estimate-duration - Estimate transfer duration
   estimateTransferDuration: protectedProcedure
-    .input(z.object({
-      items: z.array(TransferItemSchema).min(1),
-      estimated_distance_km: z.number().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/estimate-duration',
+        tags: ['transfers'],
+        summary: 'Estimate transfer duration',
+        description: 'Calculate estimated duration for transfer completion including preparation, loading, transport, and unloading time.',
+        protect: true,
+      }
+    })
+    .input(EstimateTransferDurationSchema)
+    .output(DurationEstimateResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1482,16 +1574,18 @@ export const transfersRouter = router({
 
   // POST /transfers/format-validation-errors - Format validation errors for display
   formatValidationErrors: protectedProcedure
-    .input(z.object({
-      validation_result: z.object({
-        is_valid: z.boolean(),
-        errors: z.array(z.string()),
-        warnings: z.array(z.string()),
-        blocked_items: z.array(z.string()),
-        total_weight_kg: z.number(),
-        estimated_cost: z.number().optional(),
-      }),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/transfers/format-validation-errors',
+        tags: ['transfers'],
+        summary: 'Format validation errors',
+        description: 'Format validation errors into user-friendly display format with categorization.',
+        protect: true,
+      }
+    })
+    .input(FormatValidationErrorsSchema)
+    .output(FormattedValidationErrorsResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

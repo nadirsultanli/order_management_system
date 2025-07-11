@@ -322,208 +322,65 @@ export const openApiDocument = {
     '/api/v1/trpc/orders.list': {
       get: {
         summary: 'List orders',
-        description: 'Get paginated list of orders with advanced filtering (Query)',
+        description: 'Get paginated list of orders with advanced filtering (tRPC Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  status: {
-                    oneOf: [
-                      {
-                        type: 'string',
-                        enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'],
-                        description: 'Single order status'
-                      },
-                      {
-                        type: 'string',
-                        pattern: '^(draft|confirmed|scheduled|en_route|delivered|invoiced|cancelled)(,(draft|confirmed|scheduled|en_route|delivered|invoiced|cancelled))*$',
-                        description: 'Comma-separated list of order statuses (e.g., "confirmed,scheduled,en_route")'
-                      },
-                      {
-                        type: 'array',
-                        items: {
-                          type: 'string',
-                          enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']
-                        },
-                        minItems: 1,
-                        uniqueItems: true,
-                        description: 'Array of order statuses'
-                      }
-                    ],
-                    description: 'Filter by order status. Supports single status, comma-separated multiple statuses, or array of statuses'
-                  },
-                  customer_id: { 
-                    type: 'string', 
-                    format: 'uuid',
-                    description: 'Filter by customer ID'
-                  },
-                  search: { 
-                    type: 'string',
-                    description: 'Search in order details, customer name, product SKU, etc.'
-                  },
-                  order_date_from: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter orders from this date (YYYY-MM-DD)'
-                  },
-                  order_date_to: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter orders to this date (YYYY-MM-DD)'
-                  },
-                  scheduled_date_from: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter by scheduled delivery date from (YYYY-MM-DD)'
-                  },
-                  scheduled_date_to: { 
-                    type: 'string', 
-                    format: 'date',
-                    description: 'Filter by scheduled delivery date to (YYYY-MM-DD)'
-                  },
-                  amount_min: { 
-                    type: 'number',
-                    minimum: 0,
-                    description: 'Minimum order amount'
-                  },
-                  amount_max: { 
-                    type: 'number',
-                    minimum: 0,
-                    description: 'Maximum order amount'
-                  },
-                  delivery_area: { 
-                    type: 'string',
-                    description: 'Filter by delivery area (city, state, or postal code)'
-                  },
-                  is_overdue: { 
-                    type: 'boolean',
-                    description: 'Filter overdue orders only'
-                  },
-                  delivery_method: { 
-                    type: 'string', 
-                    enum: ['pickup', 'delivery'],
-                    description: 'Filter by delivery method'
-                  },
-                  priority: { 
-                    type: 'string', 
-                    enum: ['low', 'normal', 'high', 'urgent'],
-                    description: 'Filter by order priority'
-                  },
-                  payment_status: { 
-                    type: 'string', 
-                    enum: ['pending', 'paid', 'overdue'],
-                    description: 'Filter by payment status'
-                  },
-                  sort_by: { 
-                    type: 'string',
-                    enum: ['created_at', 'order_date', 'scheduled_date', 'total_amount', 'customer_name'],
-                    default: 'created_at',
-                    description: 'Sort field'
-                  },
-                  sort_order: { 
-                    type: 'string', 
-                    enum: ['asc', 'desc'],
-                    default: 'desc',
-                    description: 'Sort order'
-                  },
-                  include_analytics: {
-                    type: 'boolean',
-                    default: false,
-                    description: 'Include analytics data in response'
-                  },
-                  page: { 
-                    type: 'integer', 
-                    minimum: 1, 
-                    default: 1,
-                    description: 'Page number for pagination'
-                  },
-                  limit: { 
-                    type: 'integer', 
-                    minimum: 1, 
-                    maximum: 100, 
-                    default: 50,
-                    description: 'Number of orders per page'
-                  }
-                },
-                additionalProperties: false,
-                examples: {
-                  singleStatus: {
-                    summary: 'Single status filter',
-                    description: 'Filter orders by a single status',
-                    value: {
-                      status: "confirmed",
-                      customer_id: "123e4567-e89b-12d3-a456-426614174000",
-                      search: "gas cylinder",
-                      order_date_from: "2024-01-01",
-                      order_date_to: "2024-12-31",
-                      delivery_method: "delivery",
-                      priority: "normal",
-                      payment_status: "pending",
-                      sort_by: "order_date",
-                      sort_order: "desc",
-                      page: 1,
-                      limit: 20
-                    }
-                  },
-                  multipleStatusString: {
-                    summary: 'Multiple statuses (comma-separated)',
-                    description: 'Filter orders by multiple statuses using comma-separated string',
-                    value: {
-                      status: "confirmed,scheduled,en_route",
-                      search: "urgent delivery",
-                      delivery_method: "delivery",
-                      priority: "high",
-                      sort_by: "scheduled_date",
-                      sort_order: "asc",
-                      page: 1,
-                      limit: 50
-                    }
-                  },
-                  multipleStatusArray: {
-                    summary: 'Multiple statuses (array)',
-                    description: 'Filter orders by multiple statuses using array format',
-                    value: {
-                      status: ["confirmed", "scheduled", "en_route"],
-                      order_date_from: "2024-01-01",
-                      delivery_area: "Los Angeles",
-                      include_analytics: true,
-                      sort_by: "total_amount",
-                      sort_order: "desc",
-                      page: 1,
-                      limit: 25
-                    }
-                  },
-                  complexFiltering: {
-                    summary: 'Complex filtering example',
-                    description: 'Example with multiple filters including multiple statuses',
-                    value: {
-                      status: "confirmed,scheduled",
-                      customer_id: "123e4567-e89b-12d3-a456-426614174000",
-                      order_date_from: "2024-01-01",
-                      order_date_to: "2024-12-31",
-                      amount_min: 100,
-                      amount_max: 5000,
-                      delivery_method: "delivery",
-                      priority: "high",
-                      payment_status: "pending",
-                      delivery_area: "California",
-                      include_analytics: true,
-                      sort_by: "scheduled_date",
-                      sort_order: "asc",
-                      page: 1,
-                      limit: 30
-                    }
-                  }
-                }
+        parameters: [
+          {
+            name: 'input',
+            in: 'query',
+            required: false,
+            schema: {
+              type: 'string',
+              description: 'URL-encoded JSON object containing filter parameters',
+            },
+            examples: {
+              empty_request: {
+                summary: 'Empty request (get all orders)',
+                value: `{}`
+              },
+              single_status: {
+                summary: 'Single status filter',
+                value: `{
+          "status": "confirmed",
+          "page": 1,
+          "limit": 20
+        }`
+              },
+              multiple_statuses_csv: {
+                summary: 'Multiple statuses (comma-separated)',
+                value: `{
+          "status": "confirmed,scheduled,en_route",
+          "sort_by": "scheduled_date",
+          "sort_order": "asc"
+        }`
+              },
+              multiple_statuses_array: {
+                summary: 'Multiple statuses (as array)',
+                value: `{
+          "status": ["confirmed", "scheduled", "en_route"],
+          "include_analytics": true,
+          "limit": 25
+        }`
+              },
+              complex_filtering: {
+                summary: 'Complex filtering with all supported parameters',
+                value: `{
+                  "status": "confirmed,scheduled",
+                  "customer_id": "123e4567-e89b-12d3-a456-426614174000",
+                  "search": "gas cylinder",
+                  "order_date_from": "2024-01-01",
+                  "order_date_to": "2024-12-31",
+                  "scheduled_date_from": "2024-01-01",
+                  "scheduled_date_to": "2024-12-31",
+                  "include_analytics": true,
+                  "page": 1,
+                  "limit": 30
+                }`
               }
             }
           }
-        },
+        ],
         responses: {
           '200': {
             description: 'Orders retrieved successfully',
@@ -559,13 +416,42 @@ export const openApiDocument = {
                                     type: 'string',
                                     enum: ['low', 'normal', 'high', 'urgent']
                                   },
-                                  // Enhanced business metrics
-                                  is_high_value: { type: 'boolean', description: 'True if order amount > 1000' },
-                                  days_since_order: { type: 'integer', description: 'Number of days since order was placed' },
-                                  estimated_delivery_window: { type: 'string', description: 'Estimated delivery timeframe' },
-                                  risk_level: { type: 'string', description: 'Order risk assessment' },
-                                  payment_balance: { type: 'number', description: 'Remaining payment balance' },
-                                  payment_status: { type: 'string', description: 'Current payment status' },
+                                  created_at: { type: 'string', format: 'date-time' },
+                                  // Business metrics calculated by tRPC
+                                  is_high_value: { 
+                                    type: 'boolean', 
+                                    description: 'True if order amount > 1000 (calculated field)' 
+                                  },
+                                  days_since_order: { 
+                                    type: 'integer', 
+                                    description: 'Number of days since order was placed (calculated field)' 
+                                  },
+                                  estimated_delivery_window: { 
+                                    type: 'string', 
+                                    description: 'Estimated delivery timeframe (calculated field)' 
+                                  },
+                                  risk_level: { 
+                                    type: 'string', 
+                                    description: 'Order risk assessment (calculated field)' 
+                                  },
+                                  payment_balance: { 
+                                    type: 'number', 
+                                    description: 'Remaining payment balance (calculated field)' 
+                                  },
+                                  payment_status: { 
+                                    type: 'string', 
+                                    description: 'Current payment status (calculated field)' 
+                                  },
+                                  payment_summary: {
+                                    type: 'object',
+                                    description: 'Calculated payment summary',
+                                    properties: {
+                                      total_paid: { type: 'number' },
+                                      balance: { type: 'number' },
+                                      status: { type: 'string' }
+                                    }
+                                  },
+                                  // Related data from tRPC joins
                                   customer: {
                                     type: 'object',
                                     properties: {
@@ -633,15 +519,6 @@ export const openApiDocument = {
                                         transaction_id: { type: 'string' }
                                       }
                                     }
-                                  },
-                                  payment_summary: {
-                                    type: 'object',
-                                    description: 'Calculated payment summary',
-                                    properties: {
-                                      total_paid: { type: 'number' },
-                                      balance: { type: 'number' },
-                                      status: { type: 'string' }
-                                    }
                                   }
                                 }
                               }
@@ -662,10 +539,17 @@ export const openApiDocument = {
                               type: 'object',
                               description: 'Analytics data (only included if include_analytics is true)',
                               properties: {
+                                // Analytics structure matching your generateOrderAnalytics function
                                 total_value: { type: 'number' },
                                 average_order_value: { type: 'number' },
-                                status_distribution: { type: 'object' },
-                                trends: { type: 'object' }
+                                status_distribution: { 
+                                  type: 'object',
+                                  additionalProperties: { type: 'integer' }
+                                },
+                                trends: { 
+                                  type: 'object',
+                                  description: 'Trend analysis data'
+                                }
                               }
                             }
                           }
@@ -688,12 +572,7 @@ export const openApiDocument = {
                       type: 'object',
                       properties: {
                         code: { type: 'string', example: 'BAD_REQUEST' },
-                        message: { type: 'string', example: 'Invalid filter parameters' },
-                        details: { 
-                          type: 'array',
-                          items: { type: 'string' },
-                          example: ['Invalid status value', 'Status must be one of: draft, confirmed, scheduled, en_route, delivered, invoiced, cancelled']
-                        }
+                        message: { type: 'string', example: 'Invalid filter parameters' }
                       }
                     }
                   }
@@ -702,40 +581,32 @@ export const openApiDocument = {
             }
           },
           '401': {
-            description: 'Unauthorized - Invalid or missing authentication',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/Error' }
-              }
-            }
+            description: 'Unauthorized - Invalid or missing authentication'
+          },
+          '500': {
+            description: 'Internal server error'
           }
         }
       }
-    }, 
+    },
     '/api/v1/trpc/orders.getById': {
       get: {
         summary: 'Get order by ID',
-        description: 'Get detailed information about a specific order (Query)',
+        description: 'Get detailed information about a specific order (tRPC Query)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  order_id: { 
-                    type: 'string', 
-                    format: 'uuid',
-                    description: 'The unique identifier of the order'
-                  }
-                },
-                required: ['order_id']
-              }
-            }
+        parameters: [
+          {
+            name: 'input',
+            in: 'query',
+            required: true,
+            schema: {
+              type: 'string',
+              description: 'JSON object containing the order ID'
+            },
+            example: '{"order_id":"123e4567-e89b-12d3-a456-426614174000"}'
           }
-        },
+        ],
         responses: {
           '200': {
             description: 'Order details retrieved successfully',
@@ -747,7 +618,149 @@ export const openApiDocument = {
                     result: {
                       type: 'object',
                       properties: {
-                        data: { type: 'object' }
+                        data: {
+                          type: 'object',
+                          description: 'Complete order object with all nested relationships',
+                          properties: {
+                            // Base order fields (from your SELECT *)
+                            id: { type: 'string', format: 'uuid' },
+                            order_date: { type: 'string', format: 'date' },
+                            scheduled_date: { type: 'string', format: 'date-time' },
+                            status: { 
+                              type: 'string',
+                              enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']
+                            },
+                            total_amount: { type: 'number' },
+                            delivery_method: { type: 'string', enum: ['pickup', 'delivery'] },
+                            priority: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
+                            created_at: { type: 'string', format: 'date-time' },
+                            updated_at: { type: 'string', format: 'date-time' },
+                            order_notes: { type: 'string' },
+                            customer_id: { type: 'string', format: 'uuid' },
+                            delivery_address_id: { type: 'string', format: 'uuid' },
+                            source_warehouse_id: { type: 'string', format: 'uuid' },
+                            
+                            // Calculated fields added by tRPC
+                            payment_summary: {
+                              type: 'object',
+                              description: 'Calculated payment summary from calculateOrderPaymentSummary()',
+                              properties: {
+                                total_paid: { type: 'number' },
+                                balance: { type: 'number' },
+                                status: { type: 'string', enum: ['pending', 'paid', 'overdue'] }
+                              }
+                            },
+                            payment_balance: { 
+                              type: 'number',
+                              description: 'Remaining balance (calculated field)'
+                            },
+                            payment_status: { 
+                              type: 'string',
+                              description: 'Current payment status (calculated or cached)'
+                            },
+                            
+                            // Nested customer data (from JOIN)
+                            customer: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', format: 'uuid' },
+                                name: { type: 'string' },
+                                email: { type: 'string', format: 'email' },
+                                phone: { type: 'string' },
+                                account_status: { type: 'string' },
+                                credit_terms_days: { type: 'integer' }
+                              }
+                            },
+                            
+                            // Nested delivery address data (from JOIN)
+                            delivery_address: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', format: 'uuid' },
+                                line1: { type: 'string' },
+                                line2: { type: 'string' },
+                                city: { type: 'string' },
+                                state: { type: 'string' },
+                                postal_code: { type: 'string' },
+                                country: { type: 'string' },
+                                instructions: { type: 'string' }
+                              }
+                            },
+                            
+                            // Nested warehouse data (from JOIN)
+                            source_warehouse: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string', format: 'uuid' },
+                                name: { type: 'string' },
+                                is_mobile: { type: 'boolean' }
+                              }
+                            },
+                            
+                            // Nested order lines data (from JOIN)
+                            order_lines: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  product_id: { type: 'string', format: 'uuid' },
+                                  quantity: { type: 'number' },
+                                  unit_price: { type: 'number' },
+                                  subtotal: { type: 'number' },
+                                  // Nested product data
+                                  product: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string', format: 'uuid' },
+                                      sku: { type: 'string' },
+                                      name: { type: 'string' },
+                                      unit_of_measure: { type: 'string' },
+                                      capacity_kg: { type: 'number' },
+                                      tare_weight_kg: { type: 'number' }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            
+                            // Nested payments data (from JOIN)
+                            payments: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  amount: { type: 'number' },
+                                  payment_method: { type: 'string' },
+                                  payment_status: { type: 'string' },
+                                  payment_date: { type: 'string', format: 'date-time' },
+                                  transaction_id: { type: 'string' },
+                                  reference_number: { type: 'string' }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '400': {
+            description: 'Bad request - Invalid order_id format',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'BAD_REQUEST' },
+                        message: { type: 'string', example: 'Invalid UUID format for order_id' }
                       }
                     }
                   }
@@ -759,7 +772,40 @@ export const openApiDocument = {
             description: 'Order not found',
             content: {
               'application/json': {
-                schema: { $ref: '#/components/schemas/Error' }
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'NOT_FOUND' },
+                        message: { type: 'string', example: 'Order not found' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '401': {
+            description: 'Unauthorized - Invalid or missing authentication'
+          },
+          '500': {
+            description: 'Internal server error',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'INTERNAL_SERVER_ERROR' },
+                        message: { type: 'string', example: 'Database connection error' }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -779,23 +825,43 @@ export const openApiDocument = {
                 type: 'object',
                 properties: {
                   customer_id: { type: 'string', format: 'uuid' },
+                  delivery_address_id: { type: 'string', format: 'uuid' },
+                  source_warehouse_id: { type: 'string', format: 'uuid' },
+                  order_date: { type: 'string', format: 'date', example: '2025-07-09' },
+                  scheduled_date: { type: 'string', format: 'date-time' },
+                  notes: { type: 'string' },
+                  idempotency_key: { type: 'string' },
+                  validate_pricing: { type: 'boolean', default: true },
+                  skip_inventory_check: { type: 'boolean', default: false },
+                  order_type: {
+                    type: 'string',
+                    enum: ['delivery', 'refill', 'exchange', 'pickup'],
+                    default: 'delivery'
+                  },
+                  service_type: {
+                    type: 'string',
+                    enum: ['standard', 'express', 'scheduled'],
+                    default: 'standard'
+                  },
+                  exchange_empty_qty: { type: 'number', minimum: 0, default: 0 },
+                  requires_pickup: { type: 'boolean', default: false },
                   order_lines: {
                     type: 'array',
                     items: {
                       type: 'object',
                       properties: {
                         product_id: { type: 'string', format: 'uuid' },
-                        quantity: { type: 'number' },
-                        unit_price: { type: 'number' }
+                        quantity: { type: 'number', minimum: 1 },
+                        unit_price: { type: 'number' },
+                        expected_price: { type: 'number' },
+                        price_list_id: { type: 'string', format: 'uuid' }
                       },
                       required: ['product_id', 'quantity']
-                    }
-                  },
-                  scheduled_date: { type: 'string', format: 'date' },
-                  delivery_address_id: { type: 'string', format: 'uuid' },
-                  notes: { type: 'string' }
+                    },
+                    minItems: 1
+                  }
                 },
-                required: ['customer_id', 'order_lines', 'scheduled_date', 'delivery_address_id']
+                required: ['customer_id', 'order_lines', 'source_warehouse_id']
               }
             }
           }
@@ -811,9 +877,25 @@ export const openApiDocument = {
                     result: {
                       type: 'object',
                       properties: {
-                        data: { type: 'object' }
+                        data: {
+                          type: 'object',
+                          description: 'The created order and its metadata'
+                        }
                       }
                     }
+                  }
+                }
+              }
+            }
+          },
+          '400': {
+            description: 'Validation or business rule error',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: { type: 'string' }
                   }
                 }
               }
@@ -825,8 +907,9 @@ export const openApiDocument = {
     '/api/v1/trpc/orders.update': {
       put: {
         summary: 'Update order',
-        description: 'Update an existing order (Mutation)',
+        description: 'Update an existing order with comprehensive validation and business rules (Mutation)',
         tags: ['orders'],
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -834,24 +917,152 @@ export const openApiDocument = {
               schema: {
                 type: 'object',
                 properties: {
-                  order_id: { type: 'string', format: 'uuid' },
+                  order_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Unique identifier of the order to update',
+                    example: '550e8400-e29b-41d4-a716-446655440000'
+                  },
+                  customer_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Customer ID (optional - can reassign order to different customer)',
+                    example: '123e4567-e89b-12d3-a456-426614174000'
+                  },
+                  delivery_address_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Delivery address ID (must belong to the customer)',
+                    example: '789e0123-e45b-67c8-d901-234567890123'
+                  },
+                  source_warehouse_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Source warehouse for order fulfillment',
+                    example: 'abc12345-ef67-89ab-cdef-123456789abc'
+                  },
+                  order_date: { 
+                    type: 'string', 
+                    format: 'date',
+                    description: 'Order placement date (YYYY-MM-DD)',
+                    example: '2025-01-15'
+                  },
+                  scheduled_date: { 
+                    type: 'string', 
+                    format: 'date-time',
+                    description: 'Scheduled delivery date and time (ISO 8601 format)',
+                    example: '2025-01-20T14:30:00.000Z'
+                  },
+                  notes: { 
+                    type: 'string',
+                    description: 'Order notes or special instructions',
+                    example: 'Deliver to back entrance, call upon arrival'
+                  },
+                  order_type: {
+                    type: 'string',
+                    enum: ['delivery', 'refill', 'exchange', 'pickup'],
+                    description: 'Type of order operation',
+                    example: 'delivery'
+                  },
+                  service_type: {
+                    type: 'string',
+                    enum: ['standard', 'express', 'scheduled'],
+                    description: 'Service level for the order',
+                    example: 'standard'
+                  },
+                  exchange_empty_qty: {
+                    type: 'number',
+                    minimum: 0,
+                    description: 'Number of empty cylinders to exchange (for refill/exchange orders)',
+                    example: 2
+                  },
+                  requires_pickup: {
+                    type: 'boolean',
+                    description: 'Whether empty cylinder pickup is required',
+                    example: false
+                  },
+                  priority: {
+                    type: 'string',
+                    enum: ['low', 'normal', 'high', 'urgent'],
+                    description: 'Order priority level',
+                    example: 'normal'
+                  },
+                  delivery_method: {
+                    type: 'string',
+                    enum: ['pickup', 'delivery'],
+                    description: 'Method of order fulfillment',
+                    example: 'delivery'
+                  },
                   order_lines: {
                     type: 'array',
+                    description: 'Order line items (products and quantities)',
                     items: {
                       type: 'object',
                       properties: {
-                        product_id: { type: 'string', format: 'uuid' },
-                        quantity: { type: 'number' },
-                        unit_price: { type: 'number' }
+                        id: {
+                          type: 'string',
+                          format: 'uuid',
+                          description: 'Existing line ID (for updates, omit for new lines)',
+                          example: 'def45678-9abc-def0-1234-56789abcdef0'
+                        },
+                        product_id: { 
+                          type: 'string', 
+                          format: 'uuid',
+                          description: 'Product identifier',
+                          example: '456e7890-e12b-34d5-a678-901234567890'
+                        },
+                        quantity: { 
+                          type: 'number',
+                          minimum: 1,
+                          description: 'Quantity of the product',
+                          example: 5
+                        },
+                        unit_price: { 
+                          type: 'number',
+                          minimum: 0,
+                          description: 'Unit price (optional - will use pricing engine if not provided)',
+                          example: 45.50
+                        },
+                        delete: {
+                          type: 'boolean',
+                          description: 'Mark this line for deletion (requires existing line ID)',
+                          example: false
+                        }
                       },
                       required: ['product_id', 'quantity']
-                    }
-                  },
-                  scheduled_date: { type: 'string', format: 'date' },
-                  delivery_address_id: { type: 'string', format: 'uuid' },
-                  notes: { type: 'string' }
+                    },
+                    example: [
+                      {
+                        "id": "def45678-9abc-def0-1234-56789abcdef0",
+                        "product_id": "456e7890-e12b-34d5-a678-901234567890",
+                        "quantity": 3,
+                        "unit_price": 45.50
+                      },
+                      {
+                        "product_id": "567f8901-f23c-45e6-b789-012345678901",
+                        "quantity": 2
+                      }
+                    ]
+                  }
                 },
-                required: ['order_id', 'order_lines', 'scheduled_date', 'delivery_address_id']
+                required: ['order_id'],
+                example: {
+                  "order_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "customer_id": "123e4567-e89b-12d3-a456-426614174000",
+                  "delivery_address_id": "789e0123-e45b-67c8-d901-234567890123",
+                  "scheduled_date": "2025-01-20T14:30:00.000Z",
+                  "notes": "Deliver to back entrance",
+                  "order_type": "delivery",
+                  "priority": "normal",
+                  "order_lines": [
+                    {
+                      "id": "def45678-9abc-def0-1234-56789abcdef0",
+                      "product_id": "456e7890-e12b-34d5-a678-901234567890",
+                      "quantity": 3,
+                      "unit_price": 45.50
+                    }
+                  ]
+                }
               }
             }
           }
@@ -867,48 +1078,85 @@ export const openApiDocument = {
                     result: {
                       type: 'object',
                       properties: {
-                        data: { type: 'object' }
+                        data: {
+                          type: 'object',
+                          description: 'Updated order with full details',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            customer_id: { type: 'string', format: 'uuid' },
+                            order_date: { type: 'string', format: 'date' },
+                            scheduled_date: { type: 'string', format: 'date-time' },
+                            status: { 
+                              type: 'string',
+                              enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']
+                            },
+                            total_amount: { type: 'number', description: 'Recalculated order total' },
+                            notes: { type: 'string' },
+                            customer: {
+                              type: 'object',
+                              properties: {
+                                id: { type: 'string' },
+                                name: { type: 'string' },
+                                email: { type: 'string' },
+                                phone: { type: 'string' }
+                              }
+                            },
+                            order_lines: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string' },
+                                  product_id: { type: 'string' },
+                                  quantity: { type: 'number' },
+                                  unit_price: { type: 'number' },
+                                  subtotal: { type: 'number' },
+                                  product: {
+                                    type: 'object',
+                                    properties: {
+                                      id: { type: 'string' },
+                                      sku: { type: 'string' },
+                                      name: { type: 'string' }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
                       }
                     }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    '/api/v1/trpc/orders.delete': {
-      delete: {
-        summary: 'Delete order',
-        description: 'Delete an order by ID (Mutation)',
-        tags: ['orders'],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'object',
-                properties: {
-                  order_id: { type: 'string', format: 'uuid' }
-                },
-                required: ['order_id']
-              }
-            }
-          }
-        },
-        responses: {
-          '200': {
-            description: 'Order deleted successfully',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    result: {
-                      type: 'object',
-                      properties: {
-                        data: { type: 'object' }
+                  },
+                  example: {
+                    "result": {
+                      "data": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "customer_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "order_date": "2025-01-15",
+                        "scheduled_date": "2025-01-20T14:30:00.000Z",
+                        "status": "confirmed",
+                        "total_amount": 136.50,
+                        "notes": "Deliver to back entrance",
+                        "customer": {
+                          "id": "123e4567-e89b-12d3-a456-426614174000",
+                          "name": "John Smith",
+                          "email": "john@example.com",
+                          "phone": "+1234567890"
+                        },
+                        "order_lines": [
+                          {
+                            "id": "def45678-9abc-def0-1234-56789abcdef0",
+                            "product_id": "456e7890-e12b-34d5-a678-901234567890",
+                            "quantity": 3,
+                            "unit_price": 45.50,
+                            "subtotal": 136.50,
+                            "product": {
+                              "id": "456e7890-e12b-34d5-a678-901234567890",
+                              "sku": "LPG-50KG",
+                              "name": "LPG Cylinder 50kg"
+                            }
+                          }
+                        ]
                       }
                     }
                   }
@@ -916,11 +1164,263 @@ export const openApiDocument = {
               }
             }
           },
-          '404': {
-            description: 'Order not found',
+          '400': {
+            description: 'Bad Request - Validation errors or business rule violations',
             content: {
               'application/json': {
-                schema: { $ref: '#/components/schemas/Error' }
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'BAD_REQUEST' },
+                        message: { type: 'string' },
+                        details: { 
+                          type: 'array',
+                          items: { type: 'string' }
+                        }
+                      }
+                    }
+                  },
+                  example: {
+                    "error": {
+                      "code": "BAD_REQUEST",
+                      "message": "Cannot update order with status 'delivered'. Only draft, confirmed, scheduled, or cancelled orders can be updated.",
+                      "details": [
+                        "Order status validation failed",
+                        "Current status: delivered",
+                        "Allowed statuses for update: draft, confirmed, scheduled, cancelled"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '401': {
+            description: 'Unauthorized - Invalid or missing authentication token',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' },
+                example: {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required"
+                  }
+                }
+              }
+            }
+          },
+          '403': {
+            description: 'Forbidden - Insufficient permissions',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' },
+                example: {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You don't have permission to update this order"
+                  }
+                }
+              }
+            }
+          },
+          '404': {
+            description: 'Not Found - Order, customer, product, or address not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'NOT_FOUND' },
+                        message: { type: 'string' },
+                        resource: { type: 'string' },
+                        resource_id: { type: 'string' }
+                      }
+                    }
+                  }
+                },
+                examples: {
+                  order_not_found: {
+                    summary: 'Order not found',
+                    value: {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Order not found",
+                        "resource": "order",
+                        "resource_id": "550e8400-e29b-41d4-a716-446655440000"
+                      }
+                    }
+                  },
+                  customer_not_found: {
+                    summary: 'Customer not found',
+                    value: {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Customer not found",
+                        "resource": "customer",
+                        "resource_id": "123e4567-e89b-12d3-a456-426614174000"
+                      }
+                    }
+                  },
+                  product_not_found: {
+                    summary: 'Product not found',
+                    value: {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Product not found for line with product_id: 456e7890-e12b-34d5-a678-901234567890",
+                        "resource": "product",
+                        "resource_id": "456e7890-e12b-34d5-a678-901234567890"
+                      }
+                    }
+                  },
+                  address_not_found: {
+                    summary: 'Delivery address not found',
+                    value: {
+                      "error": {
+                        "code": "NOT_FOUND",
+                        "message": "Delivery address not found or does not belong to customer",
+                        "resource": "address",
+                        "resource_id": "789e0123-e45b-67c8-d901-234567890123"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '409': {
+            description: 'Conflict - Business rule conflicts',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'CONFLICT' },
+                        message: { type: 'string' },
+                        conflict_type: { type: 'string' },
+                        details: { 
+                          type: 'array',
+                          items: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                },
+                examples: {
+                  inactive_customer: {
+                    summary: 'Inactive customer assignment',
+                    value: {
+                      "error": {
+                        "code": "CONFLICT",
+                        "message": "Cannot assign order to inactive customer",
+                        "conflict_type": "customer_status",
+                        "details": [
+                          "Customer status: credit_hold",
+                          "Only active customers can receive new orders"
+                        ]
+                      }
+                    }
+                  },
+                  inactive_product: {
+                    summary: 'Inactive product in order line',
+                    value: {
+                      "error": {
+                        "code": "CONFLICT",
+                        "message": "Product LPG-50KG is not active",
+                        "conflict_type": "product_status",
+                        "details": [
+                          "Product status: obsolete",
+                          "Only active products can be ordered"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '422': {
+            description: 'Unprocessable Entity - Validation errors',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'UNPROCESSABLE_ENTITY' },
+                        message: { type: 'string' },
+                        validation_errors: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              field: { type: 'string' },
+                              message: { type: 'string' },
+                              value: { type: 'string' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  example: {
+                    "error": {
+                      "code": "UNPROCESSABLE_ENTITY",
+                      "message": "Order validation failed",
+                      "validation_errors": [
+                        {
+                          "field": "order_lines[0].quantity",
+                          "message": "Quantity must be greater than 0",
+                          "value": "0"
+                        },
+                        {
+                          "field": "scheduled_date",
+                          "message": "Scheduled date must be in the future",
+                          "value": "2024-12-01T10:00:00Z"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '500': {
+            description: 'Internal Server Error - System error during order update',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'INTERNAL_SERVER_ERROR' },
+                        message: { type: 'string' },
+                        timestamp: { type: 'string', format: 'date-time' },
+                        request_id: { type: 'string' }
+                      }
+                    }
+                  },
+                  example: {
+                    "error": {
+                      "code": "INTERNAL_SERVER_ERROR",
+                      "message": "Failed to update order lines",
+                      "timestamp": "2025-01-15T10:30:00.000Z",
+                      "request_id": "req_123456789"
+                    }
+                  }
+                }
               }
             }
           }
@@ -3832,7 +4332,7 @@ export const openApiDocument = {
     '/api/v1/trpc/orders.updateStatus': {
       post: {
         summary: 'Update order status',
-        description: 'Update order status with transition validation (Mutation)',
+        description: 'Update order status with workflow validation and business rules (Mutation)',
         tags: ['orders'],
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -3842,13 +4342,49 @@ export const openApiDocument = {
               schema: {
                 type: 'object',
                 properties: {
-                  order_id: { type: 'string', format: 'uuid' },
-                  new_status: { type: 'string', enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'] },
-                  scheduled_date: { type: 'string', format: 'date-time' },
-                  reason: { type: 'string' },
-                  metadata: { type: 'object' },
+                  order_id: { 
+                    type: 'string', 
+                    format: 'uuid',
+                    description: 'Unique identifier of the order to update',
+                    example: '550e8400-e29b-41d4-a716-446655440000'
+                  },
+                  new_status: { 
+                    type: 'string', 
+                    enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled'],
+                    description: 'New status for the order',
+                    example: 'confirmed'
+                  },
+                  scheduled_date: { 
+                    type: 'string', 
+                    format: 'date-time',
+                    description: 'Scheduled delivery date (required when changing to scheduled status)',
+                    example: '2025-01-20T14:30:00.000Z'
+                  },
+                  reason: { 
+                    type: 'string',
+                    description: 'Reason for the status change (optional)',
+                    example: 'Customer requested earlier delivery'
+                  },
+                  metadata: { 
+                    type: 'object',
+                    description: 'Additional metadata for the status change',
+                    example: {
+                      "driver_notes": "Confirmed with customer via phone",
+                      "delivery_preference": "morning"
+                    }
+                  },
                 },
                 required: ['order_id', 'new_status'],
+                example: {
+                  "order_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "new_status": "scheduled",
+                  "scheduled_date": "2025-01-20T14:30:00.000Z",
+                  "reason": "Customer confirmed availability",
+                  "metadata": {
+                    "priority_upgrade": false,
+                    "driver_notes": "Use back entrance"
+                  }
+                }
               },
             },
           },
@@ -3864,14 +4400,291 @@ export const openApiDocument = {
                     result: {
                       type: 'object',
                       properties: {
-                        data: { type: 'object' },
+                        data: {
+                          type: 'object',
+                          description: 'Updated order with new status',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            status: { 
+                              type: 'string',
+                              enum: ['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']
+                            },
+                            scheduled_date: { type: 'string', format: 'date-time' },
+                            updated_at: { type: 'string', format: 'date-time' },
+                            customer_id: { type: 'string', format: 'uuid' },
+                            total_amount: { type: 'number' }
+                          }
+                        },
                       },
                     },
                   },
+                  example: {
+                    "result": {
+                      "data": {
+                        "id": "550e8400-e29b-41d4-a716-446655440000",
+                        "status": "scheduled",
+                        "scheduled_date": "2025-01-20T14:30:00.000Z",
+                        "updated_at": "2025-01-15T10:30:00.000Z",
+                        "customer_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "total_amount": 136.50
+                      }
+                    }
+                  }
                 },
               },
             },
           },
+          '400': {
+            description: 'Bad Request - Invalid status transition or validation errors',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'BAD_REQUEST' },
+                        message: { type: 'string' },
+                        transition_error: { type: 'string' },
+                        allowed_transitions: { 
+                          type: 'array',
+                          items: { type: 'string' }
+                        },
+                        details: { 
+                          type: 'array',
+                          items: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                },
+                examples: {
+                  invalid_transition: {
+                    summary: 'Invalid status transition',
+                    value: {
+                      "error": {
+                        "code": "BAD_REQUEST",
+                        "message": "Invalid status transition from 'delivered' to 'confirmed'",
+                        "transition_error": "Cannot move backwards in order workflow",
+                        "allowed_transitions": ["invoiced"],
+                        "details": [
+                          "Current status: delivered",
+                          "Attempted transition: confirmed",
+                          "Valid next statuses: invoiced"
+                        ]
+                      }
+                    }
+                  },
+                  missing_scheduled_date: {
+                    summary: 'Missing scheduled date for scheduled status',
+                    value: {
+                      "error": {
+                        "code": "BAD_REQUEST",
+                        "message": "Scheduled date is required when changing status to 'scheduled'",
+                        "details": [
+                          "Status change requires additional data",
+                          "Field: scheduled_date",
+                          "Required for status: scheduled"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '401': {
+            description: 'Unauthorized - Invalid or missing authentication token',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' },
+                example: {
+                  "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required"
+                  }
+                }
+              }
+            }
+          },
+          '403': {
+            description: 'Forbidden - Insufficient permissions for status change',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' },
+                example: {
+                  "error": {
+                    "code": "FORBIDDEN",
+                    "message": "You don't have permission to change order status to 'invoiced'"
+                  }
+                }
+              }
+            }
+          },
+          '404': {
+            description: 'Not Found - Order not found',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'NOT_FOUND' },
+                        message: { type: 'string' },
+                        resource: { type: 'string' },
+                        resource_id: { type: 'string' }
+                      }
+                    }
+                  },
+                  example: {
+                    "error": {
+                      "code": "NOT_FOUND",
+                      "message": "Order not found",
+                      "resource": "order",
+                      "resource_id": "550e8400-e29b-41d4-a716-446655440000"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '409': {
+            description: 'Conflict - Business rule violations or inventory constraints',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'CONFLICT' },
+                        message: { type: 'string' },
+                        conflict_type: { type: 'string' },
+                        details: { 
+                          type: 'array',
+                          items: { type: 'string' }
+                        }
+                      }
+                    }
+                  }
+                },
+                examples: {
+                  insufficient_inventory: {
+                    summary: 'Insufficient inventory for confirmation',
+                    value: {
+                      "error": {
+                        "code": "CONFLICT",
+                        "message": "Cannot confirm order - insufficient inventory",
+                        "conflict_type": "inventory_shortage",
+                        "details": [
+                          "Product: LPG-50KG",
+                          "Required: 5 units",
+                          "Available: 2 units",
+                          "Warehouse: Main Warehouse"
+                        ]
+                      }
+                    }
+                  },
+                  concurrent_modification: {
+                    summary: 'Order modified by another user',
+                    value: {
+                      "error": {
+                        "code": "CONFLICT",
+                        "message": "Order has been modified by another user",
+                        "conflict_type": "concurrent_modification",
+                        "details": [
+                          "Order updated at: 2025-01-15T10:25:00Z",
+                          "Your last refresh: 2025-01-15T10:20:00Z",
+                          "Please refresh and try again"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '422': {
+            description: 'Unprocessable Entity - Order validation errors',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'UNPROCESSABLE_ENTITY' },
+                        message: { type: 'string' },
+                        validation_errors: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              field: { type: 'string' },
+                              message: { type: 'string' },
+                              current_value: { type: 'string' }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  example: {
+                    "error": {
+                      "code": "UNPROCESSABLE_ENTITY",
+                      "message": "Order validation failed for status transition",
+                      "validation_errors": [
+                        {
+                          "field": "delivery_address",
+                          "message": "Delivery address is required for scheduled orders",
+                          "current_value": "null"
+                        },
+                        {
+                          "field": "order_lines",
+                          "message": "Order must have at least one item",
+                          "current_value": "[]"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '500': {
+            description: 'Internal Server Error - System error during status update',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    error: {
+                      type: 'object',
+                      properties: {
+                        code: { type: 'string', example: 'INTERNAL_SERVER_ERROR' },
+                        message: { type: 'string' },
+                        timestamp: { type: 'string', format: 'date-time' },
+                        request_id: { type: 'string' }
+                      }
+                    }
+                  },
+                  example: {
+                    "error": {
+                      "code": "INTERNAL_SERVER_ERROR",
+                      "message": "Failed to update order status",
+                      "timestamp": "2025-01-15T10:30:00.000Z",
+                      "request_id": "req_123456789"
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
       },
     },

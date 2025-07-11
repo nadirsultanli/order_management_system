@@ -3,6 +3,61 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { formatErrorMessage } from '../lib/logger';
+
+// Import input schemas
+import {
+  TruckFiltersSchema,
+  GetTruckByIdSchema,
+  CreateTruckSchema,
+  UpdateTruckSchema,
+  DeleteTruckSchema,
+  GetAllocationsSchema,
+  TruckAllocationSchema,
+  UpdateTruckAllocationSchema,
+  GetRoutesSchema,
+  CreateTruckRouteSchema,
+  UpdateTruckRouteSchema,
+  GetMaintenanceSchema,
+  CreateMaintenanceSchema,
+  UpdateMaintenanceSchema,
+  CalculateOrderWeightSchema,
+  CalculateCapacitySchema,
+  FindBestAllocationSchema,
+  ValidateAllocationSchema,
+  GenerateScheduleSchema,
+  OptimizeAllocationsSchema,
+  LoadInventorySchema,
+  UnloadInventorySchema,
+  GetInventorySchema,
+} from '../schemas/input/trucks-input';
+
+// Import output schemas
+import {
+  TruckListResponseSchema,
+  TruckDetailResponseSchema,
+  CreateTruckResponseSchema,
+  UpdateTruckResponseSchema,
+  DeleteTruckResponseSchema,
+  GetAllocationsResponseSchema,
+  CreateAllocationResponseSchema,
+  UpdateAllocationResponseSchema,
+  GetRoutesResponseSchema,
+  CreateRouteResponseSchema,
+  UpdateRouteResponseSchema,
+  GetMaintenanceResponseSchema,
+  CreateMaintenanceResponseSchema,
+  UpdateMaintenanceResponseSchema,
+  OrderWeightResponseSchema,
+  TruckCapacityResponseSchema,
+  BestAllocationResponseSchema,
+  AllocationValidationResponseSchema,
+  TruckScheduleResponseSchema,
+  OptimizedAllocationsResponseSchema,
+  LoadInventoryResponseSchema,
+  UnloadInventoryResponseSchema,
+  TruckInventoryResponseSchema,
+} from '../schemas/output/trucks-output';
+
 import {
   calculateOrderWeight,
   calculateTruckCapacity,
@@ -25,98 +80,21 @@ const AllocationStatusEnum = z.enum(['planned', 'loaded', 'delivered', 'cancelle
 const MaintenanceTypeEnum = z.enum(['routine', 'repair', 'inspection', 'emergency']);
 const MaintenanceStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']);
 
-const CreateTruckSchema = z.object({
-  fleet_number: z.string().min(1),
-  license_plate: z.string().min(1),
-  capacity_cylinders: z.number().positive(),
-  capacity_kg: z.number().positive().optional(), // Not in database, for calculations only
-  driver_name: z.string().nullable().optional(),
-  active: z.boolean().default(true),
-  status: TruckStatusEnum.default('active').optional(), // Not in database
-  last_maintenance_date: z.string().nullable().optional(),
-  next_maintenance_due: z.string().nullable().optional(),
-  maintenance_interval_days: z.number().positive().optional(), // Not in database
-  fuel_capacity_liters: z.number().positive().nullable().optional(),
-  avg_fuel_consumption: z.number().positive().nullable().optional(),
-});
-
-const UpdateTruckSchema = z.object({
-  id: z.string().uuid(),
-  fleet_number: z.string().min(1).optional(),
-  license_plate: z.string().min(1).optional(),
-  capacity_cylinders: z.number().positive().optional(),
-  capacity_kg: z.number().positive().optional(), // Not in database, for calculations only
-  driver_name: z.string().nullable().optional(),
-  active: z.boolean().optional(),
-  status: TruckStatusEnum.optional(), // Not in database
-  last_maintenance_date: z.string().nullable().optional(),
-  next_maintenance_due: z.string().nullable().optional(),
-  maintenance_interval_days: z.number().positive().optional(), // Not in database
-  fuel_capacity_liters: z.number().positive().nullable().optional(),
-  avg_fuel_consumption: z.number().positive().nullable().optional(),
-});
-
-const TruckFiltersSchema = z.object({
-  search: z.string().optional(),
-  status: TruckStatusEnum.optional(), // For frontend compatibility but not used in database query
-  active: z.boolean().optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
-});
-
-const CreateTruckRouteSchema = z.object({
-  truck_id: z.string().uuid(),
-  route_date: z.string(),
-  planned_start_time: z.string().optional(),
-  planned_end_time: z.string().optional(),
-  total_distance_km: z.number().positive().optional(),
-  estimated_duration_hours: z.number().positive().optional(),
-});
-
-const UpdateTruckRouteSchema = z.object({
-  id: z.string().uuid(),
-  actual_start_time: z.string().optional(),
-  actual_end_time: z.string().optional(),
-  route_status: RouteStatusEnum.optional(),
-  actual_duration_hours: z.number().positive().optional(),
-  fuel_used_liters: z.number().positive().optional(),
-});
-
-const TruckAllocationSchema = z.object({
-  truck_id: z.string().uuid(),
-  order_id: z.string().uuid(),
-  allocation_date: z.string(),
-  estimated_weight_kg: z.number().positive(),
-  stop_sequence: z.number().positive().optional(),
-});
-
-const UpdateTruckAllocationSchema = z.object({
-  id: z.string().uuid(),
-  status: AllocationStatusEnum.optional(),
-  stop_sequence: z.number().positive().optional(),
-});
-
-const CreateMaintenanceSchema = z.object({
-  truck_id: z.string().uuid(),
-  maintenance_type: MaintenanceTypeEnum,
-  scheduled_date: z.string(),
-  description: z.string().min(1),
-  cost: z.number().positive().optional(),
-  mechanic: z.string().optional(),
-});
-
-const UpdateMaintenanceSchema = z.object({
-  id: z.string().uuid(),
-  completed_date: z.string().optional(),
-  status: MaintenanceStatusEnum.optional(),
-  cost: z.number().positive().optional(),
-  mechanic: z.string().optional(),
-});
-
 export const trucksRouter = router({
   // GET /trucks - List trucks with optional filters
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks',
+        tags: ['trucks'],
+        summary: 'List trucks with filtering and pagination',
+        description: 'Retrieve a paginated list of trucks with optional filtering by search text, status, and active state. Includes inventory data for each truck.',
+        protect: true,
+      }
+    })
     .input(TruckFiltersSchema.optional())
+    .output(TruckListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -223,9 +201,20 @@ export const trucksRouter = router({
       };
     }),
 
-  // GET /trucks/:id - Get truck with inventory
+  // GET /trucks/{id} - Get truck with inventory
   get: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks/{id}',
+        tags: ['trucks'],
+        summary: 'Get truck details with inventory',
+        description: 'Retrieve detailed information about a specific truck including current inventory, route information, and capacity calculations.',
+        protect: true,
+      }
+    })
+    .input(GetTruckByIdSchema)
+    .output(TruckDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -305,7 +294,18 @@ export const trucksRouter = router({
 
   // POST /trucks - Create truck
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks',
+        tags: ['trucks'],
+        summary: 'Create new truck',
+        description: 'Create a new truck with fleet information, capacity details, and driver assignment.',
+        protect: true,
+      }
+    })
     .input(CreateTruckSchema)
+    .output(CreateTruckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -351,9 +351,20 @@ export const trucksRouter = router({
       return data;
     }),
 
-  // PUT /trucks/:id - Update truck
+  // PUT /trucks/{id} - Update truck
   update: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/trucks/{id}',
+        tags: ['trucks'],
+        summary: 'Update truck information',
+        description: 'Update truck details including fleet number, capacity, driver information, and maintenance schedules.',
+        protect: true,
+      }
+    })
     .input(UpdateTruckSchema)
+    .output(UpdateTruckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -393,9 +404,20 @@ export const trucksRouter = router({
       return data;
     }),
 
-  // DELETE /trucks/:id - Delete truck
+  // DELETE /trucks/{id} - Delete truck
   delete: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'DELETE',
+        path: '/trucks/{id}',
+        tags: ['trucks'],
+        summary: 'Delete truck',
+        description: 'Delete a truck from the fleet. This action cannot be undone.',
+        protect: true,
+      }
+    })
+    .input(DeleteTruckSchema)
+    .output(DeleteTruckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -427,10 +449,18 @@ export const trucksRouter = router({
 
   // Truck Capacity Management
   getAllocations: protectedProcedure
-    .input(z.object({ 
-      date: z.string().optional(),
-      truck_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks/allocations',
+        tags: ['trucks'],
+        summary: 'Get truck allocations',
+        description: 'Retrieve truck allocations for a specific date and/or truck with order assignments and capacity information.',
+        protect: true,
+      }
+    })
+    .input(GetAllocationsSchema)
+    .output(GetAllocationsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -469,7 +499,18 @@ export const trucksRouter = router({
 
   // POST /trucks/allocations - Allocate order to truck
   allocateOrder: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/allocations',
+        tags: ['trucks'],
+        summary: 'Allocate order to truck',
+        description: 'Assign an order to a specific truck with estimated weight and delivery sequence information.',
+        protect: true,
+      }
+    })
     .input(TruckAllocationSchema)
+    .output(CreateAllocationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -506,7 +547,18 @@ export const trucksRouter = router({
 
   // PUT /trucks/allocations/:id - Update allocation
   updateAllocation: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/trucks/allocations/{id}',
+        tags: ['trucks'],
+        summary: 'Update truck allocation',
+        description: 'Update the status or sequence of an existing truck allocation.',
+        protect: true,
+      }
+    })
     .input(UpdateTruckAllocationSchema)
+    .output(UpdateAllocationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -543,10 +595,18 @@ export const trucksRouter = router({
 
   // Truck Routes Management
   getRoutes: protectedProcedure
-    .input(z.object({ 
-      truck_id: z.string().uuid().optional(),
-      date: z.string().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks/routes',
+        tags: ['trucks'],
+        summary: 'Get truck routes',
+        description: 'Retrieve planned and actual routes for trucks on a specific date with timing and distance information.',
+        protect: true,
+      }
+    })
+    .input(GetRoutesSchema)
+    .output(GetRoutesResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -585,7 +645,18 @@ export const trucksRouter = router({
 
   // POST /trucks/routes - Create route
   createRoute: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/routes',
+        tags: ['trucks'],
+        summary: 'Create truck route',
+        description: 'Create a new route plan for a truck with scheduled times and distance estimates.',
+        protect: true,
+      }
+    })
     .input(CreateTruckRouteSchema)
+    .output(CreateRouteResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -621,9 +692,20 @@ export const trucksRouter = router({
       return data;
     }),
 
-  // PUT /trucks/routes/:id - Update route
+  // PUT /trucks/routes/{id} - Update route
   updateRoute: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/trucks/routes/{id}',
+        tags: ['trucks'],
+        summary: 'Update truck route',
+        description: 'Update route information with actual times, status changes, and fuel consumption data.',
+        protect: true,
+      }
+    })
     .input(UpdateTruckRouteSchema)
+    .output(UpdateRouteResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -663,7 +745,18 @@ export const trucksRouter = router({
 
   // Truck Maintenance Management
   getMaintenance: protectedProcedure
-    .input(z.object({ truck_id: z.string().uuid().optional() }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks/maintenance',
+        tags: ['trucks'],
+        summary: 'Get maintenance records',
+        description: 'Retrieve maintenance records for trucks with scheduling, completion status, and cost information.',
+        protect: true,
+      }
+    })
+    .input(GetMaintenanceSchema)
+    .output(GetMaintenanceResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -699,7 +792,18 @@ export const trucksRouter = router({
 
   // POST /trucks/maintenance - Schedule maintenance
   scheduleMaintenance: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/maintenance',
+        tags: ['trucks'],
+        summary: 'Schedule truck maintenance',
+        description: 'Schedule maintenance for a truck with type, date, description, and mechanic assignment.',
+        protect: true,
+      }
+    })
     .input(CreateMaintenanceSchema)
+    .output(CreateMaintenanceResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -735,9 +839,20 @@ export const trucksRouter = router({
       return data;
     }),
 
-  // PUT /trucks/maintenance/:id - Update maintenance
+  // PUT /trucks/maintenance/{id} - Update maintenance
   updateMaintenance: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/trucks/maintenance/{id}',
+        tags: ['trucks'],
+        summary: 'Update maintenance record',
+        description: 'Update maintenance record with completion status, actual costs, and mechanic notes.',
+        protect: true,
+      }
+    })
     .input(UpdateMaintenanceSchema)
+    .output(UpdateMaintenanceResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -777,16 +892,18 @@ export const trucksRouter = router({
 
   // Truck Capacity Calculation Endpoints
   calculateOrderWeight: protectedProcedure
-    .input(z.object({
-      order_lines: z.array(z.object({
-        id: z.string(),
-        order_id: z.string(),
-        product_id: z.string(),
-        quantity: z.number(),
-        unit_price: z.number()
-      })),
-      product_ids: z.array(z.string()).optional()
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/calculate-order-weight',
+        tags: ['trucks'],
+        summary: 'Calculate order weight',
+        description: 'Calculate the total weight of an order for truck capacity planning and allocation decisions.',
+        protect: true,
+      }
+    })
+    .input(CalculateOrderWeightSchema)
+    .output(OrderWeightResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -822,10 +939,18 @@ export const trucksRouter = router({
     }),
 
   calculateCapacity: protectedProcedure
-    .input(z.object({
-      truck_id: z.string().uuid(),
-      date: z.string()
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks/{truck_id}/capacity',
+        tags: ['trucks'],
+        summary: 'Calculate truck capacity',
+        description: 'Calculate current capacity utilization for a truck on a specific date including existing allocations.',
+        protect: true,
+      }
+    })
+    .input(CalculateCapacitySchema)
+    .output(TruckCapacityResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -921,11 +1046,18 @@ export const trucksRouter = router({
     }),
 
   findBestAllocation: protectedProcedure
-    .input(z.object({
-      order_id: z.string().uuid(),
-      order_weight: z.number(),
-      target_date: z.string()
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/find-best-allocation',
+        tags: ['trucks'],
+        summary: 'Find best truck allocation',
+        description: 'Find the most suitable truck for an order based on capacity, efficiency, and utilization optimization.',
+        protect: true,
+      }
+    })
+    .input(FindBestAllocationSchema)
+    .output(BestAllocationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -993,12 +1125,18 @@ export const trucksRouter = router({
     }),
 
   validateAllocation: protectedProcedure
-    .input(z.object({
-      truck_id: z.string().uuid(),
-      order_id: z.string().uuid(),
-      order_weight: z.number(),
-      target_date: z.string()
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/validate-allocation',
+        tags: ['trucks'],
+        summary: 'Validate truck allocation',
+        description: 'Validate if a specific truck can accommodate an order considering capacity constraints and existing allocations.',
+        protect: true,
+      }
+    })
+    .input(ValidateAllocationSchema)
+    .output(AllocationValidationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1066,9 +1204,18 @@ export const trucksRouter = router({
     }),
 
   generateSchedule: protectedProcedure
-    .input(z.object({
-      date: z.string()
-    }))
+    // .meta({
+    //   openapi: {
+    //     method: 'GET',
+    //     path: '/trucks/schedule/{date}',
+    //     tags: ['trucks'],
+    //     summary: 'Generate daily truck schedule',
+    //     description: 'Generate optimized daily schedules for all trucks with capacity utilization and fleet efficiency metrics.',
+    //     protect: true,
+    //   }
+    // })
+    .input(GenerateScheduleSchema)
+    // .output(TruckScheduleResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1163,10 +1310,18 @@ export const trucksRouter = router({
     }),
 
   optimizeAllocations: protectedProcedure
-    .input(z.object({
-      order_ids: z.array(z.string().uuid()),
-      target_date: z.string()
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/optimize-allocations',
+        tags: ['trucks'],
+        summary: 'Optimize truck allocations',
+        description: 'Optimize truck allocations for multiple orders to maximize efficiency and minimize costs.',
+        protect: true,
+      }
+    })
+    .input(OptimizeAllocationsSchema)
+    .output(OptimizedAllocationsResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1255,18 +1410,21 @@ export const trucksRouter = router({
     }),
 
   // Truck Inventory Transfer Endpoints
-  loadInventory: protectedProcedure
-    .input(z.object({
-      truck_id: z.string().uuid(),
-      warehouse_id: z.string().uuid(),
-      items: z.array(z.object({
-        product_id: z.string().uuid(),
-        qty_full: z.number().min(0),
-        qty_empty: z.number().min(0),
-      })).min(1),
-    }))
+    loadInventory: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/{truck_id}/load-inventory',
+        tags: ['trucks'],
+        summary: 'Load truck inventory',
+        description: 'Load inventory from warehouse to truck with atomic transfer validation and comprehensive logging.',
+        protect: true,
+      }
+    })
+    .input(LoadInventorySchema)
+    .output(LoadInventoryResponseSchema)
     .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+        const user = requireAuth(ctx);
       
       ctx.logger.info('Loading truck inventory:', input);
 
@@ -1535,15 +1693,18 @@ export const trucksRouter = router({
     }),
 
   unloadInventory: protectedProcedure
-    .input(z.object({
-      truck_id: z.string().uuid(),
-      warehouse_id: z.string().uuid(),
-      items: z.array(z.object({
-        product_id: z.string().uuid(),
-        qty_full: z.number().min(0),
-        qty_empty: z.number().min(0),
-      })).min(1),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/{truck_id}/unload-inventory',
+        tags: ['trucks'],
+        summary: 'Unload truck inventory',
+        description: 'Unload inventory from truck to warehouse with transfer validation and tracking.',
+        protect: true,
+      }
+    })
+    .input(UnloadInventorySchema)
+    .output(UnloadInventoryResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1659,12 +1820,20 @@ export const trucksRouter = router({
       };
     }),
 
-  // GET /trucks/:id/inventory - Get truck current inventory
+  // GET /trucks/{truck_id}/inventory - Get truck current inventory
   getInventory: protectedProcedure
-    .input(z.object({ 
-      truck_id: z.string().uuid(),
-      include_product_details: z.boolean().optional().default(true)
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks/{truck_id}/inventory',
+        tags: ['trucks'],
+        summary: 'Get truck inventory',
+        description: 'Retrieve current inventory status for a truck with capacity utilization and product details.',
+        protect: true,
+      }
+    })
+    .input(GetInventorySchema)
+    .output(TruckInventoryResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

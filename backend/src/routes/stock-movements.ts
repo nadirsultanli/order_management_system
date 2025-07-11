@@ -3,52 +3,42 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
-// Validation schemas
-const MovementTypeEnum = z.enum(['delivery', 'pickup', 'refill', 'exchange', 'transfer', 'adjustment']);
+// Import input schemas
+import {
+  MovementTypeEnum,
+  StockMovementFiltersSchema,
+  GetStockMovementByIdSchema,
+  CreateStockMovementSchema,
+  BulkMovementSchema,
+  RefillOrderProcessSchema,
+  StockMovementSummarySchema,
+} from '../schemas/input/stock-movements-input';
 
-const StockMovementFiltersSchema = z.object({
-  search: z.string().optional(),
-  product_id: z.string().uuid().optional(),
-  warehouse_id: z.string().uuid().optional(),
-  truck_id: z.string().uuid().optional(),
-  order_id: z.string().uuid().optional(),
-  movement_type: MovementTypeEnum.optional(),
-  date_from: z.string().optional(),
-  date_to: z.string().optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
-  sort_by: z.enum(['movement_date', 'created_at', 'movement_type']).default('movement_date'),
-  sort_order: z.enum(['asc', 'desc']).default('desc'),
-});
-
-const CreateStockMovementSchema = z.object({
-  product_id: z.string().uuid(),
-  warehouse_id: z.string().uuid().optional(),
-  truck_id: z.string().uuid().optional(),
-  order_id: z.string().uuid().optional(),
-  movement_type: MovementTypeEnum,
-  qty_full_in: z.number().int().min(0).default(0),
-  qty_full_out: z.number().int().min(0).default(0),
-  qty_empty_in: z.number().int().min(0).default(0),
-  qty_empty_out: z.number().int().min(0).default(0),
-  movement_date: z.string(),
-  reference_number: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-const BulkMovementSchema = z.object({
-  movements: z.array(CreateStockMovementSchema).min(1),
-});
-
-const RefillOrderProcessSchema = z.object({
-  order_id: z.string().uuid(),
-  warehouse_id: z.string().uuid().optional(),
-});
+// Import output schemas
+import {
+  StockMovementListResponseSchema,
+  StockMovementDetailResponseSchema,
+  CreateStockMovementResponseSchema,
+  BulkStockMovementResponseSchema,
+  RefillOrderProcessResponseSchema,
+  StockMovementSummaryResponseSchema,
+} from '../schemas/output/stock-movements-output';
 
 export const stockMovementsRouter = router({
   // GET /stock-movements - List stock movements with filters
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/stock-movements',
+        tags: ['stock-movements'],
+        summary: 'List stock movements with filters',
+        description: 'Retrieve a paginated list of stock movements with comprehensive filtering options including search, product, warehouse, truck, order, movement type, and date range filters.',
+        protect: true,
+      }
+    })
     .input(StockMovementFiltersSchema.optional())
+    .output(StockMovementListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -148,7 +138,18 @@ export const stockMovementsRouter = router({
 
   // GET /stock-movements/:id - Get specific stock movement
   get: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/stock-movements/{id}',
+        tags: ['stock-movements'],
+        summary: 'Get stock movement by ID',
+        description: 'Retrieve a specific stock movement by its unique identifier.',
+        protect: true,
+      }
+    })
+    .input(GetStockMovementByIdSchema)
+    .output(StockMovementDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -200,7 +201,18 @@ export const stockMovementsRouter = router({
 
   // POST /stock-movements - Create stock movement
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/stock-movements',
+        tags: ['stock-movements'],
+        summary: 'Create stock movement',
+        description: 'Create a new stock movement record.',
+        protect: true,
+      }
+    })
     .input(CreateStockMovementSchema)
+    .output(CreateStockMovementResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -243,7 +255,18 @@ export const stockMovementsRouter = router({
 
   // POST /stock-movements/bulk - Create multiple stock movements
   createBulk: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/stock-movements/bulk',
+        tags: ['stock-movements'],
+        summary: 'Create multiple stock movements',
+        description: 'Create multiple stock movement records in a single batch.',
+        protect: true,
+      }
+    })
     .input(BulkMovementSchema)
+    .output(BulkStockMovementResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -278,7 +301,18 @@ export const stockMovementsRouter = router({
 
   // POST /stock-movements/process-refill-order - Process refill order stock movements
   processRefillOrder: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/stock-movements/process-refill-order',
+        tags: ['stock-movements'],
+        summary: 'Process refill order stock movements',
+        description: 'Process the stock movements for a specific refill order, updating inventory balances and marking the order as processed.',
+        protect: true,
+      }
+    })
     .input(RefillOrderProcessSchema)
+    .output(RefillOrderProcessResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -302,13 +336,18 @@ export const stockMovementsRouter = router({
 
   // GET /stock-movements/summary - Get stock movement summary for a period
   getSummary: protectedProcedure
-    .input(z.object({
-      date_from: z.string(),
-      date_to: z.string(),
-      product_id: z.string().uuid().optional(),
-      warehouse_id: z.string().uuid().optional(),
-      truck_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/stock-movements/summary',
+        tags: ['stock-movements'],
+        summary: 'Get stock movement summary for a period',
+        description: 'Retrieve a summary of stock movements for a specific date range, product, warehouse, and truck.',
+        protect: true,
+      }
+    })
+    .input(StockMovementSummarySchema)
+    .output(StockMovementSummaryResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

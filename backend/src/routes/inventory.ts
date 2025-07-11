@@ -4,62 +4,53 @@ import { requireAuth } from '../lib/auth';
 import { formatErrorMessage } from '../lib/logger';
 import { TRPCError } from '@trpc/server';
 
-// Validation schemas
-const InventoryFiltersSchema = z.object({
-  warehouse_id: z.string().uuid().optional(),
-  product_id: z.string().uuid().optional(),
-  search: z.string().optional(),
-  low_stock_only: z.boolean().default(false),
-  out_of_stock_only: z.boolean().default(false),
-  overstocked_only: z.boolean().default(false),
-  critical_stock_only: z.boolean().default(false),
-  product_status: z.enum(['active', 'obsolete']).optional(),
-  stock_threshold_days: z.number().min(1).max(365).default(30),
-  min_qty_available: z.number().min(0).optional(),
-  max_qty_available: z.number().min(0).optional(),
-  include_reserved: z.boolean().default(true),
-  sort_by: z.enum(['updated_at', 'qty_available', 'product_name', 'warehouse_name', 'stock_level_ratio']).default('updated_at'),
-  sort_order: z.enum(['asc', 'desc']).default('desc'),
-});
+// Import input schemas
+import {
+  InventoryFiltersSchema,
+  GetByWarehouseSchema,
+  GetByProductSchema,
+  GetStatsSchema,
+  CreateInventoryBalanceSchema,
+  StockAdjustmentSchema,
+  ValidateAdjustmentSchema,
+  StockTransferSchema,
+  ReservationSchema,
+  GetMovementsSchema,
+  GetLowStockSchema,
+  CheckAvailabilitySchema,
+} from '../schemas/input/inventory-input';
 
-const StockAdjustmentSchema = z.object({
-  inventory_id: z.string().uuid(),
-  adjustment_type: z.enum(['received_full', 'received_empty', 'physical_count', 'damage_loss', 'other']),
-  qty_full_change: z.number(),
-  qty_empty_change: z.number(),
-  reason: z.string().min(1, 'Reason is required'),
-});
-
-const StockTransferSchema = z.object({
-  from_warehouse_id: z.string().uuid(),
-  to_warehouse_id: z.string().uuid(),
-  product_id: z.string().uuid(),
-  qty_full: z.number().min(0),
-  qty_empty: z.number().min(0),
-  notes: z.string().optional(),
-});
-
-const CreateInventoryBalanceSchema = z.object({
-  warehouse_id: z.string().uuid(),
-  product_id: z.string().uuid(),
-  qty_full: z.number().min(0).default(0),
-  qty_empty: z.number().min(0).default(0),
-  qty_reserved: z.number().min(0).default(0),
-});
-
-const ReservationSchema = z.object({
-  order_id: z.string().uuid().optional(),
-  reservations: z.array(z.object({
-    product_id: z.string().uuid(),
-    quantity: z.number().positive(),
-    warehouse_id: z.string().uuid().optional(),
-  })),
-});
+// Import output schemas
+import {
+  InventoryListResponseSchema,
+  InventoryByWarehouseResponseSchema,
+  InventoryByProductResponseSchema,
+  InventoryStatsResponseSchema,
+  CreateInventoryResponseSchema,
+  StockAdjustmentResponseSchema,
+  StockTransferResponseSchema,
+  ReservationResponseSchema,
+  MovementsResponseSchema,
+  ValidateAdjustmentResponseSchema,
+  LowStockResponseSchema,
+  AvailabilityResponseSchema,
+} from '../schemas/output/inventory-output';
 
 export const inventoryRouter = router({
   // GET /inventory - List inventory with advanced filtering and business logic
   list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory',
+        tags: ['inventory'],
+        summary: 'List inventory with advanced filtering',
+        description: 'Get inventory balance with advanced filtering, stock level analysis, and business intelligence. Supports filtering by warehouse, product, stock levels, and search terms.',
+        protect: true,
+      }
+    })
     .input(InventoryFiltersSchema.optional())
+    .output(InventoryListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -181,11 +172,20 @@ export const inventoryRouter = router({
       };
     }),
 
-  // GET /inventory/warehouse/{id} - Get inventory for specific warehouse
+  // GET /inventory/warehouse/{warehouse_id} - Get inventory for specific warehouse
   getByWarehouse: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory/warehouse/{warehouse_id}',
+        tags: ['inventory'],
+        summary: 'Get inventory by warehouse',
+        description: 'Retrieve all inventory records for a specific warehouse with product details.',
+        protect: true,
+      }
+    })
+    .input(GetByWarehouseSchema)
+    .output(InventoryByWarehouseResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -219,11 +219,20 @@ export const inventoryRouter = router({
       return data || [];
     }),
 
-  // GET /inventory/product/{id} - Get inventory for specific product across warehouses
+  // GET /inventory/product/{product_id} - Get inventory for specific product across warehouses
   getByProduct: protectedProcedure
-    .input(z.object({
-      product_id: z.string().uuid(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory/product/{product_id}',
+        tags: ['inventory'],
+        summary: 'Get inventory by product',
+        description: 'Retrieve inventory records for a specific product across all warehouses.',
+        protect: true,
+      }
+    })
+    .input(GetByProductSchema)
+    .output(InventoryByProductResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -258,9 +267,18 @@ export const inventoryRouter = router({
 
   // GET /inventory/stats - Get inventory statistics
   getStats: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory/stats',
+        tags: ['inventory'],
+        summary: 'Get inventory statistics',
+        description: 'Get basic inventory statistics including totals and low stock counts. Optionally filter by warehouse.',
+        protect: true,
+      }
+    })
+    .input(GetStatsSchema)
+    .output(InventoryStatsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -307,7 +325,18 @@ export const inventoryRouter = router({
 
   // POST /inventory/adjust - Adjust inventory levels
   adjustStock: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/adjust',
+        tags: ['inventory'],
+        summary: 'Adjust inventory stock levels',
+        description: 'Adjust the quantity of full and empty cylinders in inventory with business rule validation and audit trail.',
+        protect: true,
+      }
+    })
     .input(StockAdjustmentSchema)
+    .output(StockAdjustmentResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -401,276 +430,298 @@ export const inventoryRouter = router({
 
   // POST /inventory/transfer - Transfer stock between warehouses
   transferStock: protectedProcedure
-  .input(StockTransferSchema)
-  .mutation(async ({ input, ctx }) => {
-    const user = requireAuth(ctx);
-    
-    ctx.logger.info('Transferring stock:', input);
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/transfer',
+        tags: ['inventory'],
+        summary: 'Transfer stock between warehouses',
+        description: 'Transfer inventory between warehouses with full validation and atomicity. Creates destination inventory if it doesn\'t exist.',
+        protect: true,
+      }
+    })
+    .input(StockTransferSchema)
+    .output(StockTransferResponseSchema)
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Transferring stock:', input);
 
-    // Validate source and destination are different
-    if (input.from_warehouse_id === input.to_warehouse_id) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'Source and destination warehouses must be different'
-      });
-    }
+      // Validate source and destination are different
+      if (input.from_warehouse_id === input.to_warehouse_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Source and destination warehouses must be different'
+        });
+      }
 
-    // Validate both warehouses exist
-    const { data: warehouses, error: warehouseError } = await ctx.supabase
-      .from('warehouses')
-      .select('id')
-      .in('id', [input.from_warehouse_id, input.to_warehouse_id]);
+      // Validate both warehouses exist
+      const { data: warehouses, error: warehouseError } = await ctx.supabase
+        .from('warehouses')
+        .select('id')
+        .in('id', [input.from_warehouse_id, input.to_warehouse_id]);
 
-    if (warehouseError || warehouses.length !== 2) {
-      ctx.logger.error('Warehouse validation error for stock transfer:', {
-        error: formatErrorMessage(warehouseError),
-        code: warehouseError?.code,
-        details: warehouseError?.details,
-        hint: warehouseError?.hint,
-        user_id: user.id,
-        from_warehouse_id: input.from_warehouse_id,
-        to_warehouse_id: input.to_warehouse_id,
-        found_warehouses: warehouses?.length || 0
-      });
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'One or both warehouses not found'
-      });
-    }
+      if (warehouseError || warehouses.length !== 2) {
+        ctx.logger.error('Warehouse validation error for stock transfer:', {
+          error: formatErrorMessage(warehouseError),
+          code: warehouseError?.code,
+          details: warehouseError?.details,
+          hint: warehouseError?.hint,
+          user_id: user.id,
+          from_warehouse_id: input.from_warehouse_id,
+          to_warehouse_id: input.to_warehouse_id,
+          found_warehouses: warehouses?.length || 0
+        });
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'One or both warehouses not found'
+        });
+      }
 
-    // Get source inventory
-    const { data: sourceInventory, error: sourceError } = await ctx.supabase
-      .from('inventory_balance')
-      .select('*')
-      .eq('warehouse_id', input.from_warehouse_id)
-      .eq('product_id', input.product_id)
-      .single();
-
-    if (sourceError) {
-      ctx.logger.error('Source inventory not found for transfer:', {
-        error: formatErrorMessage(sourceError),
-        code: sourceError?.code,
-        details: sourceError?.details,
-        hint: sourceError?.hint,
-        user_id: user.id,
-        from_warehouse_id: input.from_warehouse_id,
-        product_id: input.product_id
-      });
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'Source inventory not found'
-      });
-    }
-
-    // Validate transfer quantities
-    if (input.qty_full > sourceInventory.qty_full) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: `Cannot transfer more full cylinders than available (${sourceInventory.qty_full})`
-      });
-    }
-    if (input.qty_empty > sourceInventory.qty_empty) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: `Cannot transfer more empty cylinders than available (${sourceInventory.qty_empty})`
-      });
-    }
-
-    // Check if transfer would leave less than reserved stock
-    const remainingFull = sourceInventory.qty_full - input.qty_full;
-    if (remainingFull < sourceInventory.qty_reserved) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: `Transfer would leave insufficient stock to cover reservations (${sourceInventory.qty_reserved} reserved)`
-      });
-    }
-
-    // Get or create destination inventory
-    let { data: destInventory, error: destError } = await ctx.supabase
-      .from('inventory_balance')
-      .select('*')
-      .eq('warehouse_id', input.to_warehouse_id)
-      .eq('product_id', input.product_id)
-      .single();
-
-    if (destError && destError.code === 'PGRST116') {
-      // Create new inventory record for destination
-      const { data: newDestInventory, error: createError } = await ctx.supabase
+      // Get source inventory
+      const { data: sourceInventory, error: sourceError } = await ctx.supabase
         .from('inventory_balance')
-        .insert([{
-          warehouse_id: input.to_warehouse_id,
-          product_id: input.product_id,
-          qty_full: 0,
-          qty_empty: 0,
-          qty_reserved: 0,
-          updated_at: new Date().toISOString(),
-        }])
-        .select()
+        .select('*')
+        .eq('warehouse_id', input.from_warehouse_id)
+        .eq('product_id', input.product_id)
         .single();
 
-      if (createError) {
-        ctx.logger.error('Destination inventory creation error:', {
-          error: formatErrorMessage(createError),
-          code: createError?.code,
-          details: createError?.details,
-          hint: createError?.hint,
+      if (sourceError) {
+        ctx.logger.error('Source inventory not found for transfer:', {
+          error: formatErrorMessage(sourceError),
+          code: sourceError?.code,
+          details: sourceError?.details,
+          hint: sourceError?.hint,
+          user_id: user.id,
+          from_warehouse_id: input.from_warehouse_id,
+          product_id: input.product_id
+        });
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Source inventory not found'
+        });
+      }
+
+      // Validate transfer quantities
+      if (input.qty_full > sourceInventory.qty_full) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot transfer more full cylinders than available (${sourceInventory.qty_full})`
+        });
+      }
+      if (input.qty_empty > sourceInventory.qty_empty) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot transfer more empty cylinders than available (${sourceInventory.qty_empty})`
+        });
+      }
+
+      // Check if transfer would leave less than reserved stock
+      const remainingFull = sourceInventory.qty_full - input.qty_full;
+      if (remainingFull < sourceInventory.qty_reserved) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Transfer would leave insufficient stock to cover reservations (${sourceInventory.qty_reserved} reserved)`
+        });
+      }
+
+      // Get or create destination inventory
+      let { data: destInventory, error: destError } = await ctx.supabase
+        .from('inventory_balance')
+        .select('*')
+        .eq('warehouse_id', input.to_warehouse_id)
+        .eq('product_id', input.product_id)
+        .single();
+
+      if (destError && destError.code === 'PGRST116') {
+        // Create new inventory record for destination
+        const { data: newDestInventory, error: createError } = await ctx.supabase
+          .from('inventory_balance')
+          .insert([{
+            warehouse_id: input.to_warehouse_id,
+            product_id: input.product_id,
+            qty_full: 0,
+            qty_empty: 0,
+            qty_reserved: 0,
+            updated_at: new Date().toISOString(),
+          }])
+          .select()
+          .single();
+
+        if (createError) {
+          ctx.logger.error('Destination inventory creation error:', {
+            error: formatErrorMessage(createError),
+            code: createError?.code,
+            details: createError?.details,
+            hint: createError?.hint,
+            user_id: user.id,
+            to_warehouse_id: input.to_warehouse_id,
+            product_id: input.product_id
+          });
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to create destination inventory: ${formatErrorMessage(createError)}`
+          });
+        }
+
+        destInventory = newDestInventory;
+      } else if (destError) {
+        ctx.logger.error('Destination inventory error:', {
+          error: formatErrorMessage(destError),
+          code: destError?.code,
+          details: destError?.details,
+          hint: destError?.hint,
           user_id: user.id,
           to_warehouse_id: input.to_warehouse_id,
           product_id: input.product_id
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create destination inventory: ${formatErrorMessage(createError)}`
+          message: `Failed to access destination inventory: ${formatErrorMessage(destError)}`
         });
       }
 
-      destInventory = newDestInventory;
-    } else if (destError) {
-      ctx.logger.error('Destination inventory error:', {
-        error: formatErrorMessage(destError),
-        code: destError?.code,
-        details: destError?.details,
-        hint: destError?.hint,
-        user_id: user.id,
-        to_warehouse_id: input.to_warehouse_id,
-        product_id: input.product_id
-      });
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: `Failed to access destination inventory: ${formatErrorMessage(destError)}`
-      });
-    }
-
-    // REPLACED: Execute transfer using direct database updates instead of RPC
-    let transferResult;
-    try {
-      ctx.logger.info('Starting direct transfer without RPC function');
-      
-      // Step 1: Update source inventory (subtract quantities)
-      const { error: sourceUpdateError } = await ctx.supabase
-        .from('inventory_balance')
-        .update({
-          qty_full: sourceInventory.qty_full - input.qty_full,
-          qty_empty: sourceInventory.qty_empty - input.qty_empty,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('warehouse_id', input.from_warehouse_id)
-        .eq('product_id', input.product_id);
-
-      if (sourceUpdateError) {
-        ctx.logger.error('Failed to update source inventory:', sourceUpdateError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to update source inventory: ${sourceUpdateError.message}`
-        });
-      }
-
-      ctx.logger.info('Source inventory updated successfully');
-
-      // Step 2: Update destination inventory (add quantities)
-      const { error: destUpdateError } = await ctx.supabase
-        .from('inventory_balance')
-        .update({
-          qty_full: destInventory.qty_full + input.qty_full,
-          qty_empty: destInventory.qty_empty + input.qty_empty,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('warehouse_id', input.to_warehouse_id)
-        .eq('product_id', input.product_id);
-
-      if (destUpdateError) {
-        ctx.logger.error('Failed to update destination inventory:', destUpdateError);
+      // REPLACED: Execute transfer using direct database updates instead of RPC
+      let transferResult;
+      try {
+        ctx.logger.info('Starting direct transfer without RPC function');
         
-        // Rollback source inventory on destination failure
-        await ctx.supabase
+        // Step 1: Update source inventory (subtract quantities)
+        const { error: sourceUpdateError } = await ctx.supabase
           .from('inventory_balance')
           .update({
-            qty_full: sourceInventory.qty_full, // Restore original
-            qty_empty: sourceInventory.qty_empty, // Restore original
+            qty_full: sourceInventory.qty_full - input.qty_full,
+            qty_empty: sourceInventory.qty_empty - input.qty_empty,
             updated_at: new Date().toISOString(),
           })
           .eq('warehouse_id', input.from_warehouse_id)
           .eq('product_id', input.product_id);
+
+        if (sourceUpdateError) {
+          ctx.logger.error('Failed to update source inventory:', sourceUpdateError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to update source inventory: ${sourceUpdateError.message}`
+          });
+        }
+
+        ctx.logger.info('Source inventory updated successfully');
+
+        // Step 2: Update destination inventory (add quantities)
+        const { error: destUpdateError } = await ctx.supabase
+          .from('inventory_balance')
+          .update({
+            qty_full: destInventory.qty_full + input.qty_full,
+            qty_empty: destInventory.qty_empty + input.qty_empty,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('warehouse_id', input.to_warehouse_id)
+          .eq('product_id', input.product_id);
+
+        if (destUpdateError) {
+          ctx.logger.error('Failed to update destination inventory:', destUpdateError);
+          
+          // Rollback source inventory on destination failure
+          await ctx.supabase
+            .from('inventory_balance')
+            .update({
+              qty_full: sourceInventory.qty_full, // Restore original
+              qty_empty: sourceInventory.qty_empty, // Restore original
+              updated_at: new Date().toISOString(),
+            })
+            .eq('warehouse_id', input.from_warehouse_id)
+            .eq('product_id', input.product_id);
+          
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to update destination inventory: ${destUpdateError.message}`
+          });
+        }
+
+        ctx.logger.info('Destination inventory updated successfully');
+
+        // Create transfer result object (replaces RPC result)
+        transferResult = {
+          success: true,
+          message: 'Direct transfer completed successfully',
+          transferred_full: input.qty_full,
+          transferred_empty: input.qty_empty,
+          from_warehouse_id: input.from_warehouse_id,
+          to_warehouse_id: input.to_warehouse_id,
+          product_id: input.product_id,
+          timestamp: new Date().toISOString()
+        };
+
+        ctx.logger.info('Direct transfer completed successfully:', transferResult);
+
+      } catch (error) {
+        ctx.logger.error('Direct transfer failed:', error);
+        
+        if (error instanceof TRPCError) {
+          throw error; // Re-throw TRPC errors as-is
+        }
         
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to update destination inventory: ${destUpdateError.message}`
+          message: `Transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`
         });
       }
 
-      ctx.logger.info('Destination inventory updated successfully');
+      // Get updated inventory records for response
+      const { data: updatedSourceInventory } = await ctx.supabase
+        .from('inventory_balance')
+        .select(`
+          *,
+          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
+          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
+        `)
+        .eq('id', sourceInventory.id)
+        .single();
 
-      // Create transfer result object (replaces RPC result)
-      transferResult = {
+      const { data: updatedDestInventory } = await ctx.supabase
+        .from('inventory_balance')
+        .select(`
+          *,
+          warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
+          product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
+        `)
+        .eq('id', destInventory.id)
+        .single();
+
+      const response = {
         success: true,
-        message: 'Direct transfer completed successfully',
-        transferred_full: input.qty_full,
-        transferred_empty: input.qty_empty,
-        from_warehouse_id: input.from_warehouse_id,
-        to_warehouse_id: input.to_warehouse_id,
-        product_id: input.product_id,
-        timestamp: new Date().toISOString()
+        transfer_result: transferResult,
+        transfer: {
+          from_warehouse_id: input.from_warehouse_id,
+          to_warehouse_id: input.to_warehouse_id,
+          product_id: input.product_id,
+          qty_full: input.qty_full,
+          qty_empty: input.qty_empty,
+          notes: input.notes,
+          timestamp: new Date().toISOString(),
+        },
+        source_inventory: updatedSourceInventory,
+        destination_inventory: updatedDestInventory,
       };
 
-      ctx.logger.info('Direct transfer completed successfully:', transferResult);
-
-    } catch (error) {
-      ctx.logger.error('Direct transfer failed:', error);
-      
-      if (error instanceof TRPCError) {
-        throw error; // Re-throw TRPC errors as-is
-      }
-      
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: `Transfer failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      });
-    }
-
-    // Get updated inventory records for response
-    const { data: updatedSourceInventory } = await ctx.supabase
-      .from('inventory_balance')
-      .select(`
-        *,
-        warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
-        product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
-      `)
-      .eq('id', sourceInventory.id)
-      .single();
-
-    const { data: updatedDestInventory } = await ctx.supabase
-      .from('inventory_balance')
-      .select(`
-        *,
-        warehouse:warehouses!inventory_balance_warehouse_id_fkey(id, name),
-        product:products!inventory_balance_product_id_fkey(id, sku, name, unit_of_measure)
-      `)
-      .eq('id', destInventory.id)
-      .single();
-
-    const response = {
-      success: true,
-      transfer_result: transferResult,
-      transfer: {
-        from_warehouse_id: input.from_warehouse_id,
-        to_warehouse_id: input.to_warehouse_id,
-        product_id: input.product_id,
-        qty_full: input.qty_full,
-        qty_empty: input.qty_empty,
-        notes: input.notes,
-        timestamp: new Date().toISOString(),
-      },
-      source_inventory: updatedSourceInventory,
-      destination_inventory: updatedDestInventory,
-    };
-
-    ctx.logger.info('Stock transferred successfully:', response);
-    return response;
-  }),
+      ctx.logger.info('Stock transferred successfully:', response);
+      return response;
+    }),
 
   // POST /inventory/create - Create new inventory balance record
   create: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/create',
+        tags: ['inventory'],
+        summary: 'Create new inventory balance record',
+        description: 'Create a new inventory balance record for a specific product and warehouse.',
+        protect: true,
+      }
+    })
     .input(CreateInventoryBalanceSchema)
+    .output(CreateInventoryResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -778,7 +829,18 @@ export const inventoryRouter = router({
 
   // POST /inventory/reserve - Reserve inventory for orders (idempotent)
   reserve: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/reserve',
+        tags: ['inventory'],
+        summary: 'Reserve inventory for orders',
+        description: 'Reserve a specified quantity of inventory for an order. This is idempotent, meaning it can be called multiple times with the same result.',
+        protect: true,
+      }
+    })
     .input(ReservationSchema)
+    .output(ReservationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -890,11 +952,18 @@ export const inventoryRouter = router({
 
   // GET /inventory/movements - Get recent stock movements
   getMovements: protectedProcedure
-    .input(z.object({
-      limit: z.number().min(1).max(100).default(10),
-      warehouse_id: z.string().uuid().optional(),
-      product_id: z.string().uuid().optional(),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory/movements',
+        tags: ['inventory'],
+        summary: 'Get recent stock movements',
+        description: 'Retrieve a list of recent stock movements (inventory adjustments, transfers, etc.) across all warehouses.',
+        protect: true,
+      }
+    })
+    .input(GetMovementsSchema)
+    .output(MovementsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -909,12 +978,18 @@ export const inventoryRouter = router({
 
   // POST /inventory/validate-adjustment - Validate stock adjustment business rules
   validateAdjustment: protectedProcedure
-    .input(z.object({
-      inventory_id: z.string().uuid(),
-      qty_full_change: z.number(),
-      qty_empty_change: z.number(),
-      adjustment_type: z.enum(['received_full', 'received_empty', 'physical_count', 'damage_loss', 'other']),
-    }))
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/validate-adjustment',
+        tags: ['inventory'],
+        summary: 'Validate stock adjustment business rules',
+        description: 'Validate if a proposed stock adjustment would violate any business rules (e.g., negative stock, insufficient reserved stock, large adjustments, pending transfers).',
+        protect: true,
+      }
+    })
+    .input(ValidateAdjustmentSchema)
+    .output(ValidateAdjustmentResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -942,7 +1017,21 @@ export const inventoryRouter = router({
           inventory_id: input.inventory_id
         });
         errors.push('Inventory record not found');
-        return { valid: false, errors, warnings };
+        return { 
+          valid: false, 
+          errors, 
+          warnings,
+          current_stock: {
+            qty_full: 0,
+            qty_empty: 0,
+            qty_reserved: 0,
+          },
+          resulting_stock: {
+            qty_full: 0,
+            qty_empty: 0,
+            qty_reserved: 0,
+          },
+        };
       }
 
       // Business rule: Cannot result in negative inventory
@@ -1033,12 +1122,18 @@ export const inventoryRouter = router({
 
   // GET /inventory/low-stock - Get low stock items with intelligent thresholds
   getLowStock: protectedProcedure
-    .input(z.object({
-      warehouse_id: z.string().uuid().optional(),
-      urgency_level: z.enum(['critical', 'low', 'warning']).default('low'),
-      days_ahead: z.number().min(1).max(90).default(14),
-      include_seasonal: z.boolean().default(true),
-    }))
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory/low-stock',
+        tags: ['inventory'],
+        summary: 'Get low stock items with intelligent thresholds',
+        description: 'Retrieve a list of products that are low on stock, considering their projected availability and urgency levels.',
+        protect: true,
+      }
+    })
+    .input(GetLowStockSchema)
+    .output(LowStockResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1100,7 +1195,7 @@ export const inventoryRouter = router({
 
       // Sort by urgency and days of stock
       const sorted = filtered.sort((a, b) => {
-        const urgencyOrder = { critical: 3, low: 2, warning: 1, ok: 0 };
+        const urgencyOrder: Record<string, number> = { critical: 3, low: 2, warning: 1, ok: 0 };
         const urgencyDiff = urgencyOrder[b.urgency_level] - urgencyOrder[a.urgency_level];
         if (urgencyDiff !== 0) return urgencyDiff;
         return a.projected_days_remaining - b.projected_days_remaining;
@@ -1117,18 +1212,21 @@ export const inventoryRouter = router({
       };
     }),
 
-  // GET /inventory/availability - Check product availability with business rules
+  // POST /inventory/availability - Check product availability with business rules
   checkAvailability: protectedProcedure
-    .input(z.object({
-      products: z.array(z.object({
-        product_id: z.string().uuid(),
-        quantity_requested: z.number().positive(),
-        warehouse_preference: z.string().uuid().optional(),
-      })),
-      delivery_date: z.string().optional(),
-      priority: z.enum(['normal', 'high', 'urgent']).default('normal'),
-    }))
-    .query(async ({ input, ctx }) => {
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/availability',
+        tags: ['inventory'],
+        summary: 'Check product availability with business rules',
+        description: 'Validate if a requested quantity of products is available across warehouses, considering delivery dates and priority.',
+        protect: true,
+      }
+    })
+    .input(CheckAvailabilitySchema)
+    .output(AvailabilityResponseSchema)
+    .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
       ctx.logger.info('Checking product availability:', input);
