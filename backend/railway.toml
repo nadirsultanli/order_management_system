@@ -11,3 +11,7 @@ restartPolicyMaxRetries = 10
 
 [app]
 root = "/app"
+
+# Fix Node.js version for Scalar packages
+[build.env]
+NIXPACKS_NODE_VERSION = "20"
