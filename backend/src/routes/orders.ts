@@ -1023,8 +1023,26 @@ export const ordersRouter = router({
           }
         }
       } else if (input.new_status === 'delivered' && currentOrder.status === 'en_route') {
-        // Order delivered - no inventory changes needed as stock was already removed when en_route
-        ctx.logger.info('Order delivered - inventory already fulfilled when went en_route');
+        // Order delivered - ensure any remaining reserved stock is cleaned up
+        if (currentOrder.order_lines) {
+          for (const line of currentOrder.order_lines) {
+            const { error: releaseError } = await ctx.supabase.rpc('release_reserved_stock', {
+              p_product_id: line.product_id,
+              p_quantity: line.quantity
+            });
+
+            if (releaseError) {
+              ctx.logger.error('Failed to release reserved stock on delivery:', {
+                error: formatErrorMessage(releaseError),
+                product_id: line.product_id,
+                quantity: line.quantity,
+                order_id: input.order_id
+              });
+              // Don't throw error here as the order delivery should still proceed
+            }
+          }
+        }
+        ctx.logger.info('Order delivered - cleaned up any remaining reserved stock');
       } else if (input.new_status === 'cancelled' && ['confirmed', 'scheduled'].includes(currentOrder.status)) {
         // Release reserved stock when order is cancelled
         if (currentOrder.order_lines) {
