@@ -177,7 +177,13 @@ export const customersRouter = router({
 
       // Combine and sort all customers
       const allCustomers = [
-        ...(customersWithAddress || []),
+        ...(customersWithAddress || []).map(c => ({
+          ...c,
+          // Transform array to single object since Supabase returns joined data as array
+          primary_address: Array.isArray(c.primary_address) && c.primary_address.length > 0 
+            ? c.primary_address[0] 
+            : null
+        })),
         ...(customersWithoutAddress || []).map(c => ({ ...c, primary_address: null }))
       ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -268,7 +274,13 @@ export const customersRouter = router({
 
       // If customer found with primary address, return it
       if (data) {
-        return data;
+        // Transform array to single object since Supabase returns joined data as array
+        return {
+          ...data,
+          primary_address: Array.isArray(data.primary_address) && data.primary_address.length > 0
+            ? data.primary_address[0]
+            : null
+        };
       }
 
       // If no customer found with primary address, try without address constraint
