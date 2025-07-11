@@ -41,15 +41,35 @@ export const CustomerWithAddressOutputSchema = CustomerOutputSchema.extend({
   primary_address: z.array(AddressOutputSchema).nullable(), // Supabase returns array from join
 });
 
-// Simplified customer for list view - matches actual return format
+// Simplified customer for list view - matches EXACT API return format
 export const CustomerListItemSchema = z.object({
   id: z.string().uuid(),
+  external_id: z.string().nullable(),
   name: z.string(),
-  email: z.string().nullable(),
+  tax_id: z.string().nullable(),
   phone: z.string().nullable(),
+  email: z.string().nullable(),
   account_status: z.enum(['active', 'credit_hold', 'closed']),
+  credit_terms_days: z.number(),
   created_at: z.string(),
-  primary_address: z.array(AddressOutputSchema).nullable(),  // Supabase LEFT JOIN returns array
+  updated_at: z.string(),
+  primary_address: z.array(z.object({
+    id: z.string().uuid(),
+    city: z.string(),
+    label: z.string().nullable(),
+    line1: z.string(),
+    line2: z.string(),
+    state: z.string().nullable(),
+    country: z.string(),
+    latitude: z.number(),
+    longitude: z.number(),
+    created_at: z.string(),
+    is_primary: z.boolean(),
+    postal_code: z.string(),
+    instructions: z.string(),
+    delivery_window_end: z.string(),
+    delivery_window_start: z.string(),
+  })), // ✅ ARRAY format - matches your API exactly!
 });
 
 // Customer statistics response
@@ -68,9 +88,25 @@ export const CustomerListOutputSchema = z.object({
   currentPage: z.number(),
 });
 
-// Full customer details response (for getById) - can have address array or null
+// Full customer details response (for getById) - matches EXACT API return format
 export const CustomerDetailsOutputSchema = CustomerOutputSchema.extend({
-  primary_address: z.array(AddressOutputSchema).nullable(),  // Supabase LEFT JOIN returns array
+  primary_address: z.array(z.object({
+    id: z.string().uuid(),
+    city: z.string(),
+    label: z.string().nullable(),
+    line1: z.string(),
+    line2: z.string(),
+    state: z.string().nullable(),
+    country: z.string(),
+    latitude: z.number(),
+    longitude: z.number(),
+    created_at: z.string(),
+    is_primary: z.boolean(),
+    postal_code: z.string(),
+    instructions: z.string(),
+    delivery_window_end: z.string(),
+    delivery_window_start: z.string(),
+  })).nullable(), // ✅ ARRAY format or null - matches API exactly!
 });
 
 // Customer creation response - returns customer with single primary address
