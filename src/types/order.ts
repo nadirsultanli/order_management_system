@@ -4,7 +4,7 @@ export interface Order {
   delivery_address_id: string;
   order_date: string;
   scheduled_date?: string;
-  status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
+  status: 'draft' | 'confirmed' | 'dispatched' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'paid' | 'completed_no_sale';
   total_amount?: number;
   tax_percent?: number;
   tax_amount?: number;
@@ -86,7 +86,7 @@ export interface CreateOrderData {
   delivery_address_id: string;
   order_date: string;
   scheduled_date?: string;
-  status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
+  status: 'draft' | 'confirmed' | 'dispatched' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'paid' | 'completed_no_sale';
   notes?: string;
   tax_percent?: number;
   tax_amount?: number;
@@ -210,7 +210,7 @@ export interface SavedFilter {
   created_by: string;
 }
 
-export type OrderStatus = 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
+export type OrderStatus = 'draft' | 'confirmed' | 'dispatched' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'paid' | 'completed_no_sale';
 
 export interface OrderWorkflowStep {
   status: OrderStatus;
