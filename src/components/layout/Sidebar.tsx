@@ -12,7 +12,8 @@ import {
   Truck,
   ArrowLeftRight,
   TrendingUp,
-  PackageCheck
+  PackageCheck,
+  CircleDollarSign
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 
@@ -34,7 +35,8 @@ const navigation = [
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
   { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight },
-  { name: 'Deliveries & Pickups', href: '/deliveries', icon: PackageCheck }
+  { name: 'Deliveries & Pickups', href: '/deliveries', icon: PackageCheck },
+  { name: 'Deposits', href: '/deposits', icon: CircleDollarSign }
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onMouseEnter, onMouseLeave }) => {

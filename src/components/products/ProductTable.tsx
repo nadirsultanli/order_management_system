@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, Edit, Trash2, Loader2, Package, Cylinder, Weight, RotateCcw } from 'lucide-react';
+import { Eye, Edit, Trash2, Loader2, Package, Cylinder, Weight, RotateCcw, Scale } from 'lucide-react';
 import { Product } from '../../types/product';
 import { StatusBadge } from '../ui/StatusBadge';
 import { useReactivateProduct } from '../../hooks/useProducts';
@@ -135,10 +135,13 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                 Type & Specs
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Variant
+                Weight Details
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tax Info
+                Pricing Method
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Variant
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
@@ -201,6 +204,50 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center space-x-2">
+                      <Scale className="h-4 w-4 text-gray-400" />
+                      <div className="text-sm text-gray-900">
+                        {product.gross_weight_kg ? (
+                          <div>
+                            <div className="font-medium">
+                              {product.gross_weight_kg} kg gross
+                            </div>
+                            {product.net_gas_weight_kg && (
+                              <div className="text-xs text-green-600">
+                                {product.net_gas_weight_kg.toFixed(2)} kg net gas
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">Weight not specified</span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {product.pricing_method ? (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          product.pricing_method === 'per_kg' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : product.pricing_method === 'tiered'
+                              ? 'bg-purple-100 text-purple-800'
+                              : product.pricing_method === 'flat_rate'
+                                ? 'bg-gray-100 text-gray-800'
+                                : 'bg-green-100 text-green-800'
+                        }`}>
+                          {product.pricing_method === 'per_kg' ? 'Per kg' :
+                           product.pricing_method === 'per_unit' ? 'Per unit' :
+                           product.pricing_method === 'flat_rate' ? 'Flat rate' :
+                           product.pricing_method === 'tiered' ? 'Tiered' : 
+                           product.pricing_method}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">Per unit</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
                       {product.variant ? (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -213,16 +260,6 @@ export const ProductTable: React.FC<ProductTableProps> = ({
                       ) : (
                         <span className="text-gray-400 text-xs">-</span>
                       )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      <div className="capitalize font-medium">
-                        {product.tax_category || 'Standard'}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {product.tax_rate ? `${(product.tax_rate * 100).toFixed(1)}% VAT` : '16.0% VAT'}
-                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

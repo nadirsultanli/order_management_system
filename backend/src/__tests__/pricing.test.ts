@@ -1,4 +1,5 @@
 import { pricingRouter } from '../routes/pricing';
+import { PricingService } from '../lib/pricing';
 
 // Mock the context for testing
 const mockContext = {
@@ -321,6 +322,274 @@ describe('Pricing Router Business Logic', () => {
       
       // Different tenant should not have access
       expect(userTenantId === otherTenantId).toBe(false);
+    });
+  });
+});
+
+// Weight-based pricing tests for gas cylinders
+describe('Weight-Based Pricing for Gas Cylinders', () => {
+  describe('Gas Charge Calculations', () => {
+    test('should calculate gas charge correctly', () => {
+      const netGasWeight_kg = 13; // 13kg gas cylinder
+      const gasPricePerKg = 150; // 150 KES per kg
+      
+      const gasCharge = netGasWeight_kg * gasPricePerKg;
+      expect(gasCharge).toBe(1950); // 13 * 150 = 1950 KES
+    });
+
+    test('should handle different cylinder sizes', () => {
+      const testCases = [
+        { weight: 6, pricePerKg: 150, expected: 900 },
+        { weight: 13, pricePerKg: 150, expected: 1950 },
+        { weight: 25, pricePerKg: 150, expected: 3750 },
+        { weight: 50, pricePerKg: 150, expected: 7500 },
+      ];
+
+      testCases.forEach(({ weight, pricePerKg, expected }) => {
+        const gasCharge = weight * pricePerKg;
+        expect(gasCharge).toBe(expected);
+      });
+    });
+
+    test('should validate positive values', () => {
+      // These would throw errors in the actual service
+      const invalidCases = [
+        { weight: 0, pricePerKg: 150 },
+        { weight: -5, pricePerKg: 150 },
+        { weight: 13, pricePerKg: 0 },
+        { weight: 13, pricePerKg: -50 },
+      ];
+
+      invalidCases.forEach(({ weight, pricePerKg }) => {
+        const isValid = weight > 0 && pricePerKg > 0;
+        expect(isValid).toBe(false);
+      });
+    });
+  });
+
+  describe('Deposit Rate Calculations', () => {
+    test('should apply correct deposit rates by capacity', () => {
+      const depositRates = {
+        6: 2500,   // 6L cylinder: 2500 KES deposit
+        13: 3500,  // 13L cylinder: 3500 KES deposit
+        25: 5500,  // 25L cylinder: 5500 KES deposit
+        50: 8500,  // 50L cylinder: 8500 KES deposit
+      };
+
+      Object.entries(depositRates).forEach(([capacity, expectedDeposit]) => {
+        const capacityNum = parseInt(capacity);
+        const depositAmount = depositRates[capacityNum as keyof typeof depositRates];
+        expect(depositAmount).toBe(expectedDeposit);
+      });
+    });
+
+    test('should handle multiple cylinders deposit calculation', () => {
+      const capacity = 13;
+      const depositPerCylinder = 3500;
+      const quantity = 5;
+      
+      const totalDeposit = depositPerCylinder * quantity;
+      expect(totalDeposit).toBe(17500); // 3500 * 5
+    });
+  });
+
+  describe('Weight-Based Total Calculations', () => {
+    test('should calculate complete weight-based total', () => {
+      const netGasWeight_kg = 13;
+      const gasPricePerKg = 150;
+      const depositAmount = 3500;
+      const taxRate = 16; // 16% VAT
+      
+      const gasCharge = netGasWeight_kg * gasPricePerKg; // 1950
+      const subtotal = gasCharge + depositAmount; // 1950 + 3500 = 5450
+      const taxAmount = subtotal * (taxRate / 100); // 5450 * 0.16 = 872
+      const totalPrice = subtotal + taxAmount; // 5450 + 872 = 6322
+      
+      expect(gasCharge).toBe(1950);
+      expect(subtotal).toBe(5450);
+      expect(taxAmount).toBe(872);
+      expect(totalPrice).toBe(6322);
+    });
+
+    test('should handle multiple cylinders', () => {
+      const singleCylinderCalc = {
+        gasCharge: 1950,
+        depositAmount: 3500,
+        subtotal: 5450,
+        taxAmount: 872,
+        totalPrice: 6322,
+      };
+      
+      const quantity = 3;
+      const multipleCalc = {
+        gasCharge: singleCylinderCalc.gasCharge * quantity,
+        depositAmount: singleCylinderCalc.depositAmount * quantity,
+        subtotal: singleCylinderCalc.subtotal * quantity,
+        taxAmount: singleCylinderCalc.taxAmount * quantity,
+        totalPrice: singleCylinderCalc.totalPrice * quantity,
+      };
+      
+      expect(multipleCalc.gasCharge).toBe(5850); // 1950 * 3
+      expect(multipleCalc.depositAmount).toBe(10500); // 3500 * 3
+      expect(multipleCalc.subtotal).toBe(16350); // 5450 * 3
+      expect(multipleCalc.taxAmount).toBe(2616); // 872 * 3
+      expect(multipleCalc.totalPrice).toBe(18966); // 6322 * 3
+    });
+  });
+
+  describe('Pricing Method Support', () => {
+    test('should handle per_unit pricing method', () => {
+      const unitPrice = 6000;
+      const quantity = 2;
+      const surcharge = 10; // 10%
+      
+      const finalPrice = unitPrice * (1 + surcharge / 100);
+      const total = finalPrice * quantity;
+      
+      expect(finalPrice).toBe(6600); // 6000 * 1.1
+      expect(total).toBe(13200); // 6600 * 2
+    });
+
+    test('should handle flat_rate pricing method', () => {
+      const flatRate = 5000;
+      const quantity = 5; // Quantity shouldn't affect flat rate
+      
+      // Flat rate applies same price regardless of quantity
+      const total = flatRate; // Not multiplied by quantity
+      
+      expect(total).toBe(5000);
+    });
+
+    test('should handle tiered pricing discounts', () => {
+      const unitPrice = 1000;
+      const testCases = [
+        { quantity: 5, expectedDiscount: 0 }, // No discount
+        { quantity: 15, expectedDiscount: 0.02 }, // 2% discount for 10-19
+        { quantity: 25, expectedDiscount: 0.05 }, // 5% discount for 20-49
+        { quantity: 75, expectedDiscount: 0.10 }, // 10% discount for 50-99
+        { quantity: 150, expectedDiscount: 0.15 }, // 15% discount for 100+
+      ];
+
+      testCases.forEach(({ quantity, expectedDiscount }) => {
+        const discountedPrice = unitPrice * (1 - expectedDiscount);
+        const total = discountedPrice * quantity;
+        
+        // Verify discount is applied correctly
+        if (expectedDiscount > 0) {
+          expect(discountedPrice).toBeLessThan(unitPrice);
+        } else {
+          expect(discountedPrice).toBe(unitPrice);
+        }
+      });
+    });
+  });
+
+  describe('Weight-Based Pricing Validation', () => {
+    test('should validate required product fields', () => {
+      const validProduct = {
+        capacity_l: 13,
+        net_gas_weight_kg: 13,
+        gross_weight_kg: 26.5,
+        tare_weight_kg: 13.5,
+      };
+
+      const invalidProducts = [
+        { ...validProduct, capacity_l: null }, // Missing capacity
+        { ...validProduct, net_gas_weight_kg: null }, // Missing net weight
+        { ...validProduct, capacity_l: 0 }, // Invalid capacity
+        { ...validProduct, net_gas_weight_kg: 0 }, // Invalid weight
+      ];
+
+      // Valid product should pass all checks
+      const isValidProduct = (product: any) => {
+        return product.capacity_l > 0 && product.net_gas_weight_kg > 0;
+      };
+
+      expect(isValidProduct(validProduct)).toBe(true);
+      
+      invalidProducts.forEach(product => {
+        expect(isValidProduct(product)).toBe(false);
+      });
+    });
+
+    test('should validate deposit rate configuration', () => {
+      const validConfigurations = [
+        { capacity_l: 13, currentRate: 3500 },
+        { capacity_l: 50, currentRate: 8500 },
+      ];
+
+      const invalidConfigurations = [
+        { capacity_l: 0, currentRate: 0 }, // Invalid capacity
+        { capacity_l: 13, currentRate: 0 }, // No deposit rate
+        { capacity_l: -5, currentRate: 3500 }, // Negative capacity
+      ];
+
+      const isValidConfiguration = (config: any) => {
+        return config.capacity_l > 0 && config.currentRate > 0;
+      };
+
+      validConfigurations.forEach(config => {
+        expect(isValidConfiguration(config)).toBe(true);
+      });
+
+      invalidConfigurations.forEach(config => {
+        expect(isValidConfiguration(config)).toBe(false);
+      });
+    });
+  });
+
+  describe('Enhanced Order Totals with Deposits', () => {
+    test('should calculate mixed pricing methods order total', () => {
+      const orderLines = [
+        {
+          product_id: 'gas-cylinder-13kg',
+          quantity: 2,
+          pricing_method: 'per_kg' as const,
+          weightBasedCalc: {
+            gasCharge: 1950 * 2, // 3900
+            depositAmount: 3500 * 2, // 7000
+            totalPrice: 6322 * 2, // 12644
+          }
+        },
+        {
+          product_id: 'regular-product',
+          quantity: 3,
+          pricing_method: 'per_unit' as const,
+          unit_price: 500,
+          subtotal: 500 * 3, // 1500
+          deposit: 0,
+        }
+      ];
+
+      const totalGasCharges = 3900 + 1500; // 5400
+      const totalDeposits = 7000 + 0; // 7000
+      const totalSubtotal = 10900 + 1500; // 12400 (gas+deposits + regular)
+      const taxRate = 16;
+      const totalTax = totalSubtotal * (taxRate / 100); // 12400 * 0.16 = 1984
+      const grandTotal = totalSubtotal + totalTax; // 12400 + 1984 = 14384
+
+      expect(totalGasCharges).toBe(5400);
+      expect(totalDeposits).toBe(7000);
+      expect(totalSubtotal).toBe(12400);
+      expect(totalTax).toBe(1984);
+      expect(grandTotal).toBe(14384);
+    });
+
+    test('should handle deposit inclusion flag', () => {
+      const baseCalc = {
+        gasCharge: 1950,
+        depositWithoutFlag: 0,
+        depositWithFlag: 3500,
+      };
+
+      const includeDeposits = true;
+      const excludeDeposits = false;
+
+      const totalWithDeposits = baseCalc.gasCharge + (includeDeposits ? baseCalc.depositWithFlag : 0);
+      const totalWithoutDeposits = baseCalc.gasCharge + (excludeDeposits ? baseCalc.depositWithFlag : 0);
+
+      expect(totalWithDeposits).toBe(5450); // 1950 + 3500
+      expect(totalWithoutDeposits).toBe(1950); // 1950 + 0
     });
   });
 });

@@ -11,6 +11,7 @@ import { trucksRouter } from './trucks';
 import { warehousesRouter } from './warehouses';
 import { ordersRouter } from './orders';
 import { pricingRouter } from './pricing';
+import { depositsRouter } from './deposits';
 import { router } from '../lib/trpc';
 import fs from 'fs';
 import path from 'path';
@@ -29,6 +30,7 @@ const openApiRouter = router({
   warehouses: warehousesRouter,
   orders: ordersRouter,
   pricing: pricingRouter,
+  deposits: depositsRouter,
 });
 
 // 🔧 FIX: Dynamic baseUrl based on environment
@@ -46,7 +48,7 @@ const openApiDocument = generateOpenApiDocument(openApiRouter, {
   description: 'Auto-generated OpenAPI spec from tRPC routes with OpenAPI metadata',
   version: '1.0.0',
   baseUrl: getBaseUrl(), // 🔧 Dynamic baseUrl
-  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'transfers', 'trucks', 'warehouses', 'pricing'],
+  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'transfers', 'trucks', 'warehouses', 'pricing', 'deposits'],
   docsUrl: 'https://example.com',
 });
 

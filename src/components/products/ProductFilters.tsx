@@ -42,6 +42,15 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     });
   };
 
+  const handlePricingMethodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedPricingMethod = e.target.value || undefined;
+    onFiltersChange({
+      ...filters,
+      pricing_method: selectedPricingMethod as 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered' | undefined,
+      page: 1,
+    });
+  };
+
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const [sort_by, sort_order] = e.target.value.split(':');
@@ -106,6 +115,20 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
               <option value="">All Variants</option>
               <option value="outright">Outright</option>
               <option value="refill">Refill</option>
+            </select>
+          </div>
+
+          <div className="sm:w-44">
+            <select
+              value={filters.pricing_method || ''}
+              onChange={handlePricingMethodChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+            >
+              <option value="">All Pricing Methods</option>
+              <option value="per_unit">Per Unit</option>
+              <option value="per_kg">Per Kilogram</option>
+              <option value="flat_rate">Flat Rate</option>
+              <option value="tiered">Tiered Pricing</option>
             </select>
           </div>
 

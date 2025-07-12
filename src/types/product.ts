@@ -6,6 +6,8 @@ export interface Product {
   unit_of_measure: 'cylinder' | 'kg';
   capacity_kg?: number;
   tare_weight_kg?: number;
+  gross_weight_kg?: number;
+  net_gas_weight_kg?: number; // computed field: gross_weight_kg - tare_weight_kg
   valve_type?: string;
   status: 'active' | 'obsolete';
   barcode_uid?: string;
@@ -21,6 +23,8 @@ export interface Product {
   tax_rate?: number;
   // Variant field for Outright/Refill
   variant?: 'outright' | 'refill';
+  // Pricing method for weight-based pricing
+  pricing_method: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
   // Derived fields for UI
   parent_product?: Product; // populated when fetching variants
   variants?: Product[]; // populated when fetching parent products
@@ -33,6 +37,7 @@ export interface CreateProductData {
   unit_of_measure: 'cylinder' | 'kg';
   capacity_kg?: number;
   tare_weight_kg?: number;
+  gross_weight_kg?: number;
   valve_type?: string;
   status: 'active' | 'obsolete';
   barcode_uid?: string;
@@ -47,6 +52,8 @@ export interface CreateProductData {
   tax_rate?: number;
   // Variant field for Outright/Refill
   variant?: 'outright' | 'refill';
+  // Pricing method for weight-based pricing
+  pricing_method: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {
@@ -57,6 +64,7 @@ export interface ProductFilters {
   search?: string;
   status?: string;
   variant?: 'outright' | 'refill';
+  pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
   page?: number;
   limit?: number;
   sort_by?: string;

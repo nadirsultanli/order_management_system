@@ -194,6 +194,46 @@ export const GetCustomerPricingTiersSchema = z.object({
   customer_id: z.string().uuid(),
 });
 
+// ============ Weight-Based Pricing Schemas ============
+
+export const CalculateWeightBasedPricingSchema = z.object({
+  product_id: z.string().uuid(),
+  quantity: z.number().positive().default(1),
+  custom_gas_weight_kg: z.number().positive().optional(), // Override product weight
+  custom_price_per_kg: z.number().positive().optional(), // Override price list
+  customer_id: z.string().uuid().optional(),
+  pricing_date: z.string().optional(),
+});
+
+export const GetDepositRateSchema = z.object({
+  capacity_l: z.number().positive(),
+  currency_code: z.string().length(3).default('KES'),
+  as_of_date: z.string().optional(),
+});
+
+export const CalculateTotalWithDepositsSchema = z.object({
+  customer_id: z.string().uuid().optional(),
+  items: z.array(z.object({
+    product_id: z.string().uuid(),
+    quantity: z.number().positive(),
+    pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).optional(),
+    price_list_id: z.string().uuid().optional(),
+  })),
+  include_deposits: z.boolean().default(true),
+  tax_rate: z.number().min(0).max(100).optional(),
+  pricing_date: z.string().optional(),
+});
+
+export const EnhancedCalculateFinalPriceSchema = z.object({
+  product_id: z.string().uuid(),
+  quantity: z.number().positive(),
+  pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']),
+  unit_price: z.number().positive(),
+  surcharge_percent: z.number().optional(),
+  customer_id: z.string().uuid().optional(),
+  date: z.string().optional(),
+});
+
 // ============ Legacy Compatibility Schemas ============
 
 export const LegacyPriceListFiltersSchema = z.object({

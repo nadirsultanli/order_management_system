@@ -4,6 +4,9 @@ import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Product, CreateProductData } from '../../types/product';
 import { TAX_CATEGORIES } from '../../types/pricing';
 import { trpc } from '../../lib/trpc-client';
+import PricingMethodSelector from './PricingMethodSelector';
+import CylinderWeightCalculator from './CylinderWeightCalculator';
+import WeightBasedPricingPreview from './WeightBasedPricingPreview';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -39,6 +42,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       unit_of_measure: 'cylinder',
       capacity_kg: undefined,
       tare_weight_kg: undefined,
+      gross_weight_kg: undefined,
       valve_type: '',
       status: 'active',
       barcode_uid: '',
@@ -47,11 +51,16 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       tax_category: 'standard',
       tax_rate: 0.16,
       variant: 'outright',
+      pricing_method: 'per_unit',
     },
   });
 
   const watchedStatus = watch('status');
   const watchedTaxCategory = watch('tax_category');
+  const watchedGrossWeight = watch('gross_weight_kg');
+  const watchedTareWeight = watch('tare_weight_kg');
+  const watchedCapacity = watch('capacity_kg');
+  const watchedPricingMethod = watch('pricing_method');
 
   useEffect(() => {
     if (product) {
@@ -62,6 +71,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         unit_of_measure: 'cylinder',
         capacity_kg: product.capacity_kg,
         tare_weight_kg: product.tare_weight_kg,
+        gross_weight_kg: product.gross_weight_kg,
         valve_type: product.valve_type || '',
         status: product.status,
         barcode_uid: product.barcode_uid || '',
@@ -70,6 +80,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         tax_category: product.tax_category || 'standard',
         tax_rate: product.tax_rate || 0.16,
         variant: product.variant || 'outright',
+        pricing_method: product.pricing_method || 'per_unit',
       });
     } else {
               reset({
@@ -79,6 +90,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           unit_of_measure: 'cylinder',
           capacity_kg: undefined,
           tare_weight_kg: undefined,
+          gross_weight_kg: undefined,
           valve_type: '',
           status: 'active',
           barcode_uid: '',
@@ -87,6 +99,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           tax_category: 'standard',
           tax_rate: 0.16,
           variant: 'outright',
+          pricing_method: 'per_unit',
         });
     }
   }, [product, reset]);
@@ -131,11 +144,12 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     }
 
     // Validate weights (all products are cylinders)
-    if (data.capacity_kg || data.tare_weight_kg) {
+    if (data.capacity_kg || data.tare_weight_kg || data.gross_weight_kg) {
       try {
         const weightResult = await validateWeight.mutateAsync({ 
           capacity_kg: data.capacity_kg, 
-          tare_weight_kg: data.tare_weight_kg, 
+          tare_weight_kg: data.tare_weight_kg,
+          gross_weight_kg: data.gross_weight_kg,
           unit_of_measure: 'cylinder'
         });
         
@@ -449,6 +463,42 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       )}
                     </div>
 
+                    <div>
+                      <label htmlFor="gross_weight_kg" className="block text-sm font-medium text-gray-700">
+                        Gross Weight (kg) *
+                      </label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        max="500"
+                        id="gross_weight_kg"
+                        {...register('gross_weight_kg', {
+                          valueAsNumber: true,
+                          required: 'Gross weight is required for gas cylinders',
+                          min: {
+                            value: 0.1,
+                            message: 'Gross weight must be greater than 0'
+                          },
+                          validate: (value) => {
+                            const tareWeight = watchedTareWeight;
+                            if (value && tareWeight && value <= tareWeight) {
+                              return 'Gross weight must be greater than tare weight';
+                            }
+                            return true;
+                          }
+                        })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="65.0"
+                      />
+                      {errors.gross_weight_kg && (
+                        <p className="mt-1 text-sm text-red-600">{errors.gross_weight_kg.message}</p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-500">
+                        Total weight including gas content
+                      </p>
+                    </div>
+
                     <div className="sm:col-span-2">
                       <label htmlFor="valve_type" className="block text-sm font-medium text-gray-700">
                         Valve Type
@@ -463,6 +513,30 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Weight Calculator */}
+                {(watchedGrossWeight || watchedTareWeight) && (
+                  <CylinderWeightCalculator
+                    grossWeight={watchedGrossWeight}
+                    tareWeight={watchedTareWeight}
+                    capacityKg={watchedCapacity}
+                  />
+                )}
+
+                {/* Pricing Method */}
+                <PricingMethodSelector
+                  value={watchedPricingMethod}
+                  onChange={(value) => setValue('pricing_method', value)}
+                />
+
+                {/* Pricing Preview */}
+                {watchedPricingMethod && watchedGrossWeight && watchedTareWeight && (
+                  <WeightBasedPricingPreview
+                    pricingMethod={watchedPricingMethod}
+                    netGasWeight={watchedGrossWeight - watchedTareWeight}
+                    capacityKg={watchedCapacity}
+                  />
+                )}
               </div>
             </div>
 

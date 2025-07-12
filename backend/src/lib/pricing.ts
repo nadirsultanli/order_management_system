@@ -28,6 +28,24 @@ export interface OrderTotals {
   grandTotal: number;
 }
 
+export interface WeightBasedPriceCalculation {
+  netGasWeight_kg: number;
+  gasPricePerKg: number;
+  gasCharge: number;
+  depositAmount: number;
+  subtotal: number;
+  taxAmount: number;
+  totalPrice: number;
+  pricingMethod: 'per_kg' | 'per_unit' | 'flat_rate' | 'tiered';
+}
+
+export interface CylinderDepositRate {
+  capacity_l: number;
+  deposit_amount: number;
+  currency_code: string;
+  effective_date: string;
+}
+
 export class PricingService {
   constructor(
     private supabase: SupabaseClient,
@@ -40,6 +58,224 @@ export class PricingService {
   calculateFinalPrice(unitPrice: number, surchargePercent?: number): number {
     if (!surchargePercent) return unitPrice;
     return unitPrice * (1 + surchargePercent / 100);
+  }
+
+  /**
+   * Enhanced calculate final price supporting different pricing methods
+   */
+  async calculateFinalPriceWithMethod(
+    productId: string,
+    quantity: number,
+    pricingMethod: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered',
+    unitPrice: number,
+    surchargePercent?: number,
+    customerId?: string,
+    date?: string
+  ): Promise<number> {
+    switch (pricingMethod) {
+      case 'per_unit':
+        return this.calculateFinalPrice(unitPrice, surchargePercent) * quantity;
+      
+      case 'per_kg':
+        const weightBasedPrice = await this.getWeightBasedPrice(productId, quantity, customerId, date);
+        return weightBasedPrice?.totalPrice || 0;
+      
+      case 'flat_rate':
+        // Flat rate applies the same price regardless of quantity
+        return this.calculateFinalPrice(unitPrice, surchargePercent);
+      
+      case 'tiered':
+        // Tiered pricing - apply bulk discounts based on quantity
+        return this.applyTieredPricing(unitPrice, quantity, surchargePercent);
+      
+      default:
+        return this.calculateFinalPrice(unitPrice, surchargePercent) * quantity;
+    }
+  }
+
+  /**
+   * Apply tiered pricing based on quantity
+   */
+  applyTieredPricing(unitPrice: number, quantity: number, surchargePercent?: number): number {
+    let discountPercent = 0;
+    
+    // Define quantity tiers and their discounts
+    if (quantity >= 100) {
+      discountPercent = 0.15; // 15% discount for 100+
+    } else if (quantity >= 50) {
+      discountPercent = 0.10; // 10% discount for 50-99
+    } else if (quantity >= 20) {
+      discountPercent = 0.05; // 5% discount for 20-49
+    } else if (quantity >= 10) {
+      discountPercent = 0.02; // 2% discount for 10-19
+    }
+    
+    const basePrice = this.calculateFinalPrice(unitPrice, surchargePercent);
+    const discountedPrice = basePrice * (1 - discountPercent);
+    return discountedPrice * quantity;
+  }
+
+  /**
+   * Calculate gas charge based on weight and price per kg
+   */
+  calculateGasCharge(netGasWeight_kg: number, gasPricePerKg: number): number {
+    if (netGasWeight_kg <= 0 || gasPricePerKg <= 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Net gas weight and price per kg must be positive values'
+      });
+    }
+    return netGasWeight_kg * gasPricePerKg;
+  }
+
+  /**
+   * Get current deposit rate for a cylinder capacity
+   */
+  async getCurrentDepositRate(capacity_l: number, currency_code: string = 'KES', asOfDate?: string): Promise<number> {
+    const checkDate = asOfDate || new Date().toISOString().split('T')[0];
+    
+    try {
+      const { data, error } = await this.supabase
+        .rpc('get_current_deposit_rate', {
+          p_capacity_l: capacity_l,
+          p_currency_code: currency_code,
+          p_as_of_date: checkDate
+        });
+
+      if (error) {
+        this.logger.error('Error fetching deposit rate:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch deposit rate'
+        });
+      }
+
+      return data || 0;
+    } catch (error) {
+      this.logger.error('Error in getCurrentDepositRate:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate total price including gas charge, deposit, and tax
+   */
+  calculateWeightBasedTotal(
+    netGasWeight_kg: number, 
+    gasPricePerKg: number, 
+    depositAmount: number, 
+    taxRate: number = 0
+  ): WeightBasedPriceCalculation {
+    const gasCharge = this.calculateGasCharge(netGasWeight_kg, gasPricePerKg);
+    const subtotal = gasCharge + depositAmount;
+    const taxAmount = subtotal * (taxRate / 100);
+    const totalPrice = subtotal + taxAmount;
+
+    return {
+      netGasWeight_kg,
+      gasPricePerKg,
+      gasCharge,
+      depositAmount,
+      subtotal,
+      taxAmount,
+      totalPrice,
+      pricingMethod: 'per_kg'
+    };
+  }
+
+  /**
+   * Get weight-based pricing for a product
+   */
+  async getWeightBasedPrice(
+    productId: string, 
+    quantity: number = 1, 
+    customerId?: string, 
+    date?: string
+  ): Promise<WeightBasedPriceCalculation | null> {
+    try {
+      // Get product details including weight information
+      const { data: product, error: productError } = await this.supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          sku,
+          capacity_l,
+          gross_weight_kg,
+          net_gas_weight_kg,
+          tare_weight_kg,
+          tax_rate,
+          tax_category
+        `)
+        .eq('id', productId)
+        .single();
+
+      if (productError || !product) {
+        this.logger.error('Product not found:', productError);
+        return null;
+      }
+
+      // Check if product has weight information
+      if (!product.net_gas_weight_kg || !product.capacity_l) {
+        this.logger.warn('Product missing weight or capacity information:', productId);
+        return null;
+      }
+
+      // Get current pricing from price lists with per_kg method
+      const { data: priceLists, error: priceError } = await this.supabase
+        .from('price_list')
+        .select(`
+          id,
+          name,
+          pricing_method,
+          price_list_item!inner(
+            unit_price,
+            surcharge_pct,
+            product_id
+          )
+        `)
+        .eq('price_list_item.product_id', productId)
+        .eq('pricing_method', 'per_kg')
+        .lte('start_date', date || new Date().toISOString().split('T')[0])
+        .or(`end_date.is.null,end_date.gte.${date || new Date().toISOString().split('T')[0]}`);
+
+      if (priceError || !priceLists || priceLists.length === 0) {
+        this.logger.warn('No per_kg pricing found for product:', productId);
+        return null;
+      }
+
+      // Use the first applicable price list (could be enhanced with priority logic)
+      const priceList = priceLists[0];
+      const priceItem = (priceList as any).price_list_item[0];
+      
+      // Calculate gas price per kg (unit_price is treated as price per kg for per_kg method)
+      const gasPricePerKg = this.calculateFinalPrice(priceItem.unit_price, priceItem.surcharge_pct);
+      
+      // Get deposit amount for this cylinder capacity
+      const depositAmount = await this.getCurrentDepositRate(product.capacity_l);
+      
+      // Calculate total for the requested quantity
+      const singleCylinderCalc = this.calculateWeightBasedTotal(
+        product.net_gas_weight_kg,
+        gasPricePerKg,
+        depositAmount,
+        product.tax_rate || 0
+      );
+
+      // Scale by quantity
+      return {
+        ...singleCylinderCalc,
+        gasCharge: singleCylinderCalc.gasCharge * quantity,
+        depositAmount: singleCylinderCalc.depositAmount * quantity,
+        subtotal: singleCylinderCalc.subtotal * quantity,
+        taxAmount: singleCylinderCalc.taxAmount * quantity,
+        totalPrice: singleCylinderCalc.totalPrice * quantity
+      };
+
+    } catch (error) {
+      this.logger.error('Error in getWeightBasedPrice:', error);
+      throw error;
+    }
   }
 
   /**
@@ -216,6 +452,79 @@ export class PricingService {
   }
 
   /**
+   * Enhanced calculate order totals with deposit support
+   */
+  async calculateOrderTotalsWithDeposits(
+    lines: Array<{
+      product_id: string;
+      quantity: number;
+      unit_price: number;
+      pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
+      include_deposit?: boolean;
+      subtotal?: number;
+    }>,
+    taxPercent: number = 0,
+    customerId?: string,
+    date?: string
+  ): Promise<OrderTotals & { depositAmount: number; gasCharges: number }> {
+    let gasCharges = 0;
+    let depositAmount = 0;
+    let subtotal = 0;
+
+    for (const line of lines) {
+      if (line.pricing_method === 'per_kg') {
+        // Use weight-based pricing
+        const weightBasedPrice = await this.getWeightBasedPrice(
+          line.product_id,
+          line.quantity,
+          customerId,
+          date
+        );
+        
+        if (weightBasedPrice) {
+          gasCharges += weightBasedPrice.gasCharge;
+          if (line.include_deposit) {
+            depositAmount += weightBasedPrice.depositAmount;
+          }
+          subtotal += weightBasedPrice.gasCharge + (line.include_deposit ? weightBasedPrice.depositAmount : 0);
+        }
+      } else {
+        // Traditional pricing
+        const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
+        gasCharges += lineSubtotal;
+        subtotal += lineSubtotal;
+
+        // Add deposit if requested and product has capacity
+        if (line.include_deposit) {
+          const { data: product } = await this.supabase
+            .from('products')
+            .select('capacity_l')
+            .eq('id', line.product_id)
+            .single();
+
+          if (product?.capacity_l) {
+            const deposit = await this.getCurrentDepositRate(product.capacity_l);
+            const lineDeposit = deposit * line.quantity;
+            depositAmount += lineDeposit;
+            subtotal += lineDeposit;
+          }
+        }
+      }
+    }
+
+    const taxAmount = subtotal * (taxPercent / 100);
+    const grandTotal = subtotal + taxAmount;
+
+    return {
+      subtotal,
+      taxAmount,
+      grandTotal,
+      depositAmount,
+      gasCharges,
+    };
+  }
+
+  /**
    * Validate product pricing for order
    */
   async validateProductPricing(productId: string, requestedPrice: number, quantity: number, priceListId?: string): Promise<{
@@ -327,6 +636,153 @@ export class PricingService {
       // Fallback if locale string fails
       const symbol = currencyCode === 'KES' ? 'Ksh' : currencyCode;
       return `${symbol} ${amount.toFixed(2)}`;
+    }
+  }
+
+  /**
+   * Validate weight-based pricing requirements
+   */
+  async validateWeightBasedPricingRequirements(productId: string): Promise<{
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+    product?: any;
+  }> {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    try {
+      // Get product details
+      const { data: product, error } = await this.supabase
+        .from('products')
+        .select(`
+          id, name, sku, capacity_l, gross_weight_kg, 
+          net_gas_weight_kg, tare_weight_kg, tax_rate, tax_category
+        `)
+        .eq('id', productId)
+        .single();
+
+      if (error || !product) {
+        errors.push('Product not found');
+        return { valid: false, errors, warnings };
+      }
+
+      // Check required fields for weight-based pricing
+      if (!product.capacity_l || product.capacity_l <= 0) {
+        errors.push('Product must have a valid capacity in liters');
+      }
+
+      if (!product.net_gas_weight_kg || product.net_gas_weight_kg <= 0) {
+        errors.push('Product must have a valid net gas weight');
+      }
+
+      if (!product.gross_weight_kg || product.gross_weight_kg <= 0) {
+        warnings.push('Product missing gross weight - some calculations may be incomplete');
+      }
+
+      if (!product.tare_weight_kg || product.tare_weight_kg <= 0) {
+        warnings.push('Product missing tare weight - net weight calculation may be incorrect');
+      }
+
+      // Check if capacity has deposit rate
+      if (product.capacity_l) {
+        const depositRate = await this.getCurrentDepositRate(product.capacity_l);
+        if (depositRate === 0) {
+          warnings.push(`No deposit rate found for ${product.capacity_l}L capacity`);
+        }
+      }
+
+      // Check for per_kg pricing in price lists
+      const { data: priceLists } = await this.supabase
+        .from('price_list')
+        .select(`
+          id, name, pricing_method,
+          price_list_item!inner(product_id, unit_price)
+        `)
+        .eq('price_list_item.product_id', productId)
+        .eq('pricing_method', 'per_kg');
+
+      if (!priceLists || priceLists.length === 0) {
+        warnings.push('No per_kg pricing method found in any price list for this product');
+      }
+
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+        product
+      };
+    } catch (error) {
+      this.logger.error('Error validating weight-based pricing requirements:', error);
+      errors.push('Failed to validate pricing requirements');
+      return { valid: false, errors, warnings };
+    }
+  }
+
+  /**
+   * Validate deposit rate configuration
+   */
+  async validateDepositRateConfiguration(capacity_l: number, currency_code: string = 'KES'): Promise<{
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+    currentRate?: number;
+  }> {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    try {
+      if (capacity_l <= 0) {
+        errors.push('Capacity must be positive');
+        return { valid: false, errors, warnings };
+      }
+
+      // Check current rate
+      const currentRate = await this.getCurrentDepositRate(capacity_l, currency_code);
+      
+      if (currentRate === 0) {
+        errors.push(`No deposit rate configured for ${capacity_l}L capacity`);
+      }
+
+      // Check for multiple overlapping rates
+      const { data: overlappingRates } = await this.supabase
+        .from('cylinder_deposit_rates')
+        .select('*')
+        .eq('capacity_l', capacity_l)
+        .eq('currency_code', currency_code)
+        .eq('is_active', true)
+        .lte('effective_date', new Date().toISOString().split('T')[0])
+        .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`);
+
+      if (overlappingRates && overlappingRates.length > 1) {
+        warnings.push('Multiple overlapping deposit rates found - using most recent');
+      }
+
+      // Check for upcoming rate changes
+      const { data: futureRates } = await this.supabase
+        .from('cylinder_deposit_rates')
+        .select('effective_date, deposit_amount')
+        .eq('capacity_l', capacity_l)
+        .eq('currency_code', currency_code)
+        .eq('is_active', true)
+        .gt('effective_date', new Date().toISOString().split('T')[0])
+        .order('effective_date', { ascending: true })
+        .limit(1);
+
+      if (futureRates && futureRates.length > 0) {
+        warnings.push(`Rate change scheduled for ${futureRates[0].effective_date}`);
+      }
+
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+        currentRate
+      };
+    } catch (error) {
+      this.logger.error('Error validating deposit rate configuration:', error);
+      errors.push('Failed to validate deposit rate configuration');
+      return { valid: false, errors, warnings };
     }
   }
 

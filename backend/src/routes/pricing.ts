@@ -33,6 +33,11 @@ import {
   BulkUpdatePricesSchema,
   GetCustomerPricingTiersSchema,
   LegacyPriceListFiltersSchema,
+  // Weight-based pricing schemas
+  CalculateWeightBasedPricingSchema,
+  GetDepositRateSchema,
+  CalculateTotalWithDepositsSchema,
+  EnhancedCalculateFinalPriceSchema,
 } from '../schemas/input/pricing-input';
 
 // Import output schemas
@@ -1973,5 +1978,327 @@ export const pricingRouter = router({
           special_pricing_rules: specialRules,
         },
       };
+    }),
+
+  // ============ NEW WEIGHT-BASED PRICING ENDPOINTS ============
+
+  // POST /pricing/calculate-weight-based - Calculate price using weight-based formula
+  calculateWeightBased: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate-weight-based',
+        tags: ['pricing'],
+        summary: 'Calculate weight-based pricing for gas cylinders',
+        description: 'Calculate price using weight-based formula: netGasWeight_kg × gasPricePerKg + depositAmount + tax',
+        protect: true,
+      }
+    })
+    .input(CalculateWeightBasedPricingSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      
+      ctx.logger.info('Calculating weight-based pricing:', input);
+      
+      try {
+        const weightBasedPrice = await pricingService.getWeightBasedPrice(
+          input.product_id,
+          input.quantity,
+          input.customer_id,
+          input.pricing_date
+        );
+
+        if (!weightBasedPrice) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No weight-based pricing found for this product'
+          });
+        }
+
+        // Apply custom overrides if provided
+        let result = weightBasedPrice;
+        
+        if (input.custom_gas_weight_kg || input.custom_price_per_kg) {
+          // Get product details for capacity
+          const { data: product } = await ctx.supabase
+            .from('products')
+            .select('capacity_l, tax_rate')
+            .eq('id', input.product_id)
+            .single();
+
+          if (product) {
+            const gasWeight = input.custom_gas_weight_kg || weightBasedPrice.netGasWeight_kg;
+            const pricePerKg = input.custom_price_per_kg || weightBasedPrice.gasPricePerKg;
+            const depositAmount = await pricingService.getCurrentDepositRate(product.capacity_l);
+            
+            result = pricingService.calculateWeightBasedTotal(
+              gasWeight,
+              pricePerKg,
+              depositAmount * input.quantity,
+              product.tax_rate || 0
+            );
+          }
+        }
+
+        return {
+          ...result,
+          product_id: input.product_id,
+          quantity: input.quantity,
+          calculation_date: input.pricing_date || new Date().toISOString().split('T')[0],
+        };
+      } catch (error) {
+        ctx.logger.error('Weight-based pricing calculation error:', error);
+        throw error;
+      }
+    }),
+
+  // GET /pricing/deposit-rate/{capacity} - Get deposit rate for cylinder capacity
+  getDepositRate: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/deposit-rate/{capacity}',
+        tags: ['pricing'],
+        summary: 'Get deposit rate for cylinder capacity',
+        description: 'Retrieve the current deposit rate for a specific cylinder capacity',
+        protect: true,
+      }
+    })
+    .input(GetDepositRateSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      
+      ctx.logger.info('Fetching deposit rate:', input);
+      
+      try {
+        const depositAmount = await pricingService.getCurrentDepositRate(
+          input.capacity_l,
+          input.currency_code,
+          input.as_of_date
+        );
+
+        // Also fetch the full deposit rate record for additional details
+        const { data: depositRate, error } = await ctx.supabase
+          .from('cylinder_deposit_rates')
+          .select('*')
+          .eq('capacity_l', input.capacity_l)
+          .eq('currency_code', input.currency_code)
+          .lte('effective_date', input.as_of_date || new Date().toISOString().split('T')[0])
+          .or(`end_date.is.null,end_date.gte.${input.as_of_date || new Date().toISOString().split('T')[0]}`)
+          .eq('is_active', true)
+          .order('effective_date', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          ctx.logger.error('Error fetching deposit rate details:', error);
+        }
+
+        return {
+          capacity_l: input.capacity_l,
+          deposit_amount: depositAmount,
+          currency_code: input.currency_code,
+          as_of_date: input.as_of_date || new Date().toISOString().split('T')[0],
+          rate_details: depositRate || null,
+        };
+      } catch (error) {
+        ctx.logger.error('Deposit rate fetch error:', error);
+        throw error;
+      }
+    }),
+
+  // POST /pricing/calculate-total-with-deposits - Calculate order total including deposits
+  calculateTotalWithDeposits: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate-total-with-deposits',
+        tags: ['pricing'],
+        summary: 'Calculate order total including deposits',
+        description: 'Calculate comprehensive order total including gas charges, deposits, and taxes for multiple items',
+        protect: true,
+      }
+    })
+    .input(CalculateTotalWithDepositsSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      
+      ctx.logger.info('Calculating total with deposits:', input);
+      
+      try {
+        const itemCalculations = [];
+        let totalGasCharges = 0;
+        let totalDeposits = 0;
+        let totalSubtotal = 0;
+        let totalTax = 0;
+
+        for (const item of input.items) {
+          // Get product details
+          const { data: product, error: productError } = await ctx.supabase
+            .from('products')
+            .select(`
+              id, name, sku, capacity_l, gross_weight_kg, net_gas_weight_kg, 
+              tare_weight_kg, tax_rate, tax_category
+            `)
+            .eq('id', item.product_id)
+            .single();
+
+          if (productError || !product) {
+            ctx.logger.error('Product not found:', item.product_id);
+            continue;
+          }
+
+          let itemCalculation: any = {
+            product_id: item.product_id,
+            product_name: product.name,
+            product_sku: product.sku,
+            quantity: item.quantity,
+            pricing_method: item.pricing_method || 'per_unit',
+          };
+
+          // Calculate based on pricing method
+          if (item.pricing_method === 'per_kg' && product.net_gas_weight_kg && product.capacity_l) {
+            // Weight-based pricing
+            const weightBasedPrice = await pricingService.getWeightBasedPrice(
+              item.product_id,
+              item.quantity,
+              input.customer_id,
+              input.pricing_date
+            );
+
+            if (weightBasedPrice) {
+              itemCalculation = {
+                ...itemCalculation,
+                gas_weight_kg: weightBasedPrice.netGasWeight_kg,
+                price_per_kg: weightBasedPrice.gasPricePerKg,
+                gas_charge: weightBasedPrice.gasCharge,
+                deposit_amount: input.include_deposits ? weightBasedPrice.depositAmount : 0,
+                subtotal: weightBasedPrice.gasCharge + (input.include_deposits ? weightBasedPrice.depositAmount : 0),
+                tax_amount: weightBasedPrice.taxAmount,
+                total: weightBasedPrice.gasCharge + (input.include_deposits ? weightBasedPrice.depositAmount : 0) + weightBasedPrice.taxAmount,
+              };
+
+              totalGasCharges += weightBasedPrice.gasCharge;
+              totalDeposits += input.include_deposits ? weightBasedPrice.depositAmount : 0;
+            }
+          } else {
+            // Traditional per-unit pricing
+            const price = await pricingService.getProductPrice(
+              item.product_id,
+              input.customer_id,
+              input.pricing_date
+            );
+
+            if (price) {
+              const unitPrice = price.finalPrice;
+              const subtotal = unitPrice * item.quantity;
+              const depositAmount = input.include_deposits && product.capacity_l ? 
+                await pricingService.getCurrentDepositRate(product.capacity_l) * item.quantity : 0;
+              
+              const taxableAmount = subtotal + depositAmount;
+              const taxAmount = taxableAmount * ((input.tax_rate || product.tax_rate || 0) / 100);
+
+              itemCalculation = {
+                ...itemCalculation,
+                unit_price: unitPrice,
+                gas_charge: subtotal,
+                deposit_amount: depositAmount,
+                subtotal: subtotal + depositAmount,
+                tax_amount: taxAmount,
+                total: subtotal + depositAmount + taxAmount,
+              };
+
+              totalGasCharges += subtotal;
+              totalDeposits += depositAmount;
+            }
+          }
+
+          totalSubtotal += itemCalculation.subtotal || 0;
+          totalTax += itemCalculation.tax_amount || 0;
+          itemCalculations.push(itemCalculation);
+        }
+
+        const grandTotal = totalSubtotal + totalTax;
+
+        return {
+          customer_id: input.customer_id,
+          items: itemCalculations,
+          summary: {
+            total_gas_charges: totalGasCharges,
+            total_deposits: totalDeposits,
+            subtotal: totalSubtotal,
+            tax_amount: totalTax,
+            grand_total: grandTotal,
+          },
+          include_deposits: input.include_deposits,
+          tax_rate: input.tax_rate,
+          calculation_date: input.pricing_date || new Date().toISOString().split('T')[0],
+        };
+      } catch (error) {
+        ctx.logger.error('Total calculation with deposits error:', error);
+        throw error;
+      }
+    }),
+
+  // POST /pricing/calculate-final-price-enhanced - Enhanced final price calculation with pricing methods
+  calculateFinalPriceEnhanced: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate-final-price-enhanced',
+        tags: ['pricing'],
+        summary: 'Calculate final price with enhanced pricing methods',
+        description: 'Calculate final price supporting per_unit, per_kg, flat_rate, and tiered pricing methods',
+        protect: true,
+      }
+    })
+    .input(EnhancedCalculateFinalPriceSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      
+      ctx.logger.info('Calculating enhanced final price:', input);
+      
+      try {
+        const finalPrice = await pricingService.calculateFinalPriceWithMethod(
+          input.product_id,
+          input.quantity,
+          input.pricing_method,
+          input.unit_price,
+          input.surcharge_percent,
+          input.customer_id,
+          input.date
+        );
+
+        // Get additional details for context
+        const { data: product } = await ctx.supabase
+          .from('products')
+          .select('name, sku, capacity_l, net_gas_weight_kg')
+          .eq('id', input.product_id)
+          .single();
+
+        return {
+          product_id: input.product_id,
+          product_name: product?.name,
+          product_sku: product?.sku,
+          quantity: input.quantity,
+          pricing_method: input.pricing_method,
+          unit_price: input.unit_price,
+          surcharge_percent: input.surcharge_percent || 0,
+          final_price: finalPrice,
+          price_per_unit: input.pricing_method === 'flat_rate' ? finalPrice : finalPrice / input.quantity,
+          calculation_date: input.date || new Date().toISOString().split('T')[0],
+        };
+      } catch (error) {
+        ctx.logger.error('Enhanced final price calculation error:', error);
+        throw error;
+      }
     }),
 });

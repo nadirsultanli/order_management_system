@@ -29,7 +29,7 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1/trpc/customers.list
 ```
 
-## 📊 Complete API Modules (147 Endpoints)
+## 📊 Complete API Modules (177 Endpoints)
 
 ### 🔑 Authentication Module (5 endpoints)
 - `auth.login` - User authentication
@@ -168,6 +168,27 @@ curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
 - `pricing.formatCurrency` - **Currency formatting (moved from frontend)**
 - `pricing.getCustomerPricingTiers` - Customer tiers
 
+### 🛢️ Gas Cylinder Deposit Management (30 endpoints)
+- `deposits.listRates` - Cylinder deposit rate management
+- `deposits.createRate` - Create new deposit rate
+- `deposits.updateRate` - Update deposit rate
+- `deposits.deleteRate` - Remove deposit rate (soft delete)
+- `deposits.getRateByCapacity` - Get rate for specific capacity
+- `deposits.bulkUpdateRates` - Bulk update deposit rates
+- `deposits.getCustomerBalance` - Customer deposit balance
+- `deposits.getCustomerHistory` - Customer deposit history
+- `deposits.chargeCustomer` - Charge deposits to customer
+- `deposits.refundCustomer` - Process deposit refunds
+- `deposits.getCustomerCylinders` - Customer cylinder inventory
+- `deposits.listTransactions` - All deposit transactions
+- `deposits.calculateRefund` - Calculate refund amounts
+- `deposits.validateRate` - Validate deposit rate
+- `deposits.validateRefund` - Validate refund eligibility
+- `deposits.adjustDeposit` - Manual deposit adjustments
+- `deposits.getAuditTrail` - Deposit audit trail
+- `deposits.getSummaryReport` - Deposit summary reporting
+- `deposits.getOutstandingReport` - Outstanding deposits report
+
 ### 📊 Business Intelligence (7 endpoints)
 - `analytics.getDashboardStats` - Dashboard overview
 - `analytics.getRevenueAnalytics` - Revenue analysis
@@ -260,6 +281,52 @@ const finalPrice = await trpc.pricing.calculateFinalPrice.query({
 });
 ```
 
+### Gas Cylinder Deposit Management
+```typescript
+// Complete cylinder deposit workflow
+// 1. Create deposit rate for cylinder capacity
+const depositRate = await trpc.deposits.createRate.mutate({
+  capacity_l: 13,
+  deposit_amount: 1500,
+  currency_code: 'KES',
+  effective_date: '2024-01-01'
+});
+
+// 2. Charge deposit when delivering cylinders
+const chargeResult = await trpc.deposits.chargeCustomer.mutate({
+  customer_id: 'cust_123',
+  cylinders: [{
+    product_id: 'prod_456',
+    capacity_l: 13,
+    quantity: 2,
+    unit_deposit: 1500
+  }],
+  order_id: 'ord_789',
+  notes: 'Delivery deposit charge'
+});
+
+// 3. Calculate refund for returned cylinders
+const refundCalculation = await trpc.deposits.calculateRefund.mutate({
+  customer_id: 'cust_123',
+  cylinders: [{
+    product_id: 'prod_456',
+    capacity_l: 13,
+    quantity: 1,
+    condition: 'good', // or 'damaged', 'missing'
+    damage_percentage: 0
+  }],
+  apply_depreciation: false
+});
+
+// 4. Process actual refund
+const refund = await trpc.deposits.refundCustomer.mutate({
+  customer_id: 'cust_123',
+  cylinders: refundCalculation.cylinder_calculations,
+  refund_method: 'cash',
+  notes: 'Cylinder return refund'
+});
+```
+
 ## 🛡️ Security & Compliance
 
 - **Multi-tenant**: Complete data isolation between customers
@@ -291,6 +358,76 @@ Test all 147 endpoints with:
 
 **Built with**: Express.js, tRPC, TypeScript, Supabase, Railway, Netlify  
 **Architecture**: Clean separation, type-safe, enterprise-grade  
-**Total Endpoints**: 147 (65 queries, 82 mutations)  
+**Total Endpoints**: 177 (85 queries, 92 mutations)  
 **Security**: RLS, JWT, multi-tenant, audit trail  
 **Performance**: Optimized queries, strategic caching, real-time calculations
+
+## 🛢️ Gas Cylinder Management Features
+
+### Key Features
+- **Weight-based Pricing**: Charge customers based on actual gas weight rather than fixed prices
+- **Deposit Management**: Complete cylinder deposit tracking with automatic calculations
+- **Condition Assessment**: Handle damaged, good, and missing cylinder conditions
+- **Refund Processing**: Automated refund calculations with damage deductions
+- **Audit Trail**: Complete transaction history for compliance
+- **Multi-currency Support**: Support for different currencies (KES, USD, etc.)
+
+### Workflow Integration
+1. **Product Setup**: Create products with weight-based or fixed pricing
+2. **Deposit Rates**: Configure deposit amounts per cylinder capacity
+3. **Order Processing**: Automatic deposit charges during delivery
+4. **Return Processing**: Condition-based refund calculations
+5. **Balance Tracking**: Real-time customer deposit balance monitoring
+6. **Reporting**: Comprehensive deposit and refund reporting
+
+### Setup Instructions
+
+#### 1. Database Setup
+The system requires these tables (included in migrations):
+- `cylinder_deposit_rates` - Deposit rates by capacity
+- `deposit_transactions` - All deposit/refund transactions
+- `deposit_transaction_lines` - Line-item details
+- `deposit_cylinder_inventory` - Customer cylinder tracking
+
+#### 2. Creating Weight-based Products
+```typescript
+const product = await trpc.products.create.mutate({
+  name: 'LPG Gas Cylinder 13L',
+  capacity_l: 13,
+  weight_kg: 15.5,
+  pricing_method: 'weight_based', // Enable weight-based pricing
+  is_active: true
+});
+```
+
+#### 3. Setting Up Deposit Rates
+```typescript
+const depositRate = await trpc.deposits.createRate.mutate({
+  capacity_l: 13,
+  deposit_amount: 1500,
+  currency_code: 'KES',
+  effective_date: '2024-01-01',
+  is_active: true
+});
+```
+
+#### 4. Processing Orders with Deposits
+```typescript
+// Charge deposits during delivery
+const depositCharge = await trpc.deposits.chargeCustomer.mutate({
+  customer_id: customerId,
+  cylinders: [{
+    product_id: productId,
+    capacity_l: 13,
+    quantity: 2
+  }],
+  order_id: orderId
+});
+```
+
+### Testing
+Run the integration tests to verify the complete workflow:
+```bash
+cd backend
+npm run test gas-cylinder-integration.test.ts
+```

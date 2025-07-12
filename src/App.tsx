@@ -28,6 +28,7 @@ import { TruckDetailPage } from './pages/TruckDetailPage';
 import CreateTruckPage from './pages/CreateTruckPage';
 import { TruckCapacityDashboard } from './pages/TruckCapacityDashboard';
 import { DeliveriesPage } from './pages/DeliveriesPage';
+import { DepositsPage } from './pages/DepositsPage';
 
 function App() {
   return (
@@ -62,6 +63,7 @@ function App() {
             <Route path="orders/:id/edit" element={<EditOrderPage />} />
             <Route path="transfers" element={<TransfersPage />} />
             <Route path="deliveries" element={<DeliveriesPage />} />
+            <Route path="deposits" element={<DepositsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="trucks">
               <Route index element={<TrucksPage />} />
