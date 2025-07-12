@@ -4,6 +4,10 @@ export interface Order {
   delivery_address_id: string;
   order_date: string;
   scheduled_date?: string;
+  delivery_date?: string;
+  delivery_time_window_start?: string;
+  delivery_time_window_end?: string;
+  delivery_instructions?: string;
   status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
   total_amount?: number;
   tax_percent?: number;
@@ -85,6 +89,10 @@ export interface CreateOrderData {
   delivery_address_id: string;
   order_date: string;
   scheduled_date?: string;
+  delivery_date?: string;
+  delivery_time_window_start?: string;
+  delivery_time_window_end?: string;
+  delivery_instructions?: string;
   status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
   notes?: string;
   tax_percent?: number;
@@ -92,13 +100,15 @@ export interface CreateOrderData {
   total_amount?: number;
   // Order type fields
   order_type: 'delivery' | 'visit';
-  service_type: 'standard' | 'express' | 'scheduled';
-  exchange_empty_qty: number;
-  requires_pickup: boolean;
+  service_type?: 'standard' | 'express' | 'scheduled';
+  exchange_empty_qty?: number;
+  requires_pickup?: boolean;
   // Warehouse/fulfillment fields
   source_warehouse_id?: string; // Warehouse to fulfill order from
   created_by_user_id?: string;
   assigned_to_user_id?: string;
+  // Order lines for creating order with products in one request
+  order_lines?: CreateOrderLineData[];
 }
 
 export interface UpdateOrderData extends Partial<CreateOrderData> {
@@ -106,7 +116,7 @@ export interface UpdateOrderData extends Partial<CreateOrderData> {
 }
 
 export interface CreateOrderLineData {
-  order_id: string;
+  order_id?: string; // Optional when creating with order
   product_id: string;
   quantity: number;
   unit_price: number;

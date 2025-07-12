@@ -1,0 +1,1024 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Check, Package, User, MapPin, Calendar, ShoppingCart, AlertTriangle, Plus, X, Info, DollarSign, Trash2, Clock, FileText, ChevronRight } from 'lucide-react';
+import { useCustomers } from '../hooks/useCustomers';
+import { useAddresses, useCreateAddress } from '../hooks/useAddresses';
+import { useProducts } from '../hooks/useProducts';
+import { useCreateOrderNew } from '../hooks/useOrders';
+import { useWarehouses } from '../hooks/useWarehouses';
+import { useInventoryNew } from '../hooks/useInventory';
+import { useProductPrices } from '../hooks/useProductPricing';
+import { formatCurrencySync } from '../utils/pricing';
+import { formatAddressForSelect } from '../utils/address';
+import { CustomerSelector } from '../components/customers/CustomerSelector';
+import { AddressForm } from '../components/addresses/AddressForm';
+import { CreateOrderData } from '../types/order';
+import { CreateAddressData, Address } from '../types/address';
+import { Customer } from '../types/customer';
+import { Product } from '../types/product';
+import { Warehouse } from '../types/warehouse';
+
+interface OrderLineItem {
+  product_id: string;
+  product_name: string;
+  product_sku: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+  price_excluding_tax?: number;
+  tax_amount?: number;
+  price_including_tax?: number;
+  tax_rate?: number;
+}
+
+export const CreateOrderPageV2: React.FC = () => {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Step 1: Order Type
+  const [orderType, setOrderType] = useState<'delivery' | 'visit' | ''>('');
+  
+  // Step 2: Customer & Address
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
+  
+  // Step 3: Products
+  const [orderLines, setOrderLines] = useState<OrderLineItem[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<{[key: string]: number}>({});
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+  
+  // Step 4: Delivery Notes
+  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [deliveryTimeStart, setDeliveryTimeStart] = useState('');
+  const [deliveryTimeEnd, setDeliveryTimeEnd] = useState('');
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
+  
+  // Step 5: Review
+  const [orderStatus, setOrderStatus] = useState<'draft' | 'confirmed'>('draft');
+  
+  // Data hooks
+  const { data: customersData } = useCustomers({ limit: 1000 });
+  const { data: addresses = [] } = useAddresses(selectedCustomerId);
+  const { data: productsData, isLoading: isProductsLoading } = useProducts({ limit: 1000 });
+  const { data: warehousesData } = useWarehouses({ limit: 1000 });
+  const { data: inventoryData } = useInventoryNew({});
+  const createOrder = useCreateOrderNew();
+  const createAddress = useCreateAddress();
+  
+  const customers = customersData?.customers || [];
+  const products = productsData?.products || [];
+  const warehouses = warehousesData?.warehouses || [];
+  
+  const selectedCustomer = customers.find((c: Customer) => c.id === selectedCustomerId);
+  const selectedAddress = addresses.find((a: Address) => a.id === selectedAddressId);
+  const selectedWarehouse = warehouses.find((w: Warehouse) => w.id === selectedWarehouseId);
+  
+  // Get product prices
+  const productIds = products.map(p => p.id);
+  const { data: productPrices, isLoading: isPricesLoading } = useProductPrices(productIds, selectedCustomerId || undefined);
+  
+  // Auto-select primary address when customer changes
+  useEffect(() => {
+    if (selectedCustomerId && addresses.length > 0 && !selectedAddressId) {
+      const primaryAddress = addresses.find((a: Address) => a.is_primary);
+      if (primaryAddress) {
+        setSelectedAddressId(primaryAddress.id);
+      } else {
+        setSelectedAddressId(addresses[0].id);
+      }
+    }
+  }, [selectedCustomerId, addresses, selectedAddressId]);
+  
+  // Load delivery instructions from selected address
+  useEffect(() => {
+    if (selectedAddress) {
+      // Set time window from address if available
+      if (selectedAddress.delivery_window_start) {
+        setDeliveryTimeStart(selectedAddress.delivery_window_start);
+      }
+      if (selectedAddress.delivery_window_end) {
+        setDeliveryTimeEnd(selectedAddress.delivery_window_end);
+      }
+      // Set instructions from address
+      if (selectedAddress.instructions) {
+        setDeliveryInstructions(selectedAddress.instructions);
+      }
+    }
+  }, [selectedAddress]);
+  
+  // Calculate order totals
+  const calculateTotals = () => {
+    let subtotal = 0;
+    let taxAmount = 0;
+    let grandTotal = 0;
+    
+    orderLines.forEach(line => {
+      if (line.price_excluding_tax !== undefined) {
+        subtotal += line.price_excluding_tax * line.quantity;
+      } else {
+        subtotal += line.unit_price * line.quantity;
+      }
+      
+      if (line.tax_amount !== undefined) {
+        taxAmount += line.tax_amount * line.quantity;
+      }
+      
+      if (line.price_including_tax !== undefined) {
+        grandTotal += line.price_including_tax * line.quantity;
+      } else {
+        grandTotal += line.unit_price * line.quantity + (line.tax_amount || 0) * line.quantity;
+      }
+    });
+    
+    return { subtotal, taxAmount, grandTotal };
+  };
+  
+  const { subtotal, taxAmount, grandTotal } = calculateTotals();
+  
+  // Get available warehouses based on selected products
+  const getAvailableWarehouses = () => {
+    if (!inventoryData?.inventory || Object.keys(selectedProducts).length === 0) {
+      return warehouses;
+    }
+    
+    // Filter warehouses that have ALL selected products with required quantities
+    return warehouses.filter(warehouse => {
+      return Object.entries(selectedProducts).every(([productId, requiredQty]) => {
+        const warehouseInventory = inventoryData.inventory.filter(
+          (inv: any) => inv.product_id === productId && inv.warehouse_id === warehouse.id
+        );
+        
+        if (warehouseInventory.length === 0) return false;
+        
+        const totalAvailable = warehouseInventory.reduce(
+          (sum: number, inv: any) => {
+            const qtyFull = Number(inv.qty_full) || 0;
+            const qtyReserved = Number(inv.qty_reserved) || 0;
+            const available = Math.max(0, qtyFull - qtyReserved);
+            return sum + available;
+          }, 
+          0
+        );
+        
+        return totalAvailable >= requiredQty;
+      });
+    });
+  };
+  
+  const availableWarehouses = getAvailableWarehouses();
+  
+  // Get stock info for a product in selected warehouse
+  const getStockInfo = (productId: string) => {
+    if (!inventoryData?.inventory || !selectedWarehouseId) {
+      return 0;
+    }
+    
+    const productInventory = inventoryData.inventory.filter(
+      (inv: any) => inv.product_id === productId && inv.warehouse_id === selectedWarehouseId
+    );
+    
+    if (productInventory.length === 0) return 0;
+    
+    const totalAvailable = productInventory.reduce(
+      (sum: number, inv: any) => {
+        const qtyFull = Number(inv.qty_full) || 0;
+        const qtyReserved = Number(inv.qty_reserved) || 0;
+        const available = Math.max(0, qtyFull - qtyReserved);
+        return sum + available;
+      }, 
+      0
+    );
+    
+    return totalAvailable;
+  };
+  
+  // Handle customer change
+  const handleCustomerChange = (customerId: string) => {
+    setSelectedCustomerId(customerId);
+    setSelectedAddressId('');
+    setSelectedProducts({});
+    setOrderLines([]);
+  };
+  
+  // Handle product selection
+  const handleProductSelect = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      const newProducts = { ...selectedProducts };
+      delete newProducts[productId];
+      setSelectedProducts(newProducts);
+    } else {
+      setSelectedProducts({
+        ...selectedProducts,
+        [productId]: quantity
+      });
+    }
+  };
+  
+  // Update order lines when warehouse is selected
+  useEffect(() => {
+    if (selectedWarehouseId && Object.keys(selectedProducts).length > 0) {
+      const newOrderLines: OrderLineItem[] = [];
+      
+      Object.entries(selectedProducts).forEach(([productId, quantity]) => {
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
+        
+        const pricingInfo = productPrices && productPrices[productId];
+        const unitPrice = pricingInfo?.finalPrice || 0;
+        
+        newOrderLines.push({
+          product_id: productId,
+          product_name: product.name,
+          product_sku: product.sku,
+          quantity,
+          unit_price: unitPrice,
+          subtotal: unitPrice * quantity,
+          price_excluding_tax: pricingInfo?.priceExcludingTax,
+          tax_amount: pricingInfo?.taxAmount,
+          price_including_tax: pricingInfo?.priceIncludingTax,
+          tax_rate: pricingInfo?.taxRate,
+        });
+      });
+      
+      setOrderLines(newOrderLines);
+    }
+  }, [selectedWarehouseId, selectedProducts, products, productPrices]);
+  
+  // Handle address creation
+  const handleAddressSubmit = async (addressData: CreateAddressData) => {
+    try {
+      const newAddress = await createAddress.mutateAsync(addressData);
+      setSelectedAddressId(newAddress.id);
+      setIsAddressFormOpen(false);
+    } catch (error) {
+      console.error('Failed to create address:', error);
+    }
+  };
+  
+  // Handle order creation
+  const handleCreateOrder = async () => {
+    if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || orderLines.length === 0) {
+      return;
+    }
+    
+    try {
+      const orderData = {
+        customer_id: selectedCustomerId,
+        delivery_address_id: selectedAddressId,
+        source_warehouse_id: selectedWarehouseId,
+        order_date: new Date().toISOString().split('T')[0],
+        delivery_date: deliveryDate,
+        delivery_time_window_start: deliveryTimeStart || undefined,
+        delivery_time_window_end: deliveryTimeEnd || undefined,
+        delivery_instructions: deliveryInstructions || undefined,
+        notes: orderNotes || undefined,
+        status: orderStatus,
+        order_type: orderType as 'delivery' | 'visit',
+        order_lines: orderLines.map(line => ({
+          product_id: line.product_id,
+          quantity: line.quantity,
+          unit_price: line.unit_price,
+          price_excluding_tax: line.price_excluding_tax,
+          tax_amount: line.tax_amount,
+          price_including_tax: line.price_including_tax,
+          tax_rate: line.tax_rate,
+        })),
+      };
+      
+      const order = await createOrder.mutateAsync(orderData);
+      navigate(`/orders/${order.id}`);
+    } catch (error) {
+      console.error('Error creating order:', error);
+    }
+  };
+  
+  // Navigation helpers
+  const canProceedToStep2 = orderType !== '';
+  const canProceedToStep3 = selectedCustomerId && selectedAddressId;
+  const canProceedToStep4 = Object.keys(selectedProducts).length > 0;
+  const canProceedToStep5 = deliveryDate !== '';
+  const canCreateOrder = canProceedToStep5 && !createOrder.isPending;
+  
+  const goToStep = (step: number) => {
+    if (step < currentStep) {
+      setCurrentStep(step);
+    } else if (step === 2 && canProceedToStep2) {
+      setCurrentStep(2);
+    } else if (step === 3 && canProceedToStep3) {
+      setCurrentStep(3);
+    } else if (step === 4 && canProceedToStep4) {
+      setCurrentStep(4);
+    } else if (step === 5 && canProceedToStep5) {
+      setCurrentStep(5);
+    }
+  };
+  
+  const steps = [
+    { number: 1, title: 'Order Type', icon: Package },
+    { number: 2, title: 'Customer & Address', icon: User },
+    { number: 3, title: 'Products', icon: ShoppingCart },
+    { number: 4, title: 'Delivery Notes', icon: FileText },
+    { number: 5, title: 'Review & Create', icon: Check }
+  ];
+  
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => navigate('/orders')}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Orders</span>
+          </button>
+          <div className="text-gray-400">/</div>
+          <h1 className="text-2xl font-bold text-gray-900">Create New Order</h1>
+        </div>
+      </div>
+      
+      {/* Progress Steps */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-8">
+          {steps.map((step, index) => (
+            <React.Fragment key={step.number}>
+              <div 
+                className={`flex items-center space-x-3 cursor-pointer ${
+                  currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'
+                }`}
+                onClick={() => goToStep(step.number)}
+              >
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  currentStep >= step.number ? 'bg-blue-600 text-white' : 'bg-gray-200'
+                }`}>
+                  {currentStep > step.number ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <span className="font-medium">{step.number}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="font-medium">{step.title}</div>
+                  <div className="text-xs text-gray-500">
+                    {step.number === 1 && (orderType ? `${orderType === 'delivery' ? 'Delivery' : 'Visit'} Order` : 'Select type')}
+                    {step.number === 2 && (selectedCustomer ? selectedCustomer.name : 'Select customer')}
+                    {step.number === 3 && (Object.keys(selectedProducts).length > 0 ? `${Object.keys(selectedProducts).length} products` : 'Add products')}
+                    {step.number === 4 && (deliveryDate ? `Delivery: ${new Date(deliveryDate).toLocaleDateString()}` : 'Set delivery')}
+                    {step.number === 5 && (orderStatus ? `Status: ${orderStatus}` : 'Review order')}
+                  </div>
+                </div>
+              </div>
+              {index < steps.length - 1 && (
+                <div className={`flex-1 h-0.5 mx-4 ${
+                  currentStep > step.number ? 'bg-blue-600' : 'bg-gray-200'
+                }`}></div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+        
+        {/* Step 1: Order Type */}
+        {currentStep === 1 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Select Order Type</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setOrderType('delivery')}
+                className={`p-6 border-2 rounded-lg text-left transition-all ${
+                  orderType === 'delivery' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start space-x-3">
+                  <div className={`p-3 rounded-lg ${
+                    orderType === 'delivery' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    <Package className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">Delivery Order</h3>
+                    <p className="text-gray-600 mt-1">
+                      An order with predefined product quantities for direct delivery to the customer.
+                    </p>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setOrderType('visit')}
+                className={`p-6 border-2 rounded-lg text-left transition-all ${
+                  orderType === 'visit' 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-start space-x-3">
+                  <div className={`p-3 rounded-lg ${
+                    orderType === 'visit' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    <User className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">Visit Order</h3>
+                    <p className="text-gray-600 mt-1">
+                      A placeholder order for scheduling a truck visit. Product quantities will be finalized at the customer site.
+                    </p>
+                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                      <Info className="h-4 w-4 inline mr-1" />
+                      Coming soon - Currently unavailable
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </div>
+            
+            <div className="flex justify-end mt-8">
+              <button
+                onClick={() => goToStep(2)}
+                disabled={!canProceedToStep2 || orderType === 'visit'}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <span>Next: Customer & Address</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 2: Customer & Address */}
+        {currentStep === 2 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Select Customer & Delivery Address</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <User className="inline h-4 w-4 mr-1" />
+                  Customer *
+                </label>
+                <CustomerSelector
+                  value={selectedCustomerId}
+                  onChange={handleCustomerChange}
+                  customers={customers}
+                  placeholder="Search for a customer..."
+                  onCustomerCreated={(customer) => setSelectedCustomerId(customer.id)}
+                />
+                
+                {selectedCustomer && (
+                  <div className={`mt-3 p-3 rounded-lg ${
+                    selectedCustomer.account_status === 'active' ? 'bg-green-50 border border-green-200' :
+                    selectedCustomer.account_status === 'credit_hold' ? 'bg-yellow-50 border border-yellow-200' :
+                    'bg-red-50 border border-red-200'
+                  }`}>
+                    <div className="text-sm">
+                      <div className={`font-medium ${
+                        selectedCustomer.account_status === 'active' ? 'text-green-900' :
+                        selectedCustomer.account_status === 'credit_hold' ? 'text-yellow-900' :
+                        'text-red-900'
+                      }`}>{selectedCustomer.name}</div>
+                      <div className={`${
+                        selectedCustomer.account_status === 'active' ? 'text-green-700' :
+                        selectedCustomer.account_status === 'credit_hold' ? 'text-yellow-700' :
+                        'text-red-700'
+                      }`}>
+                        Status: {selectedCustomer.account_status}
+                      </div>
+                      {selectedCustomer.email && <div className="text-gray-600">{selectedCustomer.email}</div>}
+                      {selectedCustomer.phone && <div className="text-gray-600">{selectedCustomer.phone}</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <MapPin className="inline h-4 w-4 mr-1" />
+                  Delivery Address *
+                </label>
+                
+                {selectedCustomerId && (
+                  <>
+                    {addresses.length > 0 ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <select
+                            value={selectedAddressId}
+                            onChange={(e) => setSelectedAddressId(e.target.value)}
+                            className="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          >
+                            <option value="">Choose a delivery address...</option>
+                            {addresses.map((address) => (
+                              <option key={address.id} value={address.id}>
+                                {formatAddressForSelect(address)}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => setIsAddressFormOpen(true)}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        {selectedAddress && (
+                          <div className="p-4 bg-gray-50 rounded-lg">
+                            <h4 className="font-medium text-gray-900 mb-2">Selected Address:</h4>
+                            <div className="text-sm text-gray-700">
+                              <div>{selectedAddress.line1}</div>
+                              {selectedAddress.line2 && <div>{selectedAddress.line2}</div>}
+                              <div>{selectedAddress.city}, {selectedAddress.state} {selectedAddress.postal_code}</div>
+                              {selectedAddress.instructions && (
+                                <div className="mt-2 text-gray-600">
+                                  <strong>Default Instructions:</strong> {selectedAddress.instructions}
+                                </div>
+                              )}
+                              {(selectedAddress.delivery_window_start || selectedAddress.delivery_window_end) && (
+                                <div className="mt-1 text-gray-600">
+                                  <strong>Default Time Window:</strong> {selectedAddress.delivery_window_start} - {selectedAddress.delivery_window_end}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 border border-gray-200 rounded-lg bg-yellow-50">
+                        <AlertTriangle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No delivery addresses found</h3>
+                        <button
+                          onClick={() => setIsAddressFormOpen(true)}
+                          className="inline-flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>Add Address</span>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => goToStep(1)}
+                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => goToStep(3)}
+                disabled={!canProceedToStep3}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <span>Next: Add Products</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 3: Products */}
+        {currentStep === 3 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Add Products</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Product Selection */}
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Available Products</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {products
+                    .filter(p => p.status === 'active')
+                    .map(product => {
+                      const currentQty = selectedProducts[product.id] || 0;
+                      const pricingInfo = productPrices && productPrices[product.id];
+                      const unitPrice = pricingInfo?.finalPrice || 0;
+                      const hasPrice = unitPrice > 0;
+                      
+                      return (
+                        <div
+                          key={product.id}
+                          className={`p-3 border rounded-lg transition-all ${
+                            currentQty > 0
+                              ? 'bg-blue-50 border-blue-200'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{product.name}</div>
+                              <div className="text-sm text-gray-500">SKU: {product.sku}</div>
+                              {hasPrice ? (
+                                <div className="text-sm text-green-600 font-medium">
+                                  {formatCurrencySync(unitPrice)}
+                                </div>
+                              ) : (
+                                <div className="text-sm text-red-600">No price set</div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleProductSelect(product.id, Math.max(0, currentQty - 1))}
+                                disabled={currentQty === 0}
+                                className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                value={currentQty}
+                                onChange={(e) => handleProductSelect(product.id, parseInt(e.target.value) || 0)}
+                                className="w-16 text-center border border-gray-300 rounded px-2 py-1"
+                                min="0"
+                              />
+                              <button
+                                onClick={() => handleProductSelect(product.id, currentQty + 1)}
+                                disabled={!hasPrice}
+                                className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+              
+              {/* Warehouse Selection & Summary */}
+              <div className="space-y-6">
+                {/* Selected Products Summary */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Selected Products</h3>
+                  {Object.keys(selectedProducts).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(selectedProducts).map(([productId, quantity]) => {
+                        const product = products.find(p => p.id === productId);
+                        if (!product) return null;
+                        
+                        const pricingInfo = productPrices && productPrices[productId];
+                        const unitPrice = pricingInfo?.finalPrice || 0;
+                        
+                        return (
+                          <div key={productId} className="p-3 border border-gray-200 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-medium">{product.name}</div>
+                                <div className="text-sm text-gray-500">
+                                  {quantity} × {formatCurrencySync(unitPrice)} = {formatCurrencySync(quantity * unitPrice)}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleProductSelect(productId, 0)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 border border-gray-200 rounded-lg">
+                      <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">No products selected</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Warehouse Selection */}
+                {Object.keys(selectedProducts).length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <Package className="inline h-4 w-4 mr-1" />
+                      Select Warehouse
+                    </label>
+                    {availableWarehouses.length > 0 ? (
+                      <select
+                        value={selectedWarehouseId}
+                        onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                        <option value="">Choose a warehouse...</option>
+                        {availableWarehouses.map((warehouse) => (
+                          <option key={warehouse.id} value={warehouse.id}>
+                            {warehouse.name} - {warehouse.city}, {warehouse.state}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600 inline mr-2" />
+                        <span className="text-yellow-800">
+                          No warehouses have all selected products in the required quantities
+                        </span>
+                      </div>
+                    )}
+                    
+                    {selectedWarehouseId && (
+                      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="font-medium text-blue-900 mb-2">Stock Availability in {selectedWarehouse?.name}:</h4>
+                        <div className="space-y-1 text-sm">
+                          {Object.entries(selectedProducts).map(([productId, requiredQty]) => {
+                            const product = products.find(p => p.id === productId);
+                            const available = getStockInfo(productId);
+                            const isEnough = available >= requiredQty;
+                            
+                            return (
+                              <div key={productId} className={`flex justify-between ${isEnough ? 'text-green-700' : 'text-red-700'}`}>
+                                <span>{product?.name}:</span>
+                                <span>{available} available (need {requiredQty})</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => goToStep(2)}
+                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => goToStep(4)}
+                disabled={!canProceedToStep4 || !selectedWarehouseId}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <span>Next: Delivery Notes</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 4: Delivery Notes */}
+        {currentStep === 4 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Add Delivery Notes</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Calendar className="inline h-4 w-4 mr-1" />
+                  Delivery Date *
+                </label>
+                <input
+                  type="date"
+                  value={deliveryDate}
+                  onChange={(e) => setDeliveryDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Clock className="inline h-4 w-4 mr-1" />
+                  Time Window (Optional)
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="time"
+                    value={deliveryTimeStart}
+                    onChange={(e) => setDeliveryTimeStart(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-500">to</span>
+                  <input
+                    type="time"
+                    value={deliveryTimeEnd}
+                    onChange={(e) => setDeliveryTimeEnd(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                {selectedAddress && (selectedAddress.delivery_window_start || selectedAddress.delivery_window_end) && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Default from address: {selectedAddress.delivery_window_start} - {selectedAddress.delivery_window_end}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FileText className="inline h-4 w-4 mr-1" />
+                Delivery Instructions
+              </label>
+              <textarea
+                value={deliveryInstructions}
+                onChange={(e) => setDeliveryInstructions(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="e.g., Gate code: 1234, Ring doorbell twice, Leave at back door..."
+              />
+              {selectedAddress?.instructions && (
+                <p className="mt-1 text-xs text-gray-500">
+                  Default from address: {selectedAddress.instructions}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Order Notes (Internal)
+              </label>
+              <textarea
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Optional internal notes about this order..."
+              />
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => goToStep(3)}
+                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => goToStep(5)}
+                disabled={!canProceedToStep5}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <span>Next: Review Order</span>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Step 5: Review & Create */}
+        {currentStep === 5 && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-semibold mb-4">Review Order</h2>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Order Summary */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900 mb-3">Order Details</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Order Type:</span>
+                      <span className="font-medium">{orderType === 'delivery' ? 'Delivery Order' : 'Visit Order'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Customer:</span>
+                      <span className="font-medium">{selectedCustomer?.name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Delivery Date:</span>
+                      <span className="font-medium">{new Date(deliveryDate).toLocaleDateString()}</span>
+                    </div>
+                    {(deliveryTimeStart || deliveryTimeEnd) && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Time Window:</span>
+                        <span className="font-medium">{deliveryTimeStart} - {deliveryTimeEnd}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Warehouse:</span>
+                      <span className="font-medium">{selectedWarehouse?.name}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900 mb-3">Delivery Address</h3>
+                  <div className="text-sm text-gray-700">
+                    <div>{selectedAddress?.line1}</div>
+                    {selectedAddress?.line2 && <div>{selectedAddress.line2}</div>}
+                    <div>{selectedAddress?.city}, {selectedAddress?.state} {selectedAddress?.postal_code}</div>
+                  </div>
+                  {deliveryInstructions && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-sm font-medium text-gray-700">Delivery Instructions:</div>
+                      <div className="text-sm text-gray-600 mt-1">{deliveryInstructions}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Products & Totals */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900 mb-3">Order Items</h3>
+                  <div className="space-y-2">
+                    {orderLines.map((line) => (
+                      <div key={line.product_id} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+                        <div>
+                          <div className="font-medium text-sm">{line.product_name}</div>
+                          <div className="text-xs text-gray-500">
+                            {line.quantity} × {formatCurrencySync(line.unit_price)}
+                          </div>
+                        </div>
+                        <div className="font-medium text-sm">
+                          {formatCurrencySync(line.subtotal)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-300 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Subtotal:</span>
+                      <span className="font-medium">{formatCurrencySync(subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Tax:</span>
+                      <span className="font-medium">{formatCurrencySync(taxAmount)}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <span className="font-semibold">Total:</span>
+                      <span className="font-bold text-lg text-green-700">{formatCurrencySync(grandTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Order Status Selection */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 mb-3">Save Order As:</h3>
+                  <div className="space-y-2">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="draft"
+                        checked={orderStatus === 'draft'}
+                        onChange={(e) => setOrderStatus(e.target.value as 'draft')}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="font-medium">Draft</div>
+                        <div className="text-sm text-gray-600">Save for later editing</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <input
+                        type="radio"
+                        value="confirmed"
+                        checked={orderStatus === 'confirmed'}
+                        onChange={(e) => setOrderStatus(e.target.value as 'confirmed')}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <div>
+                        <div className="font-medium">Confirmed</div>
+                        <div className="text-sm text-gray-600">Confirm and reserve stock</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => goToStep(4)}
+                className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleCreateOrder}
+                disabled={!canCreateOrder}
+                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <ShoppingCart className="h-5 w-5" />
+                <span>{createOrder.isPending ? 'Creating...' : `Create ${orderStatus === 'draft' ? 'Draft' : 'Confirmed'} Order`}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Address Form Modal */}
+      <AddressForm
+        isOpen={isAddressFormOpen}
+        onClose={() => setIsAddressFormOpen(false)}
+        onSubmit={handleAddressSubmit}
+        customerId={selectedCustomerId}
+        loading={createAddress.isPending}
+        title="Add New Address"
+        isFirstAddress={addresses.length === 0}
+      />
+    </div>
+  );
+};
