@@ -839,68 +839,68 @@ export const customersRouter = router({
     }),
 
   // POST /customers/validate-credit-terms - Validate credit terms business rules
-  validateCreditTerms: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/customers/validate-credit-terms',
-        tags: ['customers', 'validation'],
-        summary: 'Validate credit terms',
-        protect: true,
-      }
-    })
-    .input(CreditTermsValidationSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // validateCreditTerms: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'POST',
+  //       path: '/customers/validate-credit-terms',
+  //       tags: ['customers', 'validation'],
+  //       summary: 'Validate credit terms',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(CreditTermsValidationSchema)
+  //   .output(z.any()) // ✅ Accept any output format - no validation
+  //   .mutation(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      const errors: string[] = [];
-      const warnings: string[] = [];
+  //     const errors: string[] = [];
+  //     const warnings: string[] = [];
 
-      // Business rule: Credit terms validation
-      if (input.credit_terms_days < 0) {
-        errors.push('Credit terms cannot be negative');
-      }
+  //     // Business rule: Credit terms validation
+  //     if (input.credit_terms_days < 0) {
+  //       errors.push('Credit terms cannot be negative');
+  //     }
       
-      if (input.credit_terms_days > 365) {
-        errors.push('Credit terms cannot exceed 365 days');
-      }
+  //     if (input.credit_terms_days > 365) {
+  //       errors.push('Credit terms cannot exceed 365 days');
+  //     }
 
-      // Business rule: Credit terms vs account status consistency
-      if (input.account_status === 'credit_hold' && input.credit_terms_days > 0) {
-        warnings.push('Customer is on credit hold but has credit terms - orders may be blocked');
-      }
+  //     // Business rule: Credit terms vs account status consistency
+  //     if (input.account_status === 'credit_hold' && input.credit_terms_days > 0) {
+  //       warnings.push('Customer is on credit hold but has credit terms - orders may be blocked');
+  //     }
 
-      if (input.account_status === 'closed' && input.credit_terms_days > 0) {
-        warnings.push('Customer account is closed but has credit terms - no new orders allowed');
-      }
+  //     if (input.account_status === 'closed' && input.credit_terms_days > 0) {
+  //       warnings.push('Customer account is closed but has credit terms - no new orders allowed');
+  //     }
 
-      // Business rule: Extended credit terms warning
-      if (input.credit_terms_days > 90) {
-        warnings.push('Extended credit terms (>90 days) may require management approval');
-      }
+  //     // Business rule: Extended credit terms warning
+  //     if (input.credit_terms_days > 90) {
+  //       warnings.push('Extended credit terms (>90 days) may require management approval');
+  //     }
 
-      // Business rule: Check customer payment history if updating existing customer
-      if (input.customer_id) {
-        const { data: overdueOrders } = await ctx.supabase
-          .from('orders')
-          .select('id, total_amount, order_date')
-          .eq('customer_id', input.customer_id)
-          .eq('status', 'invoiced')
-          .lt('order_date', new Date(Date.now() - input.credit_terms_days * 24 * 60 * 60 * 1000).toISOString());
+  //     // Business rule: Check customer payment history if updating existing customer
+  //     if (input.customer_id) {
+  //       const { data: overdueOrders } = await ctx.supabase
+  //         .from('orders')
+  //         .select('id, total_amount, order_date')
+  //         .eq('customer_id', input.customer_id)
+  //         .eq('status', 'invoiced')
+  //         .lt('order_date', new Date(Date.now() - input.credit_terms_days * 24 * 60 * 60 * 1000).toISOString());
 
-        if (overdueOrders && overdueOrders.length > 0) {
-          const overdueAmount = overdueOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
-          warnings.push(`Customer has ${overdueOrders.length} overdue orders totaling ${overdueAmount.toFixed(2)}`);
-        }
-      }
+  //       if (overdueOrders && overdueOrders.length > 0) {
+  //         const overdueAmount = overdueOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0);
+  //         warnings.push(`Customer has ${overdueOrders.length} overdue orders totaling ${overdueAmount.toFixed(2)}`);
+  //       }
+  //     }
 
-      return {
-        valid: errors.length === 0,
-        errors,
-        warnings,
-      };
-    }),
+  //     return {
+  //       valid: errors.length === 0,
+  //       errors,
+  //       warnings,
+  //     };
+  //   }),
 
   // Address management endpoints
   

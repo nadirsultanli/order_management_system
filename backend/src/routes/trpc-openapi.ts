@@ -3,9 +3,9 @@ import { authRouter } from './auth';
 import { customersRouter } from './customers';
 import { deliveriesRouter } from './deliveries';
 import { inventoryRouter } from './inventory';
-import { paymentsRouter } from './payments';
+// import { paymentsRouter } from './payments';
 import { productsRouter } from './products';
-import { stockMovementsRouter } from './stock-movements';
+// import { stockMovementsRouter } from './stock-movements';
 import { transfersRouter } from './transfers';
 import { trucksRouter } from './trucks';
 import { warehousesRouter } from './warehouses';
@@ -21,9 +21,9 @@ const openApiRouter = router({
   customers: customersRouter,
   deliveries: deliveriesRouter,
   inventory: inventoryRouter,
-  payments: paymentsRouter,
+  // payments: paymentsRouter,
   products: productsRouter,
-  stockMovements: stockMovementsRouter,
+  // stockMovements: stockMovementsRouter,
   transfers: transfersRouter,
   trucks: trucksRouter,
   warehouses: warehousesRouter,
@@ -46,7 +46,7 @@ const openApiDocument = generateOpenApiDocument(openApiRouter, {
   description: 'Auto-generated OpenAPI spec from tRPC routes with OpenAPI metadata',
   version: '1.0.0',
   baseUrl: getBaseUrl(), // 🔧 Dynamic baseUrl
-  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'payments', 'stock-movements', 'transfers', 'trucks', 'warehouses', 'pricing'],
+  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'transfers', 'trucks', 'warehouses', 'pricing'],
   docsUrl: 'https://example.com',
 });
 

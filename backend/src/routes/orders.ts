@@ -385,183 +385,183 @@ export const ordersRouter = router({
     }),
 
   // GET /orders/overdue - Get overdue orders with business logic
-  getOverdue: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/orders/overdue',
-        tags: ['orders'],
-        summary: 'Get overdue orders',
-        description: 'Retrieve orders that are past their scheduled delivery date with urgency scoring and summary statistics.',
-        protect: true,
-      }
-    })
-    .input(GetOverdueOrdersSchema)
-    .output(z.any())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // getOverdue: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'GET',
+  //       path: '/orders/overdue',
+  //       tags: ['orders'],
+  //       summary: 'Get overdue orders',
+  //       description: 'Retrieve orders that are past their scheduled delivery date with urgency scoring and summary statistics.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(GetOverdueOrdersSchema)
+  //   .output(z.any())
+  //   .query(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching overdue orders with criteria:', input);
+  //     ctx.logger.info('Fetching overdue orders with criteria:', input);
       
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - input.days_overdue_min);
+  //     const cutoffDate = new Date();
+  //     cutoffDate.setDate(cutoffDate.getDate() - input.days_overdue_min);
       
-      let query = ctx.supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(id, name, email, phone, account_status),
-          delivery_address:addresses(id, line1, line2, city, state, postal_code, country)
-        `)
-        .eq('status', 'scheduled')
-        .lt('scheduled_date', cutoffDate.toISOString().split('T')[0]);
+  //     let query = ctx.supabase
+  //       .from('orders')
+  //       .select(`
+  //         *,
+  //         customer:customers(id, name, email, phone, account_status),
+  //         delivery_address:addresses(id, line1, line2, city, state, postal_code, country)
+  //       `)
+  //       .eq('status', 'scheduled')
+  //       .lt('scheduled_date', cutoffDate.toISOString().split('T')[0]);
 
-      if (!input.include_cancelled) {
-        query = query.neq('status', 'cancelled');
-      }
+  //     if (!input.include_cancelled) {
+  //       query = query.neq('status', 'cancelled');
+  //     }
 
-      if (input.priority_filter) {
-        query = query.eq('priority', input.priority_filter);
-      }
+  //     if (input.priority_filter) {
+  //       query = query.eq('priority', input.priority_filter);
+  //     }
 
-      query = query.order('scheduled_date', { ascending: true });
+  //     query = query.order('scheduled_date', { ascending: true });
 
-      const { data, error } = await query;
+  //     const { data, error } = await query;
 
-      if (error) {
-        ctx.logger.error('Overdue orders error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
-        });
-      }
+  //     if (error) {
+  //       ctx.logger.error('Overdue orders error:', error);
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: error.message
+  //       });
+  //     }
 
-      const orders = (data || []).map(order => ({
-        ...order,
-        days_overdue: Math.floor((new Date().getTime() - new Date(order.scheduled_date).getTime()) / (1000 * 60 * 60 * 24)),
-        urgency_score: calculateUrgencyScore(order),
-      }));
+  //     const orders = (data || []).map(order => ({
+  //       ...order,
+  //       days_overdue: Math.floor((new Date().getTime() - new Date(order.scheduled_date).getTime()) / (1000 * 60 * 60 * 24)),
+  //       urgency_score: calculateUrgencyScore(order),
+  //     }));
 
-      return {
-        orders,
-        summary: {
-          total_overdue: orders.length,
-          total_value: orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
-          avg_days_overdue: orders.length > 0 ? orders.reduce((sum, order) => sum + order.days_overdue, 0) / orders.length : 0,
-          high_priority_count: orders.filter(order => order.urgency_score >= 8).length,
-        }
-      };
-    }),
+  //     return {
+  //       orders,
+  //       summary: {
+  //         total_overdue: orders.length,
+  //         total_value: orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
+  //         avg_days_overdue: orders.length > 0 ? orders.reduce((sum, order) => sum + order.days_overdue, 0) / orders.length : 0,
+  //         high_priority_count: orders.filter(order => order.urgency_score >= 8).length,
+  //       }
+  //     };
+  //   }),
 
   // GET /orders/delivery-calendar - Get orders by delivery date with route optimization data
-  getDeliveryCalendar: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/orders/delivery-calendar',
-        tags: ['orders'],
-        summary: 'Get delivery calendar',
-        description: 'Retrieve orders scheduled for delivery within a date range with route optimization data and logistics metrics.',
-        protect: true,
-      }
-    })
-    .input(GetDeliveryCalendarSchema)
-    .output(z.any())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // getDeliveryCalendar: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'GET',
+  //       path: '/orders/delivery-calendar',
+  //       tags: ['orders'],
+  //       summary: 'Get delivery calendar',
+  //       description: 'Retrieve orders scheduled for delivery within a date range with route optimization data and logistics metrics.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(GetDeliveryCalendarSchema)
+  //   .output(z.any())
+  //   .query(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching delivery calendar:', input);
+  //     ctx.logger.info('Fetching delivery calendar:', input);
       
-      let query = ctx.supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(id, name, email, phone),
-          delivery_address:addresses(id, line1, line2, city, state, postal_code, country, latitude, longitude),
-          order_lines(
-            id,
-            product_id,
-            quantity,
-            product:products(id, sku, name, capacity_kg, tare_weight_kg)
-          )
-        `)
-        .gte('scheduled_date', input.date_from)
-        .lte('scheduled_date', input.date_to)
-        .in('status', ['scheduled', 'en_route']);
+  //     let query = ctx.supabase
+  //       .from('orders')
+  //       .select(`
+  //         *,
+  //         customer:customers(id, name, email, phone),
+  //         delivery_address:addresses(id, line1, line2, city, state, postal_code, country, latitude, longitude),
+  //         order_lines(
+  //           id,
+  //           product_id,
+  //           quantity,
+  //           product:products(id, sku, name, capacity_kg, tare_weight_kg)
+  //         )
+  //       `)
+  //       .gte('scheduled_date', input.date_from)
+  //       .lte('scheduled_date', input.date_to)
+  //       .in('status', ['scheduled', 'en_route']);
 
-      if (input.delivery_area) {
-        query = query.or(`
-          delivery_address.city.ilike.%${input.delivery_area}%,
-          delivery_address.state.ilike.%${input.delivery_area}%
-        `);
-      }
+  //     if (input.delivery_area) {
+  //       query = query.or(`
+  //         delivery_address.city.ilike.%${input.delivery_area}%,
+  //         delivery_address.state.ilike.%${input.delivery_area}%
+  //       `);
+  //     }
 
-      query = query.order('scheduled_date', { ascending: true });
+  //     query = query.order('scheduled_date', { ascending: true });
 
-      const { data, error } = await query;
+  //     const { data, error } = await query;
 
-      if (error) {
-        ctx.logger.error('Delivery calendar error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
-        });
-      }
+  //     if (error) {
+  //       ctx.logger.error('Delivery calendar error:', error);
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: error.message
+  //       });
+  //     }
 
-      const orders = data || [];
+  //     const orders = data || [];
       
-      // Group by date and calculate logistics metrics
-      const deliveryDays = orders.reduce((acc, order) => {
-        const date = order.scheduled_date;
-        if (!acc[date]) {
-          acc[date] = {
-            date,
-            orders: [],
-            total_orders: 0,
-            total_value: 0,
-            total_weight: 0,
-            total_volume: 0,
-            estimated_route_time: 0,
-            delivery_areas: new Set(),
-          };
-        }
+  //     // Group by date and calculate logistics metrics
+  //     const deliveryDays = orders.reduce((acc, order) => {
+  //       const date = order.scheduled_date;
+  //       if (!acc[date]) {
+  //         acc[date] = {
+  //           date,
+  //           orders: [],
+  //           total_orders: 0,
+  //           total_value: 0,
+  //           total_weight: 0,
+  //           total_volume: 0,
+  //           estimated_route_time: 0,
+  //           delivery_areas: new Set(),
+  //         };
+  //       }
 
-        const orderWeight = calculateOrderWeight(order);
-        const orderVolume = calculateOrderVolume(order);
+  //       const orderWeight = calculateOrderWeight(order);
+  //       const orderVolume = calculateOrderVolume(order);
         
-        acc[date].orders.push({
-          ...order,
-          order_weight: orderWeight,
-          order_volume: orderVolume,
-          estimated_service_time: calculateServiceTime(order),
-        });
+  //       acc[date].orders.push({
+  //         ...order,
+  //         order_weight: orderWeight,
+  //         order_volume: orderVolume,
+  //         estimated_service_time: calculateServiceTime(order),
+  //       });
 
-        acc[date].total_orders++;
-        acc[date].total_value += order.total_amount || 0;
-        acc[date].total_weight += orderWeight;
-        acc[date].total_volume += orderVolume;
-        acc[date].delivery_areas.add(order.delivery_address?.city || 'Unknown');
+  //       acc[date].total_orders++;
+  //       acc[date].total_value += order.total_amount || 0;
+  //       acc[date].total_weight += orderWeight;
+  //       acc[date].total_volume += orderVolume;
+  //       acc[date].delivery_areas.add(order.delivery_address?.city || 'Unknown');
 
-        return acc;
-      }, {} as Record<string, any>);
+  //       return acc;
+  //     }, {} as Record<string, any>);
 
-      // Convert Sets to arrays for JSON serialization
-      Object.values(deliveryDays).forEach((day: any) => {
-        day.delivery_areas = Array.from(day.delivery_areas);
-        day.estimated_route_time = calculateRouteTime(day.orders);
-        day.truck_requirements = calculateTruckRequirements(day.total_weight, day.total_volume);
-      });
+  //     // Convert Sets to arrays for JSON serialization
+  //     Object.values(deliveryDays).forEach((day: any) => {
+  //       day.delivery_areas = Array.from(day.delivery_areas);
+  //       day.estimated_route_time = calculateRouteTime(day.orders);
+  //       day.truck_requirements = calculateTruckRequirements(day.total_weight, day.total_volume);
+  //     });
 
-      return {
-        delivery_schedule: Object.values(deliveryDays),
-        summary: {
-          total_delivery_days: Object.keys(deliveryDays).length,
-          total_orders: orders.length,
-          total_value: orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
-          peak_day: Object.values(deliveryDays).sort((a: any, b: any) => b.total_orders - a.total_orders)[0],
-        }
-      };
-    }),
+  //     return {
+  //       delivery_schedule: Object.values(deliveryDays),
+  //       summary: {
+  //         total_delivery_days: Object.keys(deliveryDays).length,
+  //         total_orders: orders.length,
+  //         total_value: orders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
+  //         peak_day: Object.values(deliveryDays).sort((a: any, b: any) => b.total_orders - a.total_orders)[0],
+  //       }
+  //     };
+  //   }),
 
   // POST /orders - Create new order
   create: protectedProcedure
@@ -1439,260 +1439,260 @@ export const ordersRouter = router({
     }),
 
   // POST /orders/validate-order-pricing - Validate order pricing before creation
-  validateOrderPricing: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/validate-order-pricing',
-        tags: ['orders', 'pricing'],
-        summary: 'Validate order pricing',
-        description: 'Validate order pricing before creation including price list validation and inventory checks.',
-        protect: true,
-      }
-    })
-    .input(ValidateOrderPricingSchema)
-    .output(z.any())
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // validateOrderPricing: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'POST',
+  //       path: '/orders/validate-order-pricing',
+  //       tags: ['orders', 'pricing'],
+  //       summary: 'Validate order pricing',
+  //       description: 'Validate order pricing before creation including price list validation and inventory checks.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(ValidateOrderPricingSchema)
+  //   .output(z.any())
+  //   .mutation(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Validating order pricing for customer:', input.customer_id);
+  //     ctx.logger.info('Validating order pricing for customer:', input.customer_id);
       
-      // Verify customer exists
-      const { data: customer, error: customerError } = await ctx.supabase
-        .from('customers')
-        .select('id, name, account_status')
-        .eq('id', input.customer_id)
-        .single();
+  //     // Verify customer exists
+  //     const { data: customer, error: customerError } = await ctx.supabase
+  //       .from('customers')
+  //       .select('id, name, account_status')
+  //       .eq('id', input.customer_id)
+  //       .single();
 
-      if (customerError || !customer) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Customer not found'
-        });
-      }
+  //     if (customerError || !customer) {
+  //       throw new TRPCError({
+  //         code: 'NOT_FOUND',
+  //         message: 'Customer not found'
+  //       });
+  //     }
       
-      const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      const results: any[] = [];
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      let totalAmount = 0;
+  //     const pricingService = new PricingService(ctx.supabase, ctx.logger);
+  //     const results: any[] = [];
+  //     const errors: string[] = [];
+  //     const warnings: string[] = [];
+  //     let totalAmount = 0;
       
-      for (let i = 0; i < input.order_lines.length; i++) {
-        const line = input.order_lines[i];
+  //     for (let i = 0; i < input.order_lines.length; i++) {
+  //       const line = input.order_lines[i];
         
-        try {
-          // Get product information
-          const { data: product, error: productError } = await ctx.supabase
-            .from('products')
-            .select('id, sku, name, status')
-            .eq('id', line.product_id)
-            .single();
+  //       try {
+  //         // Get product information
+  //         const { data: product, error: productError } = await ctx.supabase
+  //           .from('products')
+  //           .select('id, sku, name, status')
+  //           .eq('id', line.product_id)
+  //           .single();
             
-          if (productError || !product) {
-            errors.push(`Product not found for line ${i + 1}`);
-            results.push({
-              product_id: line.product_id,
-              quantity: line.quantity,
-              is_valid: false,
-              error: 'Product not found'
-            });
-            continue;
-          }
+  //         if (productError || !product) {
+  //           errors.push(`Product not found for line ${i + 1}`);
+  //           results.push({
+  //             product_id: line.product_id,
+  //             quantity: line.quantity,
+  //             is_valid: false,
+  //             error: 'Product not found'
+  //           });
+  //           continue;
+  //         }
           
-          if (product.status !== 'active') {
-            errors.push(`Product ${product.sku} is not active`);
-            results.push({
-              product_id: line.product_id,
-              product_sku: product.sku,
-              quantity: line.quantity,
-              is_valid: false,
-              error: 'Product is not active'
-            });
-            continue;
-          }
+  //         if (product.status !== 'active') {
+  //           errors.push(`Product ${product.sku} is not active`);
+  //           results.push({
+  //             product_id: line.product_id,
+  //             product_sku: product.sku,
+  //             quantity: line.quantity,
+  //             is_valid: false,
+  //             error: 'Product is not active'
+  //           });
+  //           continue;
+  //         }
           
-          // Get current pricing
-          const currentPricing = await pricingService.getProductPrice(
-            line.product_id,
-            input.customer_id
-          );
+  //         // Get current pricing
+  //         const currentPricing = await pricingService.getProductPrice(
+  //           line.product_id,
+  //           input.customer_id
+  //         );
           
-          if (!currentPricing) {
-            errors.push(`No pricing found for product ${product.sku}`);
-            results.push({
-              product_id: line.product_id,
-              product_sku: product.sku,
-              quantity: line.quantity,
-              is_valid: false,
-              error: 'No pricing found'
-            });
-            continue;
-          }
+  //         if (!currentPricing) {
+  //           errors.push(`No pricing found for product ${product.sku}`);
+  //           results.push({
+  //             product_id: line.product_id,
+  //             product_sku: product.sku,
+  //             quantity: line.quantity,
+  //             is_valid: false,
+  //             error: 'No pricing found'
+  //           });
+  //           continue;
+  //         }
           
-          let isValid = true;
-          let lineErrors: string[] = [];
-          let lineWarnings: string[] = [];
+  //         let isValid = true;
+  //         let lineErrors: string[] = [];
+  //         let lineWarnings: string[] = [];
           
-          // Validate expected price if provided
-          if (line.expected_price) {
-            const priceTolerance = 0.01;
-            if (Math.abs(line.expected_price - currentPricing.finalPrice) > priceTolerance) {
-              isValid = false;
-              lineErrors.push(`Price mismatch: expected ${line.expected_price}, current ${currentPricing.finalPrice}`);
-            }
-          }
+  //         // Validate expected price if provided
+  //         if (line.expected_price) {
+  //           const priceTolerance = 0.01;
+  //           if (Math.abs(line.expected_price - currentPricing.finalPrice) > priceTolerance) {
+  //             isValid = false;
+  //             lineErrors.push(`Price mismatch: expected ${line.expected_price}, current ${currentPricing.finalPrice}`);
+  //           }
+  //         }
           
-          // Validate price list if provided
-          if (line.price_list_id && currentPricing.priceListId !== line.price_list_id) {
-            isValid = false;
-            lineErrors.push('Price list mismatch');
-          }
+  //         // Validate price list if provided
+  //         if (line.price_list_id && currentPricing.priceListId !== line.price_list_id) {
+  //           isValid = false;
+  //           lineErrors.push('Price list mismatch');
+  //         }
           
-          // Check inventory
-          const { data: inventory } = await ctx.supabase
-            .from('inventory_balance')
-            .select('qty_full, qty_reserved')
-            .eq('product_id', line.product_id)
-            .single();
+  //         // Check inventory
+  //         const { data: inventory } = await ctx.supabase
+  //           .from('inventory_balance')
+  //           .select('qty_full, qty_reserved')
+  //           .eq('product_id', line.product_id)
+  //           .single();
             
-          let availableStock = 0;
-          if (inventory) {
-            availableStock = inventory.qty_full - inventory.qty_reserved;
-            if (line.quantity > availableStock) {
-              isValid = false;
-              lineErrors.push(`Insufficient stock: requested ${line.quantity}, available ${availableStock}`);
-            } else if (line.quantity > availableStock * 0.8) {
-              lineWarnings.push('Large quantity request relative to available stock');
-            }
-          } else {
-            lineWarnings.push('No inventory information found');
-          }
+  //         let availableStock = 0;
+  //         if (inventory) {
+  //           availableStock = inventory.qty_full - inventory.qty_reserved;
+  //           if (line.quantity > availableStock) {
+  //             isValid = false;
+  //             lineErrors.push(`Insufficient stock: requested ${line.quantity}, available ${availableStock}`);
+  //           } else if (line.quantity > availableStock * 0.8) {
+  //             lineWarnings.push('Large quantity request relative to available stock');
+  //           }
+  //         } else {
+  //           lineWarnings.push('No inventory information found');
+  //         }
           
-          const subtotal = currentPricing.finalPrice * line.quantity;
-          if (isValid) {
-            totalAmount += subtotal;
-          }
+  //         const subtotal = currentPricing.finalPrice * line.quantity;
+  //         if (isValid) {
+  //           totalAmount += subtotal;
+  //         }
           
-          results.push({
-            product_id: line.product_id,
-            product_sku: product.sku,
-            product_name: product.name,
-            quantity: line.quantity,
-            current_price: currentPricing.finalPrice,
-            price_list_id: currentPricing.priceListId,
-            price_list_name: currentPricing.priceListName,
-            subtotal: subtotal,
-            available_stock: availableStock,
-            is_valid: isValid,
-            errors: lineErrors,
-            warnings: lineWarnings
-          });
+  //         results.push({
+  //           product_id: line.product_id,
+  //           product_sku: product.sku,
+  //           product_name: product.name,
+  //           quantity: line.quantity,
+  //           current_price: currentPricing.finalPrice,
+  //           price_list_id: currentPricing.priceListId,
+  //           price_list_name: currentPricing.priceListName,
+  //           subtotal: subtotal,
+  //           available_stock: availableStock,
+  //           is_valid: isValid,
+  //           errors: lineErrors,
+  //           warnings: lineWarnings
+  //         });
           
-          if (lineErrors.length > 0) {
-            errors.push(...lineErrors.map(err => `${product.sku}: ${err}`));
-          }
-          if (lineWarnings.length > 0) {
-            warnings.push(...lineWarnings.map(warn => `${product.sku}: ${warn}`));
-          }
+  //         if (lineErrors.length > 0) {
+  //           errors.push(...lineErrors.map(err => `${product.sku}: ${err}`));
+  //         }
+  //         if (lineWarnings.length > 0) {
+  //           warnings.push(...lineWarnings.map(warn => `${product.sku}: ${warn}`));
+  //         }
           
-        } catch (error) {
-          ctx.logger.error(`Error validating line ${i + 1}:`, error);
-          errors.push(`Error validating line ${i + 1}: ${formatErrorMessage(error)}`);
-          results.push({
-            product_id: line.product_id,
-            quantity: line.quantity,
-            is_valid: false,
-            error: 'Validation error'
-          });
-        }
-      }
+  //       } catch (error) {
+  //         ctx.logger.error(`Error validating line ${i + 1}:`, error);
+  //         errors.push(`Error validating line ${i + 1}: ${formatErrorMessage(error)}`);
+  //         results.push({
+  //           product_id: line.product_id,
+  //           quantity: line.quantity,
+  //           is_valid: false,
+  //           error: 'Validation error'
+  //         });
+  //       }
+  //     }
       
-      const isOrderValid = errors.length === 0;
+  //     const isOrderValid = errors.length === 0;
       
-      return {
-        is_valid: isOrderValid,
-        customer: {
-          id: customer.id,
-          name: customer.name,
-          account_status: customer.account_status
-        },
-        line_validations: results,
-        total_amount: totalAmount,
-        summary: {
-          total_lines: input.order_lines.length,
-          valid_lines: results.filter(r => r.is_valid).length,
-          invalid_lines: results.filter(r => !r.is_valid).length,
-          total_errors: errors.length,
-          total_warnings: warnings.length
-        },
-        errors,
-        warnings
-      };
-    }),
+  //     return {
+  //       is_valid: isOrderValid,
+  //       customer: {
+  //         id: customer.id,
+  //         name: customer.name,
+  //         account_status: customer.account_status
+  //       },
+  //       line_validations: results,
+  //       total_amount: totalAmount,
+  //       summary: {
+  //         total_lines: input.order_lines.length,
+  //         valid_lines: results.filter(r => r.is_valid).length,
+  //         invalid_lines: results.filter(r => !r.is_valid).length,
+  //         total_errors: errors.length,
+  //         total_warnings: warnings.length
+  //       },
+  //       errors,
+  //       warnings
+  //     };
+  //   }),
 
-  // POST /orders/validate-truck-capacity - Validate truck capacity for order assignment
-  validateTruckCapacity: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/validate-truck-capacity',
-        tags: ['orders', 'trucks'],
-        summary: 'Validate truck capacity',
-        description: 'Validate whether a truck has sufficient capacity for assigned orders.',
-        protect: true,
-      }
-    })
-    .input(ValidateTruckCapacitySchema)
-    .output(z.any())
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // // POST /orders/validate-truck-capacity - Validate truck capacity for order assignment
+  // validateTruckCapacity: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'POST',
+  //       path: '/orders/validate-truck-capacity',
+  //       tags: ['orders', 'trucks'],
+  //       summary: 'Validate truck capacity',
+  //       description: 'Validate whether a truck has sufficient capacity for assigned orders.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(ValidateTruckCapacitySchema)
+  //   .output(z.any())
+  //   .mutation(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Validating truck capacity:', input);
+  //     ctx.logger.info('Validating truck capacity:', input);
       
-      // Validate truck exists
-      const { data: truck, error: truckError } = await ctx.supabase
-        .from('trucks')
-        .select('id, name, capacity_kg, capacity_volume_m3')
-        .eq('id', input.truck_id)
-        .single();
+  //     // Validate truck exists
+  //     const { data: truck, error: truckError } = await ctx.supabase
+  //       .from('trucks')
+  //       .select('id, name, capacity_kg, capacity_volume_m3')
+  //       .eq('id', input.truck_id)
+  //       .single();
         
-      if (truckError || !truck) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Truck not found'
-        });
-      }
+  //     if (truckError || !truck) {
+  //       throw new TRPCError({
+  //         code: 'NOT_FOUND',
+  //         message: 'Truck not found'
+  //       });
+  //     }
       
-      // Use the database function to validate capacity
-      const { data: capacityValidation, error: validationError } = await ctx.supabase
-        .rpc('validate_truck_capacity', {
-          p_truck_id: input.truck_id,
-          p_order_ids: input.order_ids
-        });
+  //     // Use the database function to validate capacity
+  //     const { data: capacityValidation, error: validationError } = await ctx.supabase
+  //       .rpc('validate_truck_capacity', {
+  //         p_truck_id: input.truck_id,
+  //         p_order_ids: input.order_ids
+  //       });
         
-      if (validationError) {
-        ctx.logger.error('Truck capacity validation error:', validationError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to validate truck capacity'
-        });
-      }
+  //     if (validationError) {
+  //       ctx.logger.error('Truck capacity validation error:', validationError);
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: 'Failed to validate truck capacity'
+  //       });
+  //     }
       
-      const result = capacityValidation[0];
+  //     const result = capacityValidation[0];
       
-      return {
-        truck: {
-          id: truck.id,
-          name: truck.name,
-          capacity_kg: truck.capacity_kg,
-          capacity_volume_m3: truck.capacity_volume_m3
-        },
-        validation: result,
-        recommendation: result.is_valid ? 
-          'Truck capacity is sufficient for the assigned orders' : 
-          'Truck capacity exceeded - consider reassigning some orders'
-      };
-    }),
+  //     return {
+  //       truck: {
+  //         id: truck.id,
+  //         name: truck.name,
+  //         capacity_kg: truck.capacity_kg,
+  //         capacity_volume_m3: truck.capacity_volume_m3
+  //       },
+  //       validation: result,
+  //       recommendation: result.is_valid ? 
+  //         'Truck capacity is sufficient for the assigned orders' : 
+  //         'Truck capacity exceeded - consider reassigning some orders'
+  //     };
+  //   }),
 
   // POST /orders/allocate-to-truck - Allocate order to truck
   allocateToTruck: protectedProcedure
@@ -1728,198 +1728,198 @@ export const ordersRouter = router({
     }),
 
   // GET /orders/{id}/allocation-suggestions - Get truck allocation suggestions for order
-  getAllocationSuggestions: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/orders/{order_id}/allocation-suggestions',
-        tags: ['orders', 'trucks'],
-        summary: 'Get truck allocation suggestions',
-        description: 'Get suggested trucks for order allocation based on capacity and availability.',
-        protect: true,
-      }
-    })
-    .input(GetAllocationSuggestionsSchema)
-    .output(z.any())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // getAllocationSuggestions: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'GET',
+  //       path: '/orders/{order_id}/allocation-suggestions',
+  //       tags: ['orders', 'trucks'],
+  //       summary: 'Get truck allocation suggestions',
+  //       description: 'Get suggested trucks for order allocation based on capacity and availability.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(GetAllocationSuggestionsSchema)
+  //   .output(z.any())
+  //   .query(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Getting allocation suggestions for order:', input.order_id);
+  //     ctx.logger.info('Getting allocation suggestions for order:', input.order_id);
       
-      const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
+  //     const { OrderAllocationService } = await import('../lib/order-allocation');
+  //     const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
-      const suggestions = await allocationService.findBestTrucks(input.order_id, input.allocation_date);
-      const orderWeight = await allocationService.calculateOrderWeight(input.order_id);
+  //     const suggestions = await allocationService.findBestTrucks(input.order_id, input.allocation_date);
+  //     const orderWeight = await allocationService.calculateOrderWeight(input.order_id);
       
-      return {
-        order_id: input.order_id,
-        order_weight_kg: orderWeight,
-        suggestions,
-      };
-    }),
+  //     return {
+  //       order_id: input.order_id,
+  //       order_weight_kg: orderWeight,
+  //       suggestions,
+  //     };
+  //   }),
 
-  // GET /orders/{id}/calculate-weight - Calculate order weight
-  calculateOrderWeight: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/orders/{order_id}/calculate-weight',
-        tags: ['orders', 'logistics'],
-        summary: 'Calculate order weight',
-        description: 'Calculate the total weight of an order for logistics planning.',
-        protect: true,
-      }
-    })
-    .input(CalculateOrderWeightSchema)
-    .output(z.any())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // // GET /orders/{id}/calculate-weight - Calculate order weight
+  // calculateOrderWeight: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'GET',
+  //       path: '/orders/{order_id}/calculate-weight',
+  //       tags: ['orders', 'logistics'],
+  //       summary: 'Calculate order weight',
+  //       description: 'Calculate the total weight of an order for logistics planning.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(CalculateOrderWeightSchema)
+  //   .output(z.any())
+  //   .query(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Calculating order weight:', input.order_id);
+  //     ctx.logger.info('Calculating order weight:', input.order_id);
       
-      const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
+  //     const { OrderAllocationService } = await import('../lib/order-allocation');
+  //     const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
-      const weight = await allocationService.calculateOrderWeight(input.order_id);
+  //     const weight = await allocationService.calculateOrderWeight(input.order_id);
       
-      return {
-        order_id: input.order_id,
-        total_weight_kg: weight,
-      };
-    }),
+  //     return {
+  //       order_id: input.order_id,
+  //       total_weight_kg: weight,
+  //     };
+  //   }),
 
-  // DELETE /orders/allocations/{id} - Remove truck allocation
-  removeAllocation: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'DELETE',
-        path: '/orders/allocations/{allocation_id}',
-        tags: ['orders', 'trucks'],
-        summary: 'Remove truck allocation',
-        description: 'Remove a truck allocation for an order.',
-        protect: true,
-      }
-    })
-    .input(RemoveAllocationSchema)
-    .output(z.any())
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // // DELETE /orders/allocations/{id} - Remove truck allocation
+  // removeAllocation: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'DELETE',
+  //       path: '/orders/allocations/{allocation_id}',
+  //       tags: ['orders', 'trucks'],
+  //       summary: 'Remove truck allocation',
+  //       description: 'Remove a truck allocation for an order.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(RemoveAllocationSchema)
+  //   .output(z.any())
+  //   .mutation(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Removing truck allocation:', input.allocation_id);
+  //     ctx.logger.info('Removing truck allocation:', input.allocation_id);
       
-      const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
+  //     const { OrderAllocationService } = await import('../lib/order-allocation');
+  //     const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
-      await allocationService.removeAllocation(input.allocation_id);
+  //     await allocationService.removeAllocation(input.allocation_id);
       
-      return { success: true };
-    }),
+  //     return { success: true };
+  //   }),
 
   // GET /orders/schedule/{date} - Get daily order schedule
-  getDailySchedule: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/orders/schedule/{date}',
-        tags: ['orders', 'schedule'],
-        summary: 'Get daily order schedule',
-        description: 'Get the complete order schedule for a specific date with truck assignments and capacity information.',
-        protect: true,
-      }
-    })
-    .input(GetDailyScheduleSchema)
-    .output(z.any())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // getDailySchedule: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'GET',
+  //       path: '/orders/schedule/{date}',
+  //       tags: ['orders', 'schedule'],
+  //       summary: 'Get daily order schedule',
+  //       description: 'Get the complete order schedule for a specific date with truck assignments and capacity information.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(GetDailyScheduleSchema)
+  //   .output(z.any())
+  //   .query(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Getting daily order schedule for:', input.date);
+  //     ctx.logger.info('Getting daily order schedule for:', input.date);
       
-      const { OrderAllocationService } = await import('../lib/order-allocation');
-      const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
+  //     const { OrderAllocationService } = await import('../lib/order-allocation');
+  //     const allocationService = new OrderAllocationService(ctx.supabase, ctx.logger);
       
-      const schedule = await allocationService.getDailySchedule(input.date);
+  //     const schedule = await allocationService.getDailySchedule(input.date);
       
-      return {
-        date: input.date,
-        trucks: schedule,
-        summary: {
-          total_trucks: schedule.length,
-          active_trucks: schedule.filter(s => s.total_orders > 0).length,
-          total_orders: schedule.reduce((sum, s) => sum + s.total_orders, 0),
-          avg_utilization: schedule.length > 0 
-            ? schedule.reduce((sum, s) => sum + s.capacity_info.utilization_percentage, 0) / schedule.length 
-            : 0,
-        },
-      };
-    }),
+  //     return {
+  //       date: input.date,
+  //       trucks: schedule,
+  //       summary: {
+  //         total_trucks: schedule.length,
+  //         active_trucks: schedule.filter(s => s.total_orders > 0).length,
+  //         total_orders: schedule.reduce((sum, s) => sum + s.total_orders, 0),
+  //         avg_utilization: schedule.length > 0 
+  //           ? schedule.reduce((sum, s) => sum + s.capacity_info.utilization_percentage, 0) / schedule.length 
+  //           : 0,
+  //       },
+  //     };
+  //   }),
 
   // POST /orders/{id}/process-refill - Process refill order with stock movements
-  processRefillOrder: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/{order_id}/process-refill',
-        tags: ['orders', 'inventory'],
-        summary: 'Process refill order',
-        description: 'Process a refill order creating appropriate stock movements for cylinder exchanges.',
-        protect: true,
-      }
-    })
-    .input(ProcessRefillOrderSchema)
-    .output(z.any())
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  // processRefillOrder: protectedProcedure
+  //   .meta({
+  //     openapi: {
+  //       method: 'POST',
+  //       path: '/orders/{order_id}/process-refill',
+  //       tags: ['orders', 'inventory'],
+  //       summary: 'Process refill order',
+  //       description: 'Process a refill order creating appropriate stock movements for cylinder exchanges.',
+  //       protect: true,
+  //     }
+  //   })
+  //   .input(ProcessRefillOrderSchema)
+  //   .output(z.any())
+  //   .mutation(async ({ input, ctx }) => {
+  //     const user = requireAuth(ctx);
       
-      ctx.logger.info('Processing refill order:', input.order_id);
+  //     ctx.logger.info('Processing refill order:', input.order_id);
       
-      // Verify order exists and is a refill type
-      const { data: order, error: orderError } = await ctx.supabase
-        .from('orders')
-        .select('id, order_type, status')
-        .eq('id', input.order_id)
-        .single();
+  //     // Verify order exists and is a refill type
+  //     const { data: order, error: orderError } = await ctx.supabase
+  //       .from('orders')
+  //       .select('id, order_type, status')
+  //       .eq('id', input.order_id)
+  //       .single();
 
-      if (orderError || !order) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Order not found',
-        });
-      }
+  //     if (orderError || !order) {
+  //       throw new TRPCError({
+  //         code: 'NOT_FOUND',
+  //         message: 'Order not found',
+  //       });
+  //     }
 
-      if (order.order_type !== 'refill' && order.order_type !== 'exchange') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Order must be of type refill or exchange',
-        });
-      }
+  //     if (order.order_type !== 'refill' && order.order_type !== 'exchange') {
+  //       throw new TRPCError({
+  //         code: 'BAD_REQUEST',
+  //         message: 'Order must be of type refill or exchange',
+  //       });
+  //     }
 
-      if (order.status !== 'delivered') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Order must be delivered before processing refill movements',
-        });
-      }
+  //     if (order.status !== 'delivered') {
+  //       throw new TRPCError({
+  //         code: 'BAD_REQUEST',
+  //         message: 'Order must be delivered before processing refill movements',
+  //       });
+  //     }
 
-      // Call the database function to process refill order
-      const { data, error } = await ctx.supabase.rpc('process_refill_order', {
-        p_order_id: input.order_id
-      });
+  //     // Call the database function to process refill order
+  //     const { data, error } = await ctx.supabase.rpc('process_refill_order', {
+  //       p_order_id: input.order_id
+  //     });
 
-      if (error) {
-        ctx.logger.error('Error processing refill order:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to process refill order stock movements',
-        });
-      }
+  //     if (error) {
+  //       ctx.logger.error('Error processing refill order:', error);
+  //       throw new TRPCError({
+  //         code: 'INTERNAL_SERVER_ERROR',
+  //         message: 'Failed to process refill order stock movements',
+  //       });
+  //     }
 
-      return { 
-        success: true,
-        order_id: input.order_id,
-        message: 'Refill order processed successfully'
-      };
-    }),
+  //     return { 
+  //       success: true,
+  //       order_id: input.order_id,
+  //       message: 'Refill order processed successfully'
+  //     };
+  //   }),
 });
 
 // Helper function to calculate order total
