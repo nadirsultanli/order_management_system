@@ -524,7 +524,7 @@ export const depositsRouter = router({
       // Get deposit transactions summary
       const { data: transactions, error: txError } = await ctx.supabase
         .from('deposit_transactions')
-        .select('transaction_type, amount')
+        .select('transaction_type, amount, status')
         .eq('customer_id', input.customer_id)
         .eq('is_voided', false);
 
@@ -765,7 +765,7 @@ export const depositsRouter = router({
         }
 
         // Get deposit rate if not overridden
-        let unitDeposit = cylinder.unit_deposit;
+        let unitDeposit: number = cylinder.unit_deposit;
         if (!unitDeposit) {
           const { data: rate } = await ctx.supabase
             .from('cylinder_deposit_rates')
@@ -789,7 +789,7 @@ export const depositsRouter = router({
           unitDeposit = rate.deposit_amount;
         }
 
-        const totalDeposit = unitDeposit * cylinder.quantity;
+        const totalDeposit = unitDeposit! * cylinder.quantity;
         totalCharge += totalDeposit;
 
         cylinderDetails.push({
@@ -1503,9 +1503,9 @@ export const depositsRouter = router({
       
       ctx.logger.info('Validating deposit rate:', input);
 
-      const errors = [];
-      const warnings = [];
-      const conflicts = [];
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      const conflicts: string[] = [];
 
       // Validate business rules
       if (input.deposit_amount <= 0) {
@@ -1981,7 +1981,7 @@ export const depositsRouter = router({
           .eq('is_voided', false);
 
         let balance = 0;
-        let oldestDepositDate = null;
+        let oldestDepositDate: string | null = null;
 
         (txData || []).forEach(tx => {
           if (tx.transaction_type === 'charge') {
@@ -2060,7 +2060,7 @@ export const depositsRouter = router({
         groupedData[groupKey].total_days += cb.days_outstanding;
 
         if (!groupedData[groupKey].oldest_deposit_date || 
-            cb.oldest_deposit_date < groupedData[groupKey].oldest_deposit_date) {
+            (cb.oldest_deposit_date && cb.oldest_deposit_date < groupedData[groupKey].oldest_deposit_date)) {
           groupedData[groupKey].oldest_deposit_date = cb.oldest_deposit_date;
         }
       });
