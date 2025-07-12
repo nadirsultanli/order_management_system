@@ -8068,35 +8068,7 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string"
-                      },
-                      "name": {
-                        "type": "string"
-                      },
-                      "city": {
-                        "type": "string",
-                        "nullable": true
-                      },
-                      "state": {
-                        "type": "string",
-                        "nullable": true
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "name",
-                      "city",
-                      "state"
-                    ],
-                    "additionalProperties": false
-                  }
-                }
+                "schema": {}
               }
             }
           },
@@ -8380,7 +8352,8 @@
                       "delivery",
                       "refill",
                       "exchange",
-                      "pickup"
+                      "pickup",
+                      "visit"
                     ],
                     "default": "delivery"
                   },
@@ -8436,14 +8409,12 @@
                         "quantity"
                       ],
                       "additionalProperties": false
-                    },
-                    "minItems": 1
+                    }
                   }
                 },
                 "required": [
                   "customer_id",
-                  "source_warehouse_id",
-                  "order_lines"
+                  "source_warehouse_id"
                 ],
                 "additionalProperties": false
               }
@@ -8573,7 +8544,8 @@
                       "en_route",
                       "delivered",
                       "invoiced",
-                      "cancelled"
+                      "cancelled",
+                      "completed_no_sale"
                     ]
                   },
                   "scheduled_date": {
@@ -8742,7 +8714,8 @@
                       "en_route",
                       "delivered",
                       "invoiced",
-                      "cancelled"
+                      "cancelled",
+                      "completed_no_sale"
                     ]
                   },
                   "new_status": {
@@ -8754,7 +8727,8 @@
                       "en_route",
                       "delivered",
                       "invoiced",
-                      "cancelled"
+                      "cancelled",
+                      "completed_no_sale"
                     ]
                   }
                 },
@@ -9228,6 +9202,161 @@
           }
         },
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/orders/{order_id}/convert-visit-to-delivery": {
+      "post": {
+        "operationId": "orders-convertVisitToDelivery",
+        "summary": "Convert visit order to delivery order",
+        "description": "Convert a visit order to a delivery order by adding products and quantities",
+        "tags": [
+          "orders",
+          "visit"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "order_lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "product_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "unit_price": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "expected_price": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "price_list_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "product_id",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "order_lines"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/orders/{order_id}/complete-visit-no-sale": {
+      "post": {
+        "operationId": "orders-completeVisitWithNoSale",
+        "summary": "Complete visit order with no sale",
+        "description": "Mark a visit order as completed with no sale",
+        "tags": [
+          "orders",
+          "visit"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "notes": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response",
