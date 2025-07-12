@@ -130,8 +130,8 @@ export const EditOrderPage: React.FC = () => {
   const canProceedToStep2 = orderType !== '';
   const canProceedToStep3 = selectedCustomerId && selectedAddressId && 
     (orderType === 'delivery' || (orderType === 'visit' && selectedWarehouseId));
-  const canProceedToStep4 = orderType === 'visit' || orderLines.length > 0;
-  const canProceedToStep5 = orderType === 'visit' || orderLines.length > 0;
+  const canProceedToStep4 = orderType === 'visit' || (orderLines?.length || 0) > 0;
+  const canProceedToStep5 = orderType === 'visit' || (orderLines?.length || 0) > 0;
 
   // Product management
   const getProductPrice = (productId: string): number => {
@@ -218,7 +218,7 @@ export const EditOrderPage: React.FC = () => {
 
   // Auto-select warehouse based on product availability for delivery orders
   useEffect(() => {
-    if (orderType === 'delivery' && orderLines.length > 0 && warehouses?.length > 0) {
+    if (orderType === 'delivery' && (orderLines?.length || 0) > 0 && warehouses?.length > 0) {
       // Find warehouse with best availability for selected products
       let bestWarehouse = '';
       let bestScore = -1;
@@ -227,7 +227,7 @@ export const EditOrderPage: React.FC = () => {
         const warehouseInventory = inventory?.filter(inv => inv.warehouse_id === warehouse.id) || [];
         let score = 0;
         
-        orderLines.forEach(line => {
+        orderLines?.forEach(line => {
           const inv = warehouseInventory.find(i => i.product_id === line.product_id);
           if (inv && (inv.qty_full - inv.qty_reserved) >= line.quantity) {
             score += 1;
@@ -248,7 +248,7 @@ export const EditOrderPage: React.FC = () => {
 
   // Calculate totals
   const calculateTotals = () => {
-    const subtotal = orderLines.reduce((sum, line) => sum + line.subtotal, 0);
+    const subtotal = orderLines?.reduce((sum, line) => sum + line.subtotal, 0) || 0;
     const taxAmount = subtotal * 0.16; // 16% VAT
     const total = subtotal + taxAmount;
     return { subtotal, taxAmount, total };
@@ -269,13 +269,13 @@ export const EditOrderPage: React.FC = () => {
       delivery_time_window_start: timeWindowStart || undefined,
       delivery_time_window_end: timeWindowEnd || undefined,
       delivery_instructions: deliveryInstructions || undefined,
-      order_lines: orderLines.map(line => ({
+      order_lines: orderLines?.map(line => ({
         id: line.id,
         product_id: line.product_id,
         quantity: line.quantity,
         unit_price: line.unit_price,
         subtotal: line.subtotal
-      }))
+      })) || []
     };
 
     updateOrder.mutate(orderData, {
@@ -284,11 +284,6 @@ export const EditOrderPage: React.FC = () => {
       }
     });
   };
-
-  const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
-  const selectedAddress = addresses?.find(a => a.id === selectedAddressId);
-  const selectedWarehouse = warehouses?.find(w => w.id === selectedWarehouseId);
-  const { subtotal, taxAmount, total } = calculateTotals();
 
   // Show loading state while any essential data is loading
   if (isLoading || !order || !customers || !warehouses || !products) {
@@ -317,6 +312,12 @@ export const EditOrderPage: React.FC = () => {
       </div>
     );
   }
+
+  // Safe to access arrays now that we've confirmed they exist
+  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+  const selectedAddress = addresses?.find(a => a.id === selectedAddressId);
+  const selectedWarehouse = warehouses.find(w => w.id === selectedWarehouseId);
+  const { subtotal, taxAmount, total } = calculateTotals();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -470,11 +471,11 @@ export const EditOrderPage: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select address...</option>
-                  {addresses.map(address => (
+                  {addresses?.map(address => (
                     <option key={address.id} value={address.id}>
                       {formatAddressForSelect(address)}
                     </option>
-                  ))}
+                  )) || []}
                 </select>
               </div>
             )}
@@ -491,11 +492,11 @@ export const EditOrderPage: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select warehouse...</option>
-                  {warehouses.map(warehouse => (
+                  {warehouses?.map(warehouse => (
                     <option key={warehouse.id} value={warehouse.id}>
                       {warehouse.name} - {warehouse.city || 'Unknown Location'}
                     </option>
-                  ))}
+                  )) || []}
                 </select>
               </div>
             )}
@@ -540,7 +541,7 @@ export const EditOrderPage: React.FC = () => {
 
             {/* Product Selection */}
             <div className="space-y-4 mb-6">
-              {products.map(product => {
+              {products?.map(product => {
                 const isSelected = selectedProducts[product.id] > 0;
                 const quantity = selectedProducts[product.id] || 0;
                 const availableStock = getAvailableStock(product.id);
@@ -592,20 +593,20 @@ export const EditOrderPage: React.FC = () => {
                     </div>
                   </div>
                 );
-              })}
+              }) || []}
             </div>
 
             {/* Order Summary */}
-            {orderLines.length > 0 && (
+            {(orderLines?.length || 0) > 0 && (
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h4 className="font-medium text-gray-900 mb-2">Order Summary</h4>
                 <div className="space-y-2">
-                  {orderLines.map(line => (
+                  {orderLines?.map(line => (
                     <div key={line.product_id} className="flex justify-between text-sm">
                       <span>{line.product_name} (x{line.quantity})</span>
                       <span>{formatCurrencySync(line.subtotal)}</span>
                     </div>
-                  ))}
+                  )) || []}
                   <div className="border-t pt-2 font-medium">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
@@ -790,7 +791,7 @@ export const EditOrderPage: React.FC = () => {
               <div>
                 <h3 className="font-medium text-gray-900 mb-4">Order Summary</h3>
                 
-                {orderType === 'visit' && orderLines.length === 0 ? (
+                {orderType === 'visit' && (orderLines?.length || 0) === 0 ? (
                   <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                     <div className="flex items-start space-x-2">
                       <Info className="h-5 w-5 text-purple-600 mt-0.5" />
@@ -802,9 +803,9 @@ export const EditOrderPage: React.FC = () => {
                   </div>
                 ) : (
                   <div className="bg-gray-50 rounded-lg p-4">
-                    {orderLines.length > 0 ? (
+                    {(orderLines?.length || 0) > 0 ? (
                       <div className="space-y-3">
-                        {orderLines.map(line => (
+                        {orderLines?.map(line => (
                           <div key={line.product_id} className="flex justify-between items-center">
                             <div>
                               <p className="font-medium text-gray-900">{line.product_name}</p>
@@ -812,7 +813,7 @@ export const EditOrderPage: React.FC = () => {
                             </div>
                             <span className="font-medium text-gray-900">{formatCurrencySync(line.subtotal)}</span>
                           </div>
-                        ))}
+                        )) || []}
                         
                         <div className="border-t pt-3 space-y-2">
                           <div className="flex justify-between text-sm">
