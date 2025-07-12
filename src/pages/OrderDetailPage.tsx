@@ -276,7 +276,49 @@ export const OrderDetailPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Order Type */}
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-indigo-50 rounded-lg">
+                  <Package className="h-5 w-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Order Type</h3>
+                  <div className="flex items-center space-x-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      order.order_type === 'delivery' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-purple-100 text-purple-800'
+                    }`}>
+                      {order.order_type === 'delivery' ? 'Delivery Order' : 'Visit Order'}
+                    </span>
+                  </div>
+                  {order.order_type === 'visit' && (
+                    <p className="text-xs text-gray-500 mt-1">Products to be determined during visit</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Warehouse Info */}
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-orange-50 rounded-lg">
+                  <Package className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Warehouse</h3>
+                  {order.source_warehouse ? (
+                    <div className="text-gray-600">
+                      <p className="font-medium">{order.source_warehouse.name}</p>
+                      <p className="text-sm text-gray-500">
+                        {order.source_warehouse.city}, {order.source_warehouse.state}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500">No warehouse assigned</p>
+                  )}
+                </div>
+              </div>
+
               {/* Customer Info */}
               <div className="flex items-start space-x-3">
                 <div className="p-2 bg-blue-50 rounded-lg">
@@ -438,7 +480,16 @@ export const OrderDetailPage: React.FC = () => {
             ) : (
               <div className="text-center py-8">
                 <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No items in this order</p>
+                {order.order_type === 'visit' ? (
+                  <div>
+                    <p className="text-gray-500 mb-2">No products specified yet</p>
+                    <p className="text-sm text-gray-400">
+                      This is a visit order. Products will be added when the driver visits the customer.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No items in this order</p>
+                )}
               </div>
             )}
           </div>
@@ -458,28 +509,39 @@ export const OrderDetailPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Summary</h3>
             
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal:</span>
-                <span className="font-medium text-gray-900">
-                  {formatCurrencySync(order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Tax{order.tax_percent != null ? ` (${order.tax_percent}%)` : ''}:</span>
-                <span className="font-medium text-gray-900">
-                  {formatCurrencySync(order.tax_amount != null ? order.tax_amount : 0)}
-                </span>
-              </div>
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex justify-between">
-                  <span className="text-lg font-semibold text-gray-900">Total:</span>
-                  <span className="text-lg font-bold text-gray-900">
-                    {formatCurrencySync((order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0) + (order.tax_amount != null ? order.tax_amount : 0))}
-                  </span>
+            {order.order_type === 'visit' && (!order.order_lines || order.order_lines.length === 0) ? (
+              <div className="text-center py-4">
+                <div className="p-3 bg-purple-50 rounded-lg">
+                  <p className="text-purple-800 text-sm font-medium">Visit Order</p>
+                  <p className="text-purple-600 text-xs mt-1">
+                    Total will be calculated after driver visit
+                  </p>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-medium text-gray-900">
+                    {formatCurrencySync(order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Tax{order.tax_percent != null ? ` (${order.tax_percent}%)` : ''}:</span>
+                  <span className="font-medium text-gray-900">
+                    {formatCurrencySync(order.tax_amount != null ? order.tax_amount : 0)}
+                  </span>
+                </div>
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="flex justify-between">
+                    <span className="text-lg font-semibold text-gray-900">Total:</span>
+                    <span className="text-lg font-bold text-gray-900">
+                      {formatCurrencySync((order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0) + (order.tax_amount != null ? order.tax_amount : 0))}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Customer Information */}
