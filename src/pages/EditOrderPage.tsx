@@ -61,10 +61,10 @@ export const EditOrderPage: React.FC = () => {
   
   // Hooks
   const { data: order, isLoading: orderLoading } = useOrderNew(orderId || '');
-  const { data: customers = [] } = useCustomers();
+  const { data: customers = [], isLoading: customersLoading } = useCustomers();
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
-  const { data: products = [] } = useProducts();
-  const { data: warehouses = [] } = useWarehouses();
+  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: warehouses = [], isLoading: warehousesLoading } = useWarehouses();
   const { data: inventory = [] } = useInventoryNew(selectedWarehouseId);
   const { data: productPrices = [] } = useProductPrices(selectedCustomerId);
   const { mutate: createAddress } = useCreateAddress();
@@ -223,12 +223,12 @@ export const EditOrderPage: React.FC = () => {
       let bestWarehouse = '';
       let bestScore = -1;
 
-      warehouses.forEach(warehouse => {
+      warehouses?.forEach(warehouse => {
         const warehouseInventory = inventory?.filter(inv => inv.warehouse_id === warehouse.id) || [];
         let score = 0;
         
         orderLines?.forEach(line => {
-          const inv = warehouseInventory.find(i => i.product_id === line.product_id);
+          const inv = warehouseInventory?.find(i => i.product_id === line.product_id);
           if (inv && (inv.qty_full - inv.qty_reserved) >= line.quantity) {
             score += 1;
           }
@@ -286,7 +286,9 @@ export const EditOrderPage: React.FC = () => {
   };
 
   // Show loading state while any essential data is loading
-  if (isLoading || !order || !customers || !warehouses || !products) {
+  const isDataLoading = isLoading || orderLoading || customersLoading || productsLoading || warehousesLoading;
+  
+  if (isDataLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -314,9 +316,9 @@ export const EditOrderPage: React.FC = () => {
   }
 
   // Safe to access arrays now that we've confirmed they exist
-  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+  const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
   const selectedAddress = addresses?.find(a => a.id === selectedAddressId);
-  const selectedWarehouse = warehouses.find(w => w.id === selectedWarehouseId);
+  const selectedWarehouse = warehouses?.find(w => w.id === selectedWarehouseId);
   const { subtotal, taxAmount, total } = calculateTotals();
 
   return (
