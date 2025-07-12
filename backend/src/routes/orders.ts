@@ -57,6 +57,8 @@ import {
   RemoveAllocationSchema,
   GetDailyScheduleSchema,
   ProcessRefillOrderSchema,
+  ConvertVisitToDeliverySchema,
+  CompleteVisitWithNoSaleSchema,
 } from '../schemas/input/orders-input';
 
 // Import output schemas
@@ -724,7 +726,11 @@ export const ordersRouter = router({
         const validationWarnings: string[] = [];
         let totalAmount = 0;
         
-        for (let i = 0; i < input.order_lines.length; i++) {
+        // Skip order line validation for visit orders
+        if (input.order_type === 'visit') {
+          ctx.logger.info('Creating visit order - skipping order line validation');
+        } else if (input.order_lines && input.order_lines.length > 0) {
+          for (let i = 0; i < input.order_lines.length; i++) {
           const line = input.order_lines[i];
           
           // Verify product exists and is active
@@ -826,6 +832,7 @@ export const ordersRouter = router({
             product_sku: product.sku,
             product_name: product.name,
           });
+          }
         }
         
         // Check for validation errors
@@ -846,13 +853,15 @@ export const ordersRouter = router({
           });
         }
         
-        // Validate minimum order amount if configured
-        const minimumOrderAmount = 100; // Could be configurable per tenant
-        if (totalAmount < minimumOrderAmount) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: `Order total (${totalAmount}) is below minimum order amount (${minimumOrderAmount})`
-          });
+        // Validate minimum order amount if configured (skip for visit orders)
+        if (input.order_type !== 'visit') {
+          const minimumOrderAmount = 100; // Could be configurable per tenant
+          if (totalAmount < minimumOrderAmount) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Order total (${totalAmount}) is below minimum order amount (${minimumOrderAmount})`
+            });
+          }
         }
 
         // Create order
@@ -887,33 +896,37 @@ export const ordersRouter = router({
           });
         }
 
-        // Create order lines
-        const orderLinesData = validatedOrderLines.map(line => ({
-          order_id: order.id,
-          product_id: line.product_id,
-          quantity: line.quantity,
-          unit_price: line.unit_price,
-          subtotal: line.subtotal,
-          qty_tagged: 0, // Default to 0, will be updated during fulfillment
-          qty_untagged: line.quantity, // Start with all quantity untagged
-        }));
-        
-        ctx.logger.info('Creating order lines:', {
-          order_id: order.id,
-          line_count: orderLinesData.length,
-          lines: orderLinesData
-        });
-
-        const { error: linesError } = await ctx.supabase
-          .from('order_lines')
-          .insert(orderLinesData);
-
-        if (linesError) {
-          ctx.logger.error('Order lines creation error:', linesError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: linesError.message
+        // Create order lines (skip for visit orders)
+        if (input.order_type !== 'visit' && validatedOrderLines.length > 0) {
+          const orderLinesData = validatedOrderLines.map(line => ({
+            order_id: order.id,
+            product_id: line.product_id,
+            quantity: line.quantity,
+            unit_price: line.unit_price,
+            subtotal: line.subtotal,
+            qty_tagged: 0, // Default to 0, will be updated during fulfillment
+            qty_untagged: line.quantity, // Start with all quantity untagged
+          }));
+          
+          ctx.logger.info('Creating order lines:', {
+            order_id: order.id,
+            line_count: orderLinesData.length,
+            lines: orderLinesData
           });
+
+          const { error: linesError } = await ctx.supabase
+            .from('order_lines')
+            .insert(orderLinesData);
+
+          if (linesError) {
+            ctx.logger.error('Order lines creation error:', linesError);
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: linesError.message
+            });
+          }
+        } else if (input.order_type === 'visit') {
+          ctx.logger.info('Visit order created - no order lines to create');
         }
 
         // Calculate and update order total (includes tax calculation)
@@ -1920,6 +1933,259 @@ export const ordersRouter = router({
   //       message: 'Refill order processed successfully'
   //     };
   //   }),
+
+  // POST /orders/{id}/convert-visit-to-delivery - Convert visit order to delivery order
+  convertVisitToDelivery: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/{order_id}/convert-visit-to-delivery',
+        tags: ['orders', 'visit'],
+        summary: 'Convert visit order to delivery order',
+        description: 'Convert a visit order to a delivery order by adding products and quantities',
+        protect: true,
+      }
+    })
+    .input(ConvertVisitToDeliverySchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Converting visit order to delivery order:', input.order_id);
+      
+      // Get the visit order
+      const { data: order, error: orderError } = await ctx.supabase
+        .from('orders')
+        .select('*')
+        .eq('id', input.order_id)
+        .single();
+
+      if (orderError || !order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found'
+        });
+      }
+
+      if (order.order_type !== 'visit') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only visit orders can be converted to delivery orders'
+        });
+      }
+
+      if (order.status !== 'scheduled') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Visit order must be in scheduled status to be converted'
+        });
+      }
+
+      // Initialize pricing service
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      
+      // Validate and process order lines
+      const validatedOrderLines: any[] = [];
+      const validationErrors: string[] = [];
+      let totalAmount = 0;
+
+      for (let i = 0; i < input.order_lines.length; i++) {
+        const line = input.order_lines[i];
+        
+        // Verify product exists and is active
+        const { data: product, error: productError } = await ctx.supabase
+          .from('products')
+          .select('id, sku, name, status')
+          .eq('id', line.product_id)
+          .single();
+          
+        if (productError || !product) {
+          validationErrors.push(`Product not found for line ${i + 1}`);
+          continue;
+        }
+        
+        if (product.status !== 'active') {
+          validationErrors.push(`Product ${product.sku} is not active`);
+          continue;
+        }
+
+        // Get current pricing
+        const currentPricing = await pricingService.getProductPrice(
+          line.product_id,
+          order.customer_id
+        );
+        
+        if (!currentPricing) {
+          validationErrors.push(`No pricing found for product ${product.sku}`);
+          continue;
+        }
+        
+        const finalUnitPrice = line.unit_price || currentPricing.finalPrice;
+        
+        // Check inventory availability
+        const { data: inventory, error: inventoryError } = await ctx.supabase
+          .from('inventory_balance')
+          .select('qty_full, qty_reserved')
+          .eq('product_id', line.product_id)
+          .eq('warehouse_id', order.source_warehouse_id)
+          .single();
+          
+        if (inventoryError || !inventory) {
+          validationErrors.push(`No inventory found for product ${product.sku} in warehouse`);
+          continue;
+        }
+        
+        const availableStock = inventory.qty_full - inventory.qty_reserved;
+        if (line.quantity > availableStock) {
+          validationErrors.push(
+            `Insufficient stock for ${product.sku}. Requested: ${line.quantity}, Available: ${availableStock}`
+          );
+          continue;
+        }
+        
+        const subtotal = finalUnitPrice * line.quantity;
+        totalAmount += subtotal;
+        
+        validatedOrderLines.push({
+          product_id: line.product_id,
+          quantity: line.quantity,
+          unit_price: finalUnitPrice,
+          subtotal: subtotal,
+          product_sku: product.sku,
+          product_name: product.name,
+        });
+      }
+
+      if (validationErrors.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Conversion validation failed: ${validationErrors.join('; ')}`
+        });
+      }
+
+      // Update the order
+      const { error: updateError } = await ctx.supabase
+        .from('orders')
+        .update({
+          order_type: 'delivery',
+          total_amount: totalAmount,
+          notes: input.notes ? `${order.notes || ''}\n\nConverted from visit order: ${input.notes}` : order.notes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', input.order_id);
+
+      if (updateError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update order: ${updateError.message}`
+        });
+      }
+
+      // Create order lines
+      const orderLinesData = validatedOrderLines.map(line => ({
+        order_id: input.order_id,
+        product_id: line.product_id,
+        quantity: line.quantity,
+        unit_price: line.unit_price,
+        subtotal: line.subtotal,
+        qty_tagged: 0,
+        qty_untagged: line.quantity,
+      }));
+
+      const { error: linesError } = await ctx.supabase
+        .from('order_lines')
+        .insert(orderLinesData);
+
+      if (linesError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create order lines: ${linesError.message}`
+        });
+      }
+
+      // Recalculate order total
+      await calculateOrderTotal(ctx, input.order_id);
+
+      ctx.logger.info('Visit order converted to delivery order successfully:', {
+        order_id: input.order_id,
+        total_amount: totalAmount,
+        line_count: validatedOrderLines.length
+      });
+
+      return { success: true, message: 'Visit order converted to delivery order successfully' };
+    }),
+
+  // POST /orders/{id}/complete-visit-no-sale - Complete visit order with no sale
+  completeVisitWithNoSale: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/orders/{order_id}/complete-visit-no-sale',
+        tags: ['orders', 'visit'],
+        summary: 'Complete visit order with no sale',
+        description: 'Mark a visit order as completed with no sale',
+        protect: true,
+      }
+    })
+    .input(CompleteVisitWithNoSaleSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Completing visit order with no sale:', input.order_id);
+      
+      // Get the visit order
+      const { data: order, error: orderError } = await ctx.supabase
+        .from('orders')
+        .select('*')
+        .eq('id', input.order_id)
+        .single();
+
+      if (orderError || !order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found'
+        });
+      }
+
+      if (order.order_type !== 'visit') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only visit orders can be completed with no sale'
+        });
+      }
+
+      if (order.status !== 'scheduled') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Visit order must be in scheduled status to be completed'
+        });
+      }
+
+      // Update the order status
+      const { error: updateError } = await ctx.supabase
+        .from('orders')
+        .update({
+          status: 'completed_no_sale',
+          notes: input.notes ? `${order.notes || ''}\n\nCompleted with no sale: ${input.notes}` : order.notes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', input.order_id);
+
+      if (updateError) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update order: ${updateError.message}`
+        });
+      }
+
+      ctx.logger.info('Visit order completed with no sale successfully:', {
+        order_id: input.order_id,
+        reason: input.reason
+      });
+
+      return { success: true, message: 'Visit order completed with no sale successfully' };
+    }),
 });
 
 // Helper function to calculate order total

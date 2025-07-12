@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Order status enum
-export type OrderStatus = 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
+export type OrderStatus = 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
 
 // Order workflow step interface
 export interface OrderWorkflowStep {
@@ -50,7 +50,7 @@ export const getOrderWorkflow = (): OrderWorkflowStep[] => [
     description: 'Delivery date scheduled',
     color: 'bg-purple-100 text-purple-800 border-purple-200',
     icon: 'Calendar',
-    allowedTransitions: ['en_route', 'cancelled'],
+    allowedTransitions: ['en_route', 'cancelled', 'completed_no_sale'],
   },
   {
     status: 'en_route',
@@ -82,6 +82,14 @@ export const getOrderWorkflow = (): OrderWorkflowStep[] => [
     description: 'Order cancelled',
     color: 'bg-red-100 text-red-800 border-red-200',
     icon: 'XCircle',
+    allowedTransitions: [],
+  },
+  {
+    status: 'completed_no_sale',
+    label: 'Completed (No Sale)',
+    description: 'Visit completed without purchase',
+    color: 'bg-gray-100 text-gray-800 border-gray-200',
+    icon: 'CheckCircle',
     allowedTransitions: [],
   },
 ];
@@ -279,7 +287,7 @@ export const validateOrderDeliveryWindow = (order: any): OrderValidationResult =
 };
 
 // Zod schemas for validation
-export const OrderStatusSchema = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']);
+export const OrderStatusSchema = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled', 'completed_no_sale']);
 
 export const OrderLineSchema = z.object({
   quantity: z.number().positive(),

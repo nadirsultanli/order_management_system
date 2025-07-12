@@ -4,7 +4,7 @@ export interface Order {
   delivery_address_id: string;
   order_date: string;
   scheduled_date?: string;
-  status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
+  status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
   total_amount?: number;
   tax_percent?: number;
   tax_amount?: number;
@@ -12,7 +12,11 @@ export interface Order {
   created_at: string;
   updated_at: string;
   // Order type fields
+<<<<<<< Updated upstream
   order_type: 'delivery' | 'visit';
+=======
+  order_type: 'outright' | 'refill' | 'delivery' | 'exchange' | 'pickup' | 'visit';
+>>>>>>> Stashed changes
   service_type: 'standard' | 'express' | 'scheduled';
   exchange_empty_qty: number; // for refill/exchange orders
   requires_pickup: boolean; // if empty pickup needed
@@ -85,13 +89,14 @@ export interface CreateOrderData {
   delivery_address_id: string;
   order_date: string;
   scheduled_date?: string;
-  status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
+  status: 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
   notes?: string;
   tax_percent?: number;
   tax_amount?: number;
   total_amount?: number;
   // Order type fields
   order_type: 'delivery' | 'visit';
+
   service_type: 'standard' | 'express' | 'scheduled';
   exchange_empty_qty: number;
   requires_pickup: boolean;
@@ -206,7 +211,7 @@ export interface SavedFilter {
   created_by: string;
 }
 
-export type OrderStatus = 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled';
+export type OrderStatus = 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
 
 export interface OrderWorkflowStep {
   status: OrderStatus;

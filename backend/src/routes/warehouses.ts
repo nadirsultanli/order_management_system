@@ -203,10 +203,10 @@ export const warehousesRouter = router({
         summary: 'Get warehouse options for dropdowns',
         description: 'Retrieve simplified warehouse information suitable for dropdown lists and selection components.',
         protect: true,
-      }
+      } 
     })
     .input(z.void())
-    .output(WarehouseOptionsResponseSchema)
+    .output(z.any())
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       

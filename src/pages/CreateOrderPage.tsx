@@ -300,12 +300,17 @@ export const CreateOrderPage: React.FC = () => {
   };
 
   const handleCreateOrder = async () => {
+<<<<<<< Updated upstream
     if (selectedVariant === 'visit') {
       alert('Visit orders are not yet available.');
       return;
     }
 
     if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || orderLines.length === 0) {
+=======
+    if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || 
+        (selectedOrderType === 'delivery' && orderLines.length === 0)) {
+>>>>>>> Stashed changes
       return;
     }
     
@@ -337,8 +342,9 @@ export const CreateOrderPage: React.FC = () => {
         order_date: orderDate,
         scheduled_date: scheduledDateTime,
         notes,
-        // Include order lines for proper backend processing with tax information
-        order_lines: orderLines.map(line => ({
+        order_type: selectedOrderType,
+        // Include order lines for proper backend processing with tax information (only for delivery orders)
+        order_lines: selectedOrderType === 'delivery' ? orderLines.map(line => ({
           product_id: line.product_id,
           quantity: line.quantity,
           unit_price: line.unit_price,
@@ -347,7 +353,7 @@ export const CreateOrderPage: React.FC = () => {
           tax_amount: line.tax_amount,
           price_including_tax: line.price_including_tax,
           tax_rate: line.tax_rate,
-        })),
+        })) : undefined,
       };
 
       console.log('Creating order with data:', orderData);
@@ -386,7 +392,8 @@ export const CreateOrderPage: React.FC = () => {
 
   const canProceedToStep2 = selectedCustomerId && selectedAddressId && selectedWarehouseId &&
     (!selectedCustomer || selectedCustomer.account_status !== 'closed');
-  const canCreateOrder = canProceedToStep2 && orderLines.length > 0 && 
+  const canCreateOrder = canProceedToStep2 && 
+    (selectedOrderType === 'visit' || orderLines.length > 0) && 
     !isProductsLoading && !createOrder.isPending;
 
   const getStockInfo = (productId: string) => {
@@ -501,6 +508,66 @@ export const CreateOrderPage: React.FC = () => {
         {/* Step 1: Customer & Delivery */}
         {step === 1 && (
           <div className="space-y-6">
+            {/* Order Type Selection */}
+            <div className="col-span-full">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Order Type *
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div 
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedOrderType === 'delivery' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => setSelectedOrderType('delivery')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        selectedOrderType === 'delivery' ? 'border-blue-500' : 'border-gray-300'
+                      }`}>
+                        {selectedOrderType === 'delivery' && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        )}
+                      </div>
+                      <ShoppingCart className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <h3 className="font-medium text-gray-900">Delivery Order</h3>
+                        <p className="text-sm text-gray-500">Regular order with specific products and quantities</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div 
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedOrderType === 'visit' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
+                  onClick={() => setSelectedOrderType('visit')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        selectedOrderType === 'visit' ? 'border-blue-500' : 'border-gray-300'
+                      }`}>
+                        {selectedOrderType === 'visit' && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        )}
+                      </div>
+                      <Calendar className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <h3 className="font-medium text-gray-900">Visit Order</h3>
+                        <p className="text-sm text-gray-500">Schedule a visit without specific products</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Customer Selection */}
               <div>

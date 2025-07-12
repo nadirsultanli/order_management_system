@@ -6,9 +6,9 @@ import { z } from 'zod';
 
 // ============ Base Schemas ============
 
-export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled']);
+export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled', 'completed_no_sale']);
 
-export const OrderTypeEnum = z.enum(['delivery', 'refill', 'exchange', 'pickup']);
+export const OrderTypeEnum = z.enum(['delivery', 'refill', 'exchange', 'pickup', 'visit']);
 
 export const ServiceTypeEnum = z.enum(['standard', 'express', 'scheduled']);
 
@@ -86,8 +86,21 @@ export const CreateOrderSchema = z.object({
   service_type: ServiceTypeEnum.default('standard'),
   exchange_empty_qty: z.number().min(0).default(0),
   requires_pickup: z.boolean().default(false),
-  order_lines: z.array(OrderLineSchema).min(1, 'At least one order line is required'),
-});
+  order_lines: z.array(OrderLineSchema).optional(),
+}).refine(
+  (data) => {
+    // For visit orders, order_lines are optional
+    if (data.order_type === 'visit') {
+      return true;
+    }
+    // For all other order types, at least one order line is required
+    return data.order_lines && data.order_lines.length > 0;
+  },
+  {
+    message: 'At least one order line is required for non-visit orders',
+    path: ['order_lines'],
+  }
+);
 
 export const CalculateOrderTotalSchema = z.object({
   order_id: z.string().uuid(),
@@ -190,4 +203,18 @@ export const GetDailyScheduleSchema = z.object({
 export const ProcessRefillOrderSchema = z.object({
   order_id: z.string().uuid(),
   warehouse_id: z.string().uuid().optional(),
+});
+
+// ============ Visit Order Operations ============
+
+export const ConvertVisitToDeliverySchema = z.object({
+  order_id: z.string().uuid(),
+  order_lines: z.array(OrderLineSchema).min(1, 'At least one order line is required'),
+  notes: z.string().optional(),
+});
+
+export const CompleteVisitWithNoSaleSchema = z.object({
+  order_id: z.string().uuid(),
+  notes: z.string().optional(),
+  reason: z.string().optional(),
 }); 
