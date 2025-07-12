@@ -460,11 +460,23 @@ export const CreateOrderPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => navigate('/orders')}
+            onClick={() => {
+              if (step === 1) {
+                navigate('/orders');
+              } else if (step === 2) {
+                setStep(1);
+              } else if (step === 3) {
+                setStep(2);
+              }
+            }}
             className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Back to Orders</span>
+            <span>
+              {step === 1 && 'Back to Orders'}
+              {step === 2 && 'Back to Customer & Delivery'}
+              {step === 3 && 'Back to Add Products'}
+            </span>
           </button>
           <div className="text-gray-400">/</div>
           <h1 className="text-2xl font-bold text-gray-900">Create New Order</h1>
