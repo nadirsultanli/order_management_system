@@ -259,7 +259,7 @@ export const CreateOrderPageV2: React.FC = () => {
   
   // Handle order creation
   const handleCreateOrder = async () => {
-    if (!selectedCustomerId || !selectedAddressId || (orderType === 'delivery' && (!selectedWarehouseId || orderLines.length === 0))) {
+    if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || (orderType === 'delivery' && orderLines.length === 0)) {
       return;
     }
     
@@ -267,7 +267,7 @@ export const CreateOrderPageV2: React.FC = () => {
       const orderData = {
         customer_id: selectedCustomerId,
         delivery_address_id: selectedAddressId,
-        source_warehouse_id: orderType === 'delivery' ? selectedWarehouseId : undefined,
+        source_warehouse_id: selectedWarehouseId,
         order_date: new Date().toISOString().split('T')[0],
         delivery_date: deliveryDate,
         delivery_time_window_start: deliveryTimeStart || undefined,
@@ -297,7 +297,7 @@ export const CreateOrderPageV2: React.FC = () => {
   
   // Navigation helpers
   const canProceedToStep2 = orderType !== '';
-  const canProceedToStep3 = selectedCustomerId && selectedAddressId;
+  const canProceedToStep3 = selectedCustomerId && selectedAddressId && selectedWarehouseId;
   const canProceedToStep4 = orderType === 'visit' ? canProceedToStep3 : Object.keys(selectedProducts).length > 0;
   const canProceedToStep5 = deliveryDate !== '';
   const canCreateOrder = canProceedToStep5 && !createOrder.isPending;
@@ -385,7 +385,7 @@ export const CreateOrderPageV2: React.FC = () => {
                     </div>
                     <div className="text-xs text-gray-500">
                       {step.number === 1 && (orderType ? `${orderType === 'delivery' ? 'Delivery' : 'Visit'} Order` : 'Select type')}
-                      {step.number === 2 && (selectedCustomer ? selectedCustomer.name : 'Select customer')}
+                      {step.number === 2 && (selectedCustomer && selectedWarehouse ? `${selectedCustomer.name} → ${selectedWarehouse.name}` : selectedCustomer ? selectedCustomer.name : 'Select customer & warehouse')}
                       {step.number === 3 && !isSkippedStep && (Object.keys(selectedProducts).length > 0 ? `${Object.keys(selectedProducts).length} products` : 'Add products')}
                       {step.number === 3 && isSkippedStep && 'Not needed for visits'}
                       {step.number === 4 && (deliveryDate ? `Delivery: ${new Date(deliveryDate).toLocaleDateString()}` : 'Set delivery')}
@@ -583,6 +583,32 @@ export const CreateOrderPageV2: React.FC = () => {
                   </>
                 )}
               </div>
+              
+              {/* Warehouse Selection - Required for both order types */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Package className="inline h-4 w-4 mr-1" />
+                  Source Warehouse *
+                </label>
+                <select
+                  value={selectedWarehouseId}
+                  onChange={(e) => setSelectedWarehouseId(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="">Choose a warehouse...</option>
+                  {warehouses.map((warehouse) => (
+                    <option key={warehouse.id} value={warehouse.id}>
+                      {warehouse.name} - {warehouse.city}, {warehouse.state}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {orderType === 'delivery' 
+                    ? 'Stock availability will be checked from the selected warehouse'
+                    : 'This warehouse will be used for future product loading during the visit'
+                  }
+                </p>
+              </div>
             </div>
             
             <div className="flex justify-between mt-8">
@@ -602,6 +628,7 @@ export const CreateOrderPageV2: React.FC = () => {
                 }}
                 disabled={!canProceedToStep3}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                title={!canProceedToStep3 ? 'Please select a customer, delivery address, and warehouse to continue' : ''}
               >
                 <span>Next: {orderType === 'visit' ? 'Delivery Notes' : 'Add Products'}</span>
                 <ChevronRight className="h-4 w-4" />
@@ -928,12 +955,10 @@ export const CreateOrderPageV2: React.FC = () => {
                         <span className="font-medium">{deliveryTimeStart} - {deliveryTimeEnd}</span>
                       </div>
                     )}
-                    {orderType === 'delivery' && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Warehouse:</span>
-                        <span className="font-medium">{selectedWarehouse?.name}</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Warehouse:</span>
+                      <span className="font-medium">{selectedWarehouse?.name}</span>
+                    </div>
                   </div>
                 </div>
                 
