@@ -296,7 +296,15 @@ export const OrderDetailPage: React.FC = () => {
                   {order.order_type === 'visit' ? (
                     <p className="text-xs text-gray-500 mt-1">Products to be determined during visit</p>
                   ) : (
-                    <p className="text-xs text-gray-500 mt-1">Pre-selected products for delivery</p>
+                    <>
+                      {order.notes && order.notes.includes('Converted from visit order') ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mt-1">
+                          Converted from Visit Order
+                        </span>
+                      ) : (
+                        <p className="text-xs text-gray-500 mt-1">Pre-selected products for delivery</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
