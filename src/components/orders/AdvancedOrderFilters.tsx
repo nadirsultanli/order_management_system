@@ -91,11 +91,13 @@ export const AdvancedOrderFilters: React.FC<AdvancedOrderFiltersProps> = ({
                 <option value="">All Statuses</option>
                 <option value="draft">Draft</option>
                 <option value="confirmed">Confirmed</option>
-                <option value="scheduled">Scheduled</option>
+                <option value="dispatched">Dispatched</option>
                 <option value="en_route">En Route</option>
                 <option value="delivered">Delivered</option>
                 <option value="invoiced">Invoiced</option>
+                <option value="paid">Paid</option>
                 <option value="cancelled">Cancelled</option>
+                <option value="completed_no_sale">Completed (No Sale)</option>
               </select>
             </div>
           </div>

@@ -144,11 +144,13 @@ export interface OrderStats {
   total_orders: number;
   draft_orders: number;
   confirmed_orders: number;
-  scheduled_orders: number;
+  dispatched_orders?: number;
   en_route_orders: number;
   delivered_orders: number;
   invoiced_orders: number;
+  paid_orders?: number;
   cancelled_orders: number;
+  completed_no_sale_orders?: number;
   todays_deliveries: number;
   overdue_orders: number;
   total_revenue: number;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, CheckCircle, Calendar, Truck, Package, Receipt, XCircle, AlertTriangle, TrendingUp } from 'lucide-react';
+import { ShoppingCart, CheckCircle, Calendar, Truck, Package, Receipt, XCircle, AlertTriangle, TrendingUp, CreditCard, FileX } from 'lucide-react';
 import { useOrderStats } from '../../hooks/useAnalytics';
 import { formatCurrencySync } from '../../utils/pricing';
 
@@ -46,9 +46,9 @@ export const OrderStats: React.FC = () => {
       bgColor: 'bg-blue-50',
     },
     {
-      name: 'Scheduled',
-      value: stats.scheduled_orders,
-      icon: Calendar,
+      name: 'Dispatched',
+      value: stats.dispatched_orders || 0,
+      icon: Package,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
     },
@@ -74,6 +74,13 @@ export const OrderStats: React.FC = () => {
       bgColor: 'bg-teal-50',
     },
     {
+      name: 'Paid',
+      value: stats.paid_orders || 0,
+      icon: CreditCard,
+      color: 'text-green-700',
+      bgColor: 'bg-green-100',
+    },
+    {
       name: 'Cancelled',
       value: stats.cancelled_orders,
       icon: XCircle,
@@ -81,18 +88,11 @@ export const OrderStats: React.FC = () => {
       bgColor: 'bg-red-50',
     },
     {
-      name: "Today's Deliveries",
-      value: stats.todays_deliveries,
-      icon: Calendar,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-50',
-    },
-    {
-      name: 'Overdue',
-      value: stats.overdue_orders,
-      icon: AlertTriangle,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50',
+      name: 'No Sale',
+      value: stats.completed_no_sale_orders || 0,
+      icon: FileX,
+      color: 'text-gray-500',
+      bgColor: 'bg-gray-100',
     },
   ];
 

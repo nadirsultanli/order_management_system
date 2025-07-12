@@ -29,13 +29,15 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
   // Fallback functions for when tRPC client is unavailable
   const getOrderStatusInfoFallback = (status: string) => {
     const statusMap: Record<string, { label: string; color: string; description: string }> = {
-      'draft': { label: 'Draft', color: 'bg-gray-100 text-gray-800 border-gray-300', description: 'Order is being prepared' },
-      'confirmed': { label: 'Confirmed', color: 'bg-blue-100 text-blue-800 border-blue-300', description: 'Order has been confirmed' },
-      'scheduled': { label: 'Scheduled', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Order is scheduled for delivery' },
-      'en_route': { label: 'En Route', color: 'bg-orange-100 text-orange-800 border-orange-300', description: 'Order is out for delivery' },
-      'delivered': { label: 'Delivered', color: 'bg-green-100 text-green-800 border-green-300', description: 'Order has been delivered' },
-      'invoiced': { label: 'Invoiced', color: 'bg-purple-100 text-purple-800 border-purple-300', description: 'Order has been invoiced' },
-      'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-300', description: 'Order has been cancelled' },
+      'draft': { label: 'Draft', color: 'bg-gray-100 text-gray-800 border-gray-300', description: 'Order is being created' },
+      'confirmed': { label: 'Confirmed', color: 'bg-blue-100 text-blue-800 border-blue-300', description: 'Order confirmed, stock reserved' },
+      'dispatched': { label: 'Dispatched', color: 'bg-purple-100 text-purple-800 border-purple-300', description: 'Order dispatched for delivery' },
+      'en_route': { label: 'En Route', color: 'bg-orange-100 text-orange-800 border-orange-300', description: 'Out for delivery' },
+      'delivered': { label: 'Delivered', color: 'bg-green-100 text-green-800 border-green-300', description: 'Successfully delivered' },
+      'invoiced': { label: 'Invoiced', color: 'bg-teal-100 text-teal-800 border-teal-300', description: 'Invoice generated' },
+      'paid': { label: 'Paid', color: 'bg-green-100 text-green-800 border-green-300', description: 'Payment received' },
+      'completed_no_sale': { label: 'Completed (No Sale)', color: 'bg-gray-100 text-gray-800 border-gray-300', description: 'Visit completed without purchase' },
+      'cancelled': { label: 'Cancelled', color: 'bg-red-100 text-red-800 border-red-300', description: 'Order cancelled' },
     };
     return statusMap[status] || statusMap['draft'];
   };
@@ -43,8 +45,8 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
   const validateOrderFallback = (order: Order, newStatus: string, scheduledDate?: string) => {
     const errors: string[] = [];
     
-    // Basic validation rules
-    if (!order.order_lines || order.order_lines.length === 0) {
+    // Basic validation rules - only require order lines for delivery orders, not visit orders
+    if (order.order_type !== 'visit' && (!order.order_lines || order.order_lines.length === 0)) {
       errors.push('Order must have at least one item');
     }
     

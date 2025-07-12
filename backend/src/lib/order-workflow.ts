@@ -220,7 +220,8 @@ export const validateOrderForConfirmation = (order: any): OrderValidationResult 
     errors.push('Delivery address is required');
   }
 
-  if (!order.order_lines || order.order_lines.length === 0) {
+  // Only require order lines for delivery orders, not visit orders
+  if (order.order_type !== 'visit' && (!order.order_lines || order.order_lines.length === 0)) {
     errors.push('At least one product is required');
   }
 

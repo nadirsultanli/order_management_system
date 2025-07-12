@@ -17,13 +17,15 @@ export const getOrderWorkflow = async (): Promise<OrderWorkflowStep[]> => {
     if (!trpcClient?.orders?.getWorkflow) {
       console.warn('tRPC orders.getWorkflow not available, using fallback workflow');
       const fallbackWorkflow: OrderWorkflowStep[] = [
-        { status: 'draft' as OrderStatus, label: 'Draft', description: 'Order is being prepared', color: 'gray', allowedTransitions: ['confirmed', 'cancelled'] },
-        { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order has been confirmed', color: 'blue', allowedTransitions: ['scheduled', 'cancelled'] },
-        { status: 'scheduled' as OrderStatus, label: 'Scheduled', description: 'Order is scheduled for delivery', color: 'yellow', allowedTransitions: ['en_route', 'cancelled'] },
-        { status: 'en_route' as OrderStatus, label: 'En Route', description: 'Order is out for delivery', color: 'orange', allowedTransitions: ['delivered', 'cancelled'] },
-        { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Order has been delivered', color: 'green', allowedTransitions: ['invoiced'] },
-        { status: 'invoiced' as OrderStatus, label: 'Invoiced', description: 'Order has been invoiced', color: 'purple', allowedTransitions: [] },
-        { status: 'cancelled' as OrderStatus, label: 'Cancelled', description: 'Order has been cancelled', color: 'red', allowedTransitions: [] },
+        { status: 'draft' as OrderStatus, label: 'Draft', description: 'Order is being created', color: 'gray', allowedTransitions: ['confirmed', 'cancelled'] },
+        { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order confirmed, stock reserved', color: 'blue', allowedTransitions: ['dispatched', 'cancelled'] },
+        { status: 'dispatched' as OrderStatus, label: 'Dispatched', description: 'Order dispatched for delivery', color: 'purple', allowedTransitions: ['en_route', 'cancelled', 'completed_no_sale'] },
+        { status: 'en_route' as OrderStatus, label: 'En Route', description: 'Out for delivery', color: 'orange', allowedTransitions: ['delivered'] },
+        { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Successfully delivered', color: 'green', allowedTransitions: ['invoiced'] },
+        { status: 'invoiced' as OrderStatus, label: 'Invoiced', description: 'Invoice generated', color: 'teal', allowedTransitions: ['paid'] },
+        { status: 'paid' as OrderStatus, label: 'Paid', description: 'Payment received', color: 'green', allowedTransitions: [] },
+        { status: 'completed_no_sale' as OrderStatus, label: 'Completed (No Sale)', description: 'Visit completed without purchase', color: 'gray', allowedTransitions: [] },
+        { status: 'cancelled' as OrderStatus, label: 'Cancelled', description: 'Order cancelled', color: 'red', allowedTransitions: [] },
       ];
       workflowCache = fallbackWorkflow;
       return fallbackWorkflow;
@@ -36,13 +38,15 @@ export const getOrderWorkflow = async (): Promise<OrderWorkflowStep[]> => {
     console.error('Failed to fetch workflow from backend:', error);
     // Return fallback instead of throwing
     const fallbackWorkflow: OrderWorkflowStep[] = [
-      { status: 'draft' as OrderStatus, label: 'Draft', description: 'Order is being prepared', color: 'gray', allowedTransitions: ['confirmed', 'cancelled'] },
-      { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order has been confirmed', color: 'blue', allowedTransitions: ['scheduled', 'cancelled'] },
-      { status: 'scheduled' as OrderStatus, label: 'Scheduled', description: 'Order is scheduled for delivery', color: 'yellow', allowedTransitions: ['en_route', 'cancelled'] },
-      { status: 'en_route' as OrderStatus, label: 'En Route', description: 'Order is out for delivery', color: 'orange', allowedTransitions: ['delivered', 'cancelled'] },
-      { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Order has been delivered', color: 'green', allowedTransitions: ['invoiced'] },
-      { status: 'invoiced' as OrderStatus, label: 'Invoiced', description: 'Order has been invoiced', color: 'purple', allowedTransitions: [] },
-      { status: 'cancelled' as OrderStatus, label: 'Cancelled', description: 'Order has been cancelled', color: 'red', allowedTransitions: [] },
+      { status: 'draft' as OrderStatus, label: 'Draft', description: 'Order is being created', color: 'gray', allowedTransitions: ['confirmed', 'cancelled'] },
+      { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order confirmed, stock reserved', color: 'blue', allowedTransitions: ['dispatched', 'cancelled'] },
+      { status: 'dispatched' as OrderStatus, label: 'Dispatched', description: 'Order dispatched for delivery', color: 'purple', allowedTransitions: ['en_route', 'cancelled', 'completed_no_sale'] },
+      { status: 'en_route' as OrderStatus, label: 'En Route', description: 'Out for delivery', color: 'orange', allowedTransitions: ['delivered'] },
+      { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Successfully delivered', color: 'green', allowedTransitions: ['invoiced'] },
+      { status: 'invoiced' as OrderStatus, label: 'Invoiced', description: 'Invoice generated', color: 'teal', allowedTransitions: ['paid'] },
+      { status: 'paid' as OrderStatus, label: 'Paid', description: 'Payment received', color: 'green', allowedTransitions: [] },
+      { status: 'completed_no_sale' as OrderStatus, label: 'Completed (No Sale)', description: 'Visit completed without purchase', color: 'gray', allowedTransitions: [] },
+      { status: 'cancelled' as OrderStatus, label: 'Cancelled', description: 'Order cancelled', color: 'red', allowedTransitions: [] },
     ];
     workflowCache = fallbackWorkflow;
     return fallbackWorkflow;
@@ -165,10 +169,10 @@ export const isOrderEditable = async (status: OrderStatus): Promise<boolean> => 
 export const isOrderCancellable = async (status: OrderStatus): Promise<boolean> => {
   try {
     // We can get this from workflow info, but for now use local logic for performance
-    return ['draft', 'confirmed', 'scheduled'].includes(status);
+    return ['draft', 'confirmed', 'dispatched'].includes(status);
   } catch (error) {
     console.error('Failed to check if order is cancellable:', error);
-    return ['draft', 'confirmed', 'scheduled'].includes(status);
+    return ['draft', 'confirmed', 'dispatched'].includes(status);
   }
 };
 
