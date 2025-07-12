@@ -4,7 +4,6 @@ import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock } f
 import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
-import { OrderEditModal } from '../components/orders/OrderEditModal';
 import { formatDateSync } from '../utils/order';
 import { formatCurrencySync } from '../utils/pricing';
 import { Order, OrderStatusChange } from '../types/order';
@@ -14,7 +13,6 @@ export const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [statusChangeOrder, setStatusChangeOrder] = useState<{ order: Order; newStatus: string } | null>(null);
   const [showTimeline, setShowTimeline] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [statusInfo, setStatusInfo] = useState<any>(null);
   const [nextStatuses, setNextStatuses] = useState<string[]>([]);
   const [formattedOrderId, setFormattedOrderId] = useState<string>('');
@@ -231,9 +229,9 @@ export const OrderDetailPage: React.FC = () => {
             <Clock className="h-4 w-4" />
             <span>{showTimeline ? 'Hide' : 'Show'} Timeline</span>
           </button>
-          {['draft', 'confirmed'].includes(order.status) && (
+          {!['invoiced', 'delivered', 'paid', 'completed_no_sale'].includes(order.status) && (
             <button
-              onClick={() => setShowEditModal(true)}
+              onClick={() => navigate(`/orders/${order.id}/edit`)}
               className="flex items-center space-x-2 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
             >
               <Edit className="h-4 w-4" />
@@ -588,7 +586,7 @@ export const OrderDetailPage: React.FC = () => {
             <div className="space-y-3">
               {['draft', 'confirmed'].includes(order.status) && (
                 <button
-                  onClick={() => setShowEditModal(true)}
+                  onClick={() => navigate(`/orders/${order.id}/edit`)}
                   className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Edit className="h-4 w-4" />
@@ -629,14 +627,6 @@ export const OrderDetailPage: React.FC = () => {
         />
       )}
 
-      {/* Order Edit Modal */}
-      {showEditModal && (
-        <OrderEditModal
-          isOpen={showEditModal}
-          onClose={() => setShowEditModal(false)}
-          order={order}
-        />
-      )}
     </div>
   );
 };

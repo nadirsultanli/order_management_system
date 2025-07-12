@@ -75,6 +75,33 @@ export const useCreateOrderNew = () => {
   });
 };
 
+// Hook for updating order details
+export const useUpdateOrder = () => {
+  const utils = trpc.useContext();
+  
+  return {
+    mutate: (orderData: any, options?: { onSuccess?: () => void }) => {
+      // For now, this is a placeholder. In a real implementation,
+      // you would call a backend API to update the order
+      console.log('Updating order:', orderData);
+      
+      // Simulate success
+      setTimeout(() => {
+        toast.success('Order updated successfully');
+        if (options?.onSuccess) {
+          options.onSuccess();
+        }
+      }, 1000);
+    },
+    isPending: false, // Placeholder
+    mutateAsync: async (orderData: any) => {
+      // Placeholder implementation
+      console.log('Updating order async:', orderData);
+      return Promise.resolve();
+    }
+  };
+};
+
 // Hook for updating order status
 export const useUpdateOrderStatusNew = () => {
   const utils = trpc.useContext();

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Eye, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar, ChevronUp, ChevronDown } from 'lucide-react';
+import { Eye, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar, ChevronUp, ChevronDown, Edit } from 'lucide-react';
 import { Order } from '../../types/order';
 import { formatCurrencySync } from '../../utils/pricing';
 import { formatDateSync } from '../../utils/order';
@@ -11,6 +11,7 @@ interface OrderTableProps {
   orders: Order[];
   loading?: boolean;
   onView: (order: Order) => void;
+  onEdit?: (order: Order) => void;
   onChangeStatus: (order: Order, newStatus: string) => void;
   selectedOrders?: string[];
   onSelectionChange?: (orderIds: string[]) => void;
@@ -20,6 +21,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   orders,
   loading = false,
   onView,
+  onEdit,
   onChangeStatus,
   selectedOrders = [],
   onSelectionChange,
@@ -98,7 +100,7 @@ export const OrderTable: React.FC<OrderTableProps> = ({
         return 'bg-gray-100 text-gray-800 border-gray-300';
       case 'confirmed':
         return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'scheduled':
+      case 'dispatched':
         return 'bg-purple-100 text-purple-800 border-purple-300';
       case 'en_route':
         return 'bg-orange-100 text-orange-800 border-orange-300';
@@ -106,6 +108,10 @@ export const OrderTable: React.FC<OrderTableProps> = ({
         return 'bg-green-100 text-green-800 border-green-300';
       case 'invoiced':
         return 'bg-teal-100 text-teal-800 border-teal-300';
+      case 'paid':
+        return 'bg-green-100 text-green-800 border-green-300';
+      case 'completed_no_sale':
+        return 'bg-gray-100 text-gray-800 border-gray-300';
       case 'cancelled':
         return 'bg-red-100 text-red-800 border-red-300';
       default:
@@ -116,6 +122,16 @@ export const OrderTable: React.FC<OrderTableProps> = ({
   const formatOrderIdSync = (id: string) => {
     // Simple formatting - take first 8 characters and add prefix
     return `ORD-${id.substring(0, 8).toUpperCase()}`;
+  };
+
+  // Check if order can be edited (not invoiced, delivered, paid, or completed_no_sale)
+  const isOrderEditable = (order: Order) => {
+    return !['invoiced', 'delivered', 'paid', 'completed_no_sale'].includes(order.status);
+  };
+
+  // Check if order can be cancelled (any status before delivered)
+  const isOrderCancellable = (order: Order) => {
+    return !['delivered', 'invoiced', 'paid', 'completed_no_sale', 'cancelled'].includes(order.status);
   };
 
   const getQuickActions = (order: Order) => {
@@ -132,13 +148,20 @@ export const OrderTable: React.FC<OrderTableProps> = ({
         break;
       case 'confirmed':
         actions.push({
-          label: 'Schedule',
-          action: () => onChangeStatus(order, 'scheduled'),
-          icon: Calendar,
+          label: 'Dispatch',
+          action: () => onChangeStatus(order, 'dispatched'),
+          icon: Truck,
           color: 'text-purple-600 hover:text-purple-900',
         });
+        // Add revert to draft for confirmed orders
+        actions.push({
+          label: 'Revert to Draft',
+          action: () => onChangeStatus(order, 'draft'),
+          icon: Package,
+          color: 'text-gray-600 hover:text-gray-900',
+        });
         break;
-      case 'scheduled':
+      case 'dispatched':
         actions.push({
           label: 'En Route',
           action: () => onChangeStatus(order, 'en_route'),
@@ -164,7 +187,8 @@ export const OrderTable: React.FC<OrderTableProps> = ({
         break;
     }
 
-    if (['draft', 'confirmed', 'scheduled'].includes(order.status)) {
+    // Add cancel action for any status before delivered
+    if (isOrderCancellable(order)) {
       actions.push({
         label: 'Cancel',
         action: () => onChangeStatus(order, 'cancelled'),
@@ -353,6 +377,15 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                       >
                         <Eye className="h-4 w-4" />
                       </button>
+                      {onEdit && isOrderEditable(order) && (
+                        <button
+                          onClick={() => onEdit(order)}
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-50 transition-colors"
+                          title="Edit order"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                      )}
                       {quickActions.slice(0, 2).map((action, index) => (
                         <button
                           key={index}

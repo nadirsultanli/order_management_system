@@ -17,6 +17,7 @@ import { PricingPage } from './pages/PricingPage';
 import { PriceListDetailPage } from './pages/PriceListDetailPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { CreateOrderPageV2 } from './pages/CreateOrderPageV2';
+import { EditOrderPage } from './pages/EditOrderPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrderSchedulePage } from './pages/OrderSchedulePage';
 import { OrderReportsPage } from './pages/OrderReportsPage';
@@ -58,6 +59,7 @@ function App() {
             <Route path="orders/schedule" element={<OrderSchedulePage />} />
             <Route path="orders/reports" element={<OrderReportsPage />} />
             <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="orders/:id/edit" element={<EditOrderPage />} />
             <Route path="transfers" element={<TransfersPage />} />
             <Route path="deliveries" element={<DeliveriesPage />} />
             <Route path="settings" element={<SettingsPage />} />
