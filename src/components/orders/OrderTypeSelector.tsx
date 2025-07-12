@@ -1,60 +1,46 @@
 import React from 'react';
-import { Truck, RotateCcw } from 'lucide-react';
+import { Truck, RotateCcw, Calendar } from 'lucide-react';
 import { getOrderTypeDisplayName, shouldRequirePickup, getOrderTypeBusinessRules } from '../../utils/product-variants';
 
 interface OrderTypeSelectorProps {
-  orderType: 'outright' | 'refill';
-  exchangeEmptyQty: number;
-  requiresPickup: boolean;
-  onOrderTypeChange: (orderType: 'outright' | 'refill') => void;
-  onExchangeEmptyQtyChange: (qty: number) => void;
-  onRequiresPickupChange: (requires: boolean) => void;
+  orderType: 'delivery' | 'visit';
+  onOrderTypeChange: (type: 'delivery' | 'visit') => void;
   disabled?: boolean;
 }
 
 export const OrderTypeSelector: React.FC<OrderTypeSelectorProps> = ({
   orderType,
-  exchangeEmptyQty,
-  requiresPickup,
   onOrderTypeChange,
-  onExchangeEmptyQtyChange,
-  onRequiresPickupChange,
   disabled = false,
 }) => {
   const orderTypes = [
     {
-      value: 'outright' as const,
-      label: 'Outright',
-      description: 'Deliver full cylinders to customer',
+      value: 'delivery' as const,
+      label: 'Delivery Order',
+      description: 'An order with predefined product quantities for direct delivery.',
       icon: Truck,
       color: 'bg-blue-50 border-blue-200 text-blue-800',
       selectedColor: 'bg-blue-100 border-blue-300',
     },
     {
-      value: 'refill' as const,
-      label: 'Refill',
-      description: 'Deliver full cylinders and collect empties',
-      icon: RotateCcw,
-      color: 'bg-green-50 border-green-200 text-green-800',
-      selectedColor: 'bg-green-100 border-green-300',
+      value: 'visit' as const,
+      label: 'Visit Order',
+      description: 'Coming soon - placeholder',
+      icon: Calendar, // or some appropriate icon
+      color: 'bg-gray-50 border-gray-200 text-gray-800',
+      selectedColor: 'bg-gray-100 border-gray-300',
     },
   ];
 
 
-  const handleOrderTypeChange = (newOrderType: 'outright' | 'refill') => {
+  const handleOrderTypeChange = (newOrderType: 'delivery' | 'visit') => {
     onOrderTypeChange(newOrderType);
-    
-    // Apply business rules for the order type
-    const businessRules = getOrderTypeBusinessRules(newOrderType);
-    onRequiresPickupChange(businessRules.requiresPickup);
-    
-    // Reset exchange quantity for order types that don't allow it
-    if (!businessRules.allowsExchangeQty) {
-      onExchangeEmptyQtyChange(0);
-    }
+    // Remove business rules related to pickup and exchange as they are removed
   };
 
-  const currentBusinessRules = getOrderTypeBusinessRules(orderType);
+  // Remove the currentBusinessRules and any JSX related to exchange quantity and requires pickup
+
+  // In the JSX, remove the sections for Exchange Quantity and Requires Pickup
 
   return (
     <div className="space-y-6">
@@ -98,28 +84,28 @@ export const OrderTypeSelector: React.FC<OrderTypeSelectorProps> = ({
       {/* Business Rules Info */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <h4 className="font-medium text-blue-900 mb-2">Order Type: {orderTypes.find(t => t.value === orderType)?.label}</h4>
-        <p className="text-sm text-blue-700 mb-3">{currentBusinessRules.description}</p>
+        <p className="text-sm text-blue-700 mb-3">{/* currentBusinessRules.description */}</p>
         <div className="flex flex-wrap gap-2">
-          {currentBusinessRules.deliveryRequired && (
+          {/* currentBusinessRules.deliveryRequired && (
             <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
               ✓ Delivery Required
             </span>
-          )}
-          {currentBusinessRules.pickupRequired && (
+          ) */}
+          {/* currentBusinessRules.pickupRequired && (
             <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800">
               ⚠ Pickup Required
             </span>
-          )}
-          {currentBusinessRules.allowsExchangeQty && (
+          ) */}
+          {/* currentBusinessRules.allowsExchangeQty && (
             <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
               🔄 Exchange Quantity
             </span>
-          )}
+          ) */}
         </div>
       </div>
 
       {/* Order Type Specific Options */}
-      {currentBusinessRules.pickupRequired && (
+      {/* currentBusinessRules.pickupRequired && (
         <div className="bg-gray-50 rounded-lg p-4">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             Exchange Details
@@ -167,7 +153,7 @@ export const OrderTypeSelector: React.FC<OrderTypeSelectorProps> = ({
             )}
           </div>
         </div>
-      )}
+      ) */}
 
     </div>
   );

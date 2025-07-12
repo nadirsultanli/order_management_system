@@ -56,9 +56,8 @@ export const CreateOrderPage: React.FC = () => {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
   
   // Order type selection state
-  const [selectedVariant, setSelectedVariant] = useState<'outright' | 'refill'>('outright');
-  const [exchangeEmptyQty, setExchangeEmptyQty] = useState(0);
-  const [requiresPickup, setRequiresPickup] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<'delivery' | 'visit'>('delivery');
+  // Remove exchangeEmptyQty and requiresPickup states
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
@@ -174,19 +173,13 @@ export const CreateOrderPage: React.FC = () => {
     setOrderLines([]);
   };
 
-  const handleVariantChange = (variant: 'outright' | 'refill') => {
+  const handleVariantChange = (variant: 'delivery' | 'visit') => {
     setSelectedVariant(variant);
     // Clear order lines when variant changes to prevent mixing variants
     setOrderLines([]);
   };
 
-  const handleExchangeEmptyQtyChange = (qty: number) => {
-    setExchangeEmptyQty(qty);
-  };
-
-  const handleRequiresPickupChange = (requires: boolean) => {
-    setRequiresPickup(requires);
-  };
+  // Remove handleExchangeEmptyQtyChange and handleRequiresPickupChange
 
   const handleCustomerCreated = (newCustomer: Customer) => {
     // The customer list will be automatically refetched by the useCustomers hook
@@ -307,6 +300,11 @@ export const CreateOrderPage: React.FC = () => {
   };
 
   const handleCreateOrder = async () => {
+    if (selectedVariant === 'visit') {
+      alert('Visit orders are not yet available.');
+      return;
+    }
+
     if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || orderLines.length === 0) {
       return;
     }
@@ -709,11 +707,7 @@ export const CreateOrderPage: React.FC = () => {
             <div className="bg-white border border-gray-200 rounded-lg p-4">
               <OrderTypeSelector
                 orderType={selectedVariant}
-                exchangeEmptyQty={exchangeEmptyQty}
-                requiresPickup={requiresPickup}
                 onOrderTypeChange={handleVariantChange}
-                onExchangeEmptyQtyChange={handleExchangeEmptyQtyChange}
-                onRequiresPickupChange={handleRequiresPickupChange}
               />
             </div>
             
@@ -774,7 +768,7 @@ export const CreateOrderPage: React.FC = () => {
               {/* Product Selection */}
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Available Products ({selectedVariant === 'outright' ? 'Outright' : 'Refill'})
+                  Available Products ({selectedVariant === 'delivery' ? 'Delivery' : 'Visit'})
                 </h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {(() => {
@@ -1046,11 +1040,12 @@ export const CreateOrderPage: React.FC = () => {
                 Back
               </button>
               <button
-                onClick={() => setStep(3)}
-                disabled={orderLines.length === 0}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCreateOrder}
+                disabled={!canCreateOrder || createOrder.isPending}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                Next: Review
+                <ShoppingCart className="h-4 w-4" />
+                <span>{createOrder.isPending ? 'Creating...' : 'Create Order'}</span>
               </button>
             </div>
           </div>
