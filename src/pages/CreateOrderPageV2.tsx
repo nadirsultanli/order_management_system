@@ -259,7 +259,7 @@ export const CreateOrderPageV2: React.FC = () => {
   
   // Handle order creation
   const handleCreateOrder = async () => {
-    if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || orderLines.length === 0) {
+    if (!selectedCustomerId || !selectedAddressId || (orderType === 'delivery' && (!selectedWarehouseId || orderLines.length === 0))) {
       return;
     }
     
@@ -267,7 +267,7 @@ export const CreateOrderPageV2: React.FC = () => {
       const orderData = {
         customer_id: selectedCustomerId,
         delivery_address_id: selectedAddressId,
-        source_warehouse_id: selectedWarehouseId,
+        source_warehouse_id: orderType === 'delivery' ? selectedWarehouseId : undefined,
         order_date: new Date().toISOString().split('T')[0],
         delivery_date: deliveryDate,
         delivery_time_window_start: deliveryTimeStart || undefined,
@@ -276,7 +276,8 @@ export const CreateOrderPageV2: React.FC = () => {
         notes: orderNotes || undefined,
         status: orderStatus,
         order_type: orderType as 'delivery' | 'visit',
-        order_lines: orderLines.map(line => ({
+        // Only include order lines for delivery orders
+        order_lines: orderType === 'delivery' ? orderLines.map(line => ({
           product_id: line.product_id,
           quantity: line.quantity,
           unit_price: line.unit_price,
@@ -284,7 +285,7 @@ export const CreateOrderPageV2: React.FC = () => {
           tax_amount: line.tax_amount,
           price_including_tax: line.price_including_tax,
           tax_rate: line.tax_rate,
-        })),
+        })) : undefined,
       };
       
       const order = await createOrder.mutateAsync(orderData);
@@ -297,7 +298,7 @@ export const CreateOrderPageV2: React.FC = () => {
   // Navigation helpers
   const canProceedToStep2 = orderType !== '';
   const canProceedToStep3 = selectedCustomerId && selectedAddressId;
-  const canProceedToStep4 = Object.keys(selectedProducts).length > 0;
+  const canProceedToStep4 = orderType === 'visit' ? canProceedToStep3 : Object.keys(selectedProducts).length > 0;
   const canProceedToStep5 = deliveryDate !== '';
   const canCreateOrder = canProceedToStep5 && !createOrder.isPending;
   
@@ -306,9 +307,10 @@ export const CreateOrderPageV2: React.FC = () => {
       setCurrentStep(step);
     } else if (step === 2 && canProceedToStep2) {
       setCurrentStep(2);
-    } else if (step === 3 && canProceedToStep3) {
+    } else if (step === 3 && canProceedToStep3 && orderType === 'delivery') {
       setCurrentStep(3);
     } else if (step === 4 && canProceedToStep4) {
+      // For visit orders, skip step 3 and go directly to step 4
       setCurrentStep(4);
     } else if (step === 5 && canProceedToStep5) {
       setCurrentStep(5);
@@ -343,41 +345,64 @@ export const CreateOrderPageV2: React.FC = () => {
       {/* Progress Steps */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-8">
-          {steps.map((step, index) => (
-            <React.Fragment key={step.number}>
-              <div 
-                className={`flex items-center space-x-3 cursor-pointer ${
-                  currentStep >= step.number ? 'text-blue-600' : 'text-gray-400'
-                }`}
-                onClick={() => goToStep(step.number)}
-              >
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  currentStep >= step.number ? 'bg-blue-600 text-white' : 'bg-gray-200'
-                }`}>
-                  {currentStep > step.number ? (
-                    <Check className="h-5 w-5" />
-                  ) : (
-                    <span className="font-medium">{step.number}</span>
-                  )}
-                </div>
-                <div>
-                  <div className="font-medium">{step.title}</div>
-                  <div className="text-xs text-gray-500">
-                    {step.number === 1 && (orderType ? `${orderType === 'delivery' ? 'Delivery' : 'Visit'} Order` : 'Select type')}
-                    {step.number === 2 && (selectedCustomer ? selectedCustomer.name : 'Select customer')}
-                    {step.number === 3 && (Object.keys(selectedProducts).length > 0 ? `${Object.keys(selectedProducts).length} products` : 'Add products')}
-                    {step.number === 4 && (deliveryDate ? `Delivery: ${new Date(deliveryDate).toLocaleDateString()}` : 'Set delivery')}
-                    {step.number === 5 && (orderStatus ? `Status: ${orderStatus}` : 'Review order')}
+          {steps.map((step, index) => {
+            // For visit orders, skip step 3 (Products) in the display
+            const isSkippedStep = orderType === 'visit' && step.number === 3;
+            const isVisitStep4 = orderType === 'visit' && step.number === 4 && currentStep === 4;
+            const isVisitStep5 = orderType === 'visit' && step.number === 5 && currentStep === 5;
+            
+            // For visit orders, treat step 4 as if it's step 3, and step 5 as step 4
+            const adjustedCurrentStep = orderType === 'visit' && currentStep >= 4 ? currentStep - 1 : currentStep;
+            const adjustedStepNumber = orderType === 'visit' && step.number >= 4 ? step.number - 1 : step.number;
+            
+            return (
+              <React.Fragment key={step.number}>
+                <div 
+                  className={`flex items-center space-x-3 cursor-pointer ${
+                    isSkippedStep 
+                      ? 'text-gray-300 opacity-50' 
+                      : adjustedCurrentStep >= adjustedStepNumber ? 'text-blue-600' : 'text-gray-400'
+                  }`}
+                  onClick={() => !isSkippedStep && goToStep(step.number)}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    isSkippedStep 
+                      ? 'bg-gray-100 text-gray-300'
+                      : adjustedCurrentStep >= adjustedStepNumber ? 'bg-blue-600 text-white' : 'bg-gray-200'
+                  }`}>
+                    {isSkippedStep ? (
+                      <X className="h-5 w-5" />
+                    ) : adjustedCurrentStep > adjustedStepNumber ? (
+                      <Check className="h-5 w-5" />
+                    ) : (
+                      <span className="font-medium">{step.number}</span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-medium">
+                      {step.title}
+                      {isSkippedStep && <span className="text-xs ml-1">(Skipped)</span>}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {step.number === 1 && (orderType ? `${orderType === 'delivery' ? 'Delivery' : 'Visit'} Order` : 'Select type')}
+                      {step.number === 2 && (selectedCustomer ? selectedCustomer.name : 'Select customer')}
+                      {step.number === 3 && !isSkippedStep && (Object.keys(selectedProducts).length > 0 ? `${Object.keys(selectedProducts).length} products` : 'Add products')}
+                      {step.number === 3 && isSkippedStep && 'Not needed for visits'}
+                      {step.number === 4 && (deliveryDate ? `Delivery: ${new Date(deliveryDate).toLocaleDateString()}` : 'Set delivery')}
+                      {step.number === 5 && (orderStatus ? `Status: ${orderStatus}` : 'Review order')}
+                    </div>
                   </div>
                 </div>
-              </div>
-              {index < steps.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-4 ${
-                  currentStep > step.number ? 'bg-blue-600' : 'bg-gray-200'
-                }`}></div>
-              )}
-            </React.Fragment>
-          ))}
+                {index < steps.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-4 ${
+                    isSkippedStep 
+                      ? 'bg-gray-200'
+                      : adjustedCurrentStep > adjustedStepNumber ? 'bg-blue-600' : 'bg-gray-200'
+                  }`}></div>
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
         
         {/* Step 1: Order Type */}
@@ -427,10 +452,6 @@ export const CreateOrderPageV2: React.FC = () => {
                     <p className="text-gray-600 mt-1">
                       A placeholder order for scheduling a truck visit. Product quantities will be finalized at the customer site.
                     </p>
-                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                      <Info className="h-4 w-4 inline mr-1" />
-                      Coming soon - Currently unavailable
-                    </div>
                   </div>
                 </div>
               </button>
@@ -439,7 +460,7 @@ export const CreateOrderPageV2: React.FC = () => {
             <div className="flex justify-end mt-8">
               <button
                 onClick={() => goToStep(2)}
-                disabled={!canProceedToStep2 || orderType === 'visit'}
+                disabled={!canProceedToStep2}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 <span>Next: Customer & Address</span>
@@ -572,19 +593,25 @@ export const CreateOrderPageV2: React.FC = () => {
                 Back
               </button>
               <button
-                onClick={() => goToStep(3)}
+                onClick={() => {
+                  if (orderType === 'visit') {
+                    setCurrentStep(4); // Jump directly to step 4 for visit orders
+                  } else {
+                    goToStep(3);
+                  }
+                }}
                 disabled={!canProceedToStep3}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                <span>Next: Add Products</span>
+                <span>Next: {orderType === 'visit' ? 'Delivery Notes' : 'Add Products'}</span>
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
           </div>
         )}
         
-        {/* Step 3: Products */}
-        {currentStep === 3 && (
+        {/* Step 3: Products - Only for delivery orders */}
+        {currentStep === 3 && orderType === 'delivery' && (
           <div className="space-y-6">
             <h2 className="text-xl font-semibold mb-4">Add Products</h2>
             
@@ -849,7 +876,13 @@ export const CreateOrderPageV2: React.FC = () => {
             
             <div className="flex justify-between mt-8">
               <button
-                onClick={() => goToStep(3)}
+                onClick={() => {
+                  if (orderType === 'visit') {
+                    setCurrentStep(2); // Go back to step 2 for visit orders
+                  } else {
+                    goToStep(3);
+                  }
+                }}
                 className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
               >
                 Back
@@ -895,10 +928,12 @@ export const CreateOrderPageV2: React.FC = () => {
                         <span className="font-medium">{deliveryTimeStart} - {deliveryTimeEnd}</span>
                       </div>
                     )}
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Warehouse:</span>
-                      <span className="font-medium">{selectedWarehouse?.name}</span>
-                    </div>
+                    {orderType === 'delivery' && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Warehouse:</span>
+                        <span className="font-medium">{selectedWarehouse?.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -920,39 +955,49 @@ export const CreateOrderPageV2: React.FC = () => {
               
               {/* Products & Totals */}
               <div className="space-y-4">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-medium text-gray-900 mb-3">Order Items</h3>
-                  <div className="space-y-2">
-                    {orderLines.map((line) => (
-                      <div key={line.product_id} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
-                        <div>
-                          <div className="font-medium text-sm">{line.product_name}</div>
-                          <div className="text-xs text-gray-500">
-                            {line.quantity} × {formatCurrencySync(line.unit_price)}
+                {orderType === 'delivery' ? (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="font-medium text-gray-900 mb-3">Order Items</h3>
+                    <div className="space-y-2">
+                      {orderLines.map((line) => (
+                        <div key={line.product_id} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
+                          <div>
+                            <div className="font-medium text-sm">{line.product_name}</div>
+                            <div className="text-xs text-gray-500">
+                              {line.quantity} × {formatCurrencySync(line.unit_price)}
+                            </div>
+                          </div>
+                          <div className="font-medium text-sm">
+                            {formatCurrencySync(line.subtotal)}
                           </div>
                         </div>
-                        <div className="font-medium text-sm">
-                          {formatCurrencySync(line.subtotal)}
-                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-300 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Subtotal:</span>
+                        <span className="font-medium">{formatCurrencySync(subtotal)}</span>
                       </div>
-                    ))}
-                  </div>
-                  
-                  <div className="mt-4 pt-4 border-t border-gray-300 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Subtotal:</span>
-                      <span className="font-medium">{formatCurrencySync(subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Tax:</span>
-                      <span className="font-medium">{formatCurrencySync(taxAmount)}</span>
-                    </div>
-                    <div className="flex justify-between items-center pt-2 border-t">
-                      <span className="font-semibold">Total:</span>
-                      <span className="font-bold text-lg text-green-700">{formatCurrencySync(grandTotal)}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Tax:</span>
+                        <span className="font-medium">{formatCurrencySync(taxAmount)}</span>
+                      </div>
+                      <div className="flex justify-between items-center pt-2 border-t">
+                        <span className="font-semibold">Total:</span>
+                        <span className="font-bold text-lg text-green-700">{formatCurrencySync(grandTotal)}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <h3 className="font-medium text-blue-900 mb-3">Visit Order</h3>
+                    <p className="text-sm text-blue-800">
+                      This is a visit order. Product quantities will be determined during the customer visit.
+                      The driver will update this order with actual products when at the customer location.
+                    </p>
+                  </div>
+                )}
                 
                 {/* Order Status Selection */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -991,7 +1036,7 @@ export const CreateOrderPageV2: React.FC = () => {
             
             <div className="flex justify-between mt-8">
               <button
-                onClick={() => goToStep(4)}
+                onClick={() => setCurrentStep(4)}
                 className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200"
               >
                 Back
