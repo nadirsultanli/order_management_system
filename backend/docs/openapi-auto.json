@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1"
+      "url": "http://localhost:3001/api/v1"
     }
   ],
   "paths": {
@@ -8350,9 +8350,6 @@
                     "type": "string",
                     "enum": [
                       "delivery",
-                      "refill",
-                      "exchange",
-                      "pickup",
                       "visit"
                     ],
                     "default": "delivery"
@@ -8540,11 +8537,12 @@
                     "enum": [
                       "draft",
                       "confirmed",
-                      "scheduled",
+                      "dispatched",
                       "en_route",
                       "delivered",
                       "invoiced",
                       "cancelled",
+                      "paid",
                       "completed_no_sale"
                     ]
                   },
@@ -8710,11 +8708,12 @@
                     "enum": [
                       "draft",
                       "confirmed",
-                      "scheduled",
+                      "dispatched",
                       "en_route",
                       "delivered",
                       "invoiced",
                       "cancelled",
+                      "paid",
                       "completed_no_sale"
                     ]
                   },
@@ -8723,11 +8722,12 @@
                     "enum": [
                       "draft",
                       "confirmed",
-                      "scheduled",
+                      "dispatched",
                       "en_route",
                       "delivered",
                       "invoiced",
                       "cancelled",
+                      "paid",
                       "completed_no_sale"
                     ]
                   }
@@ -9251,20 +9251,6 @@
                           "type": "number",
                           "exclusiveMinimum": true,
                           "minimum": 0
-                        },
-                        "unit_price": {
-                          "type": "number",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        },
-                        "expected_price": {
-                          "type": "number",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        },
-                        "price_list_id": {
-                          "type": "string",
-                          "format": "uuid"
                         }
                       },
                       "required": [
@@ -9274,9 +9260,6 @@
                       "additionalProperties": false
                     },
                     "minItems": 1
-                  },
-                  "notes": {
-                    "type": "string"
                   }
                 },
                 "required": [
@@ -9303,66 +9286,35 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/error"
-          }
-        }
-      }
-    },
-    "/orders/{order_id}/complete-visit-no-sale": {
-      "post": {
-        "operationId": "orders-completeVisitWithNoSale",
-        "summary": "Complete visit order with no sale",
-        "description": "Mark a visit order as completed with no sale",
-        "tags": [
-          "orders",
-          "visit"
-        ],
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "notes": {
-                    "type": "string"
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "order_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "total_amount": {
+                      "type": "number"
+                    },
+                    "products_count": {
+                      "type": "number"
+                    }
                   },
-                  "reason": {
-                    "type": "string"
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "order_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {}
+                  "required": [
+                    "success",
+                    "message",
+                    "order_id",
+                    "total_amount",
+                    "products_count"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },

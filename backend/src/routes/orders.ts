@@ -87,6 +87,7 @@ import {
   RemoveAllocationResponseSchema,
   DailyScheduleResponseSchema,
   ProcessRefillOrderResponseSchema,
+  ConvertVisitToDeliveryResponseSchema
 } from '../schemas/output/orders-output';
 
 export const ordersRouter = router({
@@ -1936,249 +1937,256 @@ export const ordersRouter = router({
 
   // POST /orders/{id}/convert-visit-to-delivery - Convert visit order to delivery order
   convertVisitToDelivery: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/{order_id}/convert-visit-to-delivery',
-        tags: ['orders', 'visit'],
-        summary: 'Convert visit order to delivery order',
-        description: 'Convert a visit order to a delivery order by adding products and quantities',
-        protect: true,
-      }
-    })
-    .input(ConvertVisitToDeliverySchema)
-    .output(z.any())
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+  .meta({
+    openapi: {
+      method: 'POST',
+      path: '/orders/{order_id}/convert-visit-to-delivery',
+      tags: ['orders', 'visit'],
+      summary: 'Convert visit order to delivery order',
+      description: 'Convert a visit order to a delivery order by adding products and quantities',
+      protect: true,
+    }
+  })
+  .input(ConvertVisitToDeliverySchema)
+  .output(z.any())
+  .mutation(async ({ input, ctx }) => {
+    const user = requireAuth(ctx);
+    
+    ctx.logger.info('Converting visit order to delivery order:', input.order_id);
+    
+    // Get the visit order
+    const { data: order, error: orderError } = await ctx.supabase
+      .from('orders')
+      .select('*')
+      .eq('id', input.order_id)
+      .single();
+
+    if (orderError || !order) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'Order not found'
+      });
+    }
+
+    if (order.order_type !== 'visit') {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'Only visit orders can be converted to delivery orders'
+      });
+    }
+
+    // Initialize pricing service
+    const pricingService = new PricingService(ctx.supabase, ctx.logger);
+    
+    // Validate and process order lines
+    const validatedOrderLines: any[] = [];
+    const validationErrors: string[] = [];
+    let totalAmount = 0;
+
+    for (let i = 0; i < input.order_lines.length; i++) {
+      const line = input.order_lines[i];
       
-      ctx.logger.info('Converting visit order to delivery order:', input.order_id);
-      
-      // Get the visit order
-      const { data: order, error: orderError } = await ctx.supabase
-        .from('orders')
-        .select('*')
-        .eq('id', input.order_id)
+      // Verify product exists and is active
+      const { data: product, error: productError } = await ctx.supabase
+        .from('products')
+        .select('id, sku, name, status')
+        .eq('id', line.product_id)
         .single();
-
-      if (orderError || !order) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Order not found'
-        });
+        
+      if (productError || !product) {
+        validationErrors.push(`Product not found for line ${i + 1}`);
+        continue;
       }
-
-      if (order.order_type !== 'visit') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only visit orders can be converted to delivery orders'
-        });
-      }
-      // Initialize pricing service
-      const pricingService = new PricingService(ctx.supabase, ctx.logger);
       
-      // Validate and process order lines
-      const validatedOrderLines: any[] = [];
-      const validationErrors: string[] = [];
-      let totalAmount = 0;
+      if (product.status !== 'active') {
+        validationErrors.push(`Product ${product.sku} is not active`);
+        continue;
+      }
 
-      for (let i = 0; i < input.order_lines.length; i++) {
-        const line = input.order_lines[i];
+      // Get current pricing - АВТОМАТИЧЕСКИ из системы ценообразования
+      const currentPricing = await pricingService.getProductPrice(
+        line.product_id,
+        order.customer_id
+      );
+      
+      if (!currentPricing) {
+        validationErrors.push(`No pricing found for product ${product.sku}`);
+        continue;
+      }
+      
+      // ✅ ИСПРАВЛЕНО: убрано line.unit_price (его нет в схеме)
+      const finalUnitPrice = currentPricing.finalPrice;
+      
+      // Check inventory availability
+      const { data: inventory, error: inventoryError } = await ctx.supabase
+        .from('inventory_balance')
+        .select('qty_full, qty_reserved')
+        .eq('product_id', line.product_id)
+        .eq('warehouse_id', order.source_warehouse_id)
+        .single();
         
-        // Verify product exists and is active
-        const { data: product, error: productError } = await ctx.supabase
-          .from('products')
-          .select('id, sku, name, status')
-          .eq('id', line.product_id)
-          .single();
-          
-        if (productError || !product) {
-          validationErrors.push(`Product not found for line ${i + 1}`);
-          continue;
-        }
-        
-        if (product.status !== 'active') {
-          validationErrors.push(`Product ${product.sku} is not active`);
-          continue;
-        }
-
-        // Get current pricing
-        const currentPricing = await pricingService.getProductPrice(
-          line.product_id,
-          order.customer_id
+      if (inventoryError || !inventory) {
+        validationErrors.push(`No inventory found for product ${product.sku} in warehouse`);
+        continue;
+      }
+      
+      const availableStock = inventory.qty_full - inventory.qty_reserved;
+      if (line.quantity > availableStock) {
+        validationErrors.push(
+          `Insufficient stock for ${product.sku}. Requested: ${line.quantity}, Available: ${availableStock}`
         );
-        
-        if (!currentPricing) {
-          validationErrors.push(`No pricing found for product ${product.sku}`);
-          continue;
-        }
-        
-        const finalUnitPrice = line.unit_price || currentPricing.finalPrice;
-        
-        // Check inventory availability
-        const { data: inventory, error: inventoryError } = await ctx.supabase
-          .from('inventory_balance')
-          .select('qty_full, qty_reserved')
-          .eq('product_id', line.product_id)
-          .eq('warehouse_id', order.source_warehouse_id)
-          .single();
-          
-        if (inventoryError || !inventory) {
-          validationErrors.push(`No inventory found for product ${product.sku} in warehouse`);
-          continue;
-        }
-        
-        const availableStock = inventory.qty_full - inventory.qty_reserved;
-        if (line.quantity > availableStock) {
-          validationErrors.push(
-            `Insufficient stock for ${product.sku}. Requested: ${line.quantity}, Available: ${availableStock}`
-          );
-          continue;
-        }
-        
-        const subtotal = finalUnitPrice * line.quantity;
-        totalAmount += subtotal;
-        
-        validatedOrderLines.push({
-          product_id: line.product_id,
-          quantity: line.quantity,
-          unit_price: finalUnitPrice,
-          subtotal: subtotal,
-          product_sku: product.sku,
-          product_name: product.name,
-        });
+        continue;
       }
-
-      if (validationErrors.length > 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Conversion validation failed: ${validationErrors.join('; ')}`
-        });
-      }
-
-      // Update the order
-      const { error: updateError } = await ctx.supabase
-        .from('orders')
-        .update({
-          order_type: 'delivery',
-          total_amount: totalAmount,
-          notes: input.notes ? `${order.notes || ''}\n\nConverted from visit order: ${input.notes}` : order.notes,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', input.order_id);
-
-      if (updateError) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to update order: ${updateError.message}`
-        });
-      }
-
-      // Create order lines
-      const orderLinesData = validatedOrderLines.map(line => ({
-        order_id: input.order_id,
+      
+      const subtotal = finalUnitPrice * line.quantity;
+      totalAmount += subtotal;
+      
+      validatedOrderLines.push({
         product_id: line.product_id,
         quantity: line.quantity,
-        unit_price: line.unit_price,
-        subtotal: line.subtotal,
-        qty_tagged: 0,
-        qty_untagged: line.quantity,
-      }));
+        unit_price: finalUnitPrice,
+        subtotal: subtotal,
+        product_sku: product.sku,
+        product_name: product.name,
+      });
+    }
 
-      const { error: linesError } = await ctx.supabase
-        .from('order_lines')
-        .insert(orderLinesData);
+    if (validationErrors.length > 0) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: `Conversion validation failed: ${validationErrors.join('; ')}`
+      });
+    }
 
-      if (linesError) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create order lines: ${linesError.message}`
-        });
-     }
-
-      // Recalculate order total
-      await calculateOrderTotal(ctx, input.order_id);
-
-      ctx.logger.info('Visit order converted to delivery order successfully:', {
-        order_id: input.order_id,
+    // Update the order
+    const { error: updateError } = await ctx.supabase
+      .from('orders')
+      .update({
+        order_type: 'delivery',
         total_amount: totalAmount,
-        line_count: validatedOrderLines.length
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', input.order_id);
+
+    if (updateError) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Failed to update order: ${updateError.message}`
       });
+    }
 
-      return { success: true, message: 'Visit order converted to delivery order successfully' };
-    }),
+    // Create order lines
+    const orderLinesData = validatedOrderLines.map(line => ({
+      order_id: input.order_id,
+      product_id: line.product_id,
+      quantity: line.quantity,
+      unit_price: line.unit_price,
+      subtotal: line.subtotal,
+      qty_tagged: 0,
+      qty_untagged: line.quantity,
+    }));
 
-  // POST /orders/{id}/complete-visit-no-sale - Complete visit order with no sale
-  completeVisitWithNoSale: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/{order_id}/complete-visit-no-sale',
-        tags: ['orders', 'visit'],
-        summary: 'Complete visit order with no sale',
-        description: 'Mark a visit order as completed with no sale',
-        protect: true,
-      }
-    })
-    .input(CompleteVisitWithNoSaleSchema)
-    .output(z.any())
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Completing visit order with no sale:', input.order_id);
-      
-      // Get the visit order
-      const { data: order, error: orderError } = await ctx.supabase
-        .from('orders')
-        .select('*')
-        .eq('id', input.order_id)
-        .single();
+    const { error: linesError } = await ctx.supabase
+      .from('order_lines')
+      .insert(orderLinesData);
 
-      if (orderError || !order) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Order not found'
-        });
-      }
-
-      if (order.order_type !== 'visit') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only visit orders can be completed with no sale'
-        });
-      }
-
-      if (order.status !== 'dispatched') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Visit order must be in dispatched status to be completed'
-        });
-      }
-
-      // Update the order status
-      const { error: updateError } = await ctx.supabase
-        .from('orders')
-        .update({
-          status: 'completed_no_sale',
-          notes: input.notes ? `${order.notes || ''}\n\nCompleted with no sale: ${input.notes}` : order.notes,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', input.order_id);
-
-      if (updateError) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to update order: ${updateError.message}`
-        });
-      }
-
-      ctx.logger.info('Visit order completed with no sale successfully:', {
-        order_id: input.order_id,
-        reason: input.reason
+    if (linesError) {
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: `Failed to create order lines: ${linesError.message}`
       });
+    }
 
-      return { success: true, message: 'Visit order completed with no sale successfully' };
-    }),
-});
+    // Recalculate order total
+    await calculateOrderTotal(ctx, input.order_id);
+
+    ctx.logger.info('Visit order converted to delivery order successfully:', {
+      order_id: input.order_id,
+      total_amount: totalAmount,
+      line_count: validatedOrderLines.length
+    });
+
+    return { 
+      success: true, 
+      message: 'Visit order converted to delivery order successfully',
+      order_id: input.order_id,
+      total_amount: totalAmount,
+      products_count: validatedOrderLines.length,
+    };
+  }),
+
+//   // POST /orders/{id}/complete-visit-no-sale - Complete visit order with no sale
+//   completeVisitWithNoSale: protectedProcedure
+//     .meta({
+//       openapi: {
+//         method: 'POST',
+//         path: '/orders/{order_id}/complete-visit-no-sale',
+//         tags: ['orders', 'visit'],
+//         summary: 'Complete visit order with no sale',
+//         description: 'Mark a visit order as completed with no sale',
+//         protect: true,
+//       }
+//     })
+//     .input(CompleteVisitWithNoSaleSchema)
+//     .output(z.any())
+//     .mutation(async ({ input, ctx }) => {
+//       const user = requireAuth(ctx);
+      
+//       ctx.logger.info('Completing visit order with no sale:', input.order_id);
+      
+//       // Get the visit order
+//       const { data: order, error: orderError } = await ctx.supabase
+//         .from('orders')
+//         .select('*')
+//         .eq('id', input.order_id)
+//         .single();
+
+//       if (orderError || !order) {
+//         throw new TRPCError({
+//           code: 'NOT_FOUND',
+//           message: 'Order not found'
+//         });
+//       }
+
+//       if (order.order_type !== 'visit') {
+//         throw new TRPCError({
+//           code: 'BAD_REQUEST',
+//           message: 'Only visit orders can be completed with no sale'
+//         });
+//       }
+
+//       if (order.status !== 'dispatched') {
+//         throw new TRPCError({
+//           code: 'BAD_REQUEST',
+//           message: 'Visit order must be in dispatched status to be completed'
+//         });
+//       }
+
+//       // Update the order status
+//       const { error: updateError } = await ctx.supabase
+//         .from('orders')
+//         .update({
+//           status: 'completed_no_sale',
+//           notes: input.notes ? `${order.notes || ''}\n\nCompleted with no sale: ${input.notes}` : order.notes,
+//           updated_at: new Date().toISOString(),
+//         })
+//         .eq('id', input.order_id);
+
+//       if (updateError) {
+//         throw new TRPCError({
+//           code: 'INTERNAL_SERVER_ERROR',
+//           message: `Failed to update order: ${updateError.message}`
+//         });
+//       }
+
+//       ctx.logger.info('Visit order completed with no sale successfully:', {
+//         order_id: input.order_id,
+//         reason: input.reason
+//       });
+
+//       return { success: true, message: 'Visit order completed with no sale successfully' };
+//     }),
+}); 
 
 // Helper function to calculate order total
 async function calculateOrderTotal(ctx: any, orderId: string) {

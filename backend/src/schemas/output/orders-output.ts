@@ -363,3 +363,11 @@ export const ProcessRefillOrderResponseSchema = z.object({
   order_id: z.string(),
   message: z.string(),
 }); 
+
+export const ConvertVisitToDeliveryResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  order_id: z.string().uuid(),
+  total_amount: z.number(),
+  products_count: z.number(),
+});

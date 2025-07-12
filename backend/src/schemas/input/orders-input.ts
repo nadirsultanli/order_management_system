@@ -6,7 +6,7 @@
 
   // ============ Base Schemas ============
 
-  export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'dispatched', 'en_route', 'delivered', 'invoiced', 'cancelled', 'paid','completed_no_sale']);
+  export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'dispatched', 'en_route', 'delivered', 'invoiced', 'cancelled', 'paid', 'completed_no_sale']);
 
   export const OrderTypeEnum = z.enum(['delivery', 'visit']);
 
@@ -69,6 +69,12 @@
     unit_price: z.number().positive().optional(),
     expected_price: z.number().positive().optional(),
     price_list_id: z.string().uuid().optional(),
+  });
+
+  export const OrderLineConvertSchema = z.object({
+    product_id: z.string().uuid(),
+    quantity: z.number().positive(),
+
   });
 
   export const CreateOrderSchema = z.object({
@@ -209,12 +215,11 @@
 
   export const ConvertVisitToDeliverySchema = z.object({
     order_id: z.string().uuid(),
-    order_lines: z.array(OrderLineSchema).min(1, 'At least one order line is required'),
-    notes: z.string().optional(),
+    order_lines: z.array(OrderLineConvertSchema).min(1, 'At least one order line is required'),
   });
 
-  export const CompleteVisitWithNoSaleSchema = z.object({
-    order_id: z.string().uuid(),
-    notes: z.string().optional(),
-    reason: z.string().optional(),
-  }); 
+  // export const CompleteVisitWithNoSaleSchema = z.object({
+  //   order_id: z.string().uuid(),
+  //   notes: z.string().optional(),
+  //   reason: z.string().optional(),
+  // }); 
