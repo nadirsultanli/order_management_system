@@ -4,7 +4,7 @@ import { ArrowLeft, Check, Package, User, MapPin, Calendar, ShoppingCart, AlertT
 import { useCustomers } from '../hooks/useCustomers';
 import { useAddresses, useCreateAddress } from '../hooks/useAddresses';
 import { useProducts } from '../hooks/useProducts';
-import { useUpdateOrder, useOrderById } from '../hooks/useOrders';
+import { useUpdateOrder, useOrderNew } from '../hooks/useOrders';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useProductPrices } from '../hooks/useProductPricing';
@@ -61,7 +61,7 @@ export const EditOrderPage: React.FC = () => {
   const [notes, setNotes] = useState('');
   
   // Hooks
-  const { data: order, isLoading: orderLoading } = useOrderById(orderId || '');
+  const { data: order, isLoading: orderLoading } = useOrderNew(orderId || '');
   const { data: customers = [] } = useCustomers();
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
   const { data: products = [] } = useProducts();

@@ -584,7 +584,7 @@ export const OrderDetailPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             
             <div className="space-y-3">
-              {['draft', 'confirmed'].includes(order.status) && (
+              {!['invoiced', 'delivered', 'paid', 'completed_no_sale'].includes(order.status) && (
                 <button
                   onClick={() => navigate(`/orders/${order.id}/edit`)}
                   className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
