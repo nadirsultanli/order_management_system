@@ -12,11 +12,8 @@ export interface Order {
   created_at: string;
   updated_at: string;
   // Order type fields
-<<<<<<< Updated upstream
   order_type: 'delivery' | 'visit';
-=======
-  order_type: 'outright' | 'refill' | 'delivery' | 'exchange' | 'pickup' | 'visit';
->>>>>>> Stashed changes
+
   service_type: 'standard' | 'express' | 'scheduled';
   exchange_empty_qty: number; // for refill/exchange orders
   requires_pickup: boolean; // if empty pickup needed
@@ -104,6 +101,8 @@ export interface CreateOrderData {
   source_warehouse_id?: string; // Warehouse to fulfill order from
   created_by_user_id?: string;
   assigned_to_user_id?: string;
+  // Order lines for creating order with products in one request
+  order_lines?: CreateOrderLineData[];
 }
 
 export interface UpdateOrderData extends Partial<CreateOrderData> {
@@ -111,7 +110,7 @@ export interface UpdateOrderData extends Partial<CreateOrderData> {
 }
 
 export interface CreateOrderLineData {
-  order_id: string;
+  order_id?: string; // Optional when creating with order
   product_id: string;
   quantity: number;
   unit_price: number;

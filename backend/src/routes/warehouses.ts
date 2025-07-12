@@ -233,8 +233,8 @@ export const warehousesRouter = router({
       return (data || []).map(w => ({
         id: w.id,
         name: w.name,
-        city: w.address?.[0]?.city,
-        state: w.address?.[0]?.state,
+        city: w.address?.[0]?.city ?? null,
+        state: w.address?.[0]?.state ?? null,
       }));
     }),
 
