@@ -524,7 +524,7 @@ export const depositsRouter = router({
       // Get deposit transactions summary
       const { data: transactions, error: txError } = await ctx.supabase
         .from('deposit_transactions')
-        .select('transaction_type, amount, status')
+        .select('transaction_type, amount')
         .eq('customer_id', input.customer_id)
         .eq('is_voided', false);
 
@@ -545,9 +545,7 @@ export const depositsRouter = router({
           totalBalance += tx.amount;
         } else if (tx.transaction_type === 'refund') {
           totalBalance -= tx.amount;
-          if (tx.status === 'pending') {
-            pendingRefunds += tx.amount;
-          }
+          // Note: All refunds are processed since no status column exists
         } else if (tx.transaction_type === 'adjustment') {
           totalBalance += tx.amount; // Can be positive or negative
         }
@@ -765,7 +763,7 @@ export const depositsRouter = router({
         }
 
         // Get deposit rate if not overridden
-        let unitDeposit: number = cylinder.unit_deposit;
+        let unitDeposit: number = cylinder.unit_deposit || 0;
         if (!unitDeposit) {
           const { data: rate } = await ctx.supabase
             .from('cylinder_deposit_rates')
@@ -1505,7 +1503,7 @@ export const depositsRouter = router({
 
       const errors: string[] = [];
       const warnings: string[] = [];
-      const conflicts: string[] = [];
+      const conflicts: any[] = [];
 
       // Validate business rules
       if (input.deposit_amount <= 0) {
