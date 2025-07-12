@@ -58,7 +58,7 @@ import {
   GetDailyScheduleSchema,
   ProcessRefillOrderSchema,
   ConvertVisitToDeliverySchema,
-  CompleteVisitWithNoSaleSchema,
+  // CompleteVisitWithNoSaleSchema,
 } from '../schemas/input/orders-input';
 
 // Import output schemas
