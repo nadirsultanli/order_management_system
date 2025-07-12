@@ -62,11 +62,12 @@ export const EditOrderPage: React.FC = () => {
   // Hooks
   const { data: order, isLoading: orderLoading } = useOrderNew(orderId || '');
   const { data: customers = [], isLoading: customersLoading } = useCustomers();
-  const { data: addresses = [] } = useAddresses(selectedCustomerId);
+  const { data: addresses = [], isLoading: addressesLoading } = useAddresses(selectedCustomerId);
   const { data: products = [], isLoading: productsLoading } = useProducts();
   const { data: warehouses = [], isLoading: warehousesLoading } = useWarehouses();
-  const { data: inventory = [] } = useInventoryNew(selectedWarehouseId);
-  const { data: productPrices = [] } = useProductPrices(selectedCustomerId);
+  const { data: inventory = [], isLoading: inventoryLoading } = useInventoryNew(selectedWarehouseId);
+  const productIds = orderLines?.map(line => line.product_id) || [];
+  const { data: productPrices = [], isLoading: pricesLoading } = useProductPrices(productIds, selectedCustomerId);
   const { mutate: createAddress } = useCreateAddress();
   const { mutate: updateOrder, isLoading: isUpdating } = useUpdateOrder();
 
@@ -286,7 +287,7 @@ export const EditOrderPage: React.FC = () => {
   };
 
   // Show loading state while any essential data is loading
-  const isDataLoading = isLoading || orderLoading || customersLoading || productsLoading || warehousesLoading;
+  const isDataLoading = isLoading || orderLoading || customersLoading || productsLoading || warehousesLoading || addressesLoading;
   
   if (isDataLoading) {
     return (
@@ -315,10 +316,16 @@ export const EditOrderPage: React.FC = () => {
     );
   }
 
+  // Ensure arrays are properly initialized before accessing them
+  const safeCustomers = customers || [];
+  const safeAddresses = addresses || [];
+  const safeWarehouses = warehouses || [];
+  const safeProducts = products || [];
+  
   // Safe to access arrays now that we've confirmed they exist
-  const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
-  const selectedAddress = addresses?.find(a => a.id === selectedAddressId);
-  const selectedWarehouse = warehouses?.find(w => w.id === selectedWarehouseId);
+  const selectedCustomer = safeCustomers.find(c => c.id === selectedCustomerId);
+  const selectedAddress = safeAddresses.find(a => a.id === selectedAddressId);
+  const selectedWarehouse = safeWarehouses.find(w => w.id === selectedWarehouseId);
   const { subtotal, taxAmount, total } = calculateTotals();
 
   return (
@@ -473,7 +480,7 @@ export const EditOrderPage: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select address...</option>
-                  {addresses?.map(address => (
+                  {safeAddresses.map(address => (
                     <option key={address.id} value={address.id}>
                       {formatAddressForSelect(address)}
                     </option>
@@ -494,7 +501,7 @@ export const EditOrderPage: React.FC = () => {
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Select warehouse...</option>
-                  {warehouses?.map(warehouse => (
+                  {safeWarehouses.map(warehouse => (
                     <option key={warehouse.id} value={warehouse.id}>
                       {warehouse.name} - {warehouse.city || 'Unknown Location'}
                     </option>
@@ -543,7 +550,7 @@ export const EditOrderPage: React.FC = () => {
 
             {/* Product Selection */}
             <div className="space-y-4 mb-6">
-              {products?.map(product => {
+              {safeProducts.map(product => {
                 const isSelected = selectedProducts[product.id] > 0;
                 const quantity = selectedProducts[product.id] || 0;
                 const availableStock = getAvailableStock(product.id);
