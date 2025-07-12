@@ -12,7 +12,6 @@ import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
-import { UpdateOrderData } from '../types/order';
 import { CreateAddressData, Address } from '../types/address';
 import { Customer } from '../types/customer';
 import { Product } from '../types/product';
@@ -136,13 +135,13 @@ export const EditOrderPage: React.FC = () => {
 
   // Product management
   const getProductPrice = (productId: string): number => {
-    const price = productPrices.find(p => p.product_id === productId);
+    const price = productPrices?.find(p => p.product_id === productId);
     return price?.price || 0;
   };
 
   const getAvailableStock = (productId: string): number => {
     if (!selectedWarehouseId) return 0;
-    const inventoryItem = inventory.find(i => i.product_id === productId);
+    const inventoryItem = inventory?.find(i => i.product_id === productId);
     return inventoryItem ? inventoryItem.qty_full - inventoryItem.qty_reserved : 0;
   };
 
@@ -219,13 +218,13 @@ export const EditOrderPage: React.FC = () => {
 
   // Auto-select warehouse based on product availability for delivery orders
   useEffect(() => {
-    if (orderType === 'delivery' && orderLines.length > 0 && warehouses.length > 0) {
+    if (orderType === 'delivery' && orderLines.length > 0 && warehouses?.length > 0) {
       // Find warehouse with best availability for selected products
       let bestWarehouse = '';
       let bestScore = -1;
 
       warehouses.forEach(warehouse => {
-        const warehouseInventory = inventory.filter(inv => inv.warehouse_id === warehouse.id);
+        const warehouseInventory = inventory?.filter(inv => inv.warehouse_id === warehouse.id) || [];
         let score = 0;
         
         orderLines.forEach(line => {
@@ -259,15 +258,12 @@ export const EditOrderPage: React.FC = () => {
   const handleSubmitOrder = () => {
     if (!orderId) return;
 
-    const { total } = calculateTotals();
-    
-    const orderData: UpdateOrderData = {
-      id: orderId,
+    const orderData = {
+      order_id: orderId,
       order_type: orderType as 'delivery' | 'visit',
       customer_id: selectedCustomerId,
       delivery_address_id: selectedAddressId,
-      source_warehouse_id: selectedWarehouseId,
-      total_amount: total,
+      source_warehouse_id: selectedWarehouseId || undefined,
       notes: notes,
       delivery_date: deliveryDate || undefined,
       delivery_time_window_start: timeWindowStart || undefined,
@@ -282,24 +278,25 @@ export const EditOrderPage: React.FC = () => {
       }))
     };
 
-    updateOrder(orderData, {
+    updateOrder.mutate(orderData, {
       onSuccess: () => {
         navigate(`/orders/${orderId}`);
       }
     });
   };
 
-  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
-  const selectedAddress = addresses.find(a => a.id === selectedAddressId);
-  const selectedWarehouse = warehouses.find(w => w.id === selectedWarehouseId);
+  const selectedCustomer = customers?.find(c => c.id === selectedCustomerId);
+  const selectedAddress = addresses?.find(a => a.id === selectedAddressId);
+  const selectedWarehouse = warehouses?.find(w => w.id === selectedWarehouseId);
   const { subtotal, taxAmount, total } = calculateTotals();
 
-  if (isLoading) {
+  // Show loading state while any essential data is loading
+  if (isLoading || !order || !customers || !warehouses || !products) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading order...</p>
+          <p className="mt-2 text-gray-600">Loading order data...</p>
         </div>
       </div>
     );
@@ -849,10 +846,10 @@ export const EditOrderPage: React.FC = () => {
               </button>
               <button
                 onClick={handleSubmitOrder}
-                disabled={isUpdating}
+                disabled={updateOrder.isPending}
                 className="bg-green-600 text-white px-8 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
               >
-                {isUpdating ? (
+                {updateOrder.isPending ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>Updating Order...</span>

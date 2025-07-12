@@ -1192,6 +1192,182 @@ export const ordersRouter = router({
       return await updateOrderTax(ctx, input.order_id, input.tax_percent);
     }),
 
+  // PUT /orders/{id} - Update order details
+  updateOrder: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/orders/{order_id}',
+        tags: ['orders'],
+        summary: 'Update order details',
+        description: 'Update order details including customer, address, products, and delivery information',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      order_id: z.string().uuid(),
+      customer_id: z.string().uuid().optional(),
+      delivery_address_id: z.string().uuid().optional(),
+      source_warehouse_id: z.string().uuid().optional(),
+      order_type: z.enum(['delivery', 'visit']).optional(),
+      notes: z.string().optional(),
+      delivery_date: z.string().optional(),
+      delivery_time_window_start: z.string().optional(),
+      delivery_time_window_end: z.string().optional(),
+      delivery_instructions: z.string().optional(),
+      order_lines: z.array(z.object({
+        id: z.string().uuid().optional(),
+        product_id: z.string().uuid(),
+        quantity: z.number().positive(),
+        unit_price: z.number().positive(),
+        subtotal: z.number().optional(),
+      })).optional(),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      ctx.logger.info('Updating order:', input.order_id);
+
+      // Get the existing order
+      const { data: existingOrder, error: orderError } = await ctx.supabase
+        .from('orders')
+        .select('*')
+        .eq('id', input.order_id)
+        .single();
+
+      if (orderError) {
+        ctx.logger.error('Error fetching order for update:', orderError);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Order not found: ${orderError.message}`
+        });
+      }
+
+      if (!existingOrder) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found'
+        });
+      }
+
+      // Check if order can be edited (not in final statuses)
+      const nonEditableStatuses = ['invoiced', 'delivered', 'paid', 'completed_no_sale'];
+      if (nonEditableStatuses.includes(existingOrder.status)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Cannot edit order with status: ${existingOrder.status}`
+        });
+      }
+
+      // Prepare update data
+      const updateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      // Update basic order fields
+      if (input.customer_id) updateData.customer_id = input.customer_id;
+      if (input.delivery_address_id) updateData.delivery_address_id = input.delivery_address_id;
+      if (input.source_warehouse_id) updateData.source_warehouse_id = input.source_warehouse_id;
+      if (input.order_type) updateData.order_type = input.order_type;
+      if (input.notes !== undefined) updateData.notes = input.notes;
+      if (input.delivery_date) updateData.delivery_date = input.delivery_date;
+      if (input.delivery_time_window_start) updateData.delivery_time_window_start = input.delivery_time_window_start;
+      if (input.delivery_time_window_end) updateData.delivery_time_window_end = input.delivery_time_window_end;
+      if (input.delivery_instructions !== undefined) updateData.delivery_instructions = input.delivery_instructions;
+
+      // Calculate total if order lines are provided
+      if (input.order_lines) {
+        const total = input.order_lines.reduce((sum, line) => sum + (line.subtotal || line.quantity * line.unit_price), 0);
+        updateData.total_amount = total;
+      }
+
+      // Update the order
+      const { error: updateError } = await ctx.supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', input.order_id);
+
+      if (updateError) {
+        ctx.logger.error('Order update error:', updateError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update order: ${updateError.message}`
+        });
+      }
+
+      // Update order lines if provided
+      if (input.order_lines) {
+        // Delete existing order lines
+        const { error: deleteError } = await ctx.supabase
+          .from('order_lines')
+          .delete()
+          .eq('order_id', input.order_id);
+
+        if (deleteError) {
+          ctx.logger.error('Error deleting existing order lines:', deleteError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to delete existing order lines: ${deleteError.message}`
+          });
+        }
+
+        // Insert new order lines
+        if (input.order_lines.length > 0) {
+          const orderLinesData = input.order_lines.map(line => ({
+            order_id: input.order_id,
+            product_id: line.product_id,
+            quantity: line.quantity,
+            unit_price: line.unit_price,
+            subtotal: line.subtotal || line.quantity * line.unit_price,
+            qty_tagged: 0,
+            qty_untagged: line.quantity,
+          }));
+
+          const { error: linesError } = await ctx.supabase
+            .from('order_lines')
+            .insert(orderLinesData);
+
+          if (linesError) {
+            ctx.logger.error('Order lines insert error:', linesError);
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to insert order lines: ${linesError.message}`
+            });
+          }
+        }
+      }
+
+      ctx.logger.info('Order updated successfully:', input.order_id);
+      
+      // Return updated order
+      const { data: updatedOrder, error: fetchError } = await ctx.supabase
+        .from('orders')
+        .select(`
+          *,
+          customer:customers(*),
+          delivery_address:addresses(*),
+          source_warehouse:warehouses(*),
+          order_lines(
+            id,
+            product_id,
+            quantity,
+            unit_price,
+            subtotal,
+            product:products(*)
+          )
+        `)
+        .eq('id', input.order_id)
+        .single();
+
+      if (fetchError) {
+        ctx.logger.error('Error fetching updated order:', fetchError);
+        // Don't throw error here, just return basic success since update worked
+        return { id: input.order_id, message: 'Order updated successfully' };
+      }
+
+      return updatedOrder;
+    }),
+
   // GET /orders/workflow - Get order workflow steps
   getWorkflow: protectedProcedure
     .meta({

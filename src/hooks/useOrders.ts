@@ -79,27 +79,21 @@ export const useCreateOrderNew = () => {
 export const useUpdateOrder = () => {
   const utils = trpc.useContext();
   
-  return {
-    mutate: (orderData: any, options?: { onSuccess?: () => void }) => {
-      // For now, this is a placeholder. In a real implementation,
-      // you would call a backend API to update the order
-      console.log('Updating order:', orderData);
+  return trpc.orders.updateOrder.useMutation({
+    onSuccess: (updatedOrder) => {
+      console.log('Order updated successfully:', updatedOrder);
       
-      // Simulate success
-      setTimeout(() => {
-        toast.success('Order updated successfully');
-        if (options?.onSuccess) {
-          options.onSuccess();
-        }
-      }, 1000);
+      // Invalidate queries to refetch updated data
+      utils.orders.list.invalidate();
+      utils.orders.getById.invalidate({ order_id: updatedOrder.id });
+      
+      toast.success('Order updated successfully');
     },
-    isPending: false, // Placeholder
-    mutateAsync: async (orderData: any) => {
-      // Placeholder implementation
-      console.log('Updating order async:', orderData);
-      return Promise.resolve();
-    }
-  };
+    onError: (error) => {
+      console.error('Update order error:', error);
+      toast.error(error.message || 'Failed to update order');
+    },
+  });
 };
 
 // Hook for updating order status
