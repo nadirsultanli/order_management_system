@@ -293,8 +293,10 @@ export const OrderDetailPage: React.FC = () => {
                       {order.order_type === 'delivery' ? 'Delivery Order' : 'Visit Order'}
                     </span>
                   </div>
-                  {order.order_type === 'visit' && (
+                  {order.order_type === 'visit' ? (
                     <p className="text-xs text-gray-500 mt-1">Products to be determined during visit</p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">Pre-selected products for delivery</p>
                   )}
                 </div>
               </div>
