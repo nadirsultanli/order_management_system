@@ -151,12 +151,12 @@ export const ordersRouter = router({
         
         // Handle different input formats
         if (Array.isArray(filters.status)) {
-          // Array format: ['confirmed', 'scheduled']
+          // Array format: ['confirmed', 'dispatched']
           statuses = filters.status;
         } else if (typeof filters.status === 'string') {
           // Check if it's comma-separated
           if (filters.status.includes(',')) {
-            // Comma-separated: "confirmed,scheduled,en_route"
+            // Comma-separated: "confirmed,dispatched,en_route"
             statuses = filters.status.split(',').map((s: string) => s.trim());
           } else {
             // Single status: "confirmed"
@@ -226,7 +226,7 @@ export const ordersRouter = router({
       if (filters.is_overdue) {
         const today = new Date().toISOString().split('T')[0];
         query = query
-          .eq('status', 'scheduled')
+          .eq('status', 'dispatched')
           .lt('scheduled_date', today);
       }
 
@@ -415,7 +415,7 @@ export const ordersRouter = router({
   //         customer:customers(id, name, email, phone, account_status),
   //         delivery_address:addresses(id, line1, line2, city, state, postal_code, country)
   //       `)
-  //       .eq('status', 'scheduled')
+  //       .eq('status', 'dispatched')
   //       .lt('scheduled_date', cutoffDate.toISOString().split('T')[0]);
 
   //     if (!input.include_cancelled) {
@@ -489,7 +489,7 @@ export const ordersRouter = router({
   //       `)
   //       .gte('scheduled_date', input.date_from)
   //       .lte('scheduled_date', input.date_to)
-  //       .in('status', ['scheduled', 'en_route']);
+  //       .in('status', ['dispatched', 'en_route']);
 
   //     if (input.delivery_area) {
   //       query = query.or(`
@@ -1078,7 +1078,7 @@ export const ordersRouter = router({
           }
         }
       } else if (input.new_status === 'en_route' && 
-                 ['confirmed', 'scheduled'].includes(currentOrder.status)) {
+                 ['confirmed', 'dispatched'].includes(currentOrder.status)) {
         // When order goes en route, fulfill the reserved inventory (remove from warehouse)
         if (currentOrder.order_lines) {
           for (const line of currentOrder.order_lines) {
@@ -1119,7 +1119,7 @@ export const ordersRouter = router({
           }
         }
         ctx.logger.info('Order delivered - cleaned up any remaining reserved stock');
-      } else if (input.new_status === 'cancelled' && ['confirmed', 'scheduled'].includes(currentOrder.status)) {
+      } else if (input.new_status === 'cancelled' && ['confirmed', 'dispatched'].includes(currentOrder.status)) {
         // Release reserved stock when order is cancelled
         if (currentOrder.order_lines) {
           for (const line of currentOrder.order_lines) {
@@ -1973,14 +1973,6 @@ export const ordersRouter = router({
           message: 'Only visit orders can be converted to delivery orders'
         });
       }
-
-      if (order.status !== 'scheduled') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Visit order must be in scheduled status to be converted'
-        });
-      }
-
       // Initialize pricing service
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
       
@@ -2101,7 +2093,7 @@ export const ordersRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to create order lines: ${linesError.message}`
         });
-      }
+     }
 
       // Recalculate order total
       await calculateOrderTotal(ctx, input.order_id);
@@ -2155,10 +2147,10 @@ export const ordersRouter = router({
         });
       }
 
-      if (order.status !== 'scheduled') {
+      if (order.status !== 'dispatched') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Visit order must be in scheduled status to be completed'
+          message: 'Visit order must be in dispatched status to be completed'
         });
       }
 

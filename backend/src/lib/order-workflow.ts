@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Order status enum
-export type OrderStatus = 'draft' | 'confirmed' | 'scheduled' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'completed_no_sale';
+export type OrderStatus = 'draft' | 'confirmed' | 'dispatched' | 'en_route' | 'delivered' | 'invoiced' | 'cancelled' | 'paid' | 'completed_no_sale';
 
 // Order workflow step interface
 export interface OrderWorkflowStep {
@@ -42,14 +42,14 @@ export const getOrderWorkflow = (): OrderWorkflowStep[] => [
     description: 'Order confirmed, stock reserved',
     color: 'bg-blue-100 text-blue-800 border-blue-200',
     icon: 'CheckCircle',
-    allowedTransitions: ['scheduled', 'cancelled'],
+    allowedTransitions: ['dispatched', 'cancelled'],
   },
   {
-    status: 'scheduled',
-    label: 'Scheduled',
-    description: 'Delivery date scheduled',
+    status: 'dispatched',
+    label: 'Dispatched',
+    description: 'Order dispatched for delivery',
     color: 'bg-purple-100 text-purple-800 border-purple-200',
-    icon: 'Calendar',
+    icon: 'Truck',
     allowedTransitions: ['en_route', 'cancelled', 'completed_no_sale'],
   },
   {
@@ -74,6 +74,14 @@ export const getOrderWorkflow = (): OrderWorkflowStep[] => [
     description: 'Invoice generated',
     color: 'bg-teal-100 text-teal-800 border-teal-200',
     icon: 'Receipt',
+    allowedTransitions: ['paid'],
+  },
+  {
+    status: 'paid',
+    label: 'Paid',
+    description: 'Payment received',
+    color: 'bg-green-100 text-green-800 border-green-200',
+    icon: 'CreditCard',
     allowedTransitions: [],
   },
   {
@@ -287,7 +295,7 @@ export const validateOrderDeliveryWindow = (order: any): OrderValidationResult =
 };
 
 // Zod schemas for validation
-export const OrderStatusSchema = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled', 'completed_no_sale']);
+export const OrderStatusSchema = z.enum(['draft', 'confirmed', 'dispatched', 'en_route', 'delivered', 'invoiced', 'cancelled', 'paid', 'completed_no_sale']);
 
 export const OrderLineSchema = z.object({
   quantity: z.number().positive(),

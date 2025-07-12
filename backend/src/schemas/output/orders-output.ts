@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 // ============ Base Entities ============
 
-export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'en_route', 'delivered', 'invoiced', 'cancelled', 'completed_no_sale']);
+export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'dispatched', 'en_route', 'delivered', 'invoiced', 'cancelled', 'paid', 'completed_no_sale']);
 
 export const CustomerSchema = z.object({
   id: z.string(),
