@@ -45,6 +45,15 @@ export const tripsRouter = router({
       
       ctx.logger.info('Listing trips with filters:', input);
       
+      // Map frontend sort_by values to actual database columns
+      const sortByMapping: Record<string, string> = {
+        'trip_date': 'route_date',
+        'created_at': 'created_at',
+        'status': 'route_status',
+        'truck_fleet_number': 'truck_id'
+      };
+      
+      
       let query = ctx.supabase
         .from('truck_routes')
         .select(`
@@ -58,13 +67,13 @@ export const tripsRouter = router({
             driver_name
           )
         `)
-        .order(input.sort_by || 'created_at', {
+        .order(sortColumn, {
           ascending: input.sort_order === 'asc'
         });
       
       // Apply filters
       if (input.search) {
-        query = query.or(`route_status.ilike.%${input.search}%,notes.ilike.%${input.search}%`);
+        query = query.or(`route_status.ilike.%${input.search}%,loading_notes.ilike.%${input.search}%`);
       }
       
       if (input.status) {
@@ -397,7 +406,7 @@ export const tripsRouter = router({
           driver_id: input.driver_id,
           planned_start_time: input.planned_start_time,
           planned_end_time: input.planned_end_time,
-          trip_notes: input.trip_notes,
+          loading_notes: input.trip_notes,
           route_status: 'planned',
           created_by_user_id: user.id,
         })
@@ -669,7 +678,7 @@ export const tripsRouter = router({
       }
 
       if (input.notes) {
-        updateData.trip_notes = input.notes;
+        updateData.loading_notes = input.notes;
       }
 
       const { data, error } = await ctx.supabase

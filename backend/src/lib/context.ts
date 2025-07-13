@@ -1,6 +1,6 @@
 import { inferAsyncReturnType } from '@trpc/server';
 import { CreateExpressContextOptions } from '@trpc/server/adapters/express';
-import jwt from 'jsonwebtoken';
+import * as jwt from 'jsonwebtoken';
 import { createUserSupabaseClient, supabaseAdmin } from './supabase';
 import { logger, formatErrorMessage } from './logger';
 

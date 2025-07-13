@@ -32,6 +32,8 @@ import { DepositsPage } from './pages/DepositsPage';
 import { TripManagementPage } from './pages/TripManagementPage';
 import { TripDetailPage } from './pages/TripDetailPage';
 import { TripLoadingPage } from './pages/TripLoadingPage';
+import { TripSchedulePage } from './pages/TripSchedulePage';
+import { CreateTripPage } from './pages/CreateTripPage';
 
 function App() {
   return (
@@ -76,6 +78,8 @@ function App() {
             </Route>
             <Route path="trips">
               <Route index element={<TripManagementPage />} />
+              <Route path="schedule" element={<TripSchedulePage />} />
+              <Route path="new" element={<CreateTripPage />} />
               <Route path=":id" element={<TripDetailPage />} />
               <Route path=":id/loading" element={<TripLoadingPage />} />
             </Route>

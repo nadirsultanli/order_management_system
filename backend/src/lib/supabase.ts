@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { logger } from './logger';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 
 // Load environment variables
 dotenv.config();
