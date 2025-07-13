@@ -45,6 +45,9 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       if (!formData.license_plate) {
         throw new Error('License plate is required');
       }
+      if (!formData.driver_id) {
+        throw new Error('Driver selection is required');
+      }
       
       const capacityNumber = parseInt(String(formData.capacity_cylinders));
       if (isNaN(capacityNumber) || capacityNumber <= 0) {
@@ -55,7 +58,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
         fleet_number: formData.fleet_number,
         license_plate: formData.license_plate,
         capacity_cylinders: capacityNumber,
-        driver_id: formData.driver_id || null,
+        driver_id: formData.driver_id,
         active: formData.active
       };
 
@@ -168,8 +171,9 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
               onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               disabled={driversLoading}
+              required
             >
-              <option value="">Select a driver (optional)</option>
+              <option value="">Select a driver</option>
               {driversLoading ? (
                 <option disabled>Loading drivers...</option>
               ) : (

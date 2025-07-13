@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
+  UserPlus,
   Package, 
   ShoppingCart, 
   DollarSign, 
@@ -49,6 +50,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
   const menuItems: MenuItem[] = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
+    { path: '/users', label: 'Users', icon: UserPlus },
     { path: '/products', label: 'Products', icon: Package },
     { path: '/warehouses', label: 'Warehouses', icon: Warehouse },
     { path: '/inventory', label: 'Inventory', icon: BarChart3 },

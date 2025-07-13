@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
+  UserPlus,
   Package, 
   Warehouse, 
   ShoppingCart, 
@@ -26,6 +27,7 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Customers', href: '/customers', icon: Users },
+  { name: 'Users', href: '/users', icon: UserPlus },
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { name: 'Inventory', href: '/inventory', icon: BarChart3 },

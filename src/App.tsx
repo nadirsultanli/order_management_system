@@ -34,6 +34,7 @@ import { TripDetailPage } from './pages/TripDetailPage';
 import { TripLoadingPage } from './pages/TripLoadingPage';
 import { TripSchedulePage } from './pages/TripSchedulePage';
 import { CreateTripPage } from './pages/CreateTripPage';
+import { UsersPage } from './pages/UsersPage';
 
 function App() {
   return (
@@ -70,6 +71,7 @@ function App() {
             <Route path="deliveries" element={<DeliveriesPage />} />
             <Route path="deposits" element={<DepositsPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="users" element={<UsersPage />} />
             <Route path="trucks">
               <Route index element={<TrucksPage />} />
               <Route path="new" element={<CreateTruckPage />} />
