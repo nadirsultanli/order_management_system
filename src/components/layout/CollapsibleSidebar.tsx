@@ -13,7 +13,11 @@ import {
   Truck,
   ArrowLeftRight,
   X,
-  BarChart3
+  BarChart3,
+  TrendingUp,
+  Route,
+  PackageCheck,
+  CircleDollarSign
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { UserAvatar } from '../ui/UserAvatar';
@@ -48,12 +52,16 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
     { path: '/products', label: 'Products', icon: Package },
-    { path: '/orders', label: 'Orders', icon: ShoppingCart },
-    { path: '/pricing', label: 'Pricing', icon: DollarSign },
-    { path: '/inventory', label: 'Inventory', icon: BarChart3 },
     { path: '/warehouses', label: 'Warehouses', icon: Warehouse },
-    { path: '/trucks', label: 'Fleet', icon: Truck },
+    { path: '/inventory', label: 'Inventory', icon: BarChart3 },
+    { path: '/trucks', label: 'Trucks', icon: Truck },
+    { path: '/trucks/capacity', label: 'Fleet Capacity', icon: TrendingUp },
+    { path: '/trips', label: 'Trip Management', icon: Route },
+    { path: '/pricing', label: 'Pricing', icon: DollarSign },
+    { path: '/orders', label: 'Orders', icon: ShoppingCart },
     { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
+    { path: '/deliveries', label: 'Deliveries & Pickups', icon: PackageCheck },
+    { path: '/deposits', label: 'Deposits', icon: CircleDollarSign }
   ];
 
   // Determine if sidebar should be expanded

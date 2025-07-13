@@ -193,18 +193,9 @@ export const TruckDetailPage: React.FC = () => {
       <div className="mt-8">
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center">
-                <Route className="h-5 w-5 text-gray-400" />
-                <h2 className="ml-2 text-lg font-medium text-gray-900">Trip History</h2>
-              </div>
-              <Link
-                to="/trips"
-                className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Route className="h-4 w-4 mr-2" />
-                Create New Trip
-              </Link>
+            <div className="flex items-center">
+              <Route className="h-5 w-5 text-gray-400" />
+              <h2 className="ml-2 text-lg font-medium text-gray-900">Trip History</h2>
             </div>
           </div>
           <TruckTripList truckId={truck.id} />

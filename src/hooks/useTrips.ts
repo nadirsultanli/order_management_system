@@ -114,7 +114,7 @@ export const useDailyTripSchedule = (date?: string) => {
 export const useCreateTrip = () => {
   const utils = trpc.useContext();
   
-  return trpc.trips.create.useMutation({
+  return trpc.trips.createTrip.useMutation({
     onSuccess: (data) => {
       console.log('Trip created successfully:', data);
       toast.success('Trip created successfully');
