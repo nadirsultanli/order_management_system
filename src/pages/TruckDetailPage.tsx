@@ -117,7 +117,7 @@ export const TruckDetailPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Driver</h3>
-                <p className="mt-1">{truck.driver_name || 'Not assigned'}</p>
+                <p className="mt-1">{truck.driver?.name || 'Not assigned'}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Capacity</h3>

@@ -1,10 +1,18 @@
+export interface Driver {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
 export interface Truck {
   id: string;
   fleet_number: string;
   license_plate: string;
   capacity_cylinders: number;
   capacity_kg: number; // Enhanced: weight-based capacity for allocation
-  driver_name: string | null;
+  driver_id: string | null;
+  driver?: Driver; // Enhanced: driver information from users table
   active: boolean;
   status: 'active' | 'inactive' | 'maintenance'; // Enhanced: detailed status
   current_route_id?: string;

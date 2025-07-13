@@ -128,12 +128,12 @@ export const TruckCapacityCard: React.FC<TruckCapacityCardProps> = ({
               </div>
             </div>
 
-            {truck.driver_name && (
+            {truck.driver && (
               <div className="flex items-center space-x-2">
                 <div className="h-4 w-4 bg-gray-400 rounded-full" />
                 <div>
                   <p className="text-xs text-gray-600">Driver</p>
-                  <p className="font-semibold text-sm">{truck.driver_name}</p>
+                  <p className="font-semibold text-sm">{truck.driver.name}</p>
                 </div>
               </div>
             )}

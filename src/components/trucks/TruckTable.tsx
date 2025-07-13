@@ -17,7 +17,11 @@ interface TruckDetails {
   fleet_number: string;
   license_plate: string;
   capacity_cylinders: number;
-  driver_name: string | null;
+  driver?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   active: boolean;
   inventory?: TruckInventoryItem[];
 }
@@ -107,7 +111,7 @@ export const TruckTable: React.FC<TruckTableProps> = ({ trucks, loading, onStatu
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">{truck.driver_name || 'Unassigned'}</div>
+                  <div className="text-sm text-gray-900">{truck.driver?.name || 'Unassigned'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-center">
                   <div className="text-sm text-gray-900">{truck.capacity_cylinders}</div>

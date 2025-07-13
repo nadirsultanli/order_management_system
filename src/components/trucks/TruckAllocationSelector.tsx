@@ -261,8 +261,8 @@ const TruckCard: React.FC<TruckCardProps> = ({
               {truck.fleet_number}
             </h5>
             <p className="text-sm text-gray-600">{truck.license_plate}</p>
-            {truck.driver_name && (
-              <p className="text-xs text-gray-500">Driver: {truck.driver_name}</p>
+            {truck.driver && (
+              <p className="text-xs text-gray-500">Driver: {truck.driver.name}</p>
             )}
           </div>
         </div>

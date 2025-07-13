@@ -5,12 +5,14 @@ import { Card } from '../components/ui/Card';
 import { useCreateTrip } from '../hooks/useTrips';
 import { useTrucks } from '../hooks/useTrucks';
 import { useWarehouseOptions } from '../hooks/useWarehouses';
+import { useDrivers } from '../hooks/useUsers';
 
 export const CreateTripPage: React.FC = () => {
   const navigate = useNavigate();
   const createTrip = useCreateTrip();
   const { data: trucksData, isLoading: trucksLoading } = useTrucks();
   const { data: warehouses, isLoading: warehousesLoading } = useWarehouseOptions();
+  const { data: driversData, isLoading: driversLoading } = useDrivers({ active: true });
   
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -22,17 +24,7 @@ export const CreateTripPage: React.FC = () => {
 
   const loading = createTrip.isLoading;
   const trucks = trucksData?.trucks || [];
-
-  // Get available drivers from trucks (drivers are stored on trucks table)
-  const availableDrivers = trucks
-    .filter(truck => truck.driver_name && truck.driver_name.trim() !== '')
-    .map(truck => ({
-      id: truck.id, // Using truck ID as driver ID since drivers are linked to trucks
-      name: truck.driver_name
-    }))
-    .filter((driver, index, self) => 
-      index === self.findIndex(d => d.name === driver.name) // Remove duplicates
-    );
+  const drivers = driversData?.users || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +60,7 @@ export const CreateTripPage: React.FC = () => {
     }
   };
 
-  if (trucksLoading || warehousesLoading) {
+  if (trucksLoading || warehousesLoading || driversLoading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -213,9 +205,11 @@ export const CreateTripPage: React.FC = () => {
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               >
                 <option value="">Select a driver...</option>
-                {availableDrivers.map((driver) => (
+                {drivers.map((driver) => (
                   <option key={driver.id} value={driver.id}>
                     {driver.name}
+                    {driver.employee_id && ` (ID: ${driver.employee_id})`}
+                    {driver.phone && ` - ${driver.phone}`}
                   </option>
                 ))}
               </select>

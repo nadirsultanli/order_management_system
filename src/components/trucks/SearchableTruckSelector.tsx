@@ -29,7 +29,7 @@ export const SearchableTruckSelector: React.FC<SearchableTruckSelectorProps> = (
   const filteredTrucks = trucks.filter((truck: any) => 
     truck.fleet_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     truck.license_plate?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    truck.driver_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    truck.driver?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const selectedTruck = trucks.find((t: any) => t.id === value);
@@ -152,7 +152,7 @@ export const SearchableTruckSelector: React.FC<SearchableTruckSelectorProps> = (
                         <div className="font-medium">{truck.fleet_number}</div>
                         <div className="text-xs text-gray-500">
                           License: {truck.license_plate}
-                          {truck.driver_name && ` • Driver: ${truck.driver_name}`}
+                          {truck.driver && ` • Driver: ${truck.driver.name}`}
                         </div>
                         {truck.summary && (
                           <div className="text-xs text-gray-500 mt-1">

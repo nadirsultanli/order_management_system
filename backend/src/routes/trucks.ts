@@ -110,12 +110,20 @@ export const trucksRouter = router({
       
       let query = ctx.supabase
         .from('truck')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `, { count: 'exact' })
         .order('fleet_number');
 
       // Apply search filter
       if (filters.search) {
-        query = query.or(`fleet_number.ilike.%${filters.search}%,license_plate.ilike.%${filters.search}%,driver_name.ilike.%${filters.search}%`);
+        query = query.or(`fleet_number.ilike.%${filters.search}%,license_plate.ilike.%${filters.search}%,driver.name.ilike.%${filters.search}%`);
       }
 
       // Apply status filter using active field (status doesn't exist in database)
@@ -223,12 +231,19 @@ export const trucksRouter = router({
       
       ctx.logger.info('Fetching truck:', input.id);
       
-      // Get truck
+      // Get truck with driver information
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.id)
-        
         .single();
 
       if (truckError) {
@@ -300,7 +315,7 @@ export const trucksRouter = router({
         fleet_number: input.fleet_number,
         license_plate: input.license_plate,
         capacity_cylinders: input.capacity_cylinders,
-        driver_name: input.driver_name || null,
+        driver_id: input.driver_id || null,
         active: input.active,
         user_id: null, // Set to null since admin users don't exist in users table
         last_maintenance_date: input.last_maintenance_date || null,
@@ -943,7 +958,15 @@ export const trucksRouter = router({
       // Get truck details
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.truck_id)
         .single();
 
@@ -1042,7 +1065,15 @@ export const trucksRouter = router({
       // Get all active trucks
       const { data: trucks, error: trucksError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('active', true);
 
       if (trucksError) {
@@ -1107,7 +1138,15 @@ export const trucksRouter = router({
       // Get truck details
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.truck_id)
         .single();
 
@@ -1186,7 +1225,15 @@ export const trucksRouter = router({
       // Get all trucks
       const { data: trucks, error: trucksError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .order('fleet_number');
 
       if (trucksError) {
@@ -1321,7 +1368,15 @@ export const trucksRouter = router({
       // Get trucks
       const { data: trucks, error: trucksError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('active', true);
 
       if (trucksError) {
@@ -1371,7 +1426,21 @@ export const trucksRouter = router({
       // Get truck details with current inventory
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('id, fleet_number, license_plate, capacity_cylinders, capacity_kg, active, driver_name')
+        .select(`
+          id, 
+          fleet_number, 
+          license_plate, 
+          capacity_cylinders, 
+          capacity_kg, 
+          active, 
+          driver_id,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.truck_id)
         .single();
 
@@ -1444,7 +1513,21 @@ export const trucksRouter = router({
       // Validate truck exists and is active
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('id, fleet_number, license_plate, capacity_cylinders, capacity_kg, active, driver_name')
+        .select(`
+          id, 
+          fleet_number, 
+          license_plate, 
+          capacity_cylinders, 
+          capacity_kg, 
+          active, 
+          driver_id,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.truck_id)
         .single();
 

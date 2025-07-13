@@ -4,7 +4,11 @@ export interface Truck {
   license_plate: string;
   capacity_cylinders: number;
   capacity_kg: number; // Enhanced: weight-based capacity for allocation
-  driver_name: string | null;
+  driver?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
   active: boolean;
   status: 'active' | 'inactive' | 'maintenance'; // Enhanced: detailed status
   current_route_id?: string;
@@ -22,8 +26,8 @@ export interface Truck {
   created_at: string;
   updated_at: string;
   
-  // User assignment
-  user_id?: string;
+  // User assignment (driver ID)
+  driver_id?: string;
 }
 
 export interface TruckRoute {

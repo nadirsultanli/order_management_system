@@ -43,13 +43,21 @@ export const TruckInventoryDetailSchema = z.object({
   product: ProductDetailSchema.optional(),
 });
 
+export const DriverSchema = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+}).optional();
+
 export const TruckSchema = z.object({
   id: z.string(),
   fleet_number: z.string(),
   license_plate: z.string(),
   capacity_cylinders: z.number(),
   capacity_kg: z.number(),
-  driver_name: z.string().nullable().optional(),
+  driver_id: z.string().uuid().nullable().optional(),
+  driver: DriverSchema,
   active: z.boolean(),
   status: z.string(),
   last_maintenance_date: z.string().nullable().optional(),

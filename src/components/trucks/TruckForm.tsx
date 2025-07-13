@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, Loader2 } from 'lucide-react';
 import { useCreateTruck, useUpdateTruck } from '../../hooks/useTrucks';
+import { useDrivers } from '../../hooks/useUsers';
 
 interface TruckFormProps {
   initialData?: {
@@ -9,7 +10,7 @@ interface TruckFormProps {
     fleet_number: string;
     license_plate: string;
     capacity_cylinders: number;
-    driver_name: string | null;
+    driver_id: string | null;
     active: boolean;
   };
   onSuccess?: () => void;
@@ -20,11 +21,12 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
   const createTruck = useCreateTruck();
   const updateTruck = useUpdateTruck();
   const [error, setError] = useState<string | null>(null);
+  const { data: driversData, isLoading: driversLoading } = useDrivers({ active: true });
   const [formData, setFormData] = useState({
     fleet_number: initialData?.fleet_number || '',
     license_plate: initialData?.license_plate || '',
     capacity_cylinders: initialData?.capacity_cylinders || '',
-    driver_name: initialData?.driver_name || '',
+    driver_id: initialData?.driver_id || '',
     active: initialData?.active ?? true
   });
 
@@ -53,7 +55,7 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
         fleet_number: formData.fleet_number,
         license_plate: formData.license_plate,
         capacity_cylinders: capacityNumber,
-        driver_name: formData.driver_name || null,
+        driver_id: formData.driver_id || null,
         active: formData.active
       };
 
@@ -157,16 +159,27 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
           </div>
 
           <div>
-            <label htmlFor="driver_name" className="block text-sm font-medium text-gray-700">
-              Driver Name
+            <label htmlFor="driver_id" className="block text-sm font-medium text-gray-700">
+              Driver
             </label>
-            <input
-              type="text"
-              id="driver_name"
-              value={formData.driver_name}
-              onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
+            <select
+              id="driver_id"
+              value={formData.driver_id}
+              onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
               className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
+              disabled={driversLoading}
+            >
+              <option value="">Select a driver (optional)</option>
+              {driversLoading ? (
+                <option disabled>Loading drivers...</option>
+              ) : (
+                driversData?.users?.map((driver) => (
+                  <option key={driver.id} value={driver.id}>
+                    {driver.name} - {driver.email}
+                  </option>
+                ))
+              )}
+            </select>
           </div>
 
           <div className="flex items-center">

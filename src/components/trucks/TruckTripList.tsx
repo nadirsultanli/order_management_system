@@ -195,9 +195,9 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
                       {formatTime(trip.planned_start_time)} - {formatTime(trip.planned_end_time)}
                     </span>
                   </div>
-                  {trip.driver_name && (
+                  {trip.driver && (
                     <div className="flex items-center">
-                      <span>Driver: {trip.driver_name}</span>
+                      <span>Driver: {trip.driver.name}</span>
                     </div>
                   )}
                 </div>
