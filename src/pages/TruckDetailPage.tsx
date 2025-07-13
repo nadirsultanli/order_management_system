@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Truck, Package, Edit, ArrowLeft } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Truck, Package, Edit, ArrowLeft, Route, Calendar } from 'lucide-react';
 import { TruckForm } from '../components/trucks/TruckForm';
 import { TruckInventoryTransfer } from '../components/trucks/TruckInventoryTransfer';
+import { TruckTripList } from '../components/trucks/TruckTripList';
 import { useTruck } from '../hooks/useTrucks';
 
 export const TruckDetailPage: React.FC = () => {
@@ -94,13 +95,15 @@ export const TruckDetailPage: React.FC = () => {
                 {truck.active ? 'Active' : 'Inactive'}
               </span>
             </div>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </button>
+            </div>
           </div>
         </div>
 
@@ -114,7 +117,7 @@ export const TruckDetailPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Driver</h3>
-                <p className="mt-1">{truck.driver_name || 'Not assigned'}</p>
+                <p className="mt-1">{truck.driver?.name || 'Not assigned'}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Capacity</h3>
@@ -183,6 +186,19 @@ export const TruckDetailPage: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Trip History Section */}
+      <div className="mt-8">
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center">
+              <Route className="h-5 w-5 text-gray-400" />
+              <h2 className="ml-2 text-lg font-medium text-gray-900">Trip History</h2>
+            </div>
+          </div>
+          <TruckTripList truckId={truck.id} />
         </div>
       </div>
 

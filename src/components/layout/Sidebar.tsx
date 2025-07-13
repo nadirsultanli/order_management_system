@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
+  UserPlus,
   Package, 
   Warehouse, 
   ShoppingCart, 
@@ -11,9 +12,8 @@ import {
   DollarSign,
   Truck,
   ArrowLeftRight,
-  TrendingUp,
-  PackageCheck,
-  CircleDollarSign
+  CircleDollarSign,
+  Route
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 
@@ -27,15 +27,15 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Customers', href: '/customers', icon: Users },
+  { name: 'Users', href: '/users', icon: UserPlus },
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { name: 'Inventory', href: '/inventory', icon: BarChart3 },
   { name: 'Trucks', href: '/trucks', icon: Truck },
-  { name: 'Fleet Capacity', href: '/trucks/capacity', icon: TrendingUp },
+  { name: 'Trip Management', href: '/trips', icon: Route },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
   { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight },
-  { name: 'Deliveries & Pickups', href: '/deliveries', icon: PackageCheck },
   { name: 'Deposits', href: '/deposits', icon: CircleDollarSign }
 ];
 

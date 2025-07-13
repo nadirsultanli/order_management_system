@@ -18,6 +18,10 @@ import {
   GetMovementsSchema,
   GetLowStockSchema,
   CheckAvailabilitySchema,
+  CreateReceiptSchema,
+  CreateCycleCountSchema,
+  InitiateTransferSchema,
+  CompleteTransferSchema,
 } from '../schemas/input/inventory-input';
 
 // Import output schemas
@@ -1285,6 +1289,456 @@ export const inventoryRouter = router({
           partial_fulfillment_possible: availabilityResults.some(result => result.partial_quantity > 0),
           recommended_action: determineRecommendedAction(availabilityResults),
         }
+      };
+    }),
+
+  // New Warehouse Operations Endpoints (Document Steps 3 & 4)
+
+  // POST /inventory/receipt/create - Create receipt for incoming stock (Document 4.1)
+  createReceipt: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/receipt/create',
+        tags: ['inventory', 'warehouse-operations'],
+        summary: 'Create receipt for incoming stock',
+        description: 'Create a receipt transaction for incoming stock from suppliers or customer returns. Supports good/damaged condition tracking.',
+        protect: true,
+      }
+    })
+    .input(CreateReceiptSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Creating receipt:', input);
+
+      // Validate warehouse exists
+      const { data: warehouse, error: warehouseError } = await ctx.supabase
+        .from('warehouses')
+        .select('id, name')
+        .eq('id', input.warehouse_id)
+        .single();
+
+      if (warehouseError || !warehouse) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Warehouse not found'
+        });
+      }
+
+      // Create receipt header
+      const { data: receipt, error: receiptError } = await ctx.supabase
+        .from('receipts')
+        .insert([{
+          warehouse_id: input.warehouse_id,
+          supplier_dn_number: input.supplier_dn_number,
+          truck_registration: input.truck_registration,
+          driver_name: input.driver_name,
+          receipt_date: input.receipt_date || new Date().toISOString().split('T')[0],
+          status: 'open',
+          total_items_expected: input.receipt_lines.reduce((sum, line) => sum + line.qty_expected, 0),
+          total_items_received: input.receipt_lines.reduce((sum, line) => sum + line.qty_received_good + line.qty_received_damaged, 0),
+          notes: input.notes,
+          created_by_user_id: user.id,
+        }])
+        .select()
+        .single();
+
+      if (receiptError) {
+        ctx.logger.error('Receipt creation error:', receiptError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create receipt: ${formatErrorMessage(receiptError)}`
+        });
+      }
+
+      // Create receipt lines and process inventory
+      const receiptLines = [];
+      for (const line of input.receipt_lines) {
+        // Create receipt line
+        const { data: receiptLine, error: lineError } = await ctx.supabase
+          .from('receipt_lines')
+          .insert([{
+            receipt_id: receipt.id,
+            product_id: line.product_id,
+            qty_expected: line.qty_expected,
+            qty_received_good: line.qty_received_good,
+            qty_received_damaged: line.qty_received_damaged,
+            condition_flag: line.condition_flag,
+            notes: line.notes,
+          }])
+          .select()
+          .single();
+
+        if (lineError) {
+          ctx.logger.error('Receipt line creation error:', lineError);
+          continue;
+        }
+
+        receiptLines.push(receiptLine);
+
+        // Process inventory using the database function
+        try {
+          const { error: rpcError } = await ctx.supabase.rpc('process_receipt_line', {
+            p_receipt_line_id: receiptLine.id,
+            p_warehouse_id: input.warehouse_id,
+            p_product_id: line.product_id,
+            p_qty_good: line.qty_received_good,
+            p_qty_damaged: line.qty_received_damaged,
+          });
+          
+          if (rpcError) {
+            ctx.logger.error('Receipt processing RPC error:', rpcError);
+          }
+        } catch (error) {
+          ctx.logger.error('Failed to process receipt line:', error);
+        }
+      }
+
+      // Update receipt status
+      const allReceived = input.receipt_lines.every(line => 
+        (line.qty_received_good + line.qty_received_damaged) >= line.qty_expected
+      );
+      
+      if (allReceived) {
+        await ctx.supabase
+          .from('receipts')
+          .update({ status: 'completed' })
+          .eq('id', receipt.id);
+      }
+
+      ctx.logger.info('Receipt created successfully:', receipt.id);
+      return {
+        receipt: { ...receipt, receipt_lines: receiptLines },
+        warehouse,
+      };
+    }),
+
+  // POST /inventory/transfer/initiate - Initiate warehouse transfer with In Transit status (Document 4.2)
+  initiateTransfer: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/transfer/initiate',
+        tags: ['inventory', 'warehouse-operations'],
+        summary: 'Initiate warehouse-to-warehouse transfer',
+        description: 'Initiate a transfer between warehouses, moving stock to In Transit status.',
+        protect: true,
+      }
+    })
+    .input(InitiateTransferSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Initiating warehouse transfer:', input);
+
+      try {
+        // Use the database function to initiate transfer
+        const { data: transferId, error } = await ctx.supabase.rpc('initiate_warehouse_transfer', {
+          p_source_warehouse_id: input.source_warehouse_id,
+          p_destination_warehouse_id: input.destination_warehouse_id,
+          p_product_id: input.product_id,
+          p_qty_full: input.qty_full,
+          p_qty_empty: input.qty_empty,
+          p_reference_number: input.reference_number,
+        });
+
+        if (error) {
+          ctx.logger.error('Transfer initiation error:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to initiate transfer: ${formatErrorMessage(error)}`
+          });
+        }
+
+        // Get transfer details
+        const { data: transfer } = await ctx.supabase
+          .from('transfers')
+          .select(`
+            *,
+            source_warehouse:warehouses!transfers_source_warehouse_id_fkey(id, name),
+            destination_warehouse:warehouses!transfers_destination_warehouse_id_fkey(id, name)
+          `)
+          .eq('id', transferId)
+          .single();
+
+        ctx.logger.info('Transfer initiated successfully:', transferId);
+        return {
+          transfer_id: transferId,
+          transfer,
+          status: 'in_transit'
+        };
+      } catch (error) {
+        ctx.logger.error('Transfer initiation failed:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Transfer initiation failed'
+        });
+      }
+    }),
+
+  // POST /inventory/transfer/complete - Complete warehouse transfer (Document 4.2)
+  completeTransfer: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/transfer/complete',
+        tags: ['inventory', 'warehouse-operations'],
+        summary: 'Complete warehouse transfer',
+        description: 'Complete a warehouse transfer by receiving stock at destination.',
+        protect: true,
+      }
+    })
+    .input(CompleteTransferSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Completing warehouse transfer:', input);
+
+      try {
+        // Use the database function to complete transfer
+        await ctx.supabase.rpc('complete_warehouse_transfer', {
+          p_transfer_id: input.transfer_id,
+          p_product_id: input.product_id,
+          p_qty_full_received: input.qty_full_received,
+          p_qty_empty_received: input.qty_empty_received,
+        });
+
+        // Get updated transfer details
+        const { data: transfer } = await ctx.supabase
+          .from('transfers')
+          .select(`
+            *,
+            source_warehouse:warehouses!transfers_source_warehouse_id_fkey(id, name),
+            destination_warehouse:warehouses!transfers_destination_warehouse_id_fkey(id, name)
+          `)
+          .eq('id', input.transfer_id)
+          .single();
+
+        ctx.logger.info('Transfer completed successfully:', input.transfer_id);
+        return {
+          transfer,
+          status: 'completed'
+        };
+      } catch (error) {
+        ctx.logger.error('Transfer completion failed:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error instanceof Error ? error.message : 'Transfer completion failed'
+        });
+      }
+    }),
+
+  // POST /inventory/cycle-count/create - Create cycle count (Document 4.3)
+  createCycleCount: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/inventory/cycle-count/create',
+        tags: ['inventory', 'warehouse-operations'],
+        summary: 'Create cycle count',
+        description: 'Create a cycle count for periodic inventory verification with variance tracking.',
+        protect: true,
+      }
+    })
+    .input(CreateCycleCountSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Creating cycle count:', input);
+
+      // Create cycle count header
+      const { data: cycleCount, error: cycleCountError } = await ctx.supabase
+        .from('cycle_counts')
+        .insert([{
+          warehouse_id: input.warehouse_id,
+          count_date: input.count_date || new Date().toISOString().split('T')[0],
+          status: 'in_progress',
+          counted_by_user_id: user.id,
+          notes: input.notes,
+        }])
+        .select()
+        .single();
+
+      if (cycleCountError) {
+        ctx.logger.error('Cycle count creation error:', cycleCountError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create cycle count: ${formatErrorMessage(cycleCountError)}`
+        });
+      }
+
+      // Create cycle count lines
+      const cycleCountLines = [];
+      for (const line of input.cycle_count_lines) {
+        const { data: cycleCountLine, error: lineError } = await ctx.supabase
+          .from('cycle_count_lines')
+          .insert([{
+            cycle_count_id: cycleCount.id,
+            product_id: line.product_id,
+            system_qty_full: line.system_qty_full,
+            system_qty_empty: line.system_qty_empty,
+            counted_qty_full: line.counted_qty_full,
+            counted_qty_empty: line.counted_qty_empty,
+            notes: line.notes,
+          }])
+          .select()
+          .single();
+
+        if (lineError) {
+          ctx.logger.error('Cycle count line creation error:', lineError);
+          continue;
+        }
+
+        cycleCountLines.push(cycleCountLine);
+      }
+
+      // Process cycle count using database function
+      try {
+        const { error: rpcError } = await ctx.supabase.rpc('process_cycle_count', {
+          p_cycle_count_id: cycleCount.id,
+        });
+        
+        if (rpcError) {
+          ctx.logger.error('Cycle count processing RPC error:', rpcError);
+        }
+      } catch (error) {
+        ctx.logger.error('Failed to process cycle count:', error);
+      }
+
+      ctx.logger.info('Cycle count created successfully:', cycleCount.id);
+      return {
+        cycle_count: { ...cycleCount, cycle_count_lines: cycleCountLines },
+      };
+    }),
+
+  // GET /inventory/receipts - List receipts
+  listReceipts: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory/receipts',
+        tags: ['inventory', 'warehouse-operations'],
+        summary: 'List receipts',
+        description: 'Get a list of receipt transactions.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      warehouse_id: z.string().optional(),
+      status: z.enum(['open', 'partial', 'completed', 'cancelled']).optional(),
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(15),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      let query = ctx.supabase
+        .from('receipts')
+        .select(`
+          *,
+          warehouse:warehouses(id, name),
+          receipt_lines(
+            *,
+            product:products(id, sku, name)
+          )
+        `, { count: 'exact' });
+
+      if (input.warehouse_id) {
+        query = query.eq('warehouse_id', input.warehouse_id);
+      }
+
+      if (input.status) {
+        query = query.eq('status', input.status);
+      }
+
+      query = query
+        .order('created_at', { ascending: false })
+        .range((input.page - 1) * input.limit, input.page * input.limit - 1);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        ctx.logger.error('Receipts listing error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch receipts: ${formatErrorMessage(error)}`
+        });
+      }
+
+      return {
+        receipts: data || [],
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / input.limit),
+        currentPage: input.page,
+      };
+    }),
+
+  // GET /inventory/cycle-counts - List cycle counts
+  listCycleCounts: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/inventory/cycle-counts',
+        tags: ['inventory', 'warehouse-operations'],
+        summary: 'List cycle counts',
+        description: 'Get a list of cycle count transactions.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      warehouse_id: z.string().optional(),
+      status: z.enum(['in_progress', 'completed', 'cancelled']).optional(),
+      page: z.number().min(1).default(1),
+      limit: z.number().min(1).max(100).default(15),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      let query = ctx.supabase
+        .from('cycle_counts')
+        .select(`
+          *,
+          warehouse:warehouses(id, name),
+          cycle_count_lines(
+            *,
+            product:products(id, sku, name)
+          )
+        `, { count: 'exact' });
+
+      if (input.warehouse_id) {
+        query = query.eq('warehouse_id', input.warehouse_id);
+      }
+
+      if (input.status) {
+        query = query.eq('status', input.status);
+      }
+
+      query = query
+        .order('created_at', { ascending: false })
+        .range((input.page - 1) * input.limit, input.page * input.limit - 1);
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        ctx.logger.error('Cycle counts listing error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch cycle counts: ${formatErrorMessage(error)}`
+        });
+      }
+
+      return {
+        cycle_counts: data || [],
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / input.limit),
+        currentPage: input.page,
       };
     }),
 });

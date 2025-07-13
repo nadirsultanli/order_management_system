@@ -350,32 +350,34 @@ export const WarehouseDetailPage: React.FC = () => {
                        </div>
                      </div>
                      
-                     <div className="grid grid-cols-3 gap-3">
+                     {/* On Hand Stock (Primary Display) */}
+                     <div className="grid grid-cols-2 gap-3 mb-4">
                        <div className="bg-green-50 rounded-lg p-3 text-center border border-green-200">
                          <div className="text-2xl font-bold text-green-700">{item.qty_full}</div>
-                         <div className="text-xs font-medium text-green-600 uppercase tracking-wide">Full</div>
+                         <div className="text-xs font-medium text-green-600 uppercase tracking-wide">On Hand (Full)</div>
                        </div>
                        
                        <div className="bg-gray-100 rounded-lg p-3 text-center border border-gray-300">
                          <div className="text-2xl font-bold text-gray-700">{item.qty_empty}</div>
-                         <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">Empty</div>
+                         <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">On Hand (Empty)</div>
+                       </div>
+                     </div>
+
+                     {/* Other Stock Statuses */}
+                     <div className="grid grid-cols-3 gap-2 mb-3">
+                       <div className="bg-blue-50 rounded-lg p-2 text-center border border-blue-200">
+                         <div className="text-lg font-bold text-blue-700">{item.qty_reserved}</div>
+                         <div className="text-xs font-medium text-blue-600 uppercase tracking-wide">Allocated</div>
                        </div>
                        
-                       <div className={`rounded-lg p-3 text-center border ${
-                         item.qty_reserved > 0 
-                           ? 'bg-yellow-50 border-yellow-200' 
-                           : 'bg-blue-50 border-blue-200'
-                       }`}>
-                         <div className={`text-2xl font-bold ${
-                           item.qty_reserved > 0 ? 'text-yellow-700' : 'text-blue-700'
-                         }`}>
-                           {item.qty_reserved}
-                         </div>
-                         <div className={`text-xs font-medium uppercase tracking-wide ${
-                           item.qty_reserved > 0 ? 'text-yellow-600' : 'text-blue-600'
-                         }`}>
-                           Reserved
-                         </div>
+                       <div className="bg-yellow-50 rounded-lg p-2 text-center border border-yellow-200">
+                         <div className="text-lg font-bold text-yellow-700">{item.qty_quarantine || 0}</div>
+                         <div className="text-xs font-medium text-yellow-600 uppercase tracking-wide">Quarantine</div>
+                       </div>
+                       
+                       <div className="bg-purple-50 rounded-lg p-2 text-center border border-purple-200">
+                         <div className="text-lg font-bold text-purple-700">{item.qty_in_transit || 0}</div>
+                         <div className="text-xs font-medium text-purple-600 uppercase tracking-wide">In Transit</div>
                        </div>
                      </div>
                      

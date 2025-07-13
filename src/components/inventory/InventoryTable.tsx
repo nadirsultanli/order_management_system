@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Edit, ArrowRightLeft, Loader2, AlertTriangle } from 'lucide-react';
+import { Package, Edit, ArrowRightLeft, Loader2, AlertTriangle, Eye, Truck, AlertCircle } from 'lucide-react';
 import { InventoryBalance } from '../../types/inventory';
 import { formatDateSync } from '../../utils/order';
 
@@ -9,6 +9,24 @@ interface InventoryTableProps {
   onAdjustStock: (item: InventoryBalance) => void;
   onTransferStock: (item: InventoryBalance) => void;
 }
+
+interface StockStatusBadgeProps {
+  label: string;
+  count: number;
+  icon: React.ReactNode;
+  colorClass: string;
+}
+
+const StockStatusBadge: React.FC<StockStatusBadgeProps> = ({ label, count, icon, colorClass }) => {
+  if (count === 0) return null;
+  
+  return (
+    <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}>
+      {icon}
+      <span>{label}: {count}</span>
+    </div>
+  );
+};
 
 export const InventoryTable: React.FC<InventoryTableProps> = ({
   inventory,
@@ -73,16 +91,13 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                 Warehouse
               </th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Full
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Empty
-              </th>
-              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Reserved
+                On Hand
               </th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Available
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Stock Status Breakdown
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Last Updated
@@ -94,6 +109,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {inventory.map((item) => {
+              const onHandQty = item.qty_full + item.qty_empty;
               const available = item.qty_full - item.qty_reserved;
               const availabilityColor = getAvailabilityColor(available);
               const availabilityIcon = getAvailabilityIcon(available);
@@ -116,24 +132,39 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="text-sm font-medium text-gray-900">
-                      {item.qty_full}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="text-sm font-medium text-gray-900">
-                      {item.qty_empty}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <span className="text-sm font-medium text-gray-900">
-                      {item.qty_reserved}
-                    </span>
+                    <div className="text-sm">
+                      <div className="font-medium text-gray-900">{onHandQty}</div>
+                      <div className="text-xs text-gray-500">
+                        {item.qty_full}F / {item.qty_empty}E
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-sm font-medium ${availabilityColor}`}>
                       {availabilityIcon}
                       <span>{available}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      <StockStatusBadge 
+                        label="Allocated" 
+                        count={item.qty_reserved} 
+                        icon={<Eye className="h-3 w-3" />}
+                        colorClass="text-blue-700 bg-blue-50"
+                      />
+                      <StockStatusBadge 
+                        label="Quarantine" 
+                        count={item.qty_quarantine || 0} 
+                        icon={<AlertCircle className="h-3 w-3" />}
+                        colorClass="text-yellow-700 bg-yellow-50"
+                      />
+                      <StockStatusBadge 
+                        label="In Transit" 
+                        count={item.qty_in_transit || 0} 
+                        icon={<Truck className="h-3 w-3" />}
+                        colorClass="text-purple-700 bg-purple-50"
+                      />
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

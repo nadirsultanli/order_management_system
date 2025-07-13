@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Route, Truck } from 'lucide-react';
 import { TruckTable } from '../components/trucks/TruckTable';
 import { TruckFilters } from '../components/trucks/TruckFilters';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
@@ -65,13 +65,22 @@ export const TrucksPage: React.FC = () => {
             Manage your fleet and monitor truck inventory
           </p>
         </div>
-        <Link
-          to="/trucks/new"
-          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-        >
-          <Plus className="-ml-1 mr-2 h-5 w-5" />
-          Add Truck
-        </Link>
+        <div className="flex items-center space-x-3">
+          <Link
+            to="/trips"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <Route className="-ml-1 mr-2 h-5 w-5" />
+            Trip Management
+          </Link>
+          <Link
+            to="/trucks/new"
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="-ml-1 mr-2 h-5 w-5" />
+            Add Truck
+          </Link>
+        </div>
       </div>
 
       {error && (

@@ -8,6 +8,7 @@ import { productsRouter } from './products';
 // import { stockMovementsRouter } from './stock-movements';
 import { transfersRouter } from './transfers';
 import { trucksRouter } from './trucks';
+import { tripsRouter } from './trips';
 import { warehousesRouter } from './warehouses';
 import { ordersRouter } from './orders';
 import { pricingRouter } from './pricing';
@@ -27,6 +28,7 @@ const openApiRouter = router({
   // stockMovements: stockMovementsRouter,
   transfers: transfersRouter,
   trucks: trucksRouter,
+  trips: tripsRouter,
   warehouses: warehousesRouter,
   orders: ordersRouter,
   pricing: pricingRouter,
@@ -48,7 +50,7 @@ const openApiDocument = generateOpenApiDocument(openApiRouter, {
   description: 'Auto-generated OpenAPI spec from tRPC routes with OpenAPI metadata',
   version: '1.0.0',
   baseUrl: getBaseUrl(), // 🔧 Dynamic baseUrl
-  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'transfers', 'trucks', 'warehouses', 'pricing', 'deposits'],
+  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'transfers', 'trucks', 'trips', 'warehouses', 'pricing', 'deposits'],
   docsUrl: 'https://example.com',
 });
 

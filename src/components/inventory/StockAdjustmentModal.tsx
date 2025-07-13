@@ -133,17 +133,46 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
                 {/* Current Stock Display */}
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h4 className="text-sm font-medium text-gray-900 mb-3">Current Stock Levels</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  
+                  {/* On Hand Stock */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-600">{inventory.qty_full}</div>
-                      <div className="text-sm text-gray-600">Full Cylinders</div>
+                      <div className="text-sm text-gray-600">On Hand (Full)</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-gray-600">{inventory.qty_empty}</div>
-                      <div className="text-sm text-gray-600">Empty Cylinders</div>
+                      <div className="text-sm text-gray-600">On Hand (Empty)</div>
                     </div>
                   </div>
-                  <div className="mt-3 text-center">
+
+                  {/* Other Stock Statuses */}
+                  <div className="grid grid-cols-3 gap-3 text-sm">
+                    <div className="text-center p-2 bg-blue-50 rounded">
+                      <div className="font-semibold text-blue-600">{inventory.qty_reserved}</div>
+                      <div className="text-blue-600">Allocated</div>
+                    </div>
+                    <div className="text-center p-2 bg-yellow-50 rounded">
+                      <div className="font-semibold text-yellow-600">{inventory.qty_quarantine || 0}</div>
+                      <div className="text-yellow-600">Quarantine</div>
+                    </div>
+                    <div className="text-center p-2 bg-purple-50 rounded">
+                      <div className="font-semibold text-purple-600">{inventory.qty_in_transit || 0}</div>
+                      <div className="text-purple-600">In Transit</div>
+                    </div>
+                  </div>
+
+                  {/* Available Stock */}
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-gray-900">
+                        {inventory.qty_full - inventory.qty_reserved}
+                      </div>
+                      <div className="text-sm text-gray-600">Available for Sale</div>
+                    </div>
+                  </div>
+                  {/* Product Info */}
+                  <div className="mt-3 pt-3 border-t border-gray-200 text-center">
                     <div className="text-sm text-gray-600">
                       Product: <span className="font-medium">{inventory.product?.name}</span>
                     </div>

@@ -29,6 +29,7 @@ import {
   LoadInventorySchema,
   UnloadInventorySchema,
   GetInventorySchema,
+  ValidateLoadingCapacitySchema,
 } from '../schemas/input/trucks-input';
 
 // Import output schemas
@@ -63,9 +64,11 @@ import {
   calculateTruckCapacity,
   findBestTruckForOrder,
   validateTruckAllocation,
+  validateTruckLoadingCapacity,
   generateDailyTruckSchedule,
   calculateFleetUtilization,
   optimizeTruckAllocations,
+  processTruckInventory,
   type TruckWithInventory,
   type TruckAllocation,
   type Order,
@@ -75,7 +78,7 @@ import {
 
 // Validation schemas
 const TruckStatusEnum = z.enum(['active', 'inactive', 'maintenance']);
-const RouteStatusEnum = z.enum(['planned', 'in_progress', 'completed', 'cancelled']);
+const RouteStatusEnum = z.enum(['planned', 'loading', 'loaded', 'in_transit', 'delivering', 'unloading', 'completed', 'cancelled']);
 const AllocationStatusEnum = z.enum(['planned', 'loaded', 'delivered', 'cancelled']);
 const MaintenanceTypeEnum = z.enum(['routine', 'repair', 'inspection', 'emergency']);
 const MaintenanceStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']);
@@ -107,12 +110,20 @@ export const trucksRouter = router({
       
       let query = ctx.supabase
         .from('truck')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `, { count: 'exact' })
         .order('fleet_number');
 
       // Apply search filter
       if (filters.search) {
-        query = query.or(`fleet_number.ilike.%${filters.search}%,license_plate.ilike.%${filters.search}%,driver_name.ilike.%${filters.search}%`);
+        query = query.or(`fleet_number.ilike.%${filters.search}%,license_plate.ilike.%${filters.search}%,driver.name.ilike.%${filters.search}%`);
       }
 
       // Apply status filter using active field (status doesn't exist in database)
@@ -220,12 +231,19 @@ export const trucksRouter = router({
       
       ctx.logger.info('Fetching truck:', input.id);
       
-      // Get truck
+      // Get truck with driver information
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.id)
-        
         .single();
 
       if (truckError) {
@@ -260,26 +278,7 @@ export const trucksRouter = router({
         .maybeSingle();
 
       // Process inventory with weight calculations
-      const inventory = (inventoryData || []).map((item: any) => {
-        const product = item.product;
-        let weight_kg = 0;
-        
-        if (product && product.capacity_kg && product.tare_weight_kg) {
-          weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
-                     (item.qty_empty * product.tare_weight_kg);
-        }
-
-        return {
-          product_id: item.product_id,
-          product_name: product?.name || 'Unknown Product',
-          product_sku: product?.sku || '',
-          product_variant_name: product?.variant_name,
-          qty_full: item.qty_full,
-          qty_empty: item.qty_empty,
-          weight_kg,
-          updated_at: item.updated_at
-        };
-      });
+      const inventory = processTruckInventory(inventoryData);
 
       const enhancedTruck = {
         ...truck,
@@ -316,7 +315,7 @@ export const trucksRouter = router({
         fleet_number: input.fleet_number,
         license_plate: input.license_plate,
         capacity_cylinders: input.capacity_cylinders,
-        driver_name: input.driver_name || null,
+        driver_id: input.driver_id || null,
         active: input.active,
         user_id: null, // Set to null since admin users don't exist in users table
         last_maintenance_date: input.last_maintenance_date || null,
@@ -959,7 +958,15 @@ export const trucksRouter = router({
       // Get truck details
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.truck_id)
         .single();
 
@@ -1009,29 +1016,7 @@ export const trucksRouter = router({
       }
 
       // Process inventory with weight calculations
-      const inventory = (inventoryData || []).map((item: any) => {
-        const product = item.product;
-        let weight_kg = 0;
-        
-        if (product && product.capacity_kg && product.tare_weight_kg) {
-          weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
-                     (item.qty_empty * product.tare_weight_kg);
-        } else {
-          // Use default weights if product details not available
-          weight_kg = (item.qty_full * 27) + (item.qty_empty * 14);
-        }
-
-        return {
-          product_id: item.product_id,
-          product_name: product?.name || 'Unknown Product',
-          product_sku: product?.sku || '',
-          product_variant_name: product?.variant_name,
-          qty_full: item.qty_full,
-          qty_empty: item.qty_empty,
-          weight_kg,
-          updated_at: item.updated_at
-        };
-      });
+      const inventory = processTruckInventory(inventoryData);
 
       const truckWithCapacity: TruckWithInventory = {
         ...truck,
@@ -1080,7 +1065,15 @@ export const trucksRouter = router({
       // Get all active trucks
       const { data: trucks, error: trucksError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('active', true);
 
       if (trucksError) {
@@ -1145,7 +1138,15 @@ export const trucksRouter = router({
       // Get truck details
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.truck_id)
         .single();
 
@@ -1224,7 +1225,15 @@ export const trucksRouter = router({
       // Get all trucks
       const { data: trucks, error: trucksError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .order('fleet_number');
 
       if (trucksError) {
@@ -1268,29 +1277,7 @@ export const trucksRouter = router({
         // Get inventory for this truck
         const truckInventoryData = (allInventoryData || []).filter(item => item.truck_id === truck.id);
         
-        const inventory = truckInventoryData.map((item: any) => {
-          const product = item.product;
-          let weight_kg = 0;
-          
-          if (product && product.capacity_kg && product.tare_weight_kg) {
-            weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
-                       (item.qty_empty * product.tare_weight_kg);
-          } else {
-            // Use default weights if product details not available
-            weight_kg = (item.qty_full * 27) + (item.qty_empty * 14);
-          }
-
-          return {
-            product_id: item.product_id,
-            product_name: product?.name || 'Unknown Product',
-            product_sku: product?.sku || '',
-            product_variant_name: product?.variant_name,
-            qty_full: item.qty_full,
-            qty_empty: item.qty_empty,
-            weight_kg,
-            updated_at: item.updated_at
-          };
-        });
+        const inventory = processTruckInventory(truckInventoryData);
 
         return {
           ...truck,
@@ -1381,7 +1368,15 @@ export const trucksRouter = router({
       // Get trucks
       const { data: trucks, error: trucksError } = await ctx.supabase
         .from('truck')
-        .select('*')
+        .select(`
+          *,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('active', true);
 
       if (trucksError) {
@@ -1409,6 +1404,93 @@ export const trucksRouter = router({
       return result;
     }),
 
+  // CAPACITY VALIDATION ENDPOINT
+  validateLoadingCapacity: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/{truck_id}/validate-loading-capacity',
+        tags: ['trucks'],
+        summary: 'Validate truck loading capacity',
+        description: 'Validate if a truck can accommodate the specified items without exceeding capacity constraints.',
+        protect: true,
+      }
+    })
+    .input(ValidateLoadingCapacitySchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Validating truck loading capacity:', input);
+
+      // Get truck details with current inventory
+      const { data: truck, error: truckError } = await ctx.supabase
+        .from('truck')
+        .select(`
+          id, 
+          fleet_number, 
+          license_plate, 
+          capacity_cylinders, 
+          capacity_kg, 
+          active, 
+          driver_id,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
+        .eq('id', input.truck_id)
+        .single();
+
+      if (truckError || !truck) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Truck not found',
+        });
+      }
+
+      // Get current truck inventory
+      const { data: inventoryData } = await ctx.supabase
+        .from('truck_inventory')
+        .select(`
+          *,
+          product:product_id (
+            name,
+            sku,
+            variant_name,
+            capacity_kg,
+            tare_weight_kg
+          )
+        `)
+        .eq('truck_id', input.truck_id);
+
+      // Process inventory with weight calculations
+      const inventory = processTruckInventory(inventoryData);
+
+      const truckWithInventory: TruckWithInventory = {
+        ...truck,
+        capacity_kg: truck.capacity_kg || (truck.capacity_cylinders * 27),
+        status: truck.active ? 'active' : 'inactive',
+        inventory
+      };
+
+      // Validate capacity constraints
+      const validationResult = validateTruckLoadingCapacity(truckWithInventory, input.items);
+      
+      return {
+        ...validationResult,
+        truck: {
+          id: truck.id,
+          fleet_number: truck.fleet_number,
+          license_plate: truck.license_plate,
+          capacity_cylinders: truck.capacity_cylinders,
+          capacity_kg: truck.capacity_kg || (truck.capacity_cylinders * 27)
+        }
+      };
+    }),
+
   // Truck Inventory Transfer Endpoints
     loadInventory: protectedProcedure
     .meta({
@@ -1431,7 +1513,21 @@ export const trucksRouter = router({
       // Validate truck exists and is active
       const { data: truck, error: truckError } = await ctx.supabase
         .from('truck')
-        .select('id, fleet_number, active')
+        .select(`
+          id, 
+          fleet_number, 
+          license_plate, 
+          capacity_cylinders, 
+          capacity_kg, 
+          active, 
+          driver_id,
+          driver:driver_id (
+            id,
+            name,
+            email,
+            phone
+          )
+        `)
         .eq('id', input.truck_id)
         .single();
 
@@ -1485,6 +1581,63 @@ export const trucksRouter = router({
         });
       }
 
+      // CRITICAL VALIDATION: Check truck capacity constraints before loading
+      // Get current truck inventory for capacity validation
+      const { data: inventoryData } = await ctx.supabase
+        .from('truck_inventory')
+        .select(`
+          *,
+          product:product_id (
+            name,
+            sku,
+            variant_name,
+            capacity_kg,
+            tare_weight_kg
+          )
+        `)
+        .eq('truck_id', input.truck_id);
+
+      // Process inventory with weight calculations
+      const inventory = processTruckInventory(inventoryData);
+
+      const truckWithInventory: TruckWithInventory = {
+        ...truck,
+        capacity_kg: truck.capacity_kg || (truck.capacity_cylinders * 27), // Calculate from capacity_cylinders if not set
+        status: truck.active ? 'active' : 'inactive', // Derive from active field
+        inventory // Include actual inventory for capacity calculation
+      };
+
+      // Validate capacity constraints
+      const validationResult = validateTruckLoadingCapacity(truckWithInventory, input.items);
+      
+      if (!validationResult.is_valid) {
+        const errorMessage = `Truck loading capacity validation failed: ${validationResult.errors.join(', ')}`;
+        ctx.logger.error('Truck loading capacity validation failed:', {
+          loadingId: `load_${Date.now()}`,
+          truckId: input.truck_id,
+          fleetNumber: truck.fleet_number,
+          capacityCheck: validationResult.capacity_check,
+          errors: validationResult.errors,
+          warnings: validationResult.warnings,
+          user_id: user.id
+        });
+        
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: errorMessage,
+        });
+      }
+
+      // Log warnings if any
+      if (validationResult.warnings.length > 0) {
+        ctx.logger.warn('Truck loading capacity warnings:', {
+          truckId: input.truck_id,
+          fleetNumber: truck.fleet_number,
+          warnings: validationResult.warnings,
+          capacityCheck: validationResult.capacity_check
+        });
+      }
+
       const results = [];
       const processedItems = [];
       let completedItems = 0;
@@ -1492,13 +1645,15 @@ export const trucksRouter = router({
       
       // Enhanced logging for truck loading process
       const loadingId = `load_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
-      ctx.logger.info(`[${loadingId}] 🚀 Starting truck loading process`, {
+      ctx.logger.info(`[${loadingId}] 🚀 Starting truck loading process (CAPACITY VALIDATED)`, {
         loadingId,
         truckId: input.truck_id,
         warehouseId: input.warehouse_id,
         itemCount: input.items.length,
         truckFleetNumber: truck.fleet_number,
-        warehouseName: warehouse.name
+        warehouseName: warehouse.name,
+        capacityCheck: validationResult.capacity_check,
+        validationWarnings: validationResult.warnings
       });
       
       // Process each item using the atomic transfer function
@@ -1986,4 +2141,5 @@ export const trucksRouter = router({
 
       return result;
     }),
+
 });

@@ -275,7 +275,137 @@ export function findBestTruckForOrder(
 }
 
 /**
+ * Validate truck loading capacity constraints
+ * Implements the requirement: "Do not allow confirmation if either weight > capacity OR bottle count > slots"
+ */
+export function validateTruckLoadingCapacity(
+  truck: TruckWithInventory,
+  itemsToLoad: Array<{ product_id: string; qty_full: number; qty_empty: number; weight_kg?: number }>
+): {
+  is_valid: boolean;
+  warnings: string[];
+  errors: string[];
+  capacity_check: {
+    current_cylinders: number;
+    cylinders_to_add: number;
+    total_cylinders_after: number;
+    cylinder_capacity: number;
+    cylinder_overflow: number;
+    current_weight_kg: number;
+    weight_to_add_kg: number;
+    total_weight_after_kg: number;
+    weight_capacity_kg: number;
+    weight_overflow_kg: number;
+  };
+} {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  // Check truck status first
+  if (!truck.active) {
+    errors.push('Truck is inactive');
+  }
+
+  if (truck.status === 'maintenance') {
+    errors.push('Truck is scheduled for maintenance');
+  }
+
+  if (truck.status === 'inactive') {
+    errors.push('Truck status is inactive');
+  }
+
+  // Calculate current truck inventory
+  const currentInventory = truck.inventory || [];
+  const current_cylinders = currentInventory.reduce(
+    (sum, item) => sum + (item.qty_full || 0) + (item.qty_empty || 0), 
+    0
+  );
+  
+  // Calculate current weight
+  const current_weight_kg = currentInventory.reduce((sum, item) => {
+    // Use pre-calculated weight if available, otherwise estimate
+    if (item.weight_kg) {
+      return sum + item.weight_kg;
+    }
+    // Default estimation: 27kg per full cylinder, 14kg per empty cylinder
+    return sum + (item.qty_full * 27) + (item.qty_empty * 14);
+  }, 0);
+
+  // Calculate new items to be loaded
+  const cylinders_to_add = itemsToLoad.reduce(
+    (sum, item) => sum + item.qty_full + item.qty_empty, 
+    0
+  );
+  
+  const weight_to_add_kg = itemsToLoad.reduce((sum, item) => {
+    if (item.weight_kg) {
+      return sum + item.weight_kg;
+    }
+    // Default estimation: 27kg per full cylinder, 14kg per empty cylinder
+    return sum + (item.qty_full * 27) + (item.qty_empty * 14);
+  }, 0);
+
+  // Calculate totals after loading
+  const total_cylinders_after = current_cylinders + cylinders_to_add;
+  const total_weight_after_kg = current_weight_kg + weight_to_add_kg;
+
+  // Get truck capacities
+  const cylinder_capacity = truck.capacity_cylinders;
+  const weight_capacity_kg = truck.capacity_kg || (cylinder_capacity * 27); // Default: assume 27kg per cylinder capacity
+
+  // Calculate overflows
+  const cylinder_overflow = total_cylinders_after - cylinder_capacity;
+  const weight_overflow_kg = total_weight_after_kg - weight_capacity_kg;
+
+  const capacity_check = {
+    current_cylinders,
+    cylinders_to_add,
+    total_cylinders_after,
+    cylinder_capacity,
+    cylinder_overflow,
+    current_weight_kg,
+    weight_to_add_kg,
+    total_weight_after_kg,
+    weight_capacity_kg,
+    weight_overflow_kg
+  };
+
+  // CRITICAL VALIDATION: Do not allow confirmation if either constraint is violated
+  if (cylinder_overflow > 0) {
+    errors.push(
+      `Cylinder capacity exceeded: trying to load ${cylinders_to_add} cylinders but only ${cylinder_capacity - current_cylinders} slots available (${total_cylinders_after}/${cylinder_capacity} total)`
+    );
+  }
+
+  if (weight_overflow_kg > 0) {
+    errors.push(
+      `Weight capacity exceeded: trying to load ${weight_to_add_kg.toFixed(1)}kg but only ${(weight_capacity_kg - current_weight_kg).toFixed(1)}kg capacity available (${total_weight_after_kg.toFixed(1)}/${weight_capacity_kg.toFixed(1)}kg total)`
+    );
+  }
+
+  // Warnings for near-capacity situations
+  const cylinder_utilization = (total_cylinders_after / cylinder_capacity) * 100;
+  const weight_utilization = (total_weight_after_kg / weight_capacity_kg) * 100;
+
+  if (cylinder_utilization > 90 && cylinder_overflow <= 0) {
+    warnings.push(`High cylinder utilization after loading: ${cylinder_utilization.toFixed(1)}% (${total_cylinders_after}/${cylinder_capacity})`);
+  }
+
+  if (weight_utilization > 90 && weight_overflow_kg <= 0) {
+    warnings.push(`High weight utilization after loading: ${weight_utilization.toFixed(1)}% (${total_weight_after_kg.toFixed(1)}/${weight_capacity_kg.toFixed(1)}kg)`);
+  }
+
+  return {
+    is_valid: errors.length === 0,
+    warnings,
+    errors,
+    capacity_check
+  };
+}
+
+/**
  * Validate truck allocation for potential issues
+ * Enhanced to include both weight and cylinder capacity checks
  */
 export function validateTruckAllocation(
   truck: TruckWithInventory,
@@ -304,11 +434,29 @@ export function validateTruckAllocation(
     errors.push('Truck status is inactive');
   }
 
-  // Check capacity
+  // Check capacity using enhanced calculation
   const capacity_info = calculateTruckCapacity(truck, existingAllocations, targetDate);
   
+  // ENHANCED: Check both weight and cylinder capacity constraints
+  const weight_capacity_kg = truck.capacity_kg || (truck.capacity_cylinders * 27);
+  
   if (orderWeight > capacity_info.available_weight_kg) {
-    errors.push(`Order weight (${orderWeight}kg) exceeds available capacity (${capacity_info.available_weight_kg}kg)`);
+    errors.push(`Order weight (${orderWeight}kg) exceeds available weight capacity (${capacity_info.available_weight_kg}kg)`);
+  }
+
+  // Calculate current cylinder count from inventory
+  const currentInventory = truck.inventory || [];
+  const current_cylinders = currentInventory.reduce(
+    (sum, item) => sum + (item.qty_full || 0) + (item.qty_empty || 0), 
+    0
+  );
+  
+  // Estimate cylinders needed for order (rough estimation)
+  const estimated_cylinders_needed = Math.ceil(orderWeight / 20); // Rough estimate: 20kg average per cylinder
+  const available_cylinder_slots = truck.capacity_cylinders - current_cylinders;
+  
+  if (estimated_cylinders_needed > available_cylinder_slots) {
+    errors.push(`Order requires approximately ${estimated_cylinders_needed} cylinders but only ${available_cylinder_slots} slots available`);
   }
 
   const utilization_after = ((capacity_info.allocated_weight_kg + orderWeight) / capacity_info.total_capacity_kg) * 100;
@@ -408,6 +556,36 @@ export function calculateFleetUtilization(
     overallocated_trucks: schedules.filter(s => s.capacity_info.is_overallocated).length,
     maintenance_due_trucks: schedules.filter(s => s.maintenance_due).length
   };
+}
+
+/**
+ * Process truck inventory data with weight calculations
+ * Extracted from duplicated logic in trucks.ts routes
+ */
+export function processTruckInventory(inventoryData: any[] | null): any[] {
+  return (inventoryData || []).map((item: any) => {
+    const product = item.product;
+    let weight_kg = 0;
+    
+    if (product && product.capacity_kg && product.tare_weight_kg) {
+      weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
+                 (item.qty_empty * product.tare_weight_kg);
+    } else {
+      // Use default weights if product details not available
+      weight_kg = (item.qty_full * 27) + (item.qty_empty * 14);
+    }
+
+    return {
+      product_id: item.product_id,
+      product_name: product?.name || 'Unknown Product',
+      product_sku: product?.sku || '',
+      product_variant_name: product?.variant_name,
+      qty_full: item.qty_full,
+      qty_empty: item.qty_empty,
+      weight_kg,
+      updated_at: item.updated_at
+    };
+  });
 }
 
 /**

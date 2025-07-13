@@ -8,11 +8,13 @@ import { customersRouter } from './customers';
 import { analyticsRouter } from './analytics';
 import { adminRouter } from './admin';
 import { trucksRouter } from './trucks';
+import { tripsRouter } from './trips';
 import { warehousesRouter } from './warehouses';
 import { productsRouter } from './products';
 // import { stockMovementsRouter } from './stock-movements';
 import { deliveriesRouter } from './deliveries';
 import { depositsRouter } from './deposits';
+import { usersRouter } from './users';
 // import { driverRouter } from './driver'; // Temporarily disabled
 import { paymentsRouter } from './payments';
 
@@ -26,11 +28,13 @@ export const appRouter = router({
   analytics: analyticsRouter as any,
   admin: adminRouter as any,
   trucks: trucksRouter as any,
+  trips: tripsRouter as any,
   warehouses: warehousesRouter as any,
   products: productsRouter as any,
   // stockMovements: stockMovementsRouter as any,
   deliveries: deliveriesRouter as any,
   deposits: depositsRouter as any,
+  users: usersRouter as any,
   // driver: driverRouter as any, // Temporarily disabled
   payments: paymentsRouter as any,
 });

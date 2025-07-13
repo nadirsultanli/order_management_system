@@ -29,6 +29,12 @@ import CreateTruckPage from './pages/CreateTruckPage';
 import { TruckCapacityDashboard } from './pages/TruckCapacityDashboard';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { DepositsPage } from './pages/DepositsPage';
+import { TripManagementPage } from './pages/TripManagementPage';
+import { TripDetailPage } from './pages/TripDetailPage';
+import { TripLoadingPage } from './pages/TripLoadingPage';
+import { TripSchedulePage } from './pages/TripSchedulePage';
+import { CreateTripPage } from './pages/CreateTripPage';
+import { UsersPage } from './pages/UsersPage';
 
 function App() {
   return (
@@ -65,11 +71,19 @@ function App() {
             <Route path="deliveries" element={<DeliveriesPage />} />
             <Route path="deposits" element={<DepositsPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="users" element={<UsersPage />} />
             <Route path="trucks">
               <Route index element={<TrucksPage />} />
               <Route path="new" element={<CreateTruckPage />} />
               <Route path="capacity" element={<TruckCapacityDashboard />} />
               <Route path=":id" element={<TruckDetailPage />} />
+            </Route>
+            <Route path="trips">
+              <Route index element={<TripManagementPage />} />
+              <Route path="schedule" element={<TripSchedulePage />} />
+              <Route path="new" element={<CreateTripPage />} />
+              <Route path=":id" element={<TripDetailPage />} />
+              <Route path=":id/loading" element={<TripLoadingPage />} />
             </Route>
           </Route>
         </Routes>

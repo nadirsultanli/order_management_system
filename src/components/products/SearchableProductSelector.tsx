@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Package, ChevronDown, Search } from 'lucide-react';
 
 interface SearchableProductSelectorProps {
-  products: { id: string; name: string; sku: string; variant?: 'outright' | 'refill' }[];
+  products?: { id: string; name: string; sku: string; variant?: 'outright' | 'refill' }[];
   value?: string;
   onChange: (productId: string) => void;
   placeholder?: string;
@@ -23,11 +23,11 @@ export const SearchableProductSelector: React.FC<SearchableProductSelectorProps>
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const filteredProducts = products.filter((p) =>
+  const filteredProducts = (products || []).filter((p) =>
     `${p.name} ${p.sku}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const selected = products.find((p) => p.id === value);
+  const selected = (products || []).find((p) => p.id === value);
 
   const displayText = selected ? `${selected.name} (${selected.sku}${selected.variant ? ` • ${selected.variant}` : ''})` : placeholder;
 
