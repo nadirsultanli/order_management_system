@@ -510,7 +510,7 @@ export const EditOrderPage: React.FC = () => {
                   <option value="">Select warehouse...</option>
                   {safeWarehouses.map(warehouse => (
                     <option key={warehouse.id} value={warehouse.id}>
-                      {warehouse.name} - {warehouse.city || 'Unknown Location'}
+                      {warehouse.name}
                     </option>
                   )) || []}
                 </select>
@@ -525,7 +525,7 @@ export const EditOrderPage: React.FC = () => {
                 Previous
               </button>
               <button
-                onClick={() => setCurrentStep(3)}
+                onClick={() => setCurrentStep(orderType === 'visit' ? 4 : 3)}
                 disabled={!canProceedToStep3}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
