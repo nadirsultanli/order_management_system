@@ -61,13 +61,17 @@ export const EditOrderPage: React.FC = () => {
   
   // Hooks
   const { data: order, isLoading: orderLoading } = useOrderNew(orderId || '');
-  const { data: customers = [], isLoading: customersLoading } = useCustomers();
+  const { data: customersData, isLoading: customersLoading } = useCustomers({ limit: 1000 });
   const { data: addresses = [], isLoading: addressesLoading } = useAddresses(selectedCustomerId);
-  const { data: products = [], isLoading: productsLoading } = useProducts();
-  const { data: warehouses = [], isLoading: warehousesLoading } = useWarehouses();
+  const { data: productsData, isLoading: productsLoading } = useProducts({ limit: 1000 });
+  const { data: warehousesData, isLoading: warehousesLoading } = useWarehouses({ limit: 1000 });
   const { data: inventory = [], isLoading: inventoryLoading } = useInventoryNew(selectedWarehouseId);
   const productIds = orderLines?.map(line => line.product_id) || [];
   const { data: productPrices = [], isLoading: pricesLoading } = useProductPrices(productIds, selectedCustomerId);
+  
+  const customers = customersData?.customers || [];
+  const products = productsData?.products || [];
+  const warehouses = warehousesData?.warehouses || [];
   const { mutate: createAddress } = useCreateAddress();
   const { mutate: updateOrder, isLoading: isUpdating } = useUpdateOrder();
 
