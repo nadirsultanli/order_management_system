@@ -74,7 +74,7 @@ export const tripsRouter = router({
       
       // Apply filters
       if (input.search) {
-        query = query.or(`route_status.ilike.%${input.search}%,loading_notes.ilike.%${input.search}%`);
+        query = query.or(`route_status.ilike.%${input.search}%,trip_notes.ilike.%${input.search}%`);
       }
       
       if (input.status) {
@@ -398,24 +398,61 @@ export const tripsRouter = router({
       
       ctx.logger.info('Creating new trip:', input);
       
+      // Note: driver_id validation will be handled by the foreign key constraint
+      // The database will reject invalid driver_id values automatically
+      
+      // Prepare insert data with conditional fields
+      const insertData: any = {
+        truck_id: input.truck_id,
+        route_date: input.route_date,
+        warehouse_id: input.warehouse_id,
+        planned_start_time: input.planned_start_time,
+        planned_end_time: input.planned_end_time,
+        route_status: 'planned',
+        created_by_user_id: user.id,
+      };
+
+      // Only include driver_id if provided and not empty
+      if (input.driver_id) {
+        insertData.driver_id = input.driver_id;
+      }
+
+      // Only include trip_notes if provided
+      if (input.trip_notes) {
+        insertData.trip_notes = input.trip_notes;
+      }
+
       const { data, error } = await ctx.supabase
         .from('truck_routes')
-        .insert({
-          truck_id: input.truck_id,
-          route_date: input.route_date,
-          warehouse_id: input.warehouse_id,
-          driver_id: input.driver_id,
-          planned_start_time: input.planned_start_time,
-          planned_end_time: input.planned_end_time,
-          loading_notes: input.trip_notes,
-          route_status: 'planned',
-          created_by_user_id: user.id,
-        })
+        .insert(insertData)
         .select('*')
         .single();
 
       if (error) {
         ctx.logger.error('Error creating trip:', error);
+        
+        // Handle specific database constraint errors
+        if (error.code === '23503') {
+          if (error.message.includes('fk_truck_routes_driver')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid driver_id. The specified driver does not exist in the system.',
+            });
+          }
+          if (error.message.includes('truck_id')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid truck_id. The specified truck does not exist.',
+            });
+          }
+          if (error.message.includes('warehouse_id')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid warehouse_id. The specified warehouse does not exist.',
+            });
+          }
+        }
+        
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to create trip: ${formatErrorMessage(error)}`,
@@ -679,7 +716,7 @@ export const tripsRouter = router({
       }
 
       if (input.notes) {
-        updateData.loading_notes = input.notes;
+        updateData.trip_notes = input.notes;
       }
 
       const { data, error } = await ctx.supabase
@@ -901,7 +938,7 @@ export const tripsRouter = router({
         .update({
           route_status: 'loading',
           load_started_at: new Date().toISOString(),
-          loading_notes: input.notes,
+          ...(input.notes && { trip_notes: input.notes }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', input.trip_id)
@@ -1243,14 +1280,11 @@ export const tripsRouter = router({
       };
 
       if (input.final_notes) {
-        updateData.loading_notes = input.final_notes;
+        updateData.trip_notes = input.final_notes;
       }
 
-      if (summary) {
-        updateData.total_loaded_weight_kg = summary.total_loaded_cylinders * 27; // Estimate weight
-        updateData.loading_variance_count = summary.variance_count;
-        updateData.short_loading_flag = summary.has_short_loading;
-      }
+      // Note: Loading metrics stored in trip_loading_details table
+      // summary data available but not stored directly in truck_routes
 
       const { data: updatedTrip, error: updateError } = await ctx.supabase
         .from('truck_routes')

@@ -11,8 +11,6 @@ import {
   DollarSign,
   Truck,
   ArrowLeftRight,
-  TrendingUp,
-  PackageCheck,
   CircleDollarSign,
   Route
 } from 'lucide-react';
@@ -32,12 +30,10 @@ const navigation = [
   { name: 'Warehouses', href: '/warehouses', icon: Warehouse },
   { name: 'Inventory', href: '/inventory', icon: BarChart3 },
   { name: 'Trucks', href: '/trucks', icon: Truck },
-  { name: 'Fleet Capacity', href: '/trucks/capacity', icon: TrendingUp },
   { name: 'Trip Management', href: '/trips', icon: Route },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
   { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight },
-  { name: 'Deliveries & Pickups', href: '/deliveries', icon: PackageCheck },
   { name: 'Deposits', href: '/deposits', icon: CircleDollarSign }
 ];
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Calendar, Filter, Download } from 'lucide-react';
+import { Plus, Filter } from 'lucide-react';
 import { TripCard } from '../components/trips/TripCard';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { useTrips, useUpdateTrip } from '../hooks/useTrips';
@@ -95,13 +95,6 @@ export const TripManagementPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center space-x-3">
-          <Link
-            to="/trips/schedule"
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <Calendar className="-ml-1 mr-2 h-4 w-4" />
-            Schedule View
-          </Link>
           <Link
             to="/trips/new"
             className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"

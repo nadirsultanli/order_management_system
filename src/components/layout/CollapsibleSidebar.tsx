@@ -14,9 +14,7 @@ import {
   ArrowLeftRight,
   X,
   BarChart3,
-  TrendingUp,
   Route,
-  PackageCheck,
   CircleDollarSign
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
@@ -55,12 +53,10 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     { path: '/warehouses', label: 'Warehouses', icon: Warehouse },
     { path: '/inventory', label: 'Inventory', icon: BarChart3 },
     { path: '/trucks', label: 'Trucks', icon: Truck },
-    { path: '/trucks/capacity', label: 'Fleet Capacity', icon: TrendingUp },
     { path: '/trips', label: 'Trip Management', icon: Route },
     { path: '/pricing', label: 'Pricing', icon: DollarSign },
     { path: '/orders', label: 'Orders', icon: ShoppingCart },
     { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
-    { path: '/deliveries', label: 'Deliveries & Pickups', icon: PackageCheck },
     { path: '/deposits', label: 'Deposits', icon: CircleDollarSign }
   ];
 

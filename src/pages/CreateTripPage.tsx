@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Truck, Loader2, Calendar, Clock, MapPin, User, FileText } from 'lucide-react';
+import { ArrowLeft, Truck, Loader2, Calendar, MapPin, User } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { useCreateTrip } from '../hooks/useTrips';
 import { useTrucks } from '../hooks/useTrucks';
@@ -17,10 +17,7 @@ export const CreateTripPage: React.FC = () => {
     truck_id: '',
     route_date: '',
     warehouse_id: '',
-    driver_id: '',
-    planned_start_time: '',
-    planned_end_time: '',
-    trip_notes: ''
+    driver_id: ''
   });
 
   const loading = createTrip.isLoading;
@@ -54,23 +51,11 @@ export const CreateTripPage: React.FC = () => {
         throw new Error('Please select a warehouse');
       }
 
-      // Validate time format if provided
-      const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (formData.planned_start_time && !timeRegex.test(formData.planned_start_time)) {
-        throw new Error('Planned start time must be in HH:MM format');
-      }
-      if (formData.planned_end_time && !timeRegex.test(formData.planned_end_time)) {
-        throw new Error('Planned end time must be in HH:MM format');
-      }
-
       const data = {
         truck_id: formData.truck_id,
         route_date: formData.route_date,
         warehouse_id: formData.warehouse_id,
         driver_id: formData.driver_id || undefined,
-        planned_start_time: formData.planned_start_time || undefined,
-        planned_end_time: formData.planned_end_time || undefined,
-        trip_notes: formData.trip_notes || undefined,
       };
 
       const result = await createTrip.mutateAsync(data);
@@ -234,59 +219,6 @@ export const CreateTripPage: React.FC = () => {
                   </option>
                 ))}
               </select>
-            </div>
-
-            {/* Planned Times */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="planned_start_time" className="block text-sm font-medium text-gray-700">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Planned Start Time
-                  </div>
-                </label>
-                <input
-                  type="time"
-                  id="planned_start_time"
-                  value={formData.planned_start_time}
-                  onChange={(e) => setFormData({ ...formData, planned_start_time: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="planned_end_time" className="block text-sm font-medium text-gray-700">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Planned End Time
-                  </div>
-                </label>
-                <input
-                  type="time"
-                  id="planned_end_time"
-                  value={formData.planned_end_time}
-                  onChange={(e) => setFormData({ ...formData, planned_end_time: e.target.value })}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-            </div>
-
-            {/* Trip Notes */}
-            <div>
-              <label htmlFor="trip_notes" className="block text-sm font-medium text-gray-700">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Trip Notes
-                </div>
-              </label>
-              <textarea
-                id="trip_notes"
-                rows={3}
-                value={formData.trip_notes}
-                onChange={(e) => setFormData({ ...formData, trip_notes: e.target.value })}
-                placeholder="Optional notes about this trip..."
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
             </div>
           </div>
 
