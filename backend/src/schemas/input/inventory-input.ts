@@ -107,4 +107,56 @@ export const CheckAvailabilitySchema = z.object({
   })),
   delivery_date: z.string().optional(),
   priority: z.enum(['normal', 'high', 'urgent']).default('normal'),
-}); 
+});
+
+// ============ Warehouse Operations Schemas (Document Steps 3 & 4) ============
+
+// Receipt Management (Document 4.1 - Receiving Stock)
+export const CreateReceiptSchema = z.object({
+  warehouse_id: z.string().uuid(),
+  supplier_dn_number: z.string().optional(),
+  truck_registration: z.string().optional(),
+  driver_name: z.string().optional(),
+  receipt_date: z.string().optional(), // ISO date string
+  notes: z.string().optional(),
+  receipt_lines: z.array(z.object({
+    product_id: z.string().uuid(),
+    qty_expected: z.number().min(0),
+    qty_received_good: z.number().min(0),
+    qty_received_damaged: z.number().min(0),
+    condition_flag: z.enum(['good', 'damaged']),
+    notes: z.string().optional(),
+  })).min(1),
+});
+
+// Enhanced Transfer Management (Document 4.2 - Warehouse-to-Warehouse Transfer)
+export const InitiateTransferSchema = z.object({
+  source_warehouse_id: z.string().uuid(),
+  destination_warehouse_id: z.string().uuid(),
+  product_id: z.string().uuid(),
+  qty_full: z.number().min(0),
+  qty_empty: z.number().min(0),
+  reference_number: z.string().optional(),
+});
+
+export const CompleteTransferSchema = z.object({
+  transfer_id: z.string().uuid(),
+  product_id: z.string().uuid(),
+  qty_full_received: z.number().min(0),
+  qty_empty_received: z.number().min(0),
+});
+
+// Cycle Count Management (Document 4.3 - Periodic Cycle Counts)
+export const CreateCycleCountSchema = z.object({
+  warehouse_id: z.string().uuid(),
+  count_date: z.string().optional(), // ISO date string
+  notes: z.string().optional(),
+  cycle_count_lines: z.array(z.object({
+    product_id: z.string().uuid(),
+    system_qty_full: z.number().min(0),
+    system_qty_empty: z.number().min(0),
+    counted_qty_full: z.number().min(0),
+    counted_qty_empty: z.number().min(0),
+    notes: z.string().optional(),
+  })).min(1),
+});
