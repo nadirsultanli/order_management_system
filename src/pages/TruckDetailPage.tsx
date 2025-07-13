@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Truck, Package, Edit, ArrowLeft } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { Truck, Package, Edit, ArrowLeft, Route, Calendar } from 'lucide-react';
 import { TruckForm } from '../components/trucks/TruckForm';
 import { TruckInventoryTransfer } from '../components/trucks/TruckInventoryTransfer';
 import { useTruck } from '../hooks/useTrucks';
@@ -94,13 +94,22 @@ export const TruckDetailPage: React.FC = () => {
                 {truck.active ? 'Active' : 'Inactive'}
               </span>
             </div>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </button>
+            <div className="flex items-center space-x-3">
+              <Link
+                to={`/trips?truck_id=${truck.id}`}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Route className="h-4 w-4 mr-2" />
+                View Trips
+              </Link>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </button>
+            </div>
           </div>
         </div>
 
@@ -181,6 +190,61 @@ export const TruckDetailPage: React.FC = () => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Trip Management Section */}
+      <div className="mt-8">
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center">
+                <Route className="h-5 w-5 text-gray-400" />
+                <h2 className="ml-2 text-lg font-medium text-gray-900">Trip Management</h2>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Link
+                  to={`/trips?truck_id=${truck.id}`}
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  View All Trips
+                </Link>
+                <Link
+                  to="/trips"
+                  className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  <Route className="h-4 w-4 mr-2" />
+                  Trip Management
+                </Link>
+              </div>
+            </div>
+          </div>
+          <div className="px-6 py-4">
+            <p className="text-sm text-gray-600 mb-4">
+              Create and manage trips for this truck. Plan routes, load inventory, and track deliveries.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="border rounded-lg p-4 text-center">
+                <Calendar className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Today's Trips</h3>
+                <p className="text-2xl font-bold text-blue-600">-</p>
+                <p className="text-xs text-gray-500">Planned for today</p>
+              </div>
+              <div className="border rounded-lg p-4 text-center">
+                <Route className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Active Trips</h3>
+                <p className="text-2xl font-bold text-green-600">-</p>
+                <p className="text-xs text-gray-500">Currently in progress</p>
+              </div>
+              <div className="border rounded-lg p-4 text-center">
+                <Package className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+                <h3 className="text-sm font-medium text-gray-900 mb-1">Load Status</h3>
+                <p className="text-2xl font-bold text-purple-600">{capacityPercentage.toFixed(0)}%</p>
+                <p className="text-xs text-gray-500">Current capacity</p>
+              </div>
             </div>
           </div>
         </div>

@@ -19,6 +19,11 @@ export const TripManagementPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState<string>(filters.search || '');
 
   const { data, isLoading: loading, error } = useTrips(filters);
+  
+  // Debug: Log the API response
+  React.useEffect(() => {
+    console.log('Trip Management Debug:', { data, loading, error, filters });
+  }, [data, loading, error, filters]);
   const updateTrip = useUpdateTrip();
 
   // Debounced search effect
@@ -285,7 +290,25 @@ export const TripManagementPage: React.FC = () => {
           <div className="flex">
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">{error.message}</h3>
+              <p className="text-xs text-red-600 mt-1">
+                Debug: Check browser console for more details. Make sure backend server is running.
+              </p>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-6 rounded-md bg-blue-50 p-4">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">Debug Information:</h3>
+          <div className="text-xs text-blue-600 space-y-1">
+            <p>Loading: {loading ? 'Yes' : 'No'}</p>
+            <p>Error: {error ? error.message : 'None'}</p>
+            <p>Data: {data ? `${data.trips?.length || 0} trips loaded` : 'No data'}</p>
+            <p>Total Count: {data?.totalCount || 0}</p>
+            <p>Current Page: {data?.currentPage || 1}</p>
+            <p>Backend URL: Check if backend server is running on correct port</p>
           </div>
         </div>
       )}
