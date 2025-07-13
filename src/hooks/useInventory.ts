@@ -151,6 +151,116 @@ export const useCreateInventoryNew = () => {
   });
 };
 
+// Hook for creating receipts (Document 4.1 - Receiving Stock)
+export const useCreateReceipt = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.inventory.createReceipt.useMutation({
+    onSuccess: (receipt) => {
+      console.log('Receipt created successfully:', receipt);
+      
+      // Invalidate inventory queries to refetch updated data
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      
+      toast.success('Receipt created successfully');
+    },
+    onError: (error) => {
+      console.error('Receipt creation error:', error);
+      toast.error(error.message || 'Failed to create receipt');
+    },
+  });
+};
+
+// Hook for listing receipts
+export const useListReceipts = (filters: {
+  warehouse_id?: string;
+  status?: 'open' | 'partial' | 'completed' | 'cancelled';
+  page?: number;
+  limit?: number;
+} = {}) => {
+  return trpc.inventory.listReceipts.useQuery({
+    warehouse_id: filters.warehouse_id,
+    status: filters.status,
+    page: filters.page || 1,
+    limit: filters.limit || 15,
+  }, {
+    enabled: true,
+    staleTime: 30000,
+    retry: 1,
+    onError: (error) => {
+      console.error('Receipts fetch error:', error);
+      toast.error('Failed to load receipts');
+    }
+  });
+};
+
+// Hook for creating cycle counts (Document 4.3)
+export const useCreateCycleCount = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.inventory.createCycleCount.useMutation({
+    onSuccess: (cycleCount) => {
+      console.log('Cycle count created successfully:', cycleCount);
+      
+      // Invalidate inventory queries
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      
+      toast.success('Cycle count created successfully');
+    },
+    onError: (error) => {
+      console.error('Cycle count creation error:', error);
+      toast.error(error.message || 'Failed to create cycle count');
+    },
+  });
+};
+
+// Hook for enhanced warehouse transfers (Document 4.2)
+export const useInitiateTransfer = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.inventory.initiateTransfer.useMutation({
+    onSuccess: (transfer) => {
+      console.log('Transfer initiated successfully:', transfer);
+      
+      // Invalidate inventory queries
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      
+      toast.success('Transfer initiated successfully');
+    },
+    onError: (error) => {
+      console.error('Transfer initiation error:', error);
+      toast.error(error.message || 'Failed to initiate transfer');
+    },
+  });
+};
+
+export const useCompleteTransfer = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.inventory.completeTransfer.useMutation({
+    onSuccess: (transfer) => {
+      console.log('Transfer completed successfully:', transfer);
+      
+      // Invalidate inventory queries
+      utils.inventory.list.invalidate();
+      utils.inventory.getByWarehouse.invalidate();
+      utils.inventory.getStats.invalidate();
+      
+      toast.success('Transfer completed successfully');
+    },
+    onError: (error) => {
+      console.error('Transfer completion error:', error);
+      toast.error(error.message || 'Failed to complete transfer');
+    },
+  });
+};
+
 // Utility hook to get inventory context
 export const useInventoryContext = () => {
   return trpc.useContext().inventory;

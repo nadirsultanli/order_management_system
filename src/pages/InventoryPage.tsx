@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Package } from 'lucide-react';
 import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
 import { SearchableProductSelector } from '../components/products/SearchableProductSelector';
 import { useAdjustStockNew, useTransferStockNew, useCreateInventoryNew } from '../hooks/useInventory';
@@ -11,6 +11,7 @@ import { InventoryFilters } from '../components/inventory/InventoryFilters';
 import { InventoryStats } from '../components/inventory/InventoryStats';
 import { StockAdjustmentModal } from '../components/inventory/StockAdjustmentModal';
 import { StockTransferModal } from '../components/inventory/StockTransferModal';
+import { ReceiveInventoryModal } from '../components/inventory/ReceiveInventoryModal';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { InventoryBalance, InventoryFilters as FilterType, StockAdjustmentData, StockTransferData, CreateInventoryBalanceData } from '../types/inventory';
 
@@ -19,6 +20,7 @@ export const InventoryPage: React.FC = () => {
   const [adjustingInventory, setAdjustingInventory] = useState<InventoryBalance | null>(null);
   const [transferringInventory, setTransferringInventory] = useState<InventoryBalance | null>(null);
   const [showAddStockModal, setShowAddStockModal] = useState(false);
+  const [showReceiveInventoryModal, setShowReceiveInventoryModal] = useState(false);
 
   const { data, isLoading, error, refetch } = useInventoryWithClientSearch(filters);
   const { data: productsData } = useProducts({ limit: 1000 });
@@ -55,6 +57,16 @@ export const InventoryPage: React.FC = () => {
   const handleAddStock = () => {
     console.log('Adding new stock');
     setShowAddStockModal(true);
+  };
+
+  const handleReceiveInventory = () => {
+    console.log('Receiving inventory');
+    setShowReceiveInventoryModal(true);
+  };
+
+  const handleReceiptCreated = () => {
+    console.log('Receipt created successfully');
+    refetch(); // Refresh inventory data
   };
 
   const handleAdjustmentSubmit = async (data: StockAdjustmentData) => {
@@ -114,6 +126,14 @@ export const InventoryPage: React.FC = () => {
         </div>
         <div className="flex items-center space-x-3">
           <button
+            onClick={handleReceiveInventory}
+            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            title="Receive inventory from suppliers or returns"
+          >
+            <Package className="h-4 w-4" />
+            <span>Receive Inventory</span>
+          </button>
+          <button
             onClick={handleAddStock}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             title="Add new inventory record"
@@ -167,6 +187,13 @@ export const InventoryPage: React.FC = () => {
         />
       )}
 
+      {/* Receive Inventory Modal */}
+      <ReceiveInventoryModal
+        isOpen={showReceiveInventoryModal}
+        onClose={() => setShowReceiveInventoryModal(false)}
+        onReceiptCreated={handleReceiptCreated}
+      />
+      
       {/* Add Stock Modal */}
       {showAddStockModal && (
         <AddStockModal
