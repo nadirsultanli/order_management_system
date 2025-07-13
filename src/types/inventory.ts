@@ -6,9 +6,7 @@ export interface InventoryBalance {
   qty_empty: number;
   qty_reserved: number;
   qty_quarantine?: number;
-  qty_damaged?: number;
   qty_in_transit?: number;
-  qty_under_maintenance?: number;
   updated_at: string;
   warehouse?: {
     id: string;

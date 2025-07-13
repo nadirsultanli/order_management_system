@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Edit, ArrowRightLeft, Loader2, AlertTriangle, Eye, Truck, AlertCircle, Wrench } from 'lucide-react';
+import { Package, Edit, ArrowRightLeft, Loader2, AlertTriangle, Eye, Truck, AlertCircle } from 'lucide-react';
 import { InventoryBalance } from '../../types/inventory';
 import { formatDateSync } from '../../utils/order';
 
@@ -148,7 +148,7 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
                       <StockStatusBadge 
-                        label="Reserved" 
+                        label="Allocated" 
                         count={item.qty_reserved} 
                         icon={<Eye className="h-3 w-3" />}
                         colorClass="text-blue-700 bg-blue-50"
@@ -160,22 +160,10 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                         colorClass="text-yellow-700 bg-yellow-50"
                       />
                       <StockStatusBadge 
-                        label="Damaged" 
-                        count={item.qty_damaged || 0} 
-                        icon={<AlertTriangle className="h-3 w-3" />}
-                        colorClass="text-red-700 bg-red-50"
-                      />
-                      <StockStatusBadge 
                         label="In Transit" 
                         count={item.qty_in_transit || 0} 
                         icon={<Truck className="h-3 w-3" />}
                         colorClass="text-purple-700 bg-purple-50"
-                      />
-                      <StockStatusBadge 
-                        label="Maintenance" 
-                        count={item.qty_under_maintenance || 0} 
-                        icon={<Wrench className="h-3 w-3" />}
-                        colorClass="text-gray-700 bg-gray-50"
                       />
                     </div>
                   </td>

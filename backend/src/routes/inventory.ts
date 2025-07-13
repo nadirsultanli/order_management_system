@@ -1380,13 +1380,17 @@ export const inventoryRouter = router({
 
         // Process inventory using the database function
         try {
-          await ctx.supabase.rpc('process_receipt_line', {
+          const { error: rpcError } = await ctx.supabase.rpc('process_receipt_line', {
             p_receipt_line_id: receiptLine.id,
             p_warehouse_id: input.warehouse_id,
             p_product_id: line.product_id,
             p_qty_good: line.qty_received_good,
             p_qty_damaged: line.qty_received_damaged,
           });
+          
+          if (rpcError) {
+            ctx.logger.error('Receipt processing RPC error:', rpcError);
+          }
         } catch (error) {
           ctx.logger.error('Failed to process receipt line:', error);
         }
@@ -1595,9 +1599,13 @@ export const inventoryRouter = router({
 
       // Process cycle count using database function
       try {
-        await ctx.supabase.rpc('process_cycle_count', {
+        const { error: rpcError } = await ctx.supabase.rpc('process_cycle_count', {
           p_cycle_count_id: cycleCount.id,
         });
+        
+        if (rpcError) {
+          ctx.logger.error('Cycle count processing RPC error:', rpcError);
+        }
       } catch (error) {
         ctx.logger.error('Failed to process cycle count:', error);
       }
