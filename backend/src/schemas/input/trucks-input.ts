@@ -221,7 +221,7 @@ export const UpdateTripStatusSchema = z.object({
 });
 
 export const GetTripByIdSchema = z.object({
-  trip_id: z.string().uuid(),
+  id: z.string().uuid(),
   include_details: z.boolean().optional().default(true),
   include_loading_details: z.boolean().optional().default(false),
   include_variance_records: z.boolean().optional().default(false),
@@ -234,6 +234,9 @@ export const GetTripsSchema = z.object({
   status: TripStatusEnum.optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),
+  search: z.string().optional(),
+  sort_by: z.string().optional(),
+  sort_order: z.enum(['asc', 'desc']).optional(),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(50),
 });

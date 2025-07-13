@@ -24,6 +24,349 @@ import {
 } from '../schemas/input/trucks-input';
 
 export const tripsRouter = router({
+  // ============ Trip Query Operations ============
+
+  // GET /trips - List trips with filters
+  list: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trips',
+        tags: ['trips'],
+        summary: 'List trips with filters',
+        description: 'Get paginated list of trips with optional filtering and sorting',
+        protect: true,
+      }
+    })
+    .input(GetTripsSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Listing trips with filters:', input);
+      
+      let query = ctx.supabase
+        .from('truck_routes')
+        .select(`
+          *,
+          truck:truck_id (
+            id,
+            fleet_number,
+            license_plate,
+            capacity_cylinders,
+            capacity_kg,
+            driver_name
+          )
+        `)
+        .order(input.sort_by || 'created_at', {
+          ascending: input.sort_order === 'asc'
+        });
+      
+      // Apply filters
+      if (input.search) {
+        query = query.or(`route_status.ilike.%${input.search}%,notes.ilike.%${input.search}%`);
+      }
+      
+      if (input.status) {
+        query = query.eq('route_status', input.status);
+      }
+      
+      if (input.truck_id) {
+        query = query.eq('truck_id', input.truck_id);
+      }
+      
+      if (input.date_from) {
+        query = query.gte('route_date', input.date_from);
+      }
+      
+      if (input.date_to) {
+        query = query.lte('route_date', input.date_to);
+      }
+      
+      // Count total records
+      const { count } = await ctx.supabase
+        .from('truck_routes')
+        .select('*', { count: 'exact', head: true });
+      
+      // Apply pagination
+      const page = input.page || 1;
+      const limit = input.limit || 15;
+      const offset = (page - 1) * limit;
+      
+      const { data: trips, error } = await query
+        .range(offset, offset + limit - 1);
+      
+      if (error) {
+        ctx.logger.error('Error fetching trips:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch trips: ${formatErrorMessage(error)}`,
+        });
+      }
+      
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / limit);
+      
+      return {
+        trips: trips || [],
+        currentPage: page,
+        totalPages,
+        totalCount,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      };
+    }),
+
+  // GET /trips/{id} - Get trip by ID
+  get: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trips/{id}',
+        tags: ['trips'],
+        summary: 'Get trip by ID',
+        description: 'Get detailed information about a specific trip',
+        protect: true,
+      }
+    })
+    .input(GetTripByIdSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Getting trip by ID:', input.id);
+      
+      const { data: trip, error } = await ctx.supabase
+        .from('truck_routes')
+        .select(`
+          *,
+          truck:truck_id (
+            id,
+            fleet_number,
+            license_plate,
+            capacity_cylinders,
+            capacity_kg,
+            driver_name
+          ),
+          truck_allocations (
+            id,
+            order_id,
+            stop_sequence,
+            status,
+            estimated_weight_kg,
+            actual_weight_kg,
+            order:order_id (
+              id,
+              order_number,
+              total_amount,
+              customer:customer_id (
+                id,
+                name,
+                email
+              ),
+              delivery_address:delivery_address_id (
+                line1,
+                city,
+                state,
+                postal_code
+              )
+            )
+          )
+        `)
+        .eq('id', input.id)
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Trip not found',
+          });
+        }
+        
+        ctx.logger.error('Error fetching trip:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch trip: ${formatErrorMessage(error)}`,
+        });
+      }
+      
+      return trip;
+    }),
+
+  // GET /trips/{id}/timeline - Get trip timeline
+  getTimeline: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trips/{id}/timeline',
+        tags: ['trips'],
+        summary: 'Get trip timeline',
+        description: 'Get chronological timeline of trip events and status changes',
+        protect: true,
+      }
+    })
+    .input(z.object({ trip_id: z.string() }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Getting trip timeline:', input.trip_id);
+      
+      // For now, return basic timeline from truck_routes timestamps
+      const { data: trip, error } = await ctx.supabase
+        .from('truck_routes')
+        .select('*')
+        .eq('id', input.trip_id)
+        .single();
+      
+      if (error) {
+        ctx.logger.error('Error fetching trip for timeline:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch trip timeline: ${formatErrorMessage(error)}`,
+        });
+      }
+      
+      const timeline = [];
+      
+      if (trip.created_at) {
+        timeline.push({
+          id: '1',
+          event: 'Trip Created',
+          timestamp: trip.created_at,
+          status: 'planned',
+          user_name: 'System',
+          details: 'Trip was created and is ready for planning'
+        });
+      }
+      
+      if (trip.load_started_at) {
+        timeline.push({
+          id: '2',
+          event: 'Loading Started',
+          timestamp: trip.load_started_at,
+          status: 'loading',
+          user_name: 'Driver',
+          details: 'Truck loading process has begun'
+        });
+      }
+      
+      if (trip.load_completed_at) {
+        timeline.push({
+          id: '3',
+          event: 'Loading Completed',
+          timestamp: trip.load_completed_at,
+          status: 'loaded',
+          user_name: 'Driver',
+          details: 'Truck loading has been completed'
+        });
+      }
+      
+      if (trip.actual_start_time) {
+        timeline.push({
+          id: '4',
+          event: 'Trip Departed',
+          timestamp: trip.actual_start_time,
+          status: 'in_transit',
+          user_name: 'Driver',
+          details: 'Truck has departed for deliveries'
+        });
+      }
+      
+      if (trip.actual_end_time) {
+        timeline.push({
+          id: '5',
+          event: 'Trip Completed',
+          timestamp: trip.actual_end_time,
+          status: 'completed',
+          user_name: 'Driver',
+          details: 'Trip has been completed successfully'
+        });
+      }
+      
+      return {
+        trip_id: input.trip_id,
+        timeline: timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      };
+    }),
+
+  // GET /trips/{id}/capacity - Get trip capacity info
+  getCapacity: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trips/{id}/capacity',
+        tags: ['trips'],
+        summary: 'Get trip capacity information',
+        description: 'Get detailed capacity utilization and loading information for a trip',
+        protect: true,
+      }
+    })
+    .input(z.object({ trip_id: z.string() }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Getting trip capacity info:', input.trip_id);
+      
+      // Get trip with truck info
+      const { data: trip, error: tripError } = await ctx.supabase
+        .from('truck_routes')
+        .select(`
+          *,
+          truck:truck_id (
+            capacity_cylinders,
+            capacity_kg
+          )
+        `)
+        .eq('id', input.trip_id)
+        .single();
+      
+      if (tripError) {
+        ctx.logger.error('Error fetching trip:', tripError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch trip: ${formatErrorMessage(tripError)}`,
+        });
+      }
+      
+      // Get loading details
+      const { data: loadingDetails } = await ctx.supabase
+        .from('trip_loading_details')
+        .select('*')
+        .eq('trip_id', input.trip_id);
+      
+      // Calculate capacity utilization
+      const totalLoadedCylinders = (loadingDetails || []).reduce((sum, item) => {
+        return sum + (item.loaded_qty_full || 0) + (item.loaded_qty_empty || 0);
+      }, 0);
+      
+      const totalLoadedWeight = (loadingDetails || []).reduce((sum, item) => {
+        return sum + (item.loaded_weight_kg || 0);
+      }, 0);
+      
+      const cylinderUtilization = trip.truck?.capacity_cylinders 
+        ? (totalLoadedCylinders / trip.truck.capacity_cylinders) * 100 
+        : 0;
+      
+      const weightUtilization = trip.truck?.capacity_kg 
+        ? (totalLoadedWeight / trip.truck.capacity_kg) * 100 
+        : 0;
+      
+      return {
+        trip_id: input.trip_id,
+        truck_capacity_cylinders: trip.truck?.capacity_cylinders || 0,
+        truck_capacity_kg: trip.truck?.capacity_kg || 0,
+        loaded_cylinders: totalLoadedCylinders,
+        loaded_weight_kg: totalLoadedWeight,
+        cylinder_utilization: cylinderUtilization,
+        weight_utilization: weightUtilization,
+        is_overloaded: cylinderUtilization > 100 || weightUtilization > 100,
+        loading_details_count: (loadingDetails || []).length
+      };
+    }),
+
   // ============ Trip Lifecycle Operations ============
 
   // POST /trips - Create new trip
