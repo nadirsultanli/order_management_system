@@ -65,7 +65,9 @@ export const EditOrderPage: React.FC = () => {
   const { data: addresses = [], isLoading: addressesLoading } = useAddresses(selectedCustomerId);
   const { data: productsData, isLoading: productsLoading } = useProducts({ limit: 1000 });
   const { data: warehousesData, isLoading: warehousesLoading } = useWarehouses({ limit: 1000 });
-  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryNew({ warehouse_id: selectedWarehouseId });
+  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryNew(
+    selectedWarehouseId ? { warehouse_id: selectedWarehouseId } : {}
+  );
   const productIds = orderLines?.map(line => line.product_id) || [];
   const { data: productPrices = [], isLoading: pricesLoading } = useProductPrices(productIds, selectedCustomerId);
   
@@ -78,10 +80,10 @@ export const EditOrderPage: React.FC = () => {
 
   // Load order data when component mounts
   useEffect(() => {
-    if (order && !isLoading) {
+    if (order && !orderLoading) {
       setOrderType(order.order_type);
-      setSelectedCustomerId(order.customer_id);
-      setSelectedAddressId(order.delivery_address_id);
+      setSelectedCustomerId(order.customer_id || '');
+      setSelectedAddressId(order.delivery_address_id || '');
       setSelectedWarehouseId(order.source_warehouse_id || '');
       setNotes(order.notes || '');
       
@@ -126,7 +128,7 @@ export const EditOrderPage: React.FC = () => {
       
       setIsLoading(false);
     }
-  }, [order, isLoading]);
+  }, [order, orderLoading]);
 
   useEffect(() => {
     setIsLoading(orderLoading);
@@ -459,8 +461,8 @@ export const EditOrderPage: React.FC = () => {
               </label>
               <CustomerSelector
                 customers={customers}
-                selectedCustomerId={selectedCustomerId}
-                onCustomerSelect={setSelectedCustomerId}
+                value={selectedCustomerId}
+                onChange={setSelectedCustomerId}
               />
             </div>
 
