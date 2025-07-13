@@ -432,7 +432,7 @@ export const tripsRouter = router({
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching trip details:', input.trip_id);
+      ctx.logger.info('Fetching trip details:', input.id);
       
       // Get trip details
       const { data: trip, error: tripError } = await ctx.supabase
@@ -443,7 +443,7 @@ export const tripsRouter = router({
           warehouse:warehouse_id (id, name, address),
           driver:driver_id (id, email)
         `)
-        .eq('id', input.trip_id)
+        .eq('id', input.id)
         .single();
 
       if (tripError) {
@@ -464,7 +464,7 @@ export const tripsRouter = router({
             *,
             product:product_id (name, sku)
           `)
-          .eq('trip_id', input.trip_id)
+          .eq('trip_id', input.id)
           .order('loading_sequence');
 
         if (!loadingError) {
@@ -472,7 +472,7 @@ export const tripsRouter = router({
           
           // Get loading summary
           const { data: loadingSummary } = await ctx.supabase.rpc('get_trip_loading_summary', {
-            p_trip_id: input.trip_id
+            p_trip_id: input.id
           });
           
           if (loadingSummary && loadingSummary.length > 0) {
@@ -489,14 +489,14 @@ export const tripsRouter = router({
             *,
             product:product_id (name, sku)
           `)
-          .eq('trip_id', input.trip_id);
+          .eq('trip_id', input.id);
 
         if (!varianceError) {
           result.variance_records = varianceRecords;
           
           // Get variance summary
           const { data: varianceSummary } = await ctx.supabase.rpc('get_trip_variance_summary', {
-            p_trip_id: input.trip_id
+            p_trip_id: input.id
           });
           
           if (varianceSummary && varianceSummary.length > 0) {
@@ -513,7 +513,7 @@ export const tripsRouter = router({
             *,
             order:order_id (id, order_date, total_amount, customer_id)
           `)
-          .eq('trip_id', input.trip_id)
+          .eq('trip_id', input.id)
           .order('stop_sequence');
 
         if (!allocError) {
