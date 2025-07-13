@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, CheckCircle, Circle, Lock, AlertTriangle, TrendingUp, Truck, AlertCircle, Wrench } from 'lucide-react';
+import { Package, CheckCircle, Circle, Lock, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useInventoryStatsNew } from '../../hooks/useInventory';
 
 export const InventoryStats: React.FC = () => {
