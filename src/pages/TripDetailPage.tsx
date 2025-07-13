@@ -514,8 +514,8 @@ export const TripDetailPage: React.FC = () => {
               ) : (
                 <p className="text-sm text-gray-500">No orders assigned to this trip.</p>
               )}
-            </Card>
-          )}
+            </div>
+          </Card>
         </div>
 
         {/* Sidebar */}
