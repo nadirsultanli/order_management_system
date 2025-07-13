@@ -13,7 +13,8 @@ import {
   ArrowLeftRight,
   TrendingUp,
   PackageCheck,
-  CircleDollarSign
+  CircleDollarSign,
+  Route
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 
@@ -32,6 +33,7 @@ const navigation = [
   { name: 'Inventory', href: '/inventory', icon: BarChart3 },
   { name: 'Trucks', href: '/trucks', icon: Truck },
   { name: 'Fleet Capacity', href: '/trucks/capacity', icon: TrendingUp },
+  { name: 'Trip Management', href: '/trips', icon: Route },
   { name: 'Pricing', href: '/pricing', icon: DollarSign },
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
   { name: 'Transfers', href: '/transfers', icon: ArrowLeftRight },

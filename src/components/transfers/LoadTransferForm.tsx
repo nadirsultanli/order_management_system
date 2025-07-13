@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { Package, CheckCircle, AlertCircle } from 'lucide-react';
 import { useWarehouseOptions } from '../../hooks/useWarehouses';
@@ -36,9 +36,26 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
   const { data: warehouses = [] } = useWarehouseOptions();
   const [optimisticUpdate, setOptimisticUpdate] = useState<boolean>(false);
   const [transferResult, setTransferResult] = useState<any>(null);
+  const [capacityValidation, setCapacityValidation] = useState<any>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  // Debounce ref to store timeout ID for capacity validation
+  const capacityValidationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Use tRPC for context invalidation
   const utils = trpc.useContext();
+  
+  // Use tRPC for capacity validation
+  const validateCapacityMutation = trpc.trucks.validateLoadingCapacity.useMutation({
+    onSuccess: (data) => {
+      setCapacityValidation(data);
+      setValidationError(null);
+    },
+    onError: (error) => {
+      setValidationError(error.message);
+      setCapacityValidation(null);
+    }
+  });
   
   // Use tRPC for truck loading with optimistic updates
   const loadTruckMutation = trpc.trucks.loadInventory.useMutation({
@@ -255,6 +272,72 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
     }
   }, [selectedWarehouse, warehouseInventory]);
 
+  // Function to validate truck capacity
+  const validateTruckCapacity = useCallback(async () => {
+    if (!selectedTruck || lines.length === 0) {
+      setCapacityValidation(null);
+      setValidationError(null);
+      return;
+    }
+
+    const linesWithQuantities = lines.filter(line => 
+      (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0
+    );
+
+    if (linesWithQuantities.length === 0) {
+      setCapacityValidation(null);
+      setValidationError(null);
+      return;
+    }
+
+    const items = linesWithQuantities.map(line => ({
+      product_id: line.product_id,
+      qty_full: Number(line.qty_full) || 0,
+      qty_empty: Number(line.qty_empty) || 0,
+    }));
+
+    try {
+      await validateCapacityMutation.mutateAsync({
+        truck_id: selectedTruck,
+        items: items
+      });
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+    }
+  }, [selectedTruck, lines, validateCapacityMutation]);
+
+  // Debounced capacity validation function
+  const debouncedValidateCapacity = useCallback(() => {
+    // Clear any existing timeout to prevent multiple timers
+    if (capacityValidationTimeoutRef.current) {
+      clearTimeout(capacityValidationTimeoutRef.current);
+    }
+
+    // Set new timeout
+    capacityValidationTimeoutRef.current = setTimeout(() => {
+      validateTruckCapacity();
+      capacityValidationTimeoutRef.current = null;
+    }, 300);
+  }, [validateTruckCapacity]);
+
+  // Trigger capacity validation when truck changes
+  useEffect(() => {
+    if (selectedTruck) {
+      validateTruckCapacity();
+    } else {
+      setCapacityValidation(null);
+      setValidationError(null);
+    }
+  }, [selectedTruck, validateTruckCapacity]);
+
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (capacityValidationTimeoutRef.current) {
+        clearTimeout(capacityValidationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Function to validate and clamp quantities
   const handleQuantityChange = (index: number, field: 'qty_full' | 'qty_empty', value: string) => {
@@ -264,6 +347,8 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
     if (value === '') {
       newLines[index][field] = '';
       setLines(newLines);
+      // Trigger debounced capacity validation
+      debouncedValidateCapacity();
       return;
     }
     
@@ -286,6 +371,9 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
     }
     
     setLines(newLines);
+    
+    // Trigger debounced capacity validation
+    debouncedValidateCapacity();
   };
 
 
@@ -399,11 +487,124 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         )}
       </div>
 
+      {/* Capacity Validation Display */}
+      {(capacityValidation || validationError) && (
+        <div className="bg-white shadow rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Truck Capacity Check</h3>
+          
+          {validationError && (
+            <div className="rounded-md bg-red-50 p-4 mb-4">
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Capacity Validation Failed</h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{validationError}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {capacityValidation && (
+            <div>
+              {/* Capacity Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Cylinder Capacity</h4>
+                  <div className="text-sm text-gray-600">
+                    <p>Current: {capacityValidation.capacity_check?.current_cylinders || 0}</p>
+                    <p>To Add: {capacityValidation.capacity_check?.cylinders_to_add || 0}</p>
+                    <p>Total After: {capacityValidation.capacity_check?.total_cylinders_after || 0}</p>
+                    <p>Capacity: {capacityValidation.capacity_check?.cylinder_capacity || 0}</p>
+                    {capacityValidation.capacity_check?.cylinder_overflow > 0 && (
+                      <p className="text-red-600 font-medium">Overflow: +{capacityValidation.capacity_check.cylinder_overflow}</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Weight Capacity</h4>
+                  <div className="text-sm text-gray-600">
+                    <p>Current: {capacityValidation.capacity_check?.current_weight_kg?.toFixed(1) || 0}kg</p>
+                    <p>To Add: {capacityValidation.capacity_check?.weight_to_add_kg?.toFixed(1) || 0}kg</p>
+                    <p>Total After: {capacityValidation.capacity_check?.total_weight_after_kg?.toFixed(1) || 0}kg</p>
+                    <p>Capacity: {capacityValidation.capacity_check?.weight_capacity_kg?.toFixed(1) || 0}kg</p>
+                    {capacityValidation.capacity_check?.weight_overflow_kg > 0 && (
+                      <p className="text-red-600 font-medium">Overflow: +{capacityValidation.capacity_check.weight_overflow_kg.toFixed(1)}kg</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Validation Status */}
+              {!capacityValidation.is_valid && (
+                <div className="rounded-md bg-red-50 p-4 mb-4">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-red-400" />
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">Capacity Exceeded</h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <ul className="list-disc list-inside space-y-1">
+                          {capacityValidation.errors?.map((error: string, index: number) => (
+                            <li key={index}>{error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {capacityValidation.is_valid && capacityValidation.warnings?.length > 0 && (
+                <div className="rounded-md bg-yellow-50 p-4 mb-4">
+                  <div className="flex">
+                    <AlertCircle className="h-5 w-5 text-yellow-400" />
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-yellow-800">Capacity Warnings</h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        <ul className="list-disc list-inside space-y-1">
+                          {capacityValidation.warnings.map((warning: string, index: number) => (
+                            <li key={index}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {capacityValidation.is_valid && (!capacityValidation.warnings || capacityValidation.warnings.length === 0) && (
+                <div className="rounded-md bg-green-50 p-4 mb-4">
+                  <div className="flex">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-green-800">Capacity OK</h3>
+                      <div className="mt-2 text-sm text-green-700">
+                        <p>The truck can accommodate all selected items within capacity limits.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button
           type="button"
           onClick={() => setShowConfirm(true)}
-          disabled={loading || verifying || !selectedTruck || !selectedWarehouse || lines.filter(line => (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0).length === 0}
+          disabled={
+            loading || 
+            verifying || 
+            !selectedTruck || 
+            !selectedWarehouse || 
+            lines.filter(line => (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0).length === 0 ||
+            (capacityValidation && !capacityValidation.is_valid) ||
+            validationError
+          }
           className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading && (
@@ -424,7 +625,11 @@ export const LoadTransferForm: React.FC<LoadTransferFormProps> = ({ onSuccess })
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
         title="Confirm Truck Loading"
-        message={`Are you sure you want to load this truck? This will move inventory from the warehouse to the selected truck. ${lines.filter(line => (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0).length} products will be transferred.`}
+        message={
+          `Are you sure you want to load this truck? This will move inventory from the warehouse to the selected truck. ${lines.filter(line => (Number(line.qty_full) || 0) > 0 || (Number(line.qty_empty) || 0) > 0).length} products will be transferred.` +
+          (capacityValidation?.warnings?.length > 0 ? `\n\nWarnings: ${capacityValidation.warnings.join(', ')}` : '') +
+          (capacityValidation?.capacity_check ? `\n\nCapacity after loading: ${capacityValidation.capacity_check.total_cylinders_after}/${capacityValidation.capacity_check.cylinder_capacity} cylinders, ${capacityValidation.capacity_check.total_weight_after_kg?.toFixed(1)}/${capacityValidation.capacity_check.weight_capacity_kg?.toFixed(1)}kg` : '')
+        }
         confirmText={loading ? 'Loading...' : verifying ? 'Verifying...' : 'Load Truck'}
         type="info"
         loading={loading || verifying}

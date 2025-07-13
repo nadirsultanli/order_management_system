@@ -29,6 +29,9 @@ import CreateTruckPage from './pages/CreateTruckPage';
 import { TruckCapacityDashboard } from './pages/TruckCapacityDashboard';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { DepositsPage } from './pages/DepositsPage';
+import { TripManagementPage } from './pages/TripManagementPage';
+import { TripDetailPage } from './pages/TripDetailPage';
+import { TripLoadingPage } from './pages/TripLoadingPage';
 
 function App() {
   return (
@@ -70,6 +73,11 @@ function App() {
               <Route path="new" element={<CreateTruckPage />} />
               <Route path="capacity" element={<TruckCapacityDashboard />} />
               <Route path=":id" element={<TruckDetailPage />} />
+            </Route>
+            <Route path="trips">
+              <Route index element={<TripManagementPage />} />
+              <Route path=":id" element={<TripDetailPage />} />
+              <Route path=":id/loading" element={<TripLoadingPage />} />
             </Route>
           </Route>
         </Routes>

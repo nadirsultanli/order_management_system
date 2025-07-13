@@ -295,4 +295,306 @@ export const TruckInventoryResponseSchema = z.object({
     last_updated: z.string().nullable(),
   }),
   timestamp: z.string(),
+});
+
+// ============ Trip Lifecycle Output Schemas ============
+
+export const TripSchema = z.object({
+  id: z.string(),
+  truck_id: z.string(),
+  route_date: z.string(),
+  planned_start_time: z.string().nullable(),
+  actual_start_time: z.string().nullable(),
+  planned_end_time: z.string().nullable(),
+  actual_end_time: z.string().nullable(),
+  route_status: z.string(),
+  total_distance_km: z.number().nullable(),
+  estimated_duration_hours: z.number().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  
+  // Trip lifecycle fields
+  trip_number: z.string().nullable(),
+  created_by_user_id: z.string().nullable(),
+  driver_id: z.string().nullable(),
+  warehouse_id: z.string().nullable(),
+  load_started_at: z.string().nullable(),
+  load_completed_at: z.string().nullable(),
+  delivery_started_at: z.string().nullable(),
+  delivery_completed_at: z.string().nullable(),
+  unload_started_at: z.string().nullable(),
+  unload_completed_at: z.string().nullable(),
+  trip_notes: z.string().nullable(),
+  has_variances: z.boolean().nullable(),
+  variance_count: z.number().nullable(),
+  total_variance_amount: z.number().nullable(),
+});
+
+export const TripLoadingDetailSchema = z.object({
+  id: z.string(),
+  trip_id: z.string(),
+  product_id: z.string(),
+  order_line_id: z.string().nullable(),
+  
+  // Planned quantities
+  qty_planned_full: z.number(),
+  qty_planned_empty: z.number(),
+  
+  // Actually loaded quantities
+  qty_loaded_full: z.number(),
+  qty_loaded_empty: z.number(),
+  
+  // Calculated variances
+  qty_variance_full: z.number(),
+  qty_variance_empty: z.number(),
+  
+  // Loading metadata
+  loading_sequence: z.number().nullable(),
+  loaded_by_user_id: z.string().nullable(),
+  loaded_at: z.string().nullable(),
+  loading_notes: z.string().nullable(),
+  
+  // Weight tracking
+  estimated_weight_kg: z.number().nullable(),
+  actual_weight_kg: z.number().nullable(),
+  
+  // Status
+  loading_status: z.string(),
+  
+  // Audit fields
+  created_at: z.string(),
+  updated_at: z.string(),
+  
+  // Product details (joined)
+  product_name: z.string().optional(),
+  product_sku: z.string().optional(),
+});
+
+export const TripVarianceRecordSchema = z.object({
+  id: z.string(),
+  trip_id: z.string(),
+  product_id: z.string(),
+  
+  // Expected quantities
+  qty_expected_full: z.number(),
+  qty_expected_empty: z.number(),
+  
+  // Physical count quantities
+  qty_physical_full: z.number(),
+  qty_physical_empty: z.number(),
+  
+  // Calculated variances
+  qty_variance_full: z.number(),
+  qty_variance_empty: z.number(),
+  
+  // Variance details
+  variance_reason: z.string().nullable(),
+  variance_notes: z.string().nullable(),
+  
+  // Financial impact
+  unit_cost: z.number().nullable(),
+  variance_value_full: z.number().nullable(),
+  variance_value_empty: z.number().nullable(),
+  total_variance_value: z.number().nullable(),
+  
+  // Resolution tracking
+  variance_status: z.string(),
+  resolved_by_user_id: z.string().nullable(),
+  resolved_at: z.string().nullable(),
+  resolution_notes: z.string().nullable(),
+  
+  // Stock adjustment reference
+  stock_adjustment_id: z.string().nullable(),
+  
+  // Audit fields
+  counted_by_user_id: z.string(),
+  counted_at: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  
+  // Product details (joined)
+  product_name: z.string().optional(),
+  product_sku: z.string().optional(),
+});
+
+export const TripLoadingSummarySchema = z.object({
+  total_items_planned: z.number(),
+  total_items_loaded: z.number(),
+  total_variance: z.number(),
+  short_loaded_items: z.number(),
+  over_loaded_items: z.number(),
+  loading_completion_percent: z.number(),
+});
+
+export const TripVarianceSummarySchema = z.object({
+  total_variance_items: z.number(),
+  total_variance_value: z.number(),
+  pending_variances: z.number(),
+  resolved_variances: z.number(),
+  lost_items: z.number(),
+  damaged_items: z.number(),
+  most_common_reason: z.string().nullable(),
+  variance_by_reason: z.record(z.number()).optional(),
+});
+
+export const TripWithDetailsSchema = TripSchema.extend({
+  loading_details: z.array(TripLoadingDetailSchema).optional(),
+  variance_records: z.array(TripVarianceRecordSchema).optional(),
+  loading_summary: TripLoadingSummarySchema.optional(),
+  variance_summary: TripVarianceSummarySchema.optional(),
+  allocations: z.array(TruckAllocationSchema).optional(),
+  
+  // Related entities
+  truck: TruckSchema.optional(),
+  warehouse: z.object({
+    id: z.string(),
+    name: z.string(),
+    address: z.string().optional(),
+  }).optional(),
+  driver: z.object({
+    id: z.string(),
+    name: z.string().optional(),
+    email: z.string().optional(),
+  }).optional(),
+});
+
+// ============ Trip Lifecycle Response Schemas ============
+
+export const CreateTripResponseSchema = TripSchema;
+
+export const UpdateTripStatusResponseSchema = z.object({
+  success: z.boolean(),
+  trip: TripSchema,
+  message: z.string().optional(),
+});
+
+export const GetTripByIdResponseSchema = TripWithDetailsSchema;
+
+export const GetTripsResponseSchema = z.object({
+  trips: z.array(TripSchema),
+  pagination: z.object({
+    page: z.number(),
+    limit: z.number(),
+    total: z.number(),
+    pages: z.number(),
+  }),
+});
+
+export const AllocateOrdersToTripResponseSchema = z.object({
+  success: z.boolean(),
+  trip_id: z.string(),
+  allocated_orders: z.array(z.string()),
+  allocations: z.array(TruckAllocationSchema),
+  message: z.string().optional(),
+});
+
+export const RemoveOrderFromTripResponseSchema = z.object({
+  success: z.boolean(),
+  trip_id: z.string(),
+  removed_order_id: z.string(),
+  message: z.string().optional(),
+});
+
+export const UpdateAllocationSequenceResponseSchema = z.object({
+  success: z.boolean(),
+  trip_id: z.string(),
+  updated_allocations: z.array(TruckAllocationSchema),
+  message: z.string().optional(),
+});
+
+// ============ Trip Loading Response Schemas ============
+
+export const StartTripLoadingResponseSchema = z.object({
+  success: z.boolean(),
+  trip: TripSchema,
+  loading_details: z.array(TripLoadingDetailSchema),
+  message: z.string().optional(),
+});
+
+export const AddLoadingDetailResponseSchema = TripLoadingDetailSchema;
+
+export const UpdateLoadingDetailResponseSchema = TripLoadingDetailSchema;
+
+export const CompleteLoadingResponseSchema = z.object({
+  success: z.boolean(),
+  trip: TripSchema,
+  loading_details: z.array(TripLoadingDetailSchema),
+  loading_summary: TripLoadingSummarySchema,
+  short_loading_warnings: z.array(z.object({
+    product_id: z.string(),
+    product_name: z.string(),
+    qty_planned_full: z.number(),
+    qty_loaded_full: z.number(),
+    qty_variance_full: z.number(),
+    qty_planned_empty: z.number(),
+    qty_loaded_empty: z.number(),
+    qty_variance_empty: z.number(),
+  })).optional(),
+  message: z.string().optional(),
+});
+
+export const GetTripLoadingSummaryResponseSchema = TripLoadingSummarySchema;
+
+export const CheckShortLoadingResponseSchema = z.object({
+  has_short_loading: z.boolean(),
+  short_loaded_products: z.array(z.object({
+    product_id: z.string(),
+    product_name: z.string(),
+    qty_planned_full: z.number(),
+    qty_loaded_full: z.number(),
+    qty_variance_full: z.number(),
+    qty_planned_empty: z.number(),
+    qty_loaded_empty: z.number(),
+    qty_variance_empty: z.number(),
+    is_short_loaded: z.boolean(),
+  })),
+});
+
+// ============ Trip Variance Response Schemas ============
+
+export const StartTripUnloadingResponseSchema = z.object({
+  success: z.boolean(),
+  trip: TripSchema,
+  expected_inventory: z.array(z.object({
+    product_id: z.string(),
+    product_name: z.string(),
+    qty_expected_full: z.number(),
+    qty_expected_empty: z.number(),
+  })),
+  message: z.string().optional(),
+});
+
+export const RecordVarianceResponseSchema = TripVarianceRecordSchema;
+
+export const UpdateVarianceResponseSchema = TripVarianceRecordSchema;
+
+export const CreateVarianceAdjustmentResponseSchema = z.object({
+  success: z.boolean(),
+  variance_id: z.string(),
+  adjustment_id: z.string(),
+  variance_record: TripVarianceRecordSchema,
+  message: z.string().optional(),
+});
+
+export const GetTripVarianceSummaryResponseSchema = TripVarianceSummarySchema;
+
+export const CompleteTripResponseSchema = z.object({
+  success: z.boolean(),
+  trip: TripSchema,
+  final_summary: z.object({
+    loading_summary: TripLoadingSummarySchema.optional(),
+    variance_summary: TripVarianceSummarySchema.optional(),
+    pending_variances: z.number(),
+    total_variance_value: z.number(),
+  }),
+  stock_movements: z.array(z.object({
+    id: z.string(),
+    movement_type: z.string(),
+    product_id: z.string(),
+    qty_full_in: z.number(),
+    qty_full_out: z.number(),
+    qty_empty_in: z.number(),
+    qty_empty_out: z.number(),
+  })).optional(),
+  message: z.string().optional(),
 }); 

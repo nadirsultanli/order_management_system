@@ -34,13 +34,29 @@ export interface TruckRoute {
   actual_start_time?: string;
   planned_end_time?: string;
   actual_end_time?: string;
-  route_status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
+  route_status: 'planned' | 'loading' | 'loaded' | 'in_transit' | 'delivering' | 'unloading' | 'completed' | 'cancelled';
   total_distance_km?: number;
   estimated_duration_hours?: number;
   actual_duration_hours?: number;
   fuel_used_liters?: number;
   created_at: string;
   updated_at: string;
+  
+  // Enhanced trip lifecycle fields
+  trip_number?: string;
+  created_by_user_id?: string;
+  driver_id?: string;
+  warehouse_id?: string;
+  load_started_at?: string;
+  load_completed_at?: string;
+  delivery_started_at?: string;
+  delivery_completed_at?: string;
+  unload_started_at?: string;
+  unload_completed_at?: string;
+  trip_notes?: string;
+  has_variances?: boolean;
+  variance_count?: number;
+  total_variance_amount?: number;
 }
 
 export interface TruckInventoryItem {
@@ -75,9 +91,23 @@ export interface TruckAllocation {
   order_id: string;
   allocation_date: string;
   estimated_weight_kg: number;
+  actual_weight_kg?: number;
   stop_sequence?: number;
   status: 'planned' | 'loaded' | 'delivered' | 'cancelled';
+  allocated_by_user_id?: string;
+  allocated_at?: string;
+  delivered_at?: string;
+  notes?: string;
   created_at: string;
+  updated_at?: string;
+  
+  // Enhanced trip lifecycle fields
+  trip_id?: string;
+  loading_sequence?: number;
+  load_started_at?: string;
+  load_completed_at?: string;
+  delivery_started_at?: string;
+  delivery_completed_at?: string;
 }
 
 export interface DailyTruckSchedule {
@@ -140,7 +170,11 @@ export const TruckStatus = {
 
 export const RouteStatus = {
   PLANNED: 'planned',
-  IN_PROGRESS: 'in_progress',
+  LOADING: 'loading',
+  LOADED: 'loaded',
+  IN_TRANSIT: 'in_transit',
+  DELIVERING: 'delivering',
+  UNLOADING: 'unloading',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled'
 } as const;
@@ -157,4 +191,154 @@ export const MaintenanceType = {
   REPAIR: 'repair',
   INSPECTION: 'inspection',
   EMERGENCY: 'emergency'
+} as const;
+
+// Trip Lifecycle Types
+export interface Trip extends TruckRoute {
+  // Trip is essentially an enhanced TruckRoute
+}
+
+export interface TripLoadingDetail {
+  id: string;
+  trip_id: string;
+  product_id: string;
+  order_line_id?: string;
+  
+  // Planned quantities
+  qty_planned_full: number;
+  qty_planned_empty: number;
+  
+  // Actually loaded quantities
+  qty_loaded_full: number;
+  qty_loaded_empty: number;
+  
+  // Calculated variances
+  qty_variance_full: number;
+  qty_variance_empty: number;
+  
+  // Loading metadata
+  loading_sequence?: number;
+  loaded_by_user_id?: string;
+  loaded_at?: string;
+  loading_notes?: string;
+  
+  // Weight tracking
+  estimated_weight_kg?: number;
+  actual_weight_kg?: number;
+  
+  // Status
+  loading_status: 'planned' | 'loading' | 'loaded' | 'short_loaded' | 'over_loaded';
+  
+  // Audit fields
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TripVarianceRecord {
+  id: string;
+  trip_id: string;
+  product_id: string;
+  
+  // Expected quantities
+  qty_expected_full: number;
+  qty_expected_empty: number;
+  
+  // Physical count quantities
+  qty_physical_full: number;
+  qty_physical_empty: number;
+  
+  // Calculated variances
+  qty_variance_full: number;
+  qty_variance_empty: number;
+  
+  // Variance details
+  variance_reason?: 'lost' | 'damaged' | 'mis_scan' | 'theft' | 'delivery_error' | 'counting_error' | 'other';
+  variance_notes?: string;
+  
+  // Financial impact
+  unit_cost?: number;
+  variance_value_full?: number;
+  variance_value_empty?: number;
+  total_variance_value?: number;
+  
+  // Resolution tracking
+  variance_status: 'pending' | 'investigating' | 'resolved' | 'written_off' | 'adjusted';
+  resolved_by_user_id?: string;
+  resolved_at?: string;
+  resolution_notes?: string;
+  
+  // Stock adjustment reference
+  stock_adjustment_id?: string;
+  
+  // Audit fields
+  counted_by_user_id: string;
+  counted_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TripLoadingSummary {
+  total_items_planned: number;
+  total_items_loaded: number;
+  total_variance: number;
+  short_loaded_items: number;
+  over_loaded_items: number;
+  loading_completion_percent: number;
+}
+
+export interface TripVarianceSummary {
+  total_variance_items: number;
+  total_variance_value: number;
+  pending_variances: number;
+  resolved_variances: number;
+  lost_items: number;
+  damaged_items: number;
+  most_common_reason?: string;
+  variance_by_reason?: Record<string, number>;
+}
+
+export interface TripWithDetails extends Trip {
+  loading_details?: TripLoadingDetail[];
+  variance_records?: TripVarianceRecord[];
+  loading_summary?: TripLoadingSummary;
+  variance_summary?: TripVarianceSummary;
+  allocations?: TruckAllocation[];
+}
+
+// Enhanced Route Status for Trip Lifecycle
+export const TripStatus = {
+  PLANNED: 'planned',
+  LOADING: 'loading',
+  LOADED: 'loaded',
+  IN_TRANSIT: 'in_transit',
+  DELIVERING: 'delivering',
+  UNLOADING: 'unloading',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+} as const;
+
+export const LoadingStatus = {
+  PLANNED: 'planned',
+  LOADING: 'loading',
+  LOADED: 'loaded',
+  SHORT_LOADED: 'short_loaded',
+  OVER_LOADED: 'over_loaded'
+} as const;
+
+export const VarianceReason = {
+  LOST: 'lost',
+  DAMAGED: 'damaged',
+  MIS_SCAN: 'mis_scan',
+  THEFT: 'theft',
+  DELIVERY_ERROR: 'delivery_error',
+  COUNTING_ERROR: 'counting_error',
+  OTHER: 'other'
+} as const;
+
+export const VarianceStatus = {
+  PENDING: 'pending',
+  INVESTIGATING: 'investigating',
+  RESOLVED: 'resolved',
+  WRITTEN_OFF: 'written_off',
+  ADJUSTED: 'adjusted'
 } as const;

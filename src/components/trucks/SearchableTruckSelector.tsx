@@ -154,6 +154,14 @@ export const SearchableTruckSelector: React.FC<SearchableTruckSelectorProps> = (
                           License: {truck.license_plate}
                           {truck.driver_name && ` • Driver: ${truck.driver_name}`}
                         </div>
+                        {truck.summary && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Capacity: {truck.summary.total_cylinders}/{truck.capacity_cylinders} cylinders
+                            {truck.summary.is_overloaded && (
+                              <span className="text-red-500 font-medium"> • OVERLOADED</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </button>
