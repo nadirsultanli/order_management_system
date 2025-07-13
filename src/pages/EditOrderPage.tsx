@@ -65,13 +65,14 @@ export const EditOrderPage: React.FC = () => {
   const { data: addresses = [], isLoading: addressesLoading } = useAddresses(selectedCustomerId);
   const { data: productsData, isLoading: productsLoading } = useProducts({ limit: 1000 });
   const { data: warehousesData, isLoading: warehousesLoading } = useWarehouses({ limit: 1000 });
-  const { data: inventory = [], isLoading: inventoryLoading } = useInventoryNew(selectedWarehouseId);
+  const { data: inventoryData, isLoading: inventoryLoading } = useInventoryNew({ warehouse_id: selectedWarehouseId });
   const productIds = orderLines?.map(line => line.product_id) || [];
   const { data: productPrices = [], isLoading: pricesLoading } = useProductPrices(productIds, selectedCustomerId);
   
   const customers = customersData?.customers || [];
   const products = productsData?.products || [];
   const warehouses = warehousesData?.warehouses || [];
+  const inventory = inventoryData?.inventory || [];
   const { mutate: createAddress } = useCreateAddress();
   const { mutate: updateOrder, isLoading: isUpdating } = useUpdateOrder();
 
