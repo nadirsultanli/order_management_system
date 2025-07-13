@@ -44,6 +44,7 @@ export const PaymentBaseSchema = z.object({
   notes: z.string().optional(),
   metadata: z.record(z.any()).optional(),
   created_by: z.string().optional(),
+  paid_by: z.string(), // The customer making the payment
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   updated_by: z.string().optional(),
@@ -53,6 +54,15 @@ export const PaymentBaseSchema = z.object({
 
 export const CreatePaymentResponseSchema = PaymentBaseSchema.extend({
   order: OrderBaseSchema.optional(),
+  payment_summary: z.object({
+    order_total: z.number(),
+    total_payments: z.number(),
+    balance: z.number(),
+    payment_status: z.string(),
+    payment_count: z.number(),
+    last_payment_date: z.string().nullable(),
+  }).optional(),
+  payment_balance: z.number().optional(),
 });
 
 export const PaymentDetailResponseSchema = PaymentBaseSchema.extend({
@@ -173,4 +183,19 @@ export const OverdueOrdersSummarySchema = z.object({
 export const OverdueOrdersResponseSchema = z.object({
   orders: z.array(OverdueOrderItemSchema),
   summary: OverdueOrdersSummarySchema,
+});
+
+export const InitiateMpesaPaymentResponseSchema = z.object({
+  checkout_request_id: z.string(),
+  merchant_request_id: z.string(),
+  response_code: z.string(),
+  response_description: z.string(),
+  customer_message: z.string(),
+  payment_id: z.string(),
 }); 
+
+export const ManualStatusCheckResponseSchema = z.object({
+  success: z.boolean(),
+  payment_status: z.string().optional(),
+  error: z.string().optional(),
+});

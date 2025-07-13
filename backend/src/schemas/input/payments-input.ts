@@ -15,11 +15,11 @@ export const RecordPaymentSchema = z.object({
   order_id: z.string().uuid(),
   amount: z.number().positive(),
   payment_method: PaymentMethodEnum,
-  transaction_id: z.string().optional(),
   payment_date: z.string().datetime().optional(),
   reference_number: z.string().optional(),
   notes: z.string().optional(),
   metadata: z.record(z.any()).optional(),
+  paid_by: z.string().uuid(), // The customer making the payment
 });
 
 export const PaymentFiltersSchema = z.object({
@@ -56,12 +56,26 @@ export const UpdatePaymentStatusSchema = z.object({
 // ============ Payment Analytics ============
 
 export const PaymentSummaryFiltersSchema = z.object({
-  date_from: z.string().optional(),
-  date_to: z.string().optional(),
+  date_from: z.string().optional().default(''),
+  date_to: z.string().optional().default(''),
   payment_method: PaymentMethodEnum.optional(),
 });
 
 export const OverdueOrdersFiltersSchema = z.object({
   days_overdue_min: z.number().min(0).default(1),
   limit: z.number().min(1).max(100).default(50),
-}); 
+});
+
+export const InitiateMpesaPaymentSchema = z.object({
+  order_id: z.string().uuid(),
+  customer_id: z.string().uuid(), // The customer making the payment
+  amount: z.number().positive(),
+  phone_number: z.string().regex(/^254\d{9}$/, 'Phone number must be in format 254XXXXXXXXX'),
+  reference: z.string().optional(),
+  notes: z.string().optional(),
+  paid_by: z.string().uuid().optional(), // The user/admin/driver who initiated the payment
+});
+
+export const ManualStatusCheckSchema = z.object({
+  checkout_request_id: z.string().min(5), // Mpesa CheckoutRequestID
+});

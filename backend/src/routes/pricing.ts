@@ -2059,7 +2059,7 @@ export const pricingRouter = router({
     .meta({
       openapi: {
         method: 'GET',
-        path: '/pricing/deposit-rate/{capacity}',
+        path: '/pricing/deposit-rate/{capacity_l}',
         tags: ['pricing'],
         summary: 'Get deposit rate for cylinder capacity',
         description: 'Retrieve the current deposit rate for a specific cylinder capacity',

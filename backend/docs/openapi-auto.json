@@ -3069,6 +3069,1924 @@
         }
       }
     },
+    "/payments": {
+      "post": {
+        "operationId": "payments-create",
+        "summary": "Record a new payment",
+        "description": "Record a payment for an order with comprehensive validation and automatic order status updates. Supports Cash, Mpesa, and Card payments. For Mpesa payments, initiates STK push. For Cash/Card payments, immediately processes and may update order status to \"paid\" if full payment is received.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "payment_method": {
+                    "type": "string",
+                    "enum": [
+                      "Cash",
+                      "Mpesa",
+                      "Card"
+                    ]
+                  },
+                  "payment_date": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "reference_number": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  },
+                  "paid_by": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "order_id",
+                  "amount",
+                  "payment_method",
+                  "paid_by"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "order_id": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    },
+                    "payment_method": {
+                      "type": "string",
+                      "enum": [
+                        "Cash",
+                        "Mpesa",
+                        "Card"
+                      ]
+                    },
+                    "payment_status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "completed",
+                        "failed",
+                        "refunded"
+                      ]
+                    },
+                    "transaction_id": {
+                      "type": "string"
+                    },
+                    "payment_date": {
+                      "type": "string"
+                    },
+                    "reference_number": {
+                      "type": "string"
+                    },
+                    "notes": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "created_by": {
+                      "type": "string"
+                    },
+                    "paid_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "updated_by": {
+                      "type": "string"
+                    },
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "total_amount": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "payment_status_cache": {
+                          "type": "string"
+                        },
+                        "customer": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "email"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "delivery_address": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "line1": {
+                              "type": "string"
+                            },
+                            "line2": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "state": {
+                              "type": "string"
+                            },
+                            "postal_code": {
+                              "type": "string"
+                            },
+                            "country": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "line1",
+                            "city",
+                            "state",
+                            "postal_code",
+                            "country"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "total_amount",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "payment_summary": {
+                      "type": "object",
+                      "properties": {
+                        "order_total": {
+                          "type": "number"
+                        },
+                        "total_payments": {
+                          "type": "number"
+                        },
+                        "balance": {
+                          "type": "number"
+                        },
+                        "payment_status": {
+                          "type": "string"
+                        },
+                        "payment_count": {
+                          "type": "number"
+                        },
+                        "last_payment_date": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "order_total",
+                        "total_payments",
+                        "balance",
+                        "payment_status",
+                        "payment_count",
+                        "last_payment_date"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "payment_balance": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "order_id",
+                    "amount",
+                    "payment_method",
+                    "payment_status",
+                    "payment_date",
+                    "paid_by"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "payments-list",
+        "summary": "List payments with advanced filtering",
+        "description": "Retrieve a paginated list of payments with comprehensive filtering options including date ranges, amounts, payment methods, and status.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "payment_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Cash",
+                "Mpesa",
+                "Card"
+              ]
+            }
+          },
+          {
+            "name": "payment_status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "completed",
+                "failed",
+                "refunded"
+              ]
+            }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "amount_min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "amount_max",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "payment_date",
+                "amount",
+                "created_at",
+                "payment_id"
+              ],
+              "default": "payment_date"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "payments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "order_id": {
+                            "type": "string"
+                          },
+                          "amount": {
+                            "type": "number"
+                          },
+                          "payment_method": {
+                            "type": "string",
+                            "enum": [
+                              "Cash",
+                              "Mpesa",
+                              "Card"
+                            ]
+                          },
+                          "payment_status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "completed",
+                              "failed",
+                              "refunded"
+                            ]
+                          },
+                          "transaction_id": {
+                            "type": "string"
+                          },
+                          "payment_date": {
+                            "type": "string"
+                          },
+                          "reference_number": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "paid_by": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "updated_by": {
+                            "type": "string"
+                          },
+                          "order": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "total_amount": {
+                                "type": "number"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "customer": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "email": {
+                                    "type": "string"
+                                  },
+                                  "phone": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name",
+                                  "email"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "total_amount",
+                              "status"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order_id",
+                          "amount",
+                          "payment_method",
+                          "payment_status",
+                          "payment_date",
+                          "paid_by"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalCount": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
+                    },
+                    "currentPage": {
+                      "type": "number"
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total_amount": {
+                          "type": "number"
+                        },
+                        "total_count": {
+                          "type": "number"
+                        },
+                        "completed_amount": {
+                          "type": "number"
+                        },
+                        "completed_count": {
+                          "type": "number"
+                        },
+                        "pending_amount": {
+                          "type": "number"
+                        },
+                        "pending_count": {
+                          "type": "number"
+                        },
+                        "failed_amount": {
+                          "type": "number"
+                        },
+                        "failed_count": {
+                          "type": "number"
+                        },
+                        "by_method": {
+                          "type": "object",
+                          "properties": {
+                            "Cash": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "count": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "Mpesa": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "count": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "Card": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "count": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "Cash",
+                            "Mpesa",
+                            "Card"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "by_status": {
+                          "type": "object",
+                          "properties": {
+                            "pending": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "count": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "completed": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "count": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "failed": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "count": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "refunded": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "number"
+                                },
+                                "count": {
+                                  "type": "number"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "count"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "pending",
+                            "completed",
+                            "failed",
+                            "refunded"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "total_amount",
+                        "total_count",
+                        "completed_amount",
+                        "completed_count",
+                        "pending_amount",
+                        "pending_count",
+                        "failed_amount",
+                        "failed_count",
+                        "by_method",
+                        "by_status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "payments",
+                    "totalCount",
+                    "totalPages",
+                    "currentPage",
+                    "summary"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/payments/mpesa/initiate": {
+      "post": {
+        "operationId": "payments-initiateMpesa",
+        "summary": "Initiate Mpesa payment",
+        "description": "Initiate a Mpesa payment for an order and return payment details for customer confirmation.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "amount": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "phone_number": {
+                    "type": "string",
+                    "pattern": "^254\\d{9}$"
+                  },
+                  "reference": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "paid_by": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "order_id",
+                  "customer_id",
+                  "amount",
+                  "phone_number"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checkout_request_id": {
+                      "type": "string"
+                    },
+                    "merchant_request_id": {
+                      "type": "string"
+                    },
+                    "response_code": {
+                      "type": "string"
+                    },
+                    "response_description": {
+                      "type": "string"
+                    },
+                    "customer_message": {
+                      "type": "string"
+                    },
+                    "payment_id": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "checkout_request_id",
+                    "merchant_request_id",
+                    "response_code",
+                    "response_description",
+                    "customer_message",
+                    "payment_id"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/payments/summary": {
+      "get": {
+        "operationId": "payments-getSummary",
+        "summary": "Get payment summary statistics",
+        "description": "Get comprehensive payment statistics including totals by status, payment method, and time periods with optional filtering.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "not": {}
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "default": ""
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "not": {}
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "default": ""
+            }
+          },
+          {
+            "name": "payment_method",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Cash",
+                "Mpesa",
+                "Card"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_amount": {
+                      "type": "number"
+                    },
+                    "total_count": {
+                      "type": "number"
+                    },
+                    "completed_amount": {
+                      "type": "number"
+                    },
+                    "completed_count": {
+                      "type": "number"
+                    },
+                    "pending_amount": {
+                      "type": "number"
+                    },
+                    "pending_count": {
+                      "type": "number"
+                    },
+                    "failed_amount": {
+                      "type": "number"
+                    },
+                    "failed_count": {
+                      "type": "number"
+                    },
+                    "by_method": {
+                      "type": "object",
+                      "properties": {
+                        "Cash": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number"
+                            },
+                            "count": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "Mpesa": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number"
+                            },
+                            "count": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "Card": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number"
+                            },
+                            "count": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "Cash",
+                        "Mpesa",
+                        "Card"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "by_status": {
+                      "type": "object",
+                      "properties": {
+                        "pending": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number"
+                            },
+                            "count": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "completed": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number"
+                            },
+                            "count": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "failed": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number"
+                            },
+                            "count": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "refunded": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "number"
+                            },
+                            "count": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "count"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "pending",
+                        "completed",
+                        "failed",
+                        "refunded"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "total_amount",
+                    "total_count",
+                    "completed_amount",
+                    "completed_count",
+                    "pending_amount",
+                    "pending_count",
+                    "failed_amount",
+                    "failed_count",
+                    "by_method",
+                    "by_status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/payments/overdue-orders": {
+      "get": {
+        "operationId": "payments-getOverdueOrders",
+        "summary": "Get orders with overdue payments",
+        "description": "Retrieve orders that have overdue payments with urgency levels and detailed customer information for collections.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days_overdue_min",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "orders": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "total_amount": {
+                            "type": "number"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "payment_due_date": {
+                            "type": "string"
+                          },
+                          "payment_status_cache": {
+                            "type": "string"
+                          },
+                          "invoice_date": {
+                            "type": "string"
+                          },
+                          "customer": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "email": {
+                                "type": "string"
+                              },
+                              "phone": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name",
+                              "email"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "days_overdue": {
+                            "type": "number"
+                          },
+                          "urgency_level": {
+                            "type": "string",
+                            "enum": [
+                              "medium",
+                              "high",
+                              "critical"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "total_amount",
+                          "status",
+                          "days_overdue",
+                          "urgency_level"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total_overdue": {
+                          "type": "number"
+                        },
+                        "total_amount": {
+                          "type": "number"
+                        },
+                        "critical_count": {
+                          "type": "number"
+                        },
+                        "high_count": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total_overdue",
+                        "total_amount",
+                        "critical_count",
+                        "high_count"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "orders",
+                    "summary"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/payments/{payment_id}": {
+      "get": {
+        "operationId": "payments-getById",
+        "summary": "Get payment by ID",
+        "description": "Retrieve detailed information about a specific payment including associated order and customer details.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "order_id": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    },
+                    "payment_method": {
+                      "type": "string",
+                      "enum": [
+                        "Cash",
+                        "Mpesa",
+                        "Card"
+                      ]
+                    },
+                    "payment_status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "completed",
+                        "failed",
+                        "refunded"
+                      ]
+                    },
+                    "transaction_id": {
+                      "type": "string"
+                    },
+                    "payment_date": {
+                      "type": "string"
+                    },
+                    "reference_number": {
+                      "type": "string"
+                    },
+                    "notes": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "created_by": {
+                      "type": "string"
+                    },
+                    "paid_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "updated_by": {
+                      "type": "string"
+                    },
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "total_amount": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "payment_status_cache": {
+                          "type": "string"
+                        },
+                        "customer": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "email"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "delivery_address": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "line1": {
+                              "type": "string"
+                            },
+                            "line2": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "state": {
+                              "type": "string"
+                            },
+                            "postal_code": {
+                              "type": "string"
+                            },
+                            "country": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "line1",
+                            "city",
+                            "state",
+                            "postal_code",
+                            "country"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "total_amount",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "order_id",
+                    "amount",
+                    "payment_method",
+                    "payment_status",
+                    "payment_date",
+                    "paid_by"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/orders/{order_id}/payments": {
+      "get": {
+        "operationId": "payments-getByOrderId",
+        "summary": "Get payments by order ID",
+        "description": "Retrieve all payments for a specific order with optional payment summary including balance calculations.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "include_summary",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "total_amount": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "payment_status": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "total_amount",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "payments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "order_id": {
+                            "type": "string"
+                          },
+                          "amount": {
+                            "type": "number"
+                          },
+                          "payment_method": {
+                            "type": "string",
+                            "enum": [
+                              "Cash",
+                              "Mpesa",
+                              "Card"
+                            ]
+                          },
+                          "payment_status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "completed",
+                              "failed",
+                              "refunded"
+                            ]
+                          },
+                          "transaction_id": {
+                            "type": "string"
+                          },
+                          "payment_date": {
+                            "type": "string"
+                          },
+                          "reference_number": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "created_by": {
+                            "type": "string"
+                          },
+                          "paid_by": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "updated_by": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "order_id",
+                          "amount",
+                          "payment_method",
+                          "payment_status",
+                          "payment_date",
+                          "paid_by"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "order_total": {
+                          "type": "number"
+                        },
+                        "total_payments": {
+                          "type": "number"
+                        },
+                        "balance": {
+                          "type": "number"
+                        },
+                        "payment_status": {
+                          "type": "string"
+                        },
+                        "payment_count": {
+                          "type": "number"
+                        },
+                        "last_payment_date": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "order_total",
+                        "total_payments",
+                        "balance",
+                        "payment_status",
+                        "payment_count",
+                        "last_payment_date"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "order",
+                    "payments",
+                    "summary"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/payments/{payment_id}/status": {
+      "put": {
+        "operationId": "payments-updateStatus",
+        "summary": "Update payment status",
+        "description": "Update the status of a payment (pending, completed, failed, refunded) with optional transaction details and notes.",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "payment_status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "completed",
+                      "failed",
+                      "refunded"
+                    ]
+                  },
+                  "transaction_id": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "payment_status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "payment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "order_id": {
+                      "type": "string"
+                    },
+                    "amount": {
+                      "type": "number"
+                    },
+                    "payment_method": {
+                      "type": "string",
+                      "enum": [
+                        "Cash",
+                        "Mpesa",
+                        "Card"
+                      ]
+                    },
+                    "payment_status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "completed",
+                        "failed",
+                        "refunded"
+                      ]
+                    },
+                    "transaction_id": {
+                      "type": "string"
+                    },
+                    "payment_date": {
+                      "type": "string"
+                    },
+                    "reference_number": {
+                      "type": "string"
+                    },
+                    "notes": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    "created_by": {
+                      "type": "string"
+                    },
+                    "paid_by": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    },
+                    "updated_by": {
+                      "type": "string"
+                    },
+                    "order": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "total_amount": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "payment_status_cache": {
+                          "type": "string"
+                        },
+                        "customer": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": "string"
+                            },
+                            "phone": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name",
+                            "email"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "delivery_address": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "line1": {
+                              "type": "string"
+                            },
+                            "line2": {
+                              "type": "string"
+                            },
+                            "city": {
+                              "type": "string"
+                            },
+                            "state": {
+                              "type": "string"
+                            },
+                            "postal_code": {
+                              "type": "string"
+                            },
+                            "country": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "line1",
+                            "city",
+                            "state",
+                            "postal_code",
+                            "country"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "total_amount",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "order_id",
+                    "amount",
+                    "payment_method",
+                    "payment_status",
+                    "payment_date",
+                    "paid_by"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/payments/mpesa/check-status": {
+      "post": {
+        "operationId": "payments-manualStatusCheck",
+        "summary": "Manual M-Pesa status check",
+        "description": "Manually trigger status check for a specific checkout request to verify payment status",
+        "tags": [
+          "payments"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "checkout_request_id": {
+                    "type": "string",
+                    "minLength": 5
+                  }
+                },
+                "required": [
+                  "checkout_request_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "payment_status": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "success"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
     "/products": {
       "get": {
         "operationId": "products-list",
@@ -8471,6 +10389,125 @@
             "$ref": "#/components/responses/error"
           }
         }
+      },
+      "put": {
+        "operationId": "orders-updateOrder",
+        "summary": "Update order details",
+        "description": "Update order details including customer, address, products, and delivery information",
+        "tags": [
+          "orders"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "delivery_address_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "source_warehouse_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "order_type": {
+                    "type": "string",
+                    "enum": [
+                      "delivery",
+                      "visit"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "delivery_date": {
+                    "type": "string"
+                  },
+                  "delivery_time_window_start": {
+                    "type": "string"
+                  },
+                  "delivery_time_window_end": {
+                    "type": "string"
+                  },
+                  "delivery_instructions": {
+                    "type": "string"
+                  },
+                  "order_lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "product_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "unit_price": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "subtotal": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "product_id",
+                        "quantity",
+                        "unit_price"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "order_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
       }
     },
     "/orders/{order_id}/calculate-total": {
@@ -9286,35 +11323,7 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "order_id": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "total_amount": {
-                      "type": "number"
-                    },
-                    "products_count": {
-                      "type": "number"
-                    }
-                  },
-                  "required": [
-                    "success",
-                    "message",
-                    "order_id",
-                    "total_amount",
-                    "products_count"
-                  ],
-                  "additionalProperties": false
-                }
+                "schema": {}
               }
             }
           },
@@ -12789,6 +14798,1861 @@
           }
         }
       }
+    },
+    "/pricing/calculate-weight-based": {
+      "post": {
+        "operationId": "pricing-calculateWeightBased",
+        "summary": "Calculate weight-based pricing for gas cylinders",
+        "description": "Calculate price using weight-based formula: netGasWeight_kg × gasPricePerKg + depositAmount + tax",
+        "tags": [
+          "pricing"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "product_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "quantity": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0,
+                    "default": 1
+                  },
+                  "custom_gas_weight_kg": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "custom_price_per_kg": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "pricing_date": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "product_id"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/pricing/deposit-rate/{capacity_l}": {
+      "get": {
+        "operationId": "pricing-getDepositRate",
+        "summary": "Get deposit rate for cylinder capacity",
+        "description": "Retrieve the current deposit rate for a specific cylinder capacity",
+        "tags": [
+          "pricing"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "capacity_l",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "exclusiveMinimum": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "currency_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3,
+              "default": "KES"
+            }
+          },
+          {
+            "name": "as_of_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/pricing/calculate-total-with-deposits": {
+      "post": {
+        "operationId": "pricing-calculateTotalWithDeposits",
+        "summary": "Calculate order total including deposits",
+        "description": "Calculate comprehensive order total including gas charges, deposits, and taxes for multiple items",
+        "tags": [
+          "pricing"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "product_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "pricing_method": {
+                          "type": "string",
+                          "enum": [
+                            "per_unit",
+                            "per_kg",
+                            "flat_rate",
+                            "tiered"
+                          ]
+                        },
+                        "price_list_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        }
+                      },
+                      "required": [
+                        "product_id",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "include_deposits": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "tax_rate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "pricing_date": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "items"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/pricing/calculate-final-price-enhanced": {
+      "post": {
+        "operationId": "pricing-calculateFinalPriceEnhanced",
+        "summary": "Calculate final price with enhanced pricing methods",
+        "description": "Calculate final price supporting per_unit, per_kg, flat_rate, and tiered pricing methods",
+        "tags": [
+          "pricing"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "product_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "quantity": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "pricing_method": {
+                    "type": "string",
+                    "enum": [
+                      "per_unit",
+                      "per_kg",
+                      "flat_rate",
+                      "tiered"
+                    ]
+                  },
+                  "unit_price": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "surcharge_percent": {
+                    "type": "number"
+                  },
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "date": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "product_id",
+                  "quantity",
+                  "pricing_method",
+                  "unit_price"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/rates": {
+      "get": {
+        "operationId": "deposits-listRates",
+        "summary": "List all cylinder deposit rates",
+        "description": "Retrieve a paginated list of deposit rates with filtering options",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "capacity_l",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "currency_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3
+            }
+          },
+          {
+            "name": "is_active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "effective_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "capacity_l",
+                "deposit_amount",
+                "effective_date",
+                "created_at"
+              ],
+              "default": "capacity_l"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "asc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "deposits-createRate",
+        "summary": "Create new deposit rate",
+        "description": "Create a new deposit rate for a specific cylinder capacity",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "capacity_l": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "deposit_amount": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "currency_code": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3,
+                    "default": "KES"
+                  },
+                  "effective_date": {
+                    "type": "string"
+                  },
+                  "end_date": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "capacity_l",
+                  "deposit_amount",
+                  "effective_date"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/rates/{id}": {
+      "put": {
+        "operationId": "deposits-updateRate",
+        "summary": "Update deposit rate",
+        "description": "Update an existing deposit rate",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "deposit_amount": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "end_date": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deposits-deleteRate",
+        "summary": "Delete deposit rate",
+        "description": "Delete a deposit rate (soft delete by setting end date)",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/rates/by-capacity/{capacity}": {
+      "get": {
+        "operationId": "deposits-getRateByCapacity",
+        "summary": "Get deposit rate for specific capacity",
+        "description": "Retrieve the current deposit rate for a specific cylinder capacity",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "capacity",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "exclusiveMinimum": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "currency_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3,
+              "default": "KES"
+            }
+          },
+          {
+            "name": "as_of_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/rates/bulk-update": {
+      "post": {
+        "operationId": "deposits-bulkUpdateRates",
+        "summary": "Bulk update deposit rates",
+        "description": "Update multiple deposit rates at once with optional end-dating of current rates",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "updates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "capacity_l": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "deposit_amount": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "currency_code": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 3,
+                          "default": "KES"
+                        }
+                      },
+                      "required": [
+                        "capacity_l",
+                        "deposit_amount"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "effective_date": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "end_current_rates": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "updates",
+                  "effective_date"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/customers/{customer_id}/deposits/balance": {
+      "get": {
+        "operationId": "deposits-getCustomerBalance",
+        "summary": "Get customer deposit balance",
+        "description": "Retrieve the current deposit balance for a customer with optional cylinder breakdown",
+        "tags": [
+          "deposits",
+          "customers"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "include_details",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/customers/{customer_id}/deposits/history": {
+      "get": {
+        "operationId": "deposits-getCustomerHistory",
+        "summary": "Get customer deposit history",
+        "description": "Retrieve the deposit transaction history for a customer with filtering and pagination",
+        "tags": [
+          "deposits",
+          "customers"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "transaction_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "charge",
+                "refund",
+                "adjustment",
+                "all"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "transaction_date",
+                "amount",
+                "transaction_type"
+              ],
+              "default": "transaction_date"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/customers/{customer_id}/deposits/charge": {
+      "post": {
+        "operationId": "deposits-chargeCustomer",
+        "summary": "Charge deposit to customer",
+        "description": "Charge cylinder deposits to a customer account when cylinders are delivered",
+        "tags": [
+          "deposits",
+          "customers"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cylinders": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "product_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "capacity_l": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "unit_deposit": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "product_id",
+                        "quantity",
+                        "capacity_l"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "order_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "override_reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "cylinders"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/customers/{customer_id}/deposits/refund": {
+      "post": {
+        "operationId": "deposits-refundCustomer",
+        "summary": "Refund deposit to customer",
+        "description": "Process cylinder deposit refunds when cylinders are returned, with condition-based deductions",
+        "tags": [
+          "deposits",
+          "customers"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cylinders": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "product_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "capacity_l": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "condition": {
+                          "type": "string",
+                          "enum": [
+                            "good",
+                            "damaged",
+                            "missing"
+                          ],
+                          "default": "good"
+                        },
+                        "damage_percentage": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "serial_numbers": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "product_id",
+                        "quantity",
+                        "capacity_l"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "order_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "refund_method": {
+                    "type": "string",
+                    "enum": [
+                      "credit",
+                      "cash",
+                      "bank_transfer"
+                    ],
+                    "default": "credit"
+                  }
+                },
+                "required": [
+                  "cylinders"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/customers/{customer_id}/deposits/cylinders": {
+      "get": {
+        "operationId": "deposits-getCustomerCylinders",
+        "summary": "Get customer cylinders",
+        "description": "Retrieve information about cylinders currently held by a customer",
+        "tags": [
+          "deposits",
+          "customers"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "include_history",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "group_by_capacity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/transactions": {
+      "get": {
+        "operationId": "deposits-listTransactions",
+        "summary": "List deposit transactions",
+        "description": "Retrieve a paginated list of all deposit transactions with comprehensive filtering",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "transaction_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "charge",
+                "refund",
+                "adjustment"
+              ]
+            }
+          },
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min_amount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "max_amount",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "currency_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3
+            }
+          },
+          {
+            "name": "include_voided",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "transaction_date",
+                "amount",
+                "customer_name"
+              ],
+              "default": "transaction_date"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/transactions/calculate-refund": {
+      "post": {
+        "operationId": "deposits-calculateRefund",
+        "summary": "Calculate deposit refund",
+        "description": "Calculate the refund amount for cylinder returns based on condition and depreciation",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "cylinders": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "product_id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "quantity": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "capacity_l": {
+                          "type": "number",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "condition": {
+                          "type": "string",
+                          "enum": [
+                            "good",
+                            "damaged",
+                            "missing"
+                          ],
+                          "default": "good"
+                        },
+                        "damage_percentage": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "days_held": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "product_id",
+                        "quantity",
+                        "capacity_l"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "apply_depreciation": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "depreciation_rate_per_year": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "customer_id",
+                  "cylinders"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/validate-rate": {
+      "post": {
+        "operationId": "deposits-validateRate",
+        "summary": "Validate deposit rate",
+        "description": "Validate a deposit rate for conflicts and business rules",
+        "tags": [
+          "deposits",
+          "validation"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "capacity_l": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "deposit_amount": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "currency_code": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3,
+                    "default": "KES"
+                  },
+                  "effective_date": {
+                    "type": "string"
+                  },
+                  "check_conflicts": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "capacity_l",
+                  "deposit_amount",
+                  "effective_date"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/validate-refund": {
+      "post": {
+        "operationId": "deposits-validateRefund",
+        "summary": "Validate deposit refund",
+        "description": "Validate if a customer is eligible for a deposit refund",
+        "tags": [
+          "deposits",
+          "validation"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "cylinder_count": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "capacity_l": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "check_balance": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                },
+                "required": [
+                  "customer_id",
+                  "cylinder_count",
+                  "capacity_l"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/adjust": {
+      "post": {
+        "operationId": "deposits-adjustDeposit",
+        "summary": "Adjust customer deposit",
+        "description": "Manually adjust a customer deposit balance with proper authorization",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "customer_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "adjustment_amount": {
+                    "type": "number"
+                  },
+                  "currency_code": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 3,
+                    "default": "KES"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "reference_number": {
+                    "type": "string"
+                  },
+                  "approved_by": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "customer_id",
+                  "adjustment_amount",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/audit-trail/{transaction_id}": {
+      "get": {
+        "operationId": "deposits-getAuditTrail",
+        "summary": "Get deposit audit trail",
+        "description": "Retrieve the complete audit trail for a deposit transaction",
+        "tags": [
+          "deposits"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "transaction_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "include_related",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/reports/summary": {
+      "get": {
+        "operationId": "deposits-getSummaryReport",
+        "summary": "Get deposit summary report",
+        "description": "Generate a summary report of deposit transactions for a specified period",
+        "tags": [
+          "deposits",
+          "reports"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "customer",
+                "capacity",
+                "month",
+                "transaction_type"
+              ],
+              "default": "transaction_type"
+            }
+          },
+          {
+            "name": "currency_code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/deposits/reports/outstanding": {
+      "get": {
+        "operationId": "deposits-getOutstandingReport",
+        "summary": "Get outstanding deposits report",
+        "description": "Generate a report of outstanding cylinder deposits by customer",
+        "tags": [
+          "deposits",
+          "reports"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "as_of_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "min_days_outstanding",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "customer",
+                "capacity",
+                "age"
+              ],
+              "default": "customer"
+            }
+          },
+          {
+            "name": "include_zero_balance",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12866,6 +16730,9 @@
     },
     {
       "name": "pricing"
+    },
+    {
+      "name": "deposits"
     }
   ],
   "externalDocs": {

@@ -14,7 +14,7 @@ import { productsRouter } from './products';
 import { deliveriesRouter } from './deliveries';
 import { depositsRouter } from './deposits';
 // import { driverRouter } from './driver'; // Temporarily disabled
-// import { paymentsRouter } from './payments';
+import { paymentsRouter } from './payments';
 
 export const appRouter = router({
   auth: authRouter as any,
@@ -32,7 +32,7 @@ export const appRouter = router({
   deliveries: deliveriesRouter as any,
   deposits: depositsRouter as any,
   // driver: driverRouter as any, // Temporarily disabled
-  // payments: paymentsRouter as any,
+  payments: paymentsRouter as any,
 });
 
 export type AppRouter = typeof appRouter;

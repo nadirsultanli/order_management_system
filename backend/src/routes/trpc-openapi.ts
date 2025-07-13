@@ -3,7 +3,7 @@ import { authRouter } from './auth';
 import { customersRouter } from './customers';
 import { deliveriesRouter } from './deliveries';
 import { inventoryRouter } from './inventory';
-// import { paymentsRouter } from './payments';
+import { paymentsRouter } from './payments';
 import { productsRouter } from './products';
 // import { stockMovementsRouter } from './stock-movements';
 import { transfersRouter } from './transfers';
@@ -22,7 +22,7 @@ const openApiRouter = router({
   customers: customersRouter,
   deliveries: deliveriesRouter,
   inventory: inventoryRouter,
-  // payments: paymentsRouter,
+  payments: paymentsRouter,
   products: productsRouter,
   // stockMovements: stockMovementsRouter,
   transfers: transfersRouter,

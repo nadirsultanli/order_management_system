@@ -11,6 +11,7 @@ import { appRouter } from './routes';
 import { createContext } from './lib/context';
 import { logger } from './lib/logger';
 import { openApiDocument } from './openapi-complete';
+import mpesaRouter from './helpers/mpesa';
 
 dotenv.config();
 
@@ -324,6 +325,9 @@ app.use('/api/v1', createOpenApiExpressMiddleware({
     logger.error(`❌ tRPC-OpenAPI failed on ${path ?? '<no-path>'}:`, error);
   },
 }));
+
+// Mpesa webhook routes
+app.use(mpesaRouter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
