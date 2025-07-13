@@ -76,7 +76,7 @@ export const EditOrderPage: React.FC = () => {
   const warehouses = warehousesData?.warehouses || [];
   const inventory = inventoryData?.inventory || [];
   const { mutate: createAddress } = useCreateAddress();
-  const { mutate: updateOrder, isLoading: isUpdating } = useUpdateOrder();
+  const updateOrderMutation = useUpdateOrder();
 
   // Load order data when component mounts
   useEffect(() => {
@@ -286,7 +286,7 @@ export const EditOrderPage: React.FC = () => {
       })) || []
     };
 
-    updateOrder.mutate(orderData, {
+    updateOrderMutation.mutate(orderData, {
       onSuccess: () => {
         navigate(`/orders/${orderId}`);
       }
@@ -863,10 +863,10 @@ export const EditOrderPage: React.FC = () => {
               </button>
               <button
                 onClick={handleSubmitOrder}
-                disabled={updateOrder.isPending}
+                disabled={updateOrderMutation.isPending}
                 className="bg-green-600 text-white px-8 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
               >
-                {updateOrder.isPending ? (
+                {updateOrderMutation.isPending ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>Updating Order...</span>
