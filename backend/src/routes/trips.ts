@@ -53,6 +53,7 @@ export const tripsRouter = router({
         'truck_fleet_number': 'truck_id'
       };
       
+      const sortColumn = input.sort_by ? (sortByMapping[input.sort_by] || input.sort_by) : 'created_at';
       
       let query = ctx.supabase
         .from('truck_routes')
