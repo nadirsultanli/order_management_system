@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Edit, Trash2, Eye, Search, Filter, Users, Shield, Truck, UserCog } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Search, Filter, Users, Shield, Truck } from 'lucide-react';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '../hooks/useUsers';
 import { ErrorBoundary, useErrorHandler } from '../components/ui/ErrorBoundary';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -10,7 +10,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'driver' | 'manager' | 'user';
+  role: 'admin' | 'driver' | 'user';
   active: boolean;
   phone?: string;
   license_number?: string;
@@ -25,7 +25,7 @@ interface User {
 interface UserFormData {
   email: string;
   name: string;
-  role: 'admin' | 'driver' | 'manager' | 'user';
+  role: 'admin' | 'driver' | 'user';
   active?: boolean;
   phone?: string;
   license_number?: string;
@@ -38,7 +38,7 @@ interface UserFormData {
 
 interface UserFilters {
   search?: string;
-  role?: 'admin' | 'driver' | 'manager' | 'user';
+  role?: 'admin' | 'driver' | 'user';
   active?: boolean;
   page?: number;
   limit?: number;
@@ -151,7 +151,6 @@ const UserForm: React.FC<{
               >
                 <option value="user">User</option>
                 <option value="driver">Driver</option>
-                <option value="manager">Manager</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -328,11 +327,7 @@ export const UsersPage: React.FC = () => {
     return {
       total: totalCount,
       admin: users.filter(u => u.role === 'admin').length,
-      manager: users.filter(u => u.role === 'manager').length,
       driver: users.filter(u => u.role === 'driver').length,
-      user: users.filter(u => u.role === 'user').length,
-      active: users.filter(u => u.active).length,
-      inactive: users.filter(u => !u.active).length,
     };
   }, [users, totalCount]);
 
@@ -391,8 +386,6 @@ export const UsersPage: React.FC = () => {
     switch (role) {
       case 'admin':
         return <Shield className="h-4 w-4" />;
-      case 'manager':
-        return <UserCog className="h-4 w-4" />;
       case 'driver':
         return <Truck className="h-4 w-4" />;
       default:
@@ -404,8 +397,6 @@ export const UsersPage: React.FC = () => {
     switch (role) {
       case 'admin':
         return 'bg-red-100 text-red-800';
-      case 'manager':
-        return 'bg-purple-100 text-purple-800';
       case 'driver':
         return 'bg-blue-100 text-blue-800';
       default:
@@ -441,7 +432,7 @@ export const UsersPage: React.FC = () => {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
             <div className="text-sm text-gray-600">Total Users</div>
@@ -451,24 +442,8 @@ export const UsersPage: React.FC = () => {
             <div className="text-sm text-gray-600">Admins</div>
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-purple-600">{stats.manager}</div>
-            <div className="text-sm text-gray-600">Managers</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="text-2xl font-bold text-blue-600">{stats.driver}</div>
             <div className="text-sm text-gray-600">Drivers</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-gray-600">{stats.user}</div>
-            <div className="text-sm text-gray-600">Users</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-            <div className="text-sm text-gray-600">Active</div>
-          </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200">
-            <div className="text-2xl font-bold text-red-600">{stats.inactive}</div>
-            <div className="text-sm text-gray-600">Inactive</div>
           </div>
         </div>
 
@@ -499,27 +474,10 @@ export const UsersPage: React.FC = () => {
                 >
                   <option value="">All Roles</option>
                   <option value="admin">Admin</option>
-                  <option value="manager">Manager</option>
                   <option value="driver">Driver</option>
-                  <option value="user">User</option>
                 </select>
               </div>
 
-              <div>
-                <select
-                  value={filters.active === undefined ? '' : filters.active.toString()}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const active = value === '' ? undefined : value === 'true';
-                    handleFiltersChange({ active });
-                  }}
-                  className="block px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                >
-                  <option value="">All Status</option>
-                  <option value="true">Active</option>
-                  <option value="false">Inactive</option>
-                </select>
-              </div>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -661,12 +619,12 @@ export const UsersPage: React.FC = () => {
             </div>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {filters.search || filters.role || filters.active !== undefined
+              {filters.search || filters.role
                 ? 'Try adjusting your filters to see more results.'
                 : 'Get started by adding your first user.'
               }
             </p>
-            {!filters.search && !filters.role && filters.active === undefined && (
+            {!filters.search && !filters.role && (
               <div className="mt-6">
                 <button
                   onClick={handleAddUser}

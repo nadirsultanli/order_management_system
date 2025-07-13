@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Helper to handle optional datetime fields that might be empty strings
+const optionalDatetime = () => z.string().optional().transform((val) => val === '' ? undefined : val).pipe(z.string().datetime().optional());
+
 // ==============================================================
 // PAYMENTS INPUT SCHEMAS
 // ==============================================================
@@ -16,7 +19,7 @@ export const RecordPaymentSchema = z.object({
   amount: z.number().positive(),
   payment_method: PaymentMethodEnum,
   transaction_id: z.string().optional(),
-  payment_date: z.string().datetime().optional(),
+  payment_date: optionalDatetime(),
   reference_number: z.string().optional(),
   notes: z.string().optional(),
   metadata: z.record(z.any()).optional(),
