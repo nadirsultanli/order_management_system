@@ -315,7 +315,6 @@ export const trucksRouter = router({
         fleet_number: input.fleet_number,
         license_plate: input.license_plate,
         capacity_cylinders: input.capacity_cylinders,
-        driver_id: input.driver_id || null,
         active: input.active,
         last_maintenance_date: input.last_maintenance_date || null,
         next_maintenance_due: input.next_maintenance_due || null,
