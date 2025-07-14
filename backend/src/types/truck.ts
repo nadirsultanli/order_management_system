@@ -29,9 +29,6 @@ export interface Truck {
   // System timestamps
   created_at: string;
   updated_at: string;
-  
-  // User assignment
-  user_id?: string;
 }
 
 export interface TruckRoute {
