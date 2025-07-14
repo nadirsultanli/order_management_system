@@ -64,12 +64,7 @@ export const tripsRouter = router({
             fleet_number,
             license_plate,
             capacity_cylinders,
-            capacity_kg,
-            driver_id,
-            driver:driver_id (
-              id,
-              email
-            )
+            capacity_kg
           )
         `)
         .order(sortColumn, {
@@ -78,7 +73,7 @@ export const tripsRouter = router({
       
       // Apply filters
       if (input.search) {
-        query = query.or(`route_status.ilike.%${input.search}%,trip_notes.ilike.%${input.search}%,truck.fleet_number.ilike.%${input.search}%,truck.license_plate.ilike.%${input.search}%,truck.driver.email.ilike.%${input.search}%`);
+        query = query.or(`route_status.ilike.%${input.search}%,trip_notes.ilike.%${input.search}%,truck.fleet_number.ilike.%${input.search}%,truck.license_plate.ilike.%${input.search}%`);
       }
       
       if (input.status) {
@@ -118,11 +113,35 @@ export const tripsRouter = router({
         });
       }
       
+      // Fetch driver information for each trip
+      const tripsWithDrivers = await Promise.all(
+        (trips || []).map(async (trip) => {
+          let driver = null;
+          if (trip.driver_id) {
+            const { data: driverData } = await ctx.supabase
+              .from('admin_users')
+              .select('id, name, email, phone')
+              .eq('auth_user_id', trip.driver_id)
+              .single();
+            
+            if (driverData) {
+              driver = driverData;
+            }
+          }
+          
+          return {
+            ...trip,
+            driver,
+            driver_name: driver?.name || null
+          };
+        })
+      );
+      
       const totalCount = count || 0;
       const totalPages = Math.ceil(totalCount / limit);
       
       return {
-        trips: trips || [],
+        trips: tripsWithDrivers,
         currentPage: page,
         totalPages,
         totalCount,
@@ -159,12 +178,7 @@ export const tripsRouter = router({
             fleet_number,
             license_plate,
             capacity_cylinders,
-            capacity_kg,
-            driver_id,
-            driver:driver_id (
-              id,
-              email
-            )
+            capacity_kg
           ),
           truck_allocations (
             id,
@@ -175,7 +189,7 @@ export const tripsRouter = router({
             actual_weight_kg,
             order:order_id (
               id,
-              order_number,
+              status,
               total_amount,
               customer:customer_id (
                 id,
@@ -209,7 +223,25 @@ export const tripsRouter = router({
         });
       }
       
-      return trip;
+      // Fetch driver information if driver_id exists
+      let driver = null;
+      if (trip.driver_id) {
+        const { data: driverData } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name, email, phone')
+          .eq('auth_user_id', trip.driver_id)
+          .single();
+        
+        if (driverData) {
+          driver = driverData;
+        }
+      }
+      
+      return {
+        ...trip,
+        driver,
+        driver_name: driver?.name || null
+      };
     }),
 
   // GET /trips/{id}/timeline - Get trip timeline

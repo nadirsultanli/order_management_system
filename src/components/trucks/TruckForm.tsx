@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, Loader2 } from 'lucide-react';
 import { useCreateTruck, useUpdateTruck } from '../../hooks/useTrucks';
-import { useDrivers } from '../../hooks/useUsers';
-import { SearchableDriverSelector } from './SearchableDriverSelector';
 
 interface TruckFormProps {
   initialData?: {
@@ -11,7 +9,6 @@ interface TruckFormProps {
     fleet_number: string;
     license_plate: string;
     capacity_cylinders: number;
-    driver_id: string | null;
     active: boolean;
   };
   onSuccess?: () => void;
@@ -22,17 +19,10 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
   const createTruck = useCreateTruck();
   const updateTruck = useUpdateTruck();
   const [error, setError] = useState<string | null>(null);
-  const { data: driversData, isLoading: driversLoading, error: driversError } = useDrivers({ active: true });
-  
-  // Debug drivers data
-  console.log('Drivers data:', driversData);
-  console.log('Drivers loading:', driversLoading);
-  console.log('Drivers error:', driversError);
   const [formData, setFormData] = useState({
     fleet_number: initialData?.fleet_number || '',
     license_plate: initialData?.license_plate || '',
     capacity_cylinders: initialData?.capacity_cylinders || '',
-    driver_id: initialData?.driver_id || '',
     active: initialData?.active ?? true
   });
 
@@ -51,7 +41,6 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
       if (!formData.license_plate) {
         throw new Error('License plate is required');
       }
-      // Driver selection is optional - remove validation
       
       const capacityNumber = parseInt(String(formData.capacity_cylinders));
       if (isNaN(capacityNumber) || capacityNumber <= 0) {
@@ -62,7 +51,6 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
         fleet_number: formData.fleet_number,
         license_plate: formData.license_plate,
         capacity_cylinders: capacityNumber,
-        driver_id: formData.driver_id || null,
         active: formData.active
       };
 
@@ -165,21 +153,6 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
             />
           </div>
 
-          <div>
-            <label htmlFor="driver_id" className="block text-sm font-medium text-gray-700">
-              Driver
-            </label>
-            <div className="mt-1">
-              <SearchableDriverSelector
-                drivers={driversData?.drivers}
-                value={formData.driver_id}
-                onChange={(driverId) => setFormData({ ...formData, driver_id: driverId })}
-                placeholder="Select a driver (optional)"
-                loading={driversLoading}
-                required={false}
-              />
-            </div>
-          </div>
 
           <div className="flex items-center">
             <input

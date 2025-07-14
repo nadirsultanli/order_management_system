@@ -116,10 +116,6 @@ export const TruckDetailPage: React.FC = () => {
                 <p className="mt-1">{truck.license_plate}</p>
               </div>
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Driver</h3>
-                <p className="mt-1">{truck.driver?.name || 'Not assigned'}</p>
-              </div>
-              <div>
                 <h3 className="text-sm font-medium text-gray-500">Capacity</h3>
                 <p className="mt-1">{truck.capacity_cylinders} cylinders</p>
               </div>
