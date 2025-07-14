@@ -34,6 +34,7 @@ import { TripLoadingPage } from './pages/TripLoadingPage';
 import { TripSchedulePage } from './pages/TripSchedulePage';
 import { CreateTripPage } from './pages/CreateTripPage';
 import { UsersPage } from './pages/UsersPage';
+import { DepositDemoPage } from './pages/DepositDemoPage';
 
 function App() {
   return (
@@ -59,6 +60,7 @@ function App() {
             <Route path="warehouses/:id" element={<WarehouseDetailPage />} />
             <Route path="inventory" element={<InventoryPage />} />
             <Route path="pricing" element={<PricingPage />} />
+            <Route path="pricing/demo" element={<DepositDemoPage />} />
             <Route path="pricing/:id" element={<PriceListDetailPage />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="orders/new" element={<CreateOrderPageV2 />} />

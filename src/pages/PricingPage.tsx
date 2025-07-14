@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, DollarSign, Database } from 'lucide-react';
+import { Plus, DollarSign, Database, Eye } from 'lucide-react';
 import { usePriceListsNew, useCreatePriceListNew, useUpdatePriceListNew, useDeletePriceListNew, useSetDefaultPriceListNew } from '../hooks/usePricing';
 import { useDepositRates, useCreateDepositRate, useUpdateDepositRate, useDeleteDepositRate } from '../hooks/useDeposits';
 import { PriceListTable } from '../components/pricing/PriceListTable';
@@ -29,6 +29,7 @@ export const PricingPage: React.FC = () => {
   const [depositFilters, setDepositFilters] = useState<DepositRateFilters>({ page: 1 });
   const [editingDepositRate, setEditingDepositRate] = useState<DepositRate | null>(null);
   const [deletingDepositRate, setDeletingDepositRate] = useState<DepositRate | null>(null);
+  const [isDepositFormOpen, setIsDepositFormOpen] = useState(false);
 
   // Price Lists hooks
   const { data, isLoading, error, refetch } = usePriceListsNew(filters);
@@ -146,6 +147,7 @@ export const PricingPage: React.FC = () => {
         await createDepositRate.mutateAsync(data);
       }
       setEditingDepositRate(null);
+      setIsDepositFormOpen(false);
     } catch (error) {
       console.error('Deposit rate submit error:', error);
     }
@@ -178,6 +180,24 @@ export const PricingPage: React.FC = () => {
           )}
         </div>
         <div className="flex items-center space-x-3">
+          {activeTab === 'deposit-rates' && (
+            <button
+              onClick={() => navigate('/pricing/demo')}
+              className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+              <span>How Deposits Work</span>
+            </button>
+          )}
+          {activeTab === 'price-lists' && (
+            <button
+              onClick={() => navigate('/pricing/demo')}
+              className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Eye className="h-4 w-4" />
+              <span>View Demo</span>
+            </button>
+          )}
           {activeTab === 'price-lists' ? (
             <button
               onClick={handleAddPriceList}
@@ -188,7 +208,10 @@ export const PricingPage: React.FC = () => {
             </button>
           ) : (
             <button
-              onClick={() => setEditingDepositRate(null)}
+              onClick={() => {
+                setEditingDepositRate(null);
+                setIsDepositFormOpen(true);
+              }}
               className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
               <Plus className="h-4 w-4" />
@@ -226,7 +249,7 @@ export const PricingPage: React.FC = () => {
         </nav>
       </div>
 
-      <PricingStats showDepositStats={activeTab === 'deposit-rates'} />
+      {activeTab === 'price-lists' && <PricingStats />}
 
       {/* Content Area - Conditional based on active tab */}
       {activeTab === 'price-lists' ? (
@@ -262,6 +285,8 @@ export const PricingPage: React.FC = () => {
             onSubmit={handleDepositRateSubmit}
             editingRate={editingDepositRate}
             onCancelEdit={() => setEditingDepositRate(null)}
+            isFormOpen={isDepositFormOpen}
+            onFormOpenChange={setIsDepositFormOpen}
           />
 
           {depositData && depositData.totalPages > 1 && (

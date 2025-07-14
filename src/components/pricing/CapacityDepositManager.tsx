@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Edit, Trash2, Plus, DollarSign } from 'lucide-react';
+import { Edit, Trash2, DollarSign } from 'lucide-react';
 import { DepositRate, CreateDepositRateData } from '../../types/deposits';
 import { DepositRateForm } from './DepositRateForm';
 
@@ -11,6 +11,8 @@ interface CapacityDepositManagerProps {
   onSubmit: (data: CreateDepositRateData) => Promise<void>;
   editingRate: DepositRate | null;
   onCancelEdit: () => void;
+  isFormOpen: boolean;
+  onFormOpenChange: (open: boolean) => void;
 }
 
 export const CapacityDepositManager: React.FC<CapacityDepositManagerProps> = ({
@@ -21,8 +23,9 @@ export const CapacityDepositManager: React.FC<CapacityDepositManagerProps> = ({
   onSubmit,
   editingRate,
   onCancelEdit,
+  isFormOpen,
+  onFormOpenChange,
 }) => {
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'capacity' | 'amount' | 'date'>('capacity');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -73,24 +76,19 @@ export const CapacityDepositManager: React.FC<CapacityDepositManagerProps> = ({
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleAddNew = () => {
-    onCancelEdit();
-    setIsFormOpen(true);
-  };
-
   const handleEditClick = (rate: DepositRate) => {
-    setIsFormOpen(true);
+    onFormOpenChange(true);
     onEdit(rate);
   };
 
   const handleFormSubmit = async (data: CreateDepositRateData) => {
     await onSubmit(data);
-    setIsFormOpen(false);
+    onFormOpenChange(false);
     onCancelEdit();
   };
 
   const handleFormClose = () => {
-    setIsFormOpen(false);
+    onFormOpenChange(false);
     onCancelEdit();
   };
 
@@ -105,20 +103,11 @@ export const CapacityDepositManager: React.FC<CapacityDepositManagerProps> = ({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Cylinder Deposit Rates</h2>
-          <p className="text-sm text-gray-600">
-            Manage deposit rates by cylinder capacity
-          </p>
-        </div>
-        <button
-          onClick={handleAddNew}
-          className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Rate</span>
-        </button>
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">Cylinder Deposit Rates</h2>
+        <p className="text-sm text-gray-600">
+          Manage deposit rates by cylinder capacity
+        </p>
       </div>
 
       {/* Sorting Controls */}
@@ -155,15 +144,9 @@ export const CapacityDepositManager: React.FC<CapacityDepositManagerProps> = ({
         <div className="text-center py-12">
           <DollarSign className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Deposit Rates</h3>
-          <p className="text-gray-600 mb-6">
-            Get started by adding your first cylinder deposit rate.
+          <p className="text-gray-600">
+            Get started by adding your first cylinder deposit rate using the "Add Deposit Rate" button above.
           </p>
-          <button
-            onClick={handleAddNew}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-          >
-            Add Deposit Rate
-          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

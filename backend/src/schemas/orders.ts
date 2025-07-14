@@ -18,6 +18,10 @@ export const orderLineSchema = z.object({
   quantity: z.number(),
   unit_price: z.number(),
   subtotal: z.number(),
+  gas_charge: z.number().default(0),
+  deposit_amount: z.number().default(0),
+  include_deposit: z.boolean().default(false),
+  pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).default('per_unit'),
   product: productInLineSchema.optional(),
 });
 
@@ -86,6 +90,8 @@ export const orderSchema = z.object({
   tax_amount: z.number(),
   delivery_fee: z.number(),
   total_amount: z.number(),
+  gas_charges_total: z.number().default(0),
+  deposit_total: z.number().default(0),
   priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
   notes: z.string().optional(),
   internal_notes: z.string().optional(),
@@ -163,6 +169,8 @@ export const calculateTotalsResponseSchema = z.object({
   taxAmount: z.number(),
   deliveryFee: z.number(),
   totalAmount: z.number(),
+  gasChargesTotal: z.number().default(0),
+  depositTotal: z.number().default(0),
   taxRate: z.number(),
   breakdown: z.object({
     lines: z.array(z.object({
@@ -170,6 +178,10 @@ export const calculateTotalsResponseSchema = z.object({
       quantity: z.number(),
       unit_price: z.number(),
       subtotal: z.number(),
+      gas_charge: z.number().optional(),
+      deposit_amount: z.number().optional(),
+      include_deposit: z.boolean().optional(),
+      pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).optional(),
     })),
   }),
 });

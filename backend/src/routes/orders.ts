@@ -822,7 +822,51 @@ export const ordersRouter = router({
             }
           }
           
-          const subtotal = finalUnitPrice * line.quantity;
+          // Calculate deposit and gas charges based on pricing method
+          let gasCharge = 0;
+          let depositAmount = 0;
+          let subtotal = 0;
+          
+          if (line.pricing_method === 'per_kg') {
+            // Use weight-based pricing with deposit calculation
+            const weightBasedPrice = await pricingService.getWeightBasedPrice(
+              line.product_id,
+              line.quantity,
+              input.customer_id
+            );
+            
+            if (weightBasedPrice) {
+              gasCharge = weightBasedPrice.gasCharge;
+              if (line.include_deposit) {
+                depositAmount = weightBasedPrice.depositAmount;
+              }
+              subtotal = gasCharge + depositAmount;
+            } else {
+              // Fallback to traditional pricing if weight-based fails
+              gasCharge = finalUnitPrice * line.quantity;
+              subtotal = gasCharge;
+            }
+          } else {
+            // Traditional pricing method
+            gasCharge = finalUnitPrice * line.quantity;
+            subtotal = gasCharge;
+            
+            // Add deposit if requested
+            if (line.include_deposit) {
+              const { data: productWithCapacity } = await ctx.supabase
+                .from('products')
+                .select('capacity_l')
+                .eq('id', line.product_id)
+                .single();
+                
+              if (productWithCapacity?.capacity_l) {
+                const depositRate = await pricingService.getCurrentDepositRate(productWithCapacity.capacity_l);
+                depositAmount = depositRate * line.quantity;
+                subtotal += depositAmount;
+              }
+            }
+          }
+          
           totalAmount += subtotal;
           
           validatedOrderLines.push({
@@ -830,6 +874,10 @@ export const ordersRouter = router({
             quantity: line.quantity,
             unit_price: finalUnitPrice,
             subtotal: subtotal,
+            gas_charge: gasCharge,
+            deposit_amount: depositAmount,
+            include_deposit: line.include_deposit || false,
+            pricing_method: line.pricing_method || 'per_unit',
             product_sku: product.sku,
             product_name: product.name,
           });
@@ -905,6 +953,10 @@ export const ordersRouter = router({
             quantity: line.quantity,
             unit_price: line.unit_price,
             subtotal: line.subtotal,
+            gas_charge: line.gas_charge || 0,
+            deposit_amount: line.deposit_amount || 0,
+            include_deposit: line.include_deposit || false,
+            pricing_method: line.pricing_method || 'per_unit',
             qty_tagged: 0, // Default to 0, will be updated during fulfillment
             qty_untagged: line.quantity, // Start with all quantity untagged
           }));
@@ -2214,7 +2266,15 @@ export const ordersRouter = router({
         continue;
       }
       
-      const subtotal = finalUnitPrice * line.quantity;
+      // Calculate deposit and gas charges for visit conversion
+      // Note: Visit conversions use traditional pricing (per_unit) by default
+      const gasCharge = finalUnitPrice * line.quantity;
+      let depositAmount = 0;
+      let subtotal = gasCharge;
+      
+      // Add deposit if requested (visit conversions don't typically include deposits by default)
+      // This would be extended if the schema includes deposit fields for visit conversion
+      
       totalAmount += subtotal;
       
       validatedOrderLines.push({
@@ -2222,6 +2282,10 @@ export const ordersRouter = router({
         quantity: line.quantity,
         unit_price: finalUnitPrice,
         subtotal: subtotal,
+        gas_charge: gasCharge,
+        deposit_amount: depositAmount,
+        include_deposit: false,  // Default to false for visit conversions
+        pricing_method: 'per_unit',  // Default to per_unit for visit conversions
         product_sku: product.sku,
         product_name: product.name,
       });
@@ -2258,6 +2322,10 @@ export const ordersRouter = router({
       quantity: line.quantity,
       unit_price: line.unit_price,
       subtotal: line.subtotal,
+      gas_charge: line.gas_charge || 0,
+      deposit_amount: line.deposit_amount || 0,
+      include_deposit: line.include_deposit || false,
+      pricing_method: line.pricing_method || 'per_unit',
       qty_tagged: 0,
       qty_untagged: line.quantity,
     }));
@@ -2368,10 +2436,10 @@ export const ordersRouter = router({
 async function calculateOrderTotal(ctx: any, orderId: string) {
   ctx.logger.info('Calculating order total for:', orderId);
 
-  // Get order lines with quantity and unit_price
+  // Get order lines with quantity, unit_price, and deposit fields
   const { data: lines, error: linesError } = await ctx.supabase
     .from('order_lines')
-    .select('quantity, unit_price, subtotal')
+    .select('quantity, unit_price, subtotal, gas_charge, deposit_amount')
     .eq('order_id', orderId);
 
   if (linesError) {
@@ -2401,15 +2469,28 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
       return sum + lineSubtotal;
     }, 0);
     
+    // Calculate gas charges and deposit totals
+    const gasChargesTotal = lines.reduce((sum: number, line: any) => {
+      return sum + (line.gas_charge || 0);
+    }, 0);
+    
+    const depositTotal = lines.reduce((sum: number, line: any) => {
+      return sum + (line.deposit_amount || 0);
+    }, 0);
+    
     const taxAmount = order?.tax_amount || 0;
     const grandTotal = subtotal + taxAmount;
     
-    ctx.logger.info('Order total calculation:', { orderId, subtotal, taxAmount, grandTotal });
+    ctx.logger.info('Order total calculation:', { 
+      orderId, subtotal, taxAmount, grandTotal, gasChargesTotal, depositTotal 
+    });
     
     const { error: updateError } = await ctx.supabase
       .from('orders')
       .update({ 
         total_amount: grandTotal,
+        gas_charges_total: gasChargesTotal,
+        deposit_total: depositTotal,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId);
@@ -2425,10 +2506,14 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
       subtotal,
       tax_amount: taxAmount,
       total_amount: grandTotal,
+      gas_charges_total: gasChargesTotal,
+      deposit_total: depositTotal,
       breakdown: lines.map((line: any) => ({
         quantity: line.quantity,
         unit_price: line.unit_price,
-        subtotal: line.subtotal || (line.quantity * line.unit_price)
+        subtotal: line.subtotal || (line.quantity * line.unit_price),
+        gas_charge: line.gas_charge || 0,
+        deposit_amount: line.deposit_amount || 0
       }))
     };
   }
@@ -2443,10 +2528,10 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
 async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
   ctx.logger.info('Updating order tax:', { orderId, taxPercent });
 
-  // Get order lines with quantity and unit_price
+  // Get order lines with quantity, unit_price, and deposit fields  
   const { data: lines, error: linesError } = await ctx.supabase
     .from('order_lines')
-    .select('quantity, unit_price, subtotal')
+    .select('quantity, unit_price, subtotal, gas_charge, deposit_amount')
     .eq('order_id', orderId);
 
   if (linesError) {
@@ -2462,10 +2547,21 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
       return sum + lineSubtotal;
     }, 0);
     
+    // Calculate gas charges and deposit totals
+    const gasChargesTotal = lines.reduce((sum: number, line: any) => {
+      return sum + (line.gas_charge || 0);
+    }, 0);
+    
+    const depositTotal = lines.reduce((sum: number, line: any) => {
+      return sum + (line.deposit_amount || 0);
+    }, 0);
+    
     const taxAmount = subtotal * (taxPercent / 100);
     const grandTotal = subtotal + taxAmount;
     
-    ctx.logger.info('Order tax update:', { orderId, taxPercent, subtotal, taxAmount, grandTotal });
+    ctx.logger.info('Order tax update:', { 
+      orderId, taxPercent, subtotal, taxAmount, grandTotal, gasChargesTotal, depositTotal 
+    });
     
     const { error: updateError } = await ctx.supabase
       .from('orders')
@@ -2473,6 +2569,8 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
         tax_percent: taxPercent,
         tax_amount: taxAmount,
         total_amount: grandTotal,
+        gas_charges_total: gasChargesTotal,
+        deposit_total: depositTotal,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId);
@@ -2488,7 +2586,9 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
       subtotal,
       tax_percent: taxPercent,
       tax_amount: taxAmount,
-      total_amount: grandTotal
+      total_amount: grandTotal,
+      gas_charges_total: gasChargesTotal,
+      deposit_total: depositTotal
     };
   }
 
@@ -2512,6 +2612,10 @@ async function getOrderById(ctx: any, orderId: string) {
         quantity,
         unit_price,
         subtotal,
+        gas_charge,
+        deposit_amount,
+        include_deposit,
+        pricing_method,
         product:products(id, sku, name, unit_of_measure)
       )
     `)

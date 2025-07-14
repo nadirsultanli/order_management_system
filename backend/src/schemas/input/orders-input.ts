@@ -72,6 +72,8 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
     unit_price: z.number().positive().optional(),
     expected_price: z.number().positive().optional(),
     price_list_id: z.string().uuid().optional(),
+    include_deposit: z.boolean().default(false),
+    pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).default('per_unit'),
   });
 
   export const OrderLineConvertSchema = z.object({
