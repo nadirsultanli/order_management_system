@@ -32,6 +32,10 @@ const getStatusConfig = (status: string) => {
     pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-500' },
     in_transit: { bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
     completed: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
+    
+    // Payment statuses
+    failed: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
+    refunded: { bg: 'bg-purple-100', text: 'text-purple-800', dot: 'bg-purple-500' },
   };
 
   return configs[status] || { bg: 'bg-gray-100', text: 'text-gray-800', dot: 'bg-gray-500' };
