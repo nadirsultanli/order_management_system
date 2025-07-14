@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { DepositRate, CreateDepositRateData } from '../../types/deposits';
+import { CurrencySelect } from '../ui/CurrencySelect';
 
 interface DepositRateFormProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ export const DepositRateForm: React.FC<DepositRateFormProps> = ({
   const [formData, setFormData] = useState<CreateDepositRateData>({
     capacity_l: 0,
     deposit_amount: 0,
-    currency_code: 'USD',
+    currency_code: 'KES',
     effective_date: new Date().toISOString().split('T')[0],
     end_date: '',
     notes: '',
@@ -43,7 +44,7 @@ export const DepositRateForm: React.FC<DepositRateFormProps> = ({
       setFormData({
         capacity_l: 0,
         deposit_amount: 0,
-        currency_code: 'USD',
+        currency_code: 'KES',
         effective_date: new Date().toISOString().split('T')[0],
         end_date: '',
         notes: '',
@@ -111,7 +112,6 @@ export const DepositRateForm: React.FC<DepositRateFormProps> = ({
   };
 
   const commonCapacities = [5, 10, 15, 20, 25, 30, 45, 50, 60];
-  const currencies = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'];
 
   if (!isOpen) return null;
 
@@ -202,19 +202,14 @@ export const DepositRateForm: React.FC<DepositRateFormProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Currency *
             </label>
-            <select
+            <CurrencySelect
               value={formData.currency_code}
-              onChange={(e) => handleInputChange('currency_code', e.target.value)}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+              onChange={(value) => handleInputChange('currency_code', value)}
+              className={`w-full ${
                 errors.currency_code ? 'border-red-300' : 'border-gray-300'
               }`}
-            >
-              {currencies.map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </select>
+              placeholder="Select currency"
+            />
             {errors.currency_code && (
               <p className="text-red-600 text-sm flex items-center mt-1">
                 <AlertCircle className="h-4 w-4 mr-1" />

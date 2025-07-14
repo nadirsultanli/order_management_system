@@ -144,7 +144,23 @@ export const depositsRouter = router({
       
       ctx.logger.info('Creating deposit rate:', input);
 
-      // Check for existing active rate for the same capacity and currency
+      // Check for existing rate with exact same capacity, currency, and effective date
+      const { data: exactMatch } = await ctx.supabase
+        .from('cylinder_deposit_rates')
+        .select('id')
+        .eq('capacity_l', input.capacity_l)
+        .eq('currency_code', input.currency_code)
+        .eq('effective_date', input.effective_date)
+        .maybeSingle();
+
+      if (exactMatch) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'A deposit rate already exists for this capacity, currency, and effective date'
+        });
+      }
+
+      // Check for existing active rate for the same capacity and currency with overlapping date range
       const { data: existingRate } = await ctx.supabase
         .from('cylinder_deposit_rates')
         .select('id')
@@ -158,7 +174,7 @@ export const depositsRouter = router({
       if (existingRate) {
         throw new TRPCError({
           code: 'CONFLICT',
-          message: 'An active deposit rate already exists for this capacity and date range'
+          message: 'An active deposit rate already exists for this capacity and currency with overlapping date range'
         });
       }
 
