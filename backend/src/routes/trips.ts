@@ -438,8 +438,37 @@ export const tripsRouter = router({
       
       ctx.logger.info('Creating new trip:', input);
       
-      // Note: driver_id validation will be handled by the foreign key constraint
-      // The database will reject invalid driver_id values automatically
+      // Validate driver_id exists if provided
+      if (input.driver_id) {
+        const { data: driver, error: driverError } = await ctx.supabase
+          .from('admin_users')
+          .select('id, role, active')
+          .eq('id', input.driver_id)
+          .eq('role', 'driver')
+          .eq('active', true)
+          .single();
+
+        if (driverError || !driver) {
+          ctx.logger.error('Driver validation failed:', { 
+            driver_id: input.driver_id, 
+            error: driverError,
+            driver_found: !!driver 
+          });
+          
+          // Get more details about the driver for debugging
+          const { data: allDrivers } = await ctx.supabase
+            .from('admin_users')
+            .select('id, name, role, active')
+            .eq('role', 'driver');
+          
+          ctx.logger.info('Available drivers:', allDrivers);
+          
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Invalid driver_id (${input.driver_id}). The specified driver does not exist, is not active, or is not a driver. Available drivers: ${allDrivers?.length || 0}`,
+          });
+        }
+      }
       
       // Prepare insert data with conditional fields
       const insertData: any = {
