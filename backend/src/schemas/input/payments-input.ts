@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Helper to handle optional datetime fields that might be empty strings
+const optionalDatetime = () => z.string().optional().transform((val) => val === '' ? undefined : val).pipe(z.string().datetime().optional());
+
 // ==============================================================
 // PAYMENTS INPUT SCHEMAS
 // ==============================================================

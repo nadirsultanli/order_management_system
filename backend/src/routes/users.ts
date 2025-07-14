@@ -33,12 +33,11 @@ export const usersRouter = router({
       const user = requireAuth(ctx);
       
       // Provide default values if input is undefined
-      const filters = input || {} as { page?: number; limit?: number; search?: string; role?: 'admin' | 'driver' | 'manager' | 'user'; active?: boolean };
+      const filters = input || {} as { page?: number; limit?: number; search?: string; role?: 'admin' | 'driver' | 'user' };
       const page = filters.page || 1;
       const limit = filters.limit || 50;
       const search = filters.search;
       const role = filters.role;
-      const active = filters.active;
       
       ctx.logger.info('Fetching users with filters:', filters);
       
@@ -50,16 +49,12 @@ export const usersRouter = router({
       // Apply filters to count query
       if (search) {
         countQuery = countQuery.or(
-          `name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%`
+          `name.ilike.%${search}%,email.ilike.%${search}%`
         );
       }
 
       if (role) {
         countQuery = countQuery.eq('role', role);
-      }
-
-      if (active !== undefined) {
-        countQuery = countQuery.eq('active', active);
       }
 
       const { count: totalCount, error: countError } = await countQuery;
@@ -82,16 +77,12 @@ export const usersRouter = router({
       // Apply same filters to main query
       if (search) {
         query = query.or(
-          `name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%`
+          `name.ilike.%${search}%,email.ilike.%${search}%`
         );
       }
 
       if (role) {
         query = query.eq('role', role);
-      }
-
-      if (active !== undefined) {
-        query = query.eq('active', active);
       }
 
       const { data, error } = await query;
@@ -172,7 +163,7 @@ export const usersRouter = router({
         path: '/users',
         tags: ['users'],
         summary: 'Create user',
-        description: 'Create a new user account',
+        description: 'Create a new user account using the proper auth registration flow',
         protect: true,
       }
     })
@@ -204,14 +195,11 @@ export const usersRouter = router({
           email: input.email,
           name: input.name,
           role: input.role,
-          active: input.active,
+          active: true, // Ensure users created by admins are active
         };
 
-        // Add optional fields if provided
-        if (input.phone) insertData.phone = input.phone;
-        if (input.employee_id) insertData.employee_id = input.employee_id;
-        if (input.department) insertData.department = input.department;
-        if (input.hire_date) insertData.hire_date = input.hire_date;
+        // Note: Fields like phone, employee_id, department, hire_date are not in admin_users table
+        // If these fields are needed, they should be added to the table schema first
 
         const { data: userData, error: userError } = await ctx.supabase
           .from('admin_users')
@@ -226,7 +214,7 @@ export const usersRouter = router({
           ctx.logger.error('User creation failed:', userError);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: userError.message
+            message: `Failed to create admin user: ${userError.message || userError.code || 'Unknown error'}`
           });
         }
 
@@ -240,7 +228,7 @@ export const usersRouter = router({
         ctx.logger.error('User creation error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create user'
+          message: `User creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
         });
       }
     }),
@@ -266,9 +254,11 @@ export const usersRouter = router({
       
       const { id, ...updateData } = input;
       
-      // Filter out undefined values
+      // Filter out undefined values and fields that don't exist in admin_users table
+      const allowedFields = ['email', 'name', 'role', 'active'];
       const userUpdateFields = Object.fromEntries(
-        Object.entries(updateData).filter(([_, value]) => value !== undefined)
+        Object.entries(updateData)
+          .filter(([key, value]) => value !== undefined && allowedFields.includes(key))
       );
       
       if (Object.keys(userUpdateFields).length === 0) {
@@ -333,75 +323,48 @@ export const usersRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Deleting user:', { user_id: input.user_id, permanent: input.permanent });
+      ctx.logger.info('Deleting user:', input.user_id);
       
-      if (input.permanent) {
-        // Get auth_user_id before deleting
-        const { data: userData, error: fetchError } = await ctx.supabase
-          .from('admin_users')
-          .select('auth_user_id')
-          .eq('id', input.user_id)
-          .single();
+      // Get auth_user_id before deleting
+      const { data: userData, error: fetchError } = await ctx.supabase
+        .from('admin_users')
+        .select('auth_user_id')
+        .eq('id', input.user_id)
+        .single();
 
-        if (fetchError) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'User not found'
-          });
-        }
-
-        // Delete from admin_users table
-        const { error } = await ctx.supabase
-          .from('admin_users')
-          .delete()
-          .eq('id', input.user_id);
-
-        if (error) {
-          ctx.logger.error('Delete user error:', error);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: error.message
-          });
-        }
-
-        // Delete from Supabase Auth
-        if (userData.auth_user_id) {
-          try {
-            await supabaseAdmin.auth.admin.deleteUser(userData.auth_user_id);
-          } catch (authError) {
-            ctx.logger.warn('Failed to delete auth user:', authError);
-            // Don't fail if auth deletion fails
-          }
-        }
-
-        ctx.logger.info('User permanently deleted:', input.user_id);
-        return { success: true, message: 'User permanently deleted' };
-      } else {
-        // Just deactivate
-        const { data, error } = await ctx.supabase
-          .from('admin_users')
-          .update({ active: false })
-          .eq('id', input.user_id)
-          .select()
-          .single();
-
-        if (error) {
-          if (error.code === 'PGRST116') {
-            throw new TRPCError({
-              code: 'NOT_FOUND',
-              message: 'User not found'
-            });
-          }
-          ctx.logger.error('Deactivate user error:', error);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: error.message
-          });
-        }
-
-        ctx.logger.info('User deactivated:', input.user_id);
-        return { success: true, message: 'User deactivated', user: data };
+      if (fetchError) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found'
+        });
       }
+
+      // Delete from admin_users table
+      const { error } = await ctx.supabase
+        .from('admin_users')
+        .delete()
+        .eq('id', input.user_id);
+
+      if (error) {
+        ctx.logger.error('Delete user error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      // Delete from Supabase Auth
+      if (userData.auth_user_id) {
+        try {
+          await supabaseAdmin.auth.admin.deleteUser(userData.auth_user_id);
+        } catch (authError) {
+          ctx.logger.warn('Failed to delete auth user:', authError);
+          // Don't fail if auth deletion fails
+        }
+      }
+
+      ctx.logger.info('User permanently deleted:', input.user_id);
+      return { success: true, message: 'User deleted successfully' };
     }),
 
   // GET /users/drivers - Get drivers only (filtered list)
@@ -422,11 +385,10 @@ export const usersRouter = router({
       const user = requireAuth(ctx);
       
       // Provide default values if input is undefined
-      const filters = input || {} as { page?: number; limit?: number; search?: string; active?: boolean; available?: boolean };
+      const filters = input || {} as { page?: number; limit?: number; search?: string; available?: boolean };
       const page = filters.page || 1;
       const limit = filters.limit || 50;
       const search = filters.search;
-      const active = filters.active;
       
       ctx.logger.info('Fetching drivers with filters:', filters);
       
@@ -439,12 +401,8 @@ export const usersRouter = router({
       // Apply filters to count query
       if (search) {
         countQuery = countQuery.or(
-          `name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%`
+          `name.ilike.%${search}%,email.ilike.%${search}%`
         );
-      }
-
-      if (active !== undefined) {
-        countQuery = countQuery.eq('active', active);
       }
 
       const { count: totalCount, error: countError } = await countQuery;
@@ -468,12 +426,8 @@ export const usersRouter = router({
       // Apply same filters to main query
       if (search) {
         query = query.or(
-          `name.ilike.%${search}%,email.ilike.%${search}%,employee_id.ilike.%${search}%`
+          `name.ilike.%${search}%,email.ilike.%${search}%`
         );
-      }
-
-      if (active !== undefined) {
-        query = query.eq('active', active);
       }
 
       const { data, error } = await query;
@@ -594,22 +548,10 @@ export const usersRouter = router({
         }
       }
       
-      // Check for duplicate employee_id
+      // Note: employee_id field doesn't exist in admin_users table
+      // If employee_id validation is needed, add the column to the table first
       if (input.employee_id) {
-        let employeeIdQuery = ctx.supabase
-          .from('admin_users')
-          .select('id, name')
-          .eq('employee_id', input.employee_id);
-        
-        if (input.exclude_id) {
-          employeeIdQuery = employeeIdQuery.neq('id', input.exclude_id);
-        }
-        
-        const { data: existingByEmployeeId } = await employeeIdQuery.single();
-        
-        if (existingByEmployeeId) {
-          errors.push(`A user with employee ID "${input.employee_id}" already exists: ${existingByEmployeeId.name}`);
-        }
+        warnings.push('Employee ID validation skipped - field not available in current table schema');
       }
       
       return {

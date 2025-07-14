@@ -28,7 +28,6 @@ import { TruckDetailPage } from './pages/TruckDetailPage';
 import CreateTruckPage from './pages/CreateTruckPage';
 import { TruckCapacityDashboard } from './pages/TruckCapacityDashboard';
 import { DeliveriesPage } from './pages/DeliveriesPage';
-import { DepositsPage } from './pages/DepositsPage';
 import { TripManagementPage } from './pages/TripManagementPage';
 import { TripDetailPage } from './pages/TripDetailPage';
 import { TripLoadingPage } from './pages/TripLoadingPage';
@@ -69,7 +68,6 @@ function App() {
             <Route path="orders/:id/edit" element={<EditOrderPage />} />
             <Route path="transfers" element={<TransfersPage />} />
             <Route path="deliveries" element={<DeliveriesPage />} />
-            <Route path="deposits" element={<DepositsPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="trucks">

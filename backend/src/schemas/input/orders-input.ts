@@ -1,5 +1,8 @@
   import { z } from 'zod';
 
+// Helper to handle optional datetime fields that might be empty strings
+const optionalDatetime = () => z.string().optional().transform((val) => val === '' ? undefined : val).pipe(z.string().datetime().optional());
+
   // ==============================================================
   // ORDERS INPUT SCHEMAS
   // ==============================================================
@@ -82,7 +85,7 @@
     delivery_address_id: z.string().uuid().optional(),
     source_warehouse_id: z.string().uuid(),
     order_date: z.string().optional(),
-    scheduled_date: z.string().datetime().optional(),
+    scheduled_date: optionalDatetime(),
     notes: z.string().optional(),
     idempotency_key: z.string().optional(),
     validate_pricing: z.boolean().default(true),
@@ -115,7 +118,7 @@
   export const UpdateOrderStatusSchema = z.object({
     order_id: z.string().uuid(),
     new_status: OrderStatusEnum,
-    scheduled_date: z.string().datetime().optional(),
+    scheduled_date: optionalDatetime(),
     reason: z.string().optional(),
     metadata: z.record(z.any()).optional(),
   });
