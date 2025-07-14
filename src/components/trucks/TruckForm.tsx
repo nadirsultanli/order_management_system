@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Truck, Loader2 } from 'lucide-react';
 import { useCreateTruck, useUpdateTruck } from '../../hooks/useTrucks';
 import { useDrivers } from '../../hooks/useUsers';
+import { SearchableDriverSelector } from './SearchableDriverSelector';
 
 interface TruckFormProps {
   initialData?: {
@@ -165,25 +166,16 @@ export const TruckForm: React.FC<TruckFormProps> = ({ initialData, onSuccess }) 
             <label htmlFor="driver_id" className="block text-sm font-medium text-gray-700">
               Driver
             </label>
-            <select
-              id="driver_id"
-              value={formData.driver_id}
-              onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
-              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              disabled={driversLoading}
-              required
-            >
-              <option value="">Select a driver</option>
-              {driversLoading ? (
-                <option disabled>Loading drivers...</option>
-              ) : (
-                driversData?.users?.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.name} - {driver.email}
-                  </option>
-                ))
-              )}
-            </select>
+            <div className="mt-1">
+              <SearchableDriverSelector
+                drivers={driversData?.drivers}
+                value={formData.driver_id}
+                onChange={(driverId) => setFormData({ ...formData, driver_id: driverId })}
+                placeholder="Select a driver"
+                loading={driversLoading}
+                required={true}
+              />
+            </div>
           </div>
 
           <div className="flex items-center">
