@@ -4,6 +4,32 @@ import { Calendar, Route, Package, Clock, CheckCircle, XCircle, AlertCircle } fr
 import { useTrips } from '../../hooks/useTrips';
 import { Trip, TripWithDetails } from '../../types/trip';
 
+// Backend response interface (matches truck_routes table)
+interface TruckRouteResponse {
+  id: string;
+  truck_id: string;
+  driver_id?: string;
+  driver_name?: string;
+  route_date: string;
+  planned_start_time?: string;
+  planned_end_time?: string;
+  actual_start_time?: string;
+  actual_end_time?: string;
+  route_status: string;
+  total_distance_km?: number;
+  trip_notes?: string;
+  created_at: string;
+  updated_at: string;
+  truck?: {
+    id: string;
+    fleet_number: string;
+    license_plate: string;
+    capacity_cylinders: number;
+    capacity_kg: number;
+  };
+  truck_allocations?: any[];
+}
+
 interface TruckTripListProps {
   truckId: string;
 }
@@ -31,25 +57,25 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
     return (
       <div className="p-4">
         <div className="rounded-md bg-red-50 p-3">
-          <p className="text-sm text-red-800">Failed to load trips</p>
+          <p className="text-sm text-red-800">Failed to load trips: {error.message}</p>
         </div>
       </div>
     );
   }
 
-  const trips = data?.trips || [];
+  const trips = (data?.trips || []) as TruckRouteResponse[];
 
-  // Calculate trip statistics
+  // Calculate trip statistics - using route_status instead of status
   const activeTrips = trips.filter(trip => 
-    trip.status === 'loading' || trip.status === 'in_transit'
+    trip.route_status === 'loading' || trip.route_status === 'in_transit'
   ).length;
   
   const todaysTrips = trips.filter(trip => 
-    trip.trip_date === today
+    trip.route_date === today
   ).length;
   
   const completedTrips = trips.filter(trip => 
-    trip.status === 'completed'
+    trip.route_status === 'completed'
   ).length;
 
   if (trips.length === 0) {
@@ -62,7 +88,9 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
     );
   }
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status?: string) => {
+    if (!status) return <AlertCircle className="h-4 w-4 text-gray-400" />;
+    
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
@@ -78,7 +106,9 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
+    if (!status) return 'bg-gray-100 text-gray-800';
+    
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-800';
@@ -93,6 +123,11 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const formatStatus = (status?: string) => {
+    if (!status) return 'Unknown';
+    return status.replace(/_/g, ' ');
   };
 
   const formatDate = (dateString: string) => {
@@ -179,12 +214,12 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center space-x-3">
-                  {getStatusIcon(trip.status)}
+                  {getStatusIcon(trip.route_status)}
                   <h4 className="text-sm font-medium text-gray-900">
-                    {formatDate(trip.trip_date)}
+                    {formatDate(trip.route_date)}
                   </h4>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
-                    {trip.status.replace('_', ' ')}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(trip.route_status)}`}>
+                    {formatStatus(trip.route_status)}
                   </span>
                 </div>
                 
@@ -195,9 +230,9 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
                       {formatTime(trip.planned_start_time)} - {formatTime(trip.planned_end_time)}
                     </span>
                   </div>
-                  {trip.driver && (
+                  {trip.driver_name && (
                     <div className="flex items-center">
-                      <span>Driver: {trip.driver.name}</span>
+                      <span>Driver: {trip.driver_name}</span>
                     </div>
                   )}
                 </div>
@@ -205,8 +240,8 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
                 <div className="mt-2 flex items-center text-sm text-gray-600">
                   <Package className="h-4 w-4 mr-1" />
                   <span>
-                    {(trip as any).trip_orders?.length ? 
-                      `${(trip as any).trip_orders.length} orders` : 
+                    {(trip as any).truck_allocations?.length ? 
+                      `${(trip as any).truck_allocations.length} orders` : 
                       'Orders pending'
                     }
                   </span>
@@ -218,8 +253,8 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
                   )}
                 </div>
 
-                {trip.notes && (
-                  <p className="mt-2 text-sm text-gray-600 line-clamp-1">{trip.notes}</p>
+                {trip.trip_notes && (
+                  <p className="mt-2 text-sm text-gray-600 line-clamp-1">{trip.trip_notes}</p>
                 )}
               </div>
 
