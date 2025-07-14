@@ -35,10 +35,6 @@ import { TripSchedulePage } from './pages/TripSchedulePage';
 import { CreateTripPage } from './pages/CreateTripPage';
 import { UsersPage } from './pages/UsersPage';
 import { DepositDemoPage } from './pages/DepositDemoPage';
-import { PaymentsListPage } from './pages/PaymentsListPage';
-import { CreatePaymentPage } from './pages/CreatePaymentPage';
-import { PaymentsDashboardPage } from './pages/PaymentsDashboardPage';
-import { PaymentDetailPage } from './pages/PaymentDetailPage';
 import { OverdueOrdersPage } from './pages/OverdueOrdersPage';
 
 function App() {
@@ -89,13 +85,6 @@ function App() {
               <Route path="new" element={<CreateTripPage />} />
               <Route path=":id" element={<TripDetailPage />} />
               <Route path=":id/loading" element={<TripLoadingPage />} />
-            </Route>
-            <Route path="payments">
-              <Route index element={<PaymentsListPage />} />
-              <Route path="new" element={<CreatePaymentPage />} />
-              <Route path="dashboard" element={<PaymentsDashboardPage />} />
-              <Route path="overdue" element={<OverdueOrdersPage />} />
-              <Route path=":id" element={<PaymentDetailPage />} />
             </Route>
           </Route>
         </Routes>
