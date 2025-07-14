@@ -1,17 +1,23 @@
 import React from 'react';
-import { DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Package } from 'lucide-react';
+import { DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Package, Database, Users } from 'lucide-react';
 import { usePricingStatsNew } from '../../hooks/usePricing';
+import { useDepositSummaryStats } from '../../hooks/useDeposits';
 
-export const PricingStats: React.FC = () => {
+interface PricingStatsProps {
+  showDepositStats?: boolean;
+}
+
+export const PricingStats: React.FC<PricingStatsProps> = ({ showDepositStats = false }) => {
   const { data: stats, isLoading } = usePricingStatsNew();
+  const { data: depositStats, isLoading: depositLoading } = useDepositSummaryStats();
 
-  if (isLoading) {
+  if (isLoading || (showDepositStats && depositLoading)) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-            {[...Array(6)].map((_, i) => (
+            {[...Array(showDepositStats ? 8 : 6)].map((_, i) => (
               <div key={i} className="h-16 bg-gray-200 rounded"></div>
             ))}
           </div>
@@ -22,7 +28,16 @@ export const PricingStats: React.FC = () => {
 
   if (!stats) return null;
 
-  const statItems = [
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  let statItems = [
     {
       name: 'Total Price Lists',
       value: stats.total_price_lists,
@@ -67,16 +82,43 @@ export const PricingStats: React.FC = () => {
     },
   ];
 
+  // Add deposit statistics if requested and available
+  if (showDepositStats && depositStats) {
+    statItems = [
+      ...statItems.slice(0, 4), // Keep first 4 pricing stats
+      {
+        name: 'Outstanding Deposits',
+        value: formatCurrency(depositStats.total_outstanding, depositStats.currency_code),
+        icon: Database,
+        color: 'text-green-600',
+        bgColor: 'bg-green-50',
+        isString: true,
+      },
+      {
+        name: 'Customers with Deposits',
+        value: depositStats.total_customers_with_deposits,
+        icon: Users,
+        color: 'text-purple-600',
+        bgColor: 'bg-purple-50',
+      },
+      ...statItems.slice(4), // Keep remaining pricing stats
+    ];
+  }
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Pricing Overview</h3>
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        {showDepositStats ? 'Pricing & Deposits Overview' : 'Pricing Overview'}
+      </h3>
+      <div className={`grid grid-cols-2 gap-4 ${showDepositStats ? 'lg:grid-cols-4 xl:grid-cols-8' : 'lg:grid-cols-6'}`}>
         {statItems.map((item) => (
           <div key={item.name} className="text-center">
             <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${item.bgColor} mb-2`}>
               <item.icon className={`h-6 w-6 ${item.color}`} />
             </div>
-            <div className="text-2xl font-bold text-gray-900">{item.value}</div>
+            <div className={`${(item as any).isString ? 'text-lg' : 'text-2xl'} font-bold text-gray-900`}>
+              {item.value}
+            </div>
             <div className="text-sm text-gray-600">{item.name}</div>
           </div>
         ))}

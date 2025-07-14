@@ -15,8 +15,7 @@ import {
   ArrowLeftRight,
   X,
   BarChart3,
-  Route,
-  CircleDollarSign
+  Route
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { UserAvatar } from '../ui/UserAvatar';
@@ -58,8 +57,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     { path: '/trips', label: 'Trip Management', icon: Route },
     { path: '/pricing', label: 'Pricing', icon: DollarSign },
     { path: '/orders', label: 'Orders', icon: ShoppingCart },
-    { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight },
-    { path: '/deposits', label: 'Deposits', icon: CircleDollarSign }
+    { path: '/transfers', label: 'Transfers', icon: ArrowLeftRight }
   ];
 
   // Determine if sidebar should be expanded

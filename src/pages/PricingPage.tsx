@@ -1,27 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, DollarSign, Database } from 'lucide-react';
 import { usePriceListsNew, useCreatePriceListNew, useUpdatePriceListNew, useDeletePriceListNew, useSetDefaultPriceListNew } from '../hooks/usePricing';
+import { useDepositRates, useCreateDepositRate, useUpdateDepositRate, useDeleteDepositRate } from '../hooks/useDeposits';
 import { PriceListTable } from '../components/pricing/PriceListTable';
 import { PriceListFilters } from '../components/pricing/PriceListFilters';
 import { PriceListForm } from '../components/pricing/PriceListForm';
 import { PricingStats } from '../components/pricing/PricingStats';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { CapacityDepositManager } from '../components/pricing/CapacityDepositManager';
 import { PriceList, PriceListFilters as FilterType, CreatePriceListData } from '../types/pricing';
+import { DepositRate, DepositRateFilters, CreateDepositRateData } from '../types/deposits';
+
+type TabType = 'price-lists' | 'deposit-rates';
 
 export const PricingPage: React.FC = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabType>('price-lists');
+  
+  // Price Lists state
   const [filters, setFilters] = useState<FilterType>({ page: 1 });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPriceList, setEditingPriceList] = useState<PriceList | null>(null);
   const [deletingPriceList, setDeletingPriceList] = useState<PriceList | null>(null);
+  
+  // Deposit Rates state
+  const [depositFilters, setDepositFilters] = useState<DepositRateFilters>({ page: 1 });
+  const [editingDepositRate, setEditingDepositRate] = useState<DepositRate | null>(null);
+  const [deletingDepositRate, setDeletingDepositRate] = useState<DepositRate | null>(null);
 
+  // Price Lists hooks
   const { data, isLoading, error, refetch } = usePriceListsNew(filters);
   const createPriceList = useCreatePriceListNew();
   const updatePriceList = useUpdatePriceListNew();
   const deletePriceList = useDeletePriceListNew();
   const setDefaultPriceList = useSetDefaultPriceListNew();
+  
+  // Deposit Rates hooks
+  const { data: depositData, isLoading: depositLoading, error: depositError } = useDepositRates(depositFilters);
+  const createDepositRate = useCreateDepositRate();
+  const updateDepositRate = useUpdateDepositRate();
+  const deleteDepositRate = useDeleteDepositRate();
 
   // Debug logging
   useEffect(() => {
@@ -99,7 +119,48 @@ export const PricingPage: React.FC = () => {
 
   const handlePageChange = (page: number) => {
     console.log('Page change:', page);
-    setFilters(prev => ({ ...prev, page }));
+    if (activeTab === 'price-lists') {
+      setFilters(prev => ({ ...prev, page }));
+    } else {
+      setDepositFilters(prev => ({ ...prev, page }));
+    }
+  };
+
+  // Deposit Rate handlers
+  const handleEditDepositRate = (depositRate: DepositRate) => {
+    console.log('Editing deposit rate:', depositRate);
+    setEditingDepositRate(depositRate);
+  };
+
+  const handleDeleteDepositRate = (depositRate: DepositRate) => {
+    console.log('Deleting deposit rate:', depositRate);
+    setDeletingDepositRate(depositRate);
+  };
+
+  const handleDepositRateSubmit = async (data: CreateDepositRateData) => {
+    console.log('Deposit rate submit:', data);
+    try {
+      if (editingDepositRate?.id) {
+        await updateDepositRate.mutateAsync({ id: editingDepositRate.id, ...data });
+      } else {
+        await createDepositRate.mutateAsync(data);
+      }
+      setEditingDepositRate(null);
+    } catch (error) {
+      console.error('Deposit rate submit error:', error);
+    }
+  };
+
+  const handleConfirmDeleteDepositRate = async () => {
+    if (deletingDepositRate) {
+      console.log('Confirming delete deposit rate:', deletingDepositRate);
+      try {
+        await deleteDepositRate.mutateAsync({ id: deletingDepositRate.id });
+        setDeletingDepositRate(null);
+      } catch (error) {
+        console.error('Delete deposit rate error:', error);
+      }
+    }
   };
 
 
@@ -109,45 +170,110 @@ export const PricingPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Price Catalog</h1>
-          <p className="text-gray-600">Manage pricing for your products across different markets</p>
-          {error && (
+          <p className="text-gray-600">Manage pricing and deposit rates for your products</p>
+          {(error || depositError) && (
             <p className="text-red-600 text-sm mt-1">
-              Error: {error.message}
+              Error: {error?.message || depositError?.message}
             </p>
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={handleAddPriceList}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create Price List</span>
-          </button>
+          {activeTab === 'price-lists' ? (
+            <button
+              onClick={handleAddPriceList}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create Price List</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setEditingDepositRate(null)}
+              className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Deposit Rate</span>
+            </button>
+          )}
         </div>
       </div>
 
-      <PricingStats />
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('price-lists')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'price-lists'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <DollarSign className="inline h-4 w-4 mr-2" />
+            Price Lists
+          </button>
+          <button
+            onClick={() => setActiveTab('deposit-rates')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'deposit-rates'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Database className="inline h-4 w-4 mr-2" />
+            Deposit Rates
+          </button>
+        </nav>
+      </div>
 
-      <PriceListFilters filters={filters} onFiltersChange={setFilters} />
+      <PricingStats showDepositStats={activeTab === 'deposit-rates'} />
 
-      <PriceListTable
-        priceLists={data?.priceLists || []}
-        loading={isLoading}
-        onView={handleViewPriceList}
-        onEdit={handleEditPriceList}
-        onSetDefault={handleSetDefault}
-        onDelete={handleDeletePriceList}
-      />
+      {/* Content Area - Conditional based on active tab */}
+      {activeTab === 'price-lists' ? (
+        <>
+          <PriceListFilters filters={filters} onFiltersChange={setFilters} />
 
-      {data && data.totalPages > 1 && (
-        <CustomerPagination
-          currentPage={data.currentPage}
-          totalPages={data.totalPages}
-          totalCount={data.totalCount}
-          onPageChange={handlePageChange}
-          itemsPerPage={15}
-        />
+          <PriceListTable
+            priceLists={data?.priceLists || []}
+            loading={isLoading}
+            onView={handleViewPriceList}
+            onEdit={handleEditPriceList}
+            onSetDefault={handleSetDefault}
+            onDelete={handleDeletePriceList}
+          />
+
+          {data && data.totalPages > 1 && (
+            <CustomerPagination
+              currentPage={data.currentPage}
+              totalPages={data.totalPages}
+              totalCount={data.totalCount}
+              onPageChange={handlePageChange}
+              itemsPerPage={15}
+            />
+          )}
+        </>
+      ) : (
+        <>
+          <CapacityDepositManager
+            depositRates={depositData?.rates || []}
+            loading={depositLoading}
+            onEdit={handleEditDepositRate}
+            onDelete={handleDeleteDepositRate}
+            onSubmit={handleDepositRateSubmit}
+            editingRate={editingDepositRate}
+            onCancelEdit={() => setEditingDepositRate(null)}
+          />
+
+          {depositData && depositData.totalPages > 1 && (
+            <CustomerPagination
+              currentPage={depositData.currentPage}
+              totalPages={depositData.totalPages}
+              totalCount={depositData.totalCount}
+              onPageChange={handlePageChange}
+              itemsPerPage={15}
+            />
+          )}
+        </>
       )}
 
       <PriceListForm
@@ -171,7 +297,18 @@ export const PricingPage: React.FC = () => {
         message={`Are you sure you want to delete "${deletingPriceList?.name}"? This action cannot be undone.`}
         confirmText="Delete"
         type="danger"
-                    loading={deletePriceList.isPending}
+        loading={deletePriceList.isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deletingDepositRate}
+        onClose={() => setDeletingDepositRate(null)}
+        onConfirm={handleConfirmDeleteDepositRate}
+        title="Delete Deposit Rate"
+        message={`Are you sure you want to delete the deposit rate for ${deletingDepositRate?.capacity_l}L cylinders? This action cannot be undone.`}
+        confirmText="Delete"
+        type="danger"
+        loading={deleteDepositRate.isPending}
       />
     </div>
   );
