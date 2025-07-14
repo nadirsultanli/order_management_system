@@ -167,4 +167,5 @@ const PaymentsDashboardPage: React.FC = () => {
   );
 };
 
+export { PaymentsDashboardPage };
 export default PaymentsDashboardPage;
