@@ -121,7 +121,7 @@ export const tripsRouter = router({
             const { data: driverData } = await ctx.supabase
               .from('admin_users')
               .select('id, name, email, phone')
-              .eq('auth_user_id', trip.driver_id)
+              .eq('id', trip.driver_id)
               .single();
             
             if (driverData) {
@@ -229,7 +229,7 @@ export const tripsRouter = router({
         const { data: driverData } = await ctx.supabase
           .from('admin_users')
           .select('id, name, email, phone')
-          .eq('auth_user_id', trip.driver_id)
+          .eq('id', trip.driver_id)
           .single();
         
         if (driverData) {
@@ -527,8 +527,7 @@ export const tripsRouter = router({
         .select(`
           *,
           truck:truck_id (id, fleet_number, license_plate, capacity_cylinders, capacity_kg),
-          warehouse:warehouse_id (id, name, address),
-          driver:driver_id (id, email)
+          warehouse:warehouse_id (id, name, address)
         `)
         .eq('id', input.id)
         .single();
@@ -541,7 +540,25 @@ export const tripsRouter = router({
         });
       }
 
-      let result: any = trip;
+      // Fetch driver information if driver_id exists
+      let driver = null;
+      if (trip.driver_id) {
+        const { data: driverData } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name, email, phone')
+          .eq('id', trip.driver_id)
+          .single();
+        
+        if (driverData) {
+          driver = driverData;
+        }
+      }
+
+      let result: any = {
+        ...trip,
+        driver,
+        driver_name: driver?.name || null
+      };
 
       // Include loading details if requested
       if (input.include_loading_details) {
@@ -635,8 +652,7 @@ export const tripsRouter = router({
         .select(`
           *,
           truck:truck_id (id, fleet_number, license_plate),
-          warehouse:warehouse_id (id, name),
-          driver:driver_id (id, email)
+          warehouse:warehouse_id (id, name)
         `, { count: 'exact' });
 
       // Apply filters
@@ -674,8 +690,32 @@ export const tripsRouter = router({
         });
       }
 
+      // Fetch driver information for each trip
+      const tripsWithDrivers = await Promise.all(
+        (trips || []).map(async (trip) => {
+          let driver = null;
+          if (trip.driver_id) {
+            const { data: driverData } = await ctx.supabase
+              .from('admin_users')
+              .select('id, name, email, phone')
+              .eq('id', trip.driver_id)
+              .single();
+            
+            if (driverData) {
+              driver = driverData;
+            }
+          }
+          
+          return {
+            ...trip,
+            driver,
+            driver_name: driver?.name || null
+          };
+        })
+      );
+
       return {
-        trips: trips || [],
+        trips: tripsWithDrivers,
         pagination: {
           page: input.page,
           limit: input.limit,

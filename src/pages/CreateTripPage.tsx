@@ -190,7 +190,7 @@ export const CreateTripPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Driver Selection (Optional) - Uses auth_user_id to match database foreign key */}
+            {/* Driver Selection (Optional) - Uses admin_users.id for database foreign key */}
             <div>
               <label htmlFor="driver_id" className="block text-sm font-medium text-gray-700">
                 <div className="flex items-center gap-2">
@@ -206,9 +206,9 @@ export const CreateTripPage: React.FC = () => {
               >
                 <option value="">Select a driver...</option>
                 {drivers
-                  .filter((driver) => driver.auth_user_id) // Only show drivers with valid auth_user_id
+                  .filter((driver) => driver.role === 'driver') // Only show users with driver role
                   .map((driver) => (
-                    <option key={driver.id} value={driver.auth_user_id}>
+                    <option key={driver.id} value={driver.id}>
                       {driver.name}
                       {driver.employee_id && ` (${driver.employee_id})`}
                       {driver.email && ` - ${driver.email}`}
