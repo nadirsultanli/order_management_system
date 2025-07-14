@@ -10,14 +10,11 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'driver' | 'user';
+  role: 'admin' | 'driver';
   active: boolean;
   phone?: string;
   license_number?: string;
   hire_date?: string;
-  emergency_contact?: string;
-  emergency_phone?: string;
-  notes?: string;
   created_at: string;
   updated_at: string;
 }
@@ -25,20 +22,17 @@ interface User {
 interface UserFormData {
   email: string;
   name: string;
-  role: 'admin' | 'driver' | 'user';
+  role: 'admin' | 'driver';
   active?: boolean;
   phone?: string;
   license_number?: string;
   hire_date?: string;
-  emergency_contact?: string;
-  emergency_phone?: string;
-  notes?: string;
   password?: string;
 }
 
 interface UserFilters {
   search?: string;
-  role?: 'admin' | 'driver' | 'user';
+  role?: 'admin' | 'driver';
   active?: boolean;
   page?: number;
   limit?: number;
@@ -55,14 +49,11 @@ const UserForm: React.FC<{
   const [formData, setFormData] = useState<UserFormData>({
     email: '',
     name: '',
-    role: 'user',
+    role: 'driver',
     active: true,
     phone: '',
     license_number: '',
     hire_date: '',
-    emergency_contact: '',
-    emergency_phone: '',
-    notes: '',
     password: '',
   });
 
@@ -76,22 +67,16 @@ const UserForm: React.FC<{
         phone: user.phone || '',
         license_number: user.license_number || '',
         hire_date: user.hire_date || '',
-        emergency_contact: user.emergency_contact || '',
-        emergency_phone: user.emergency_phone || '',
-        notes: user.notes || '',
       });
     } else {
       setFormData({
         email: '',
         name: '',
-        role: 'user',
+        role: 'driver',
         active: true,
         phone: '',
         license_number: '',
         hire_date: '',
-        emergency_contact: '',
-        emergency_phone: '',
-        notes: '',
         password: '',
       });
     }
@@ -149,7 +134,6 @@ const UserForm: React.FC<{
                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 required
               >
-                <option value="user">User</option>
                 <option value="driver">Driver</option>
                 <option value="admin">Admin</option>
               </select>
@@ -192,30 +176,6 @@ const UserForm: React.FC<{
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Contact
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergency_contact}
-                    onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact: e.target.value }))}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Emergency Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.emergency_phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, emergency_phone: e.target.value }))}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
               </>
             )}
 
@@ -234,18 +194,6 @@ const UserForm: React.FC<{
                 />
               </div>
             )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              rows={3}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
           </div>
 
           <div className="flex items-center">
@@ -389,7 +337,7 @@ export const UsersPage: React.FC = () => {
       case 'driver':
         return <Truck className="h-4 w-4" />;
       default:
-        return <Users className="h-4 w-4" />;
+        return <Shield className="h-4 w-4" />;
     }
   };
 
@@ -400,7 +348,7 @@ export const UsersPage: React.FC = () => {
       case 'driver':
         return 'bg-blue-100 text-blue-800';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-red-100 text-red-800';
     }
   };
 

@@ -1,8 +1,18 @@
 // schemas/input/users-input.ts
 import { z } from 'zod';
 
-// Helper to handle optional datetime fields that might be empty strings
-const optionalDatetime = () => z.string().optional().transform((val) => val === '' ? undefined : val).pipe(z.string().datetime().optional());
+// Helper to handle optional date fields that might be empty strings
+const optionalDate = () => z.string().optional().transform((val) => {
+  if (val === '' || val === undefined || val === null) {
+    return undefined;
+  }
+  // For date inputs, we expect YYYY-MM-DD format
+  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+  if (!dateRegex.test(val)) {
+    throw new Error('Invalid date format. Expected YYYY-MM-DD');
+  }
+  return val;
+});
 
 // User filtering and pagination
 export const UserFiltersSchema = z.object({
@@ -19,9 +29,13 @@ export const CreateUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   role: z.enum(['admin', 'driver', 'user']).default('user'),
   phone: z.string().optional(),
+  license_number: z.string().optional(),
+  hire_date: optionalDate(),
+  emergency_contact: z.string().optional(),
+  emergency_phone: z.string().optional(),
+  notes: z.string().optional(),
   employee_id: z.string().optional(),
   department: z.string().optional(),
-  hire_date: optionalDatetime(),
 });
 
 // User update schema
@@ -31,9 +45,13 @@ export const UpdateUserSchema = z.object({
   name: z.string().min(1).optional(),
   role: z.enum(['admin', 'driver', 'user']).optional(),
   phone: z.string().optional(),
+  license_number: z.string().optional(),
+  hire_date: optionalDate(),
+  emergency_contact: z.string().optional(),
+  emergency_phone: z.string().optional(),
+  notes: z.string().optional(),
   employee_id: z.string().optional(),
   department: z.string().optional(),
-  hire_date: optionalDatetime(),
 });
 
 // User ID parameter
@@ -49,6 +67,7 @@ export const DeleteUserSchema = z.object({
 // Drivers-only filter schema
 export const DriversFilterSchema = z.object({
   search: z.string().optional(),
+  active: z.boolean().optional(),
   available: z.boolean().optional(),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(1000).default(50),

@@ -65,7 +65,11 @@ export const tripsRouter = router({
             license_plate,
             capacity_cylinders,
             capacity_kg,
-            driver_name
+            driver_id,
+            driver:driver_id (
+              id,
+              email
+            )
           )
         `)
         .order(sortColumn, {
@@ -74,7 +78,7 @@ export const tripsRouter = router({
       
       // Apply filters
       if (input.search) {
-        query = query.or(`route_status.ilike.%${input.search}%,trip_notes.ilike.%${input.search}%`);
+        query = query.or(`route_status.ilike.%${input.search}%,trip_notes.ilike.%${input.search}%,truck.fleet_number.ilike.%${input.search}%,truck.license_plate.ilike.%${input.search}%,truck.driver.email.ilike.%${input.search}%`);
       }
       
       if (input.status) {
@@ -156,7 +160,11 @@ export const tripsRouter = router({
             license_plate,
             capacity_cylinders,
             capacity_kg,
-            driver_name
+            driver_id,
+            driver:driver_id (
+              id,
+              email
+            )
           ),
           truck_allocations (
             id,

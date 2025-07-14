@@ -198,8 +198,15 @@ export const usersRouter = router({
           active: true, // Ensure users created by admins are active
         };
 
-        // Note: Fields like phone, employee_id, department, hire_date are not in admin_users table
-        // If these fields are needed, they should be added to the table schema first
+        // Add optional fields if provided
+        if (input.phone) insertData.phone = input.phone;
+        if (input.license_number) insertData.license_number = input.license_number;
+        if (input.hire_date) insertData.hire_date = input.hire_date;
+        if (input.emergency_contact) insertData.emergency_contact = input.emergency_contact;
+        if (input.emergency_phone) insertData.emergency_phone = input.emergency_phone;
+        if (input.notes) insertData.notes = input.notes;
+        if (input.employee_id) insertData.employee_id = input.employee_id;
+        if (input.department) insertData.department = input.department;
 
         const { data: userData, error: userError } = await ctx.supabase
           .from('admin_users')
@@ -255,7 +262,7 @@ export const usersRouter = router({
       const { id, ...updateData } = input;
       
       // Filter out undefined values and fields that don't exist in admin_users table
-      const allowedFields = ['email', 'name', 'role', 'active'];
+      const allowedFields = ['email', 'name', 'role', 'active', 'phone', 'license_number', 'hire_date', 'emergency_contact', 'emergency_phone', 'notes', 'employee_id', 'department'];
       const userUpdateFields = Object.fromEntries(
         Object.entries(updateData)
           .filter(([key, value]) => value !== undefined && allowedFields.includes(key))
@@ -385,10 +392,11 @@ export const usersRouter = router({
       const user = requireAuth(ctx);
       
       // Provide default values if input is undefined
-      const filters = input || {} as { page?: number; limit?: number; search?: string; available?: boolean };
+      const filters = input || {} as { page?: number; limit?: number; search?: string; active?: boolean; available?: boolean };
       const page = filters.page || 1;
       const limit = filters.limit || 50;
       const search = filters.search;
+      const active = filters.active;
       
       ctx.logger.info('Fetching drivers with filters:', filters);
       
@@ -403,6 +411,10 @@ export const usersRouter = router({
         countQuery = countQuery.or(
           `name.ilike.%${search}%,email.ilike.%${search}%`
         );
+      }
+
+      if (active !== undefined) {
+        countQuery = countQuery.eq('active', active);
       }
 
       const { count: totalCount, error: countError } = await countQuery;
@@ -428,6 +440,10 @@ export const usersRouter = router({
         query = query.or(
           `name.ilike.%${search}%,email.ilike.%${search}%`
         );
+      }
+
+      if (active !== undefined) {
+        query = query.eq('active', active);
       }
 
       const { data, error } = await query;
@@ -548,10 +564,22 @@ export const usersRouter = router({
         }
       }
       
-      // Note: employee_id field doesn't exist in admin_users table
-      // If employee_id validation is needed, add the column to the table first
+      // Check for duplicate employee_id
       if (input.employee_id) {
-        warnings.push('Employee ID validation skipped - field not available in current table schema');
+        let employeeIdQuery = ctx.supabase
+          .from('admin_users')
+          .select('id, name')
+          .eq('employee_id', input.employee_id);
+        
+        if (input.exclude_id) {
+          employeeIdQuery = employeeIdQuery.neq('id', input.exclude_id);
+        }
+        
+        const { data: existingByEmployeeId } = await employeeIdQuery.single();
+        
+        if (existingByEmployeeId) {
+          errors.push(`A user with employee ID "${input.employee_id}" already exists: ${existingByEmployeeId.name}`);
+        }
       }
       
       return {

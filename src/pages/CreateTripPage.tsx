@@ -24,7 +24,7 @@ export const CreateTripPage: React.FC = () => {
 
   const loading = createTrip.isLoading;
   const trucks = trucksData?.trucks || [];
-  const drivers = driversData?.users || [];
+  const drivers = driversData?.drivers || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,7 +190,7 @@ export const CreateTripPage: React.FC = () => {
               </select>
             </div>
 
-            {/* Driver Selection (Optional) */}
+            {/* Driver Selection (Optional) - Uses auth_user_id to match database foreign key */}
             <div>
               <label htmlFor="driver_id" className="block text-sm font-medium text-gray-700">
                 <div className="flex items-center gap-2">
@@ -205,13 +205,16 @@ export const CreateTripPage: React.FC = () => {
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               >
                 <option value="">Select a driver...</option>
-                {drivers.map((driver) => (
-                  <option key={driver.id} value={driver.id}>
-                    {driver.name}
-                    {driver.employee_id && ` (ID: ${driver.employee_id})`}
-                    {driver.phone && ` - ${driver.phone}`}
-                  </option>
-                ))}
+                {drivers
+                  .filter((driver) => driver.auth_user_id) // Only show drivers with valid auth_user_id
+                  .map((driver) => (
+                    <option key={driver.id} value={driver.auth_user_id}>
+                      {driver.name}
+                      {driver.employee_id && ` (${driver.employee_id})`}
+                      {driver.email && ` - ${driver.email}`}
+                      {driver.phone && ` - ${driver.phone}`}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>
