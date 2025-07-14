@@ -10,6 +10,8 @@ interface StatusBadgeProps {
 }
 
 const getStatusConfig = (status: string) => {
+  if (!status) return { bg: 'bg-gray-100', text: 'text-gray-800', dot: 'bg-gray-500' };
+  
   const configs: Record<string, { bg: string; text: string; dot: string }> = {
     // Order statuses
     draft: { bg: 'bg-gray-100', text: 'text-gray-800', dot: 'bg-gray-500' },
@@ -42,6 +44,7 @@ const getStatusConfig = (status: string) => {
 };
 
 const formatStatusLabel = (status: string) => {
+  if (!status) return '';
   return status
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
