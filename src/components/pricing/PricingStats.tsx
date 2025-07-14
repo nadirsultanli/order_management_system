@@ -9,8 +9,12 @@ interface PricingStatsProps {
 
 export const PricingStats: React.FC<PricingStatsProps> = ({ showDepositStats = false }) => {
   const { data: stats, isLoading } = usePricingStatsNew();
-  const { data: depositStats, isLoading: depositLoading } = useDepositSummaryStats();
+  const { data: depositStats, isLoading: depositLoading, error: depositError } = useDepositSummaryStats(
+    showDepositStats ? undefined : null // Only pass period when showDepositStats is true
+  );
 
+  // Show loading state only if pricing stats are loading
+  // OR if deposit stats are requested and still loading
   if (isLoading || (showDepositStats && depositLoading)) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -27,6 +31,21 @@ export const PricingStats: React.FC<PricingStatsProps> = ({ showDepositStats = f
   }
 
   if (!stats) return null;
+
+  // Handle deposit data error when showDepositStats is true
+  if (showDepositStats && depositError) {
+    console.error('Deposit stats error:', depositError);
+    // Continue to render but without deposit stats
+  }
+
+  // Debug logging
+  console.log('PricingStats render:', {
+    showDepositStats,
+    hasStats: !!stats,
+    hasDepositStats: !!depositStats,
+    depositLoading,
+    depositError: !!depositError
+  });
 
   const formatCurrency = (amount: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
@@ -83,12 +102,12 @@ export const PricingStats: React.FC<PricingStatsProps> = ({ showDepositStats = f
   ];
 
   // Add deposit statistics if requested and available
-  if (showDepositStats && depositStats) {
+  if (showDepositStats && depositStats && !depositError) {
     statItems = [
       ...statItems.slice(0, 4), // Keep first 4 pricing stats
       {
         name: 'Outstanding Deposits',
-        value: formatCurrency(depositStats.total_outstanding, depositStats.currency_code),
+        value: formatCurrency(depositStats.total_outstanding || 0, depositStats.currency_code || 'KES'),
         icon: Database,
         color: 'text-green-600',
         bgColor: 'bg-green-50',
@@ -96,10 +115,32 @@ export const PricingStats: React.FC<PricingStatsProps> = ({ showDepositStats = f
       },
       {
         name: 'Customers with Deposits',
-        value: depositStats.total_customers_with_deposits,
+        value: depositStats.total_customers_with_deposits || 0,
         icon: Users,
         color: 'text-purple-600',
         bgColor: 'bg-purple-50',
+      },
+      ...statItems.slice(4), // Keep remaining pricing stats
+    ];
+  } else if (showDepositStats && depositError) {
+    // Add error placeholders for deposit stats
+    statItems = [
+      ...statItems.slice(0, 4), // Keep first 4 pricing stats
+      {
+        name: 'Outstanding Deposits',
+        value: 'Error loading',
+        icon: Database,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        isString: true,
+      },
+      {
+        name: 'Customers with Deposits',
+        value: 'N/A',
+        icon: Users,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50',
+        isString: true,
       },
       ...statItems.slice(4), // Keep remaining pricing stats
     ];

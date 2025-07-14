@@ -283,14 +283,16 @@ export const useVoidDepositTransaction = () => {
 
 // ============ ANALYTICS & REPORTING HOOKS ============
 
-export const useDepositSummaryStats = (period?: { from_date: string; to_date: string }) => {
+export const useDepositSummaryStats = (period?: { from_date: string; to_date: string } | null) => {
+  const defaultPeriod = {
+    from_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+    to_date: new Date().toISOString().split('T')[0],
+  };
+
   return trpc.deposits.getDepositSummary.useQuery({
-    period: period || {
-      from_date: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
-      to_date: new Date().toISOString().split('T')[0],
-    },
+    period: period === null ? defaultPeriod : (period || defaultPeriod),
   }, {
-    enabled: true,
+    enabled: period !== null, // Only enable when period is not explicitly null
     staleTime: 60000, // 1 minute for summary stats
     retry: 1,
     onError: (error: any) => {
