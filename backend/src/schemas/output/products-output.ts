@@ -34,8 +34,8 @@ export const ProductBaseSchema = z.object({
   requires_tag: z.boolean(),
   variant_type: z.enum(['cylinder', 'refillable', 'disposable']),
   variant: z.enum(['outright', 'refill']).optional(),
-  parent_product_id: z.string().nullable(),
-  variant_name: z.string().nullable(),
+  parent_products_id: z.string().nullable(),
+  sku_variant: z.enum(['EMPTY', 'FULL-XCH', 'FULL-OUT', 'DAMAGED']).nullable(),
   is_variant: z.boolean(),
   tax_category: z.string().optional(),
   tax_rate: z.number().optional(),
@@ -195,7 +195,7 @@ export const AvailabilityMatrixResponseSchema = z.object({
 export const InventoryMovementsResponseSchema = z.object({
   movements: z.array(z.object({
     product_id: z.string(),
-    variant_name: z.string(),
+    sku_variant: z.enum(['EMPTY', 'FULL-XCH', 'FULL-OUT', 'DAMAGED']),
     qty_full_change: z.number(),
     qty_empty_change: z.number(),
     movement_type: z.enum(['delivery', 'pickup', 'exchange']),
@@ -228,11 +228,74 @@ export const GeneratedSkuResponseSchema = z.object({
 });
 
 export const CreateVariantDataResponseSchema = z.object({
-  parent_product_id: z.string(),
-  variant_name: z.string(),
+  parent_products_id: z.string(),
+  sku_variant: z.enum(['EMPTY', 'FULL-XCH', 'FULL-OUT', 'DAMAGED']),
   sku: z.string(),
   name: z.string(),
   description: z.string(),
   status: z.enum(['active', 'obsolete']),
   barcode_uid: z.undefined(),
+});
+
+// ============ New Hierarchical Product Schemas ============
+
+export const ParentProductSchema = z.object({
+  id: z.string(),
+  sku: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  unit_of_measure: z.enum(['cylinder', 'kg']),
+  capacity_kg: z.number().optional(),
+  tare_weight_kg: z.number().optional(),
+  valve_type: z.string().optional(),
+  status: z.enum(['active', 'obsolete']),
+  barcode_uid: z.string().optional(),
+  requires_tag: z.boolean(),
+  variant_type: z.enum(['cylinder', 'refillable', 'disposable']),
+  variant: z.enum(['outright', 'refill']).optional(),
+  tax_category: z.string().optional(),
+  tax_rate: z.number().optional(),
+  created_at: z.string(),
+  variant_count: z.number().optional(),
+});
+
+export const GroupedProductSchema = z.object({
+  parent: ParentProductSchema,
+  variants: z.array(ProductBaseSchema),
+});
+
+export const GetGroupedProductsResponseSchema = z.object({
+  products: z.array(GroupedProductSchema),
+  totalCount: z.number(),
+  totalPages: z.number(),
+  currentPage: z.number(),
+  summary: z.object({
+    total_parent_products: z.number(),
+    total_variants: z.number(),
+    active_parent_products: z.number(),
+    obsolete_parent_products: z.number(),
+  }),
+});
+
+export const CreateParentProductResponseSchema = ParentProductSchema;
+
+export const GetSkuVariantsResponseSchema = z.object({
+  variants: z.array(z.object({
+    value: z.enum(['EMPTY', 'FULL-XCH', 'FULL-OUT', 'DAMAGED']),
+    label: z.string(),
+    description: z.string(),
+  })),
+});
+
+export const ListParentProductsResponseSchema = z.object({
+  products: z.array(ParentProductSchema),
+  totalCount: z.number(),
+  totalPages: z.number(),
+  currentPage: z.number(),
+  summary: z.object({
+    total_parent_products: z.number(),
+    active_parent_products: z.number(),
+    obsolete_parent_products: z.number(),
+    total_variants: z.number(),
+  }),
 }); 

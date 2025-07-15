@@ -15,8 +15,8 @@ export interface Product {
   created_at: string;
   // Product variant fields
   variant_type: 'cylinder' | 'refillable' | 'disposable';
-  parent_product_id?: string; // null for parent products
-  variant_name?: string; // 'full', 'empty', etc.
+  parent_products_id?: string; // null for parent products
+  sku_variant?: SkuVariant; // 'EMPTY', 'FULL-XCH', etc.
   is_variant: boolean; // true for variants, false for parents
   // Tax-related fields
   tax_category?: string;
@@ -44,8 +44,8 @@ export interface CreateProductData {
   requires_tag: boolean;
   // Product variant fields
   variant_type: 'cylinder' | 'refillable' | 'disposable';
-  parent_product_id?: string;
-  variant_name?: string;
+  parent_products_id?: string;
+  sku_variant?: SkuVariant;
   is_variant: boolean;
   // Tax-related fields
   tax_category?: string;
@@ -83,8 +83,8 @@ export interface ProductStats {
 // Product variant-specific interfaces
 export interface ProductVariant {
   id: string;
-  parent_product_id: string;
-  variant_name: string;
+  parent_products_id: string;
+  sku_variant: SkuVariant;
   sku: string;
   name: string;
   status: 'active' | 'obsolete';
@@ -92,9 +92,8 @@ export interface ProductVariant {
 }
 
 export interface CreateVariantData {
-  parent_product_id: string;
-  variant_name: string;
-  sku: string;
+  parent_products_id: string;
+  sku_variant: SkuVariant;
   name: string;
   description?: string;
   status: 'active' | 'obsolete';
@@ -115,4 +114,73 @@ export interface VariantInventory {
   qty_full: number;
   qty_empty: number;
   qty_reserved: number;
+}
+
+// New types for hierarchical product structure
+export type SkuVariant = 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED';
+
+export interface SkuVariantOption {
+  value: SkuVariant;
+  label: string;
+  description?: string;
+}
+
+export interface ParentProduct {
+  id: string;
+  sku: string;
+  name: string;
+  description?: string;
+  unit_of_measure: 'cylinder' | 'kg';
+  capacity_kg?: number;
+  tare_weight_kg?: number;
+  gross_weight_kg?: number;
+  valve_type?: string;
+  status: 'active' | 'obsolete';
+  variant_type: 'cylinder' | 'refillable' | 'disposable';
+  requires_tag: boolean;
+  tax_category?: string;
+  tax_rate?: number;
+  variant?: 'outright' | 'refill';
+  pricing_method: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupedProduct {
+  parent_product: ParentProduct;
+  variants: Product[];
+}
+
+export interface GroupedProductsResponse {
+  products: GroupedProduct[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface CreateParentProductData {
+  sku: string;
+  name: string;
+  description?: string;
+  unit_of_measure: 'cylinder' | 'kg';
+  capacity_kg?: number;
+  tare_weight_kg?: number;
+  gross_weight_kg?: number;
+  valve_type?: string;
+  status: 'active' | 'obsolete';
+  variant_type: 'cylinder' | 'refillable' | 'disposable';
+  requires_tag: boolean;
+  tax_category?: string;
+  tax_rate?: number;
+  variant?: 'outright' | 'refill';
+  pricing_method: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
+}
+
+export interface ParentProductsResponse {
+  products: ParentProduct[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
