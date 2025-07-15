@@ -784,12 +784,11 @@ export const productsRouter = router({
       
       ctx.logger.info('Creating product variant:', input);
       
-      // Get parent product info
+      // Get parent product info from parent_products table
       const { data: parentProduct, error: parentError } = await ctx.supabase
-        .from('products')
+        .from('parent_products')
         .select('*')
         .eq('id', input.parent_products_id)
-        
         .single();
 
       if (parentError || !parentProduct) {
@@ -802,14 +801,20 @@ export const productsRouter = router({
       // Auto-generate SKU as {parent_sku}-{sku_variant}
       const generatedSku = `${parentProduct.sku}-${input.sku_variant}`;
       
-      // Check SKU uniqueness
-      const { data: existingSku } = await ctx.supabase
+      // Check SKU uniqueness in both products and parent_products tables
+      const { data: existingSkuProducts } = await ctx.supabase
         .from('products')
         .select('id')
         .eq('sku', generatedSku)
         .single();
 
-      if (existingSku) {
+      const { data: existingSkuParentProducts } = await ctx.supabase
+        .from('parent_products')
+        .select('id')
+        .eq('sku', generatedSku)
+        .single();
+
+      if (existingSkuProducts || existingSkuParentProducts) {
         throw new TRPCError({
           code: 'CONFLICT',
           message: `SKU already exists: ${generatedSku}. This variant may already exist.`,
@@ -1522,11 +1527,10 @@ export const productsRouter = router({
       const sort_order = input.sort_order || 'desc';
       const show_obsolete = input.show_obsolete || false;
       
-      // Get parent products (products that are not variants)
+      // Get parent products from parent_products table
       let parentQuery = ctx.supabase
-        .from('products')
-        .select('*', { count: 'exact' })
-        .eq('is_variant', false);
+        .from('parent_products')
+        .select('*', { count: 'exact' });
       
       // Apply filters
       if (!show_obsolete) {
@@ -1650,37 +1654,71 @@ export const productsRouter = router({
       
       ctx.logger.info('Creating parent product:', input);
       
-      // Check SKU uniqueness
-      const { data: existingSku } = await ctx.supabase
+      // Check SKU uniqueness in both products and parent_products tables
+      const { data: existingSkuProducts } = await ctx.supabase
         .from('products')
         .select('id')
         .eq('sku', input.sku)
         .single();
 
-      if (existingSku) {
+      const { data: existingSkuParentProducts } = await ctx.supabase
+        .from('parent_products')
+        .select('id')
+        .eq('sku', input.sku)
+        .single();
+
+      if (existingSkuProducts || existingSkuParentProducts) {
         throw new TRPCError({
           code: 'CONFLICT',
           message: 'SKU already exists. Please use a unique SKU.',
         });
       }
 
+      // Filter input to only include fields that exist in parent_products table
+      const parentProductData = {
+        sku: input.sku,
+        name: input.name,
+        description: input.description,
+        status: input.status,
+        tax_category: input.tax_category,
+        tax_rate: input.tax_rate,
+        gross_weight_kg: input.gross_weight_kg,
+        tare_weight_kg: input.tare_weight_kg,
+        capacity_kg: input.capacity_kg,
+        barcode_uid: input.barcode_uid,
+        valve_type: input.valve_type,
+        // Calculate net_gas_weight_kg if both gross and tare weights are provided
+        net_gas_weight_kg: input.gross_weight_kg && input.tare_weight_kg 
+          ? input.gross_weight_kg - input.tare_weight_kg 
+          : undefined,
+        created_at: new Date().toISOString(),
+      };
+
+      // Remove undefined values
+      const cleanedData = Object.fromEntries(
+        Object.entries(parentProductData).filter(([_, value]) => value !== undefined)
+      );
+
+      ctx.logger.info('Inserting parent product data:', cleanedData);
+
       const { data, error } = await ctx.supabase
-        .from('products')
-        .insert([{
-          ...input,
-          is_variant: false,
-          parent_products_id: null,
-          sku_variant: null,
-          created_at: new Date().toISOString(),
-        }])
+        .from('parent_products')
+        .insert([cleanedData])
         .select()
         .single();
 
       if (error) {
-        ctx.logger.error('Error creating parent product:', error);
+        ctx.logger.error('Error creating parent product:', {
+          error,
+          input: cleanedData,
+          errorMessage: error.message,
+          errorCode: error.code,
+          errorDetails: error.details,
+          errorHint: error.hint,
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create parent product',
+          message: `Failed to create parent product: ${error.message}`,
         });
       }
 
@@ -1758,11 +1796,10 @@ export const productsRouter = router({
       const show_obsolete = input.show_obsolete || false;
       const include_variant_counts = input.include_variant_counts || true;
       
-      // Get parent products (products that are not variants)
+      // Get parent products from parent_products table
       let query = ctx.supabase
-        .from('products')
-        .select('*', { count: 'exact' })
-        .eq('is_variant', false);
+        .from('parent_products')
+        .select('*', { count: 'exact' });
       
       // Apply filters
       if (!show_obsolete) {

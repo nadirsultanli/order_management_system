@@ -24,7 +24,7 @@ export interface Product {
   // Variant field for Outright/Refill
   variant?: 'outright' | 'refill';
   // Pricing method for weight-based pricing
-  pricing_method: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
+  pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
   // Derived fields for UI
   parent_product?: Product; // populated when fetching variants
   variants?: Product[]; // populated when fetching parent products
@@ -53,7 +53,7 @@ export interface CreateProductData {
   // Variant field for Outright/Refill
   variant?: 'outright' | 'refill';
   // Pricing method for weight-based pricing
-  pricing_method: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
+  pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
 }
 
 export interface UpdateProductData extends Partial<CreateProductData> {
