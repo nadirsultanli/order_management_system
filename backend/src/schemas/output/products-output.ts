@@ -34,8 +34,8 @@ export const ProductBaseSchema = z.object({
   requires_tag: z.boolean(),
   variant_type: z.enum(['cylinder', 'refillable', 'disposable']),
   variant: z.enum(['outright', 'refill']).optional(),
-  parent_products_id: z.string().nullable(),
-  sku_variant: z.enum(['EMPTY', 'FULL-XCH', 'FULL-OUT', 'DAMAGED']).nullable(),
+  parent_product_id: z.string().nullable(),
+  variant_name: z.string().nullable(),
   is_variant: z.boolean(),
   tax_category: z.string().optional(),
   tax_rate: z.number().optional(),
@@ -235,60 +235,4 @@ export const CreateVariantDataResponseSchema = z.object({
   description: z.string(),
   status: z.enum(['active', 'obsolete']),
   barcode_uid: z.undefined(),
-});
-
-// ============ New Hierarchical Parent-Child Schemas ============
-
-export const ParentProductSchema = z.object({
-  id: z.string(),
-  sku: z.string(),
-  name: z.string(),
-  description: z.string().optional(),
-  unit_of_measure: z.enum(['cylinder', 'kg']),
-  capacity_kg: z.number().optional(),
-  tare_weight_kg: z.number().optional(),
-  valve_type: z.string().optional(),
-  status: z.enum(['active', 'obsolete']),
-  variant_type: z.enum(['cylinder', 'refillable', 'disposable']),
-  requires_tag: z.boolean(),
-  tax_category: z.string().optional(),
-  tax_rate: z.number().optional(),
-  created_at: z.string(),
-  variant_count: z.number(),
-});
-
-export const GroupedProductSchema = z.object({
-  parent: ParentProductSchema,
-  variants: z.array(ProductBaseSchema),
-});
-
-export const GetGroupedProductsResponseSchema = z.object({
-  grouped_products: z.array(GroupedProductSchema),
-  summary: z.object({
-    total_parent_products: z.number(),
-    total_variants: z.number(),
-    active_parent_products: z.number(),
-    active_variants: z.number(),
-  }),
-});
-
-export const CreateParentProductResponseSchema = ParentProductSchema;
-
-export const SkuVariantSchema = z.object({
-  value: z.string(),
-  label: z.string(),
-  description: z.string(),
-});
-
-export const GetSkuVariantsResponseSchema = z.object({
-  sku_variants: z.array(SkuVariantSchema),
-});
-
-export const ListParentProductsResponseSchema = z.object({
-  parent_products: z.array(ParentProductSchema),
-  totalCount: z.number(),
-  totalPages: z.number(),
-  currentPage: z.number(),
-});
-
-export const GetParentProductByIdResponseSchema = ParentProductSchema; 
+}); 

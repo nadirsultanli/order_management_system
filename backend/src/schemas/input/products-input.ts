@@ -10,7 +10,6 @@ export const ProductStatusEnum = z.enum(['active', 'obsolete']);
 export const UnitOfMeasureEnum = z.enum(['cylinder', 'kg']);
 export const VariantTypeEnum = z.enum(['cylinder', 'refillable', 'disposable']);
 export const VariantEnum = z.enum(['outright', 'refill']);
-export const SkuVariantEnum = z.enum(['EMPTY', 'FULL-XCH', 'FULL-OUT', 'DAMAGED']);
 
 // ============ Core Product Operations ============
 
@@ -28,8 +27,6 @@ export const ProductFiltersSchema = z.object({
   weight_max: z.number().min(0).optional(),
   requires_tag: z.boolean().optional(),
   is_variant: z.boolean().optional(),
-  parent_products_id: z.string().uuid().optional(),
-  sku_variant: SkuVariantEnum.optional(),
   created_after: z.string().optional(),
   updated_after: z.string().optional(),
   page: z.number().min(1).default(1),
@@ -77,8 +74,6 @@ export const CreateProductSchema = z.object({
   is_variant: z.boolean().default(false),
   tax_category: z.string().optional(),
   tax_rate: z.number().min(0).max(1).optional(),
-  parent_products_id: z.string().uuid().optional(),
-  sku_variant: SkuVariantEnum.optional(),
 });
 
 export const UpdateProductSchema = z.object({
@@ -99,8 +94,6 @@ export const UpdateProductSchema = z.object({
   is_variant: z.boolean().optional(),
   tax_category: z.string().optional(),
   tax_rate: z.number().min(0).max(1).optional(),
-  parent_products_id: z.string().uuid().optional(),
-  sku_variant: SkuVariantEnum.optional(),
 });
 
 export const DeleteProductSchema = z.object({
@@ -110,17 +103,17 @@ export const DeleteProductSchema = z.object({
 // ============ Product Variants ============
 
 export const GetVariantsSchema = z.object({
-  parent_products_id: z.string().uuid(),
+  parent_product_id: z.string().uuid(),
 });
 
 export const CreateVariantSchema = z.object({
+  parent_product_id: z.string().uuid(),
+  variant_name: z.string().min(1, 'Variant name is required'),
+  sku: z.string().min(1, 'SKU is required'),
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
   status: ProductStatusEnum.default('active'),
   barcode_uid: z.string().optional(),
-  parent_products_id: z.string().uuid(),
-  sku_variant: SkuVariantEnum,
-  // SKU will be auto-generated as {parent_sku}-{sku_variant}
 });
 
 // ============ Bulk Operations ============
@@ -219,37 +212,4 @@ export const CreateVariantDataSchema = z.object({
   }),
   variant_name: z.string().min(1),
   description: z.string().optional(),
-});
-
-// ============ New Hierarchical Parent-Child Schemas ============
-
-export const CreateParentProductSchema = z.object({
-  sku: z.string().min(1, 'SKU is required'),
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
-  unit_of_measure: UnitOfMeasureEnum,
-  capacity_kg: z.number().positive().optional(),
-  tare_weight_kg: z.number().positive().optional(),
-  valve_type: z.string().optional(),
-  status: ProductStatusEnum.default('active'),
-  variant_type: VariantTypeEnum.default('cylinder'),
-  requires_tag: z.boolean().default(false),
-  tax_category: z.string().optional(),
-  tax_rate: z.number().min(0).max(1).optional(),
-});
-
-export const GetGroupedProductsSchema = z.object({
-  include_inactive: z.boolean().default(false),
-  include_variants_only: z.boolean().default(false),
-});
-
-export const GetSkuVariantsSchema = z.object({});
-
-export const ListParentProductsSchema = z.object({
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(50),
-});
-
-export const GetParentProductByIdSchema = z.object({
-  id: z.string().uuid(),
 }); 
