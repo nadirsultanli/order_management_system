@@ -15,7 +15,7 @@ import {
   ValidateEmailSchema,
   SimpleResetPasswordSchema,
 } from '../schemas/input/users-input';
-import { UserSchema, UserListSchema } from '../schemas/output/users-output';
+import { UserSchema, UserListResponseSchema, UserDetailResponseSchema, CreateUserResponseSchema, UpdateUserResponseSchema, DeleteUserResponseSchema, DriverListResponseSchema, ChangePasswordResponseSchema, UserValidationResponseSchema, ValidateEmailResponseSchema, ResetPasswordResponseSchema } from '../schemas/output/users-output';
 
 export const usersRouter = router({
   // GET /users - List users with filtering and pagination
@@ -31,7 +31,7 @@ export const usersRouter = router({
       }
     })
     .input(UserFiltersSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -116,46 +116,299 @@ export const usersRouter = router({
       };
     }),
 
-  // GET /users/{id} - Get single user by ID
-  getById: protectedProcedure
+  // GET /users/drivers - Get drivers only (filtered list) - MUST COME BEFORE /users/{id}
+  getDrivers: protectedProcedure
     .meta({
       openapi: {
         method: 'GET',
-        path: '/users/{user_id}',
-        tags: ['users'],
-        summary: 'Get user by ID',
-        description: 'Get a single user by their ID',
+        path: '/users/drivers',
+        tags: ['users', 'drivers'],
+        summary: 'Get drivers',
+        description: 'Get a list of users with driver role',
         protect: true,
       }
     })
-    .input(UserIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .input(DriversFilterSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching user:', input.user_id);
+      // Provide default values if input is undefined
+      const filters = input || {} as { page?: number; limit?: number; search?: string; active?: boolean; available?: boolean };
+      const page = filters.page || 1;
+      const limit = filters.limit || 50;
+      const search = filters.search;
+      const active = filters.active;
       
-      const { data, error } = await ctx.supabase
+      ctx.logger.info('Fetching drivers with filters:', filters);
+      
+      // Get total count of drivers
+      let countQuery = ctx.supabase
+        .from('admin_users')
+        .select('id', { count: 'exact', head: true })
+        .eq('role', 'driver');
+
+      // Apply filters to count query
+      if (search) {
+        countQuery = countQuery.or(
+          `name.ilike.%${search}%,email.ilike.%${search}%`
+        );
+      }
+
+      if (active !== undefined) {
+        countQuery = countQuery.eq('active', active);
+      }
+
+      const { count: totalCount, error: countError } = await countQuery;
+
+      if (countError) {
+        ctx.logger.error('Error getting driver count:', countError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: countError.message
+        });
+      }
+
+      // Get paginated drivers
+      let query = ctx.supabase
         .from('admin_users')
         .select('*')
-        .eq('id', input.user_id)
-        .single();
+        .eq('role', 'driver')
+        .order('name', { ascending: true })
+        .range((page - 1) * limit, page * limit - 1);
+
+      // Apply same filters to main query
+      if (search) {
+        query = query.or(
+          `name.ilike.%${search}%,email.ilike.%${search}%`
+        );
+      }
+
+      if (active !== undefined) {
+        query = query.eq('active', active);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'User not found'
-          });
-        }
-        ctx.logger.error('User fetch error:', error);
+        ctx.logger.error('Supabase drivers error:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: error.message
         });
       }
 
-      return data;
+      const totalPages = Math.ceil((totalCount || 0) / limit);
+
+      return {
+        drivers: data || [],
+        totalCount: totalCount || 0,
+        totalPages,
+        currentPage: page,
+      };
+    }),
+
+  // POST /users/validate - Validate user data - MUST COME BEFORE /users/{id}
+  validate: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/users/validate',
+        tags: ['users', 'validation'],
+        summary: 'Validate user data',
+        description: 'Validate user data for duplicates',
+        protect: true,
+      }
+    })
+    .input(UserValidationSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Validating user data:', input);
+      
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      
+      // Check for duplicate email
+      if (input.email) {
+        let emailQuery = ctx.supabase
+          .from('admin_users')
+          .select('id, name')
+          .eq('email', input.email);
+        
+        if (input.exclude_id) {
+          emailQuery = emailQuery.neq('id', input.exclude_id);
+        }
+        
+        const { data: existingByEmail } = await emailQuery.single();
+        
+        if (existingByEmail) {
+          errors.push(`A user with email "${input.email}" already exists: ${existingByEmail.name}`);
+        }
+      }
+      
+      // Check for duplicate employee_id
+      if (input.employee_id) {
+        let employeeIdQuery = ctx.supabase
+          .from('admin_users')
+          .select('id, name')
+          .eq('employee_id', input.employee_id);
+        
+        if (input.exclude_id) {
+          employeeIdQuery = employeeIdQuery.neq('id', input.exclude_id);
+        }
+        
+        const { data: existingByEmployeeId } = await employeeIdQuery.single();
+        
+        if (existingByEmployeeId) {
+          errors.push(`A user with employee ID "${input.employee_id}" already exists: ${existingByEmployeeId.name}`);
+        }
+      }
+      
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+      };
+    }),
+
+  // POST /users/validate-email - Validate if email exists - MUST COME BEFORE /users/{id}
+  validateEmail: publicProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/users/validate-email',
+        tags: ['users', 'password-reset'],
+        summary: 'Validate email exists',
+        description: 'Check if user email exists in the system',
+        protect: true,
+      }
+    })
+    .input(ValidateEmailSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      // No authentication required
+      ctx.logger.info('Validating email exists:', input.email);
+      
+      try {
+        // Check if user exists in admin_users table
+        const { data: userData, error: userError } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name, email')
+          .eq('email', input.email)
+          .single();
+
+        if (userError || !userData) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No user found with this email address'
+          });
+        }
+
+        ctx.logger.info('Email validation successful for:', userData.name);
+        
+        return {
+          exists: true,
+          message: 'Email found. You can proceed to reset password.',
+          user_name: userData.name
+        };
+
+      } catch (error) {
+        ctx.logger.error('Email validation error:', error);
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No user found with this email address'
+        });
+      }
+    }),
+
+  // POST /users/reset-password-simple - Reset password with email validation - MUST COME BEFORE /users/{id}
+  resetPasswordSimple: publicProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/users/reset-password-simple',
+        tags: ['users', 'password-reset'],
+        summary: 'Reset password (simple)',
+        description: 'Reset user password after validating email exists (no token required)',
+        protect: true,
+      }
+    })
+    .input(SimpleResetPasswordSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      // No authentication required
+      ctx.logger.info('Resetting password for email:', input.email);
+      
+      try {
+        // Validate that passwords match (also done in schema)
+        if (input.password !== input.confirm_password) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Passwords do not match'
+          });
+        }
+
+        // Check if user exists and get auth_user_id
+        const { data: userData, error: userError } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name, email, auth_user_id')
+          .eq('email', input.email)
+          .single();
+
+        if (userError || !userData) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No user found with this email address'
+          });
+        }
+
+        if (!userData.auth_user_id) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'User account is not properly configured'
+          });
+        }
+
+        // Update password in Supabase Auth
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          userData.auth_user_id,
+          { password: input.password }
+        );
+
+        if (authError) {
+          ctx.logger.error('Password reset error:', authError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to reset password: ${authError.message}`
+          });
+        }
+
+        ctx.logger.info('Password reset successful for user:', userData.name);
+        
+        return {
+          success: true,
+          message: `Password has been reset successfully for ${userData.name}`
+        };
+
+      } catch (error) {
+        ctx.logger.error('Password reset error:', error);
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to reset password'
+        });
+      }
     }),
 
   // POST /users - Create new user
@@ -256,7 +509,49 @@ export const usersRouter = router({
       }
     }),
 
-  // PUT /users/{id} - Update user
+  // GET /users/{id} - Get single user by ID - MUST COME AFTER specific routes
+  getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/users/{user_id}',
+        tags: ['users'],
+        summary: 'Get user by ID',
+        description: 'Get a single user by their ID',
+        protect: true,
+      }
+    })
+    .input(UserIdSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching user:', input.user_id);
+      
+      const { data, error } = await ctx.supabase
+        .from('admin_users')
+        .select('*')
+        .eq('id', input.user_id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'User not found'
+          });
+        }
+        ctx.logger.error('User fetch error:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      return data;
+    }),
+
+  // PUT /users/{id} - Update user - MUST COME AFTER specific routes
   update: protectedProcedure
     .meta({
       openapi: {
@@ -329,7 +624,7 @@ export const usersRouter = router({
       return data;
     }),
 
-  // DELETE /users/{id} - Delete or deactivate user
+  // DELETE /users/{id} - Delete or deactivate user - MUST COME AFTER specific routes
   delete: protectedProcedure
     .meta({
       openapi: {
@@ -390,99 +685,7 @@ export const usersRouter = router({
       return { success: true, message: 'User deleted successfully' };
     }),
 
-  // GET /users/drivers - Get drivers only (filtered list)
-  getDrivers: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/users/drivers',
-        tags: ['users', 'drivers'],
-        summary: 'Get drivers',
-        description: 'Get a list of users with driver role',
-        protect: true,
-      }
-    })
-    .input(DriversFilterSchema)
-    .output(z.any())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      // Provide default values if input is undefined
-      const filters = input || {} as { page?: number; limit?: number; search?: string; active?: boolean; available?: boolean };
-      const page = filters.page || 1;
-      const limit = filters.limit || 50;
-      const search = filters.search;
-      const active = filters.active;
-      
-      ctx.logger.info('Fetching drivers with filters:', filters);
-      
-      // Get total count of drivers
-      let countQuery = ctx.supabase
-        .from('admin_users')
-        .select('id', { count: 'exact', head: true })
-        .eq('role', 'driver');
-
-      // Apply filters to count query
-      if (search) {
-        countQuery = countQuery.or(
-          `name.ilike.%${search}%,email.ilike.%${search}%`
-        );
-      }
-
-      if (active !== undefined) {
-        countQuery = countQuery.eq('active', active);
-      }
-
-      const { count: totalCount, error: countError } = await countQuery;
-
-      if (countError) {
-        ctx.logger.error('Error getting driver count:', countError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: countError.message
-        });
-      }
-
-      // Get paginated drivers
-      let query = ctx.supabase
-        .from('admin_users')
-        .select('*')
-        .eq('role', 'driver')
-        .order('name', { ascending: true })
-        .range((page - 1) * limit, page * limit - 1);
-
-      // Apply same filters to main query
-      if (search) {
-        query = query.or(
-          `name.ilike.%${search}%,email.ilike.%${search}%`
-        );
-      }
-
-      if (active !== undefined) {
-        query = query.eq('active', active);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        ctx.logger.error('Supabase drivers error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
-        });
-      }
-
-      const totalPages = Math.ceil((totalCount || 0) / limit);
-
-      return {
-        drivers: data || [],
-        totalCount: totalCount || 0,
-        totalPages,
-        currentPage: page,
-      };
-    }),
-
-  // POST /users/{id}/change-password - Change user password
+  // POST /users/{id}/change-password - Change user password - MUST COME AFTER specific routes
   changePassword: protectedProcedure
     .meta({
       openapi: {
@@ -536,216 +739,6 @@ export const usersRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to change password'
-        });
-      }
-    }),
-
-  // POST /users/validate - Validate user data
-  validate: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/users/validate',
-        tags: ['users', 'validation'],
-        summary: 'Validate user data',
-        description: 'Validate user data for duplicates',
-        protect: true,
-      }
-    })
-    .input(UserValidationSchema)
-    .output(z.any())
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Validating user data:', input);
-      
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      
-      // Check for duplicate email
-      if (input.email) {
-        let emailQuery = ctx.supabase
-          .from('admin_users')
-          .select('id, name')
-          .eq('email', input.email);
-        
-        if (input.exclude_id) {
-          emailQuery = emailQuery.neq('id', input.exclude_id);
-        }
-        
-        const { data: existingByEmail } = await emailQuery.single();
-        
-        if (existingByEmail) {
-          errors.push(`A user with email "${input.email}" already exists: ${existingByEmail.name}`);
-        }
-      }
-      
-      // Check for duplicate employee_id
-      if (input.employee_id) {
-        let employeeIdQuery = ctx.supabase
-          .from('admin_users')
-          .select('id, name')
-          .eq('employee_id', input.employee_id);
-        
-        if (input.exclude_id) {
-          employeeIdQuery = employeeIdQuery.neq('id', input.exclude_id);
-        }
-        
-        const { data: existingByEmployeeId } = await employeeIdQuery.single();
-        
-        if (existingByEmployeeId) {
-          errors.push(`A user with employee ID "${input.employee_id}" already exists: ${existingByEmployeeId.name}`);
-        }
-      }
-      
-      return {
-        valid: errors.length === 0,
-        errors,
-        warnings,
-      };
-    }),
-
-  // POST /users/validate-email - Validate if email exists
-  validateEmail: publicProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/users/validate-email',
-        tags: ['users', 'password-reset'],
-        summary: 'Validate email exists',
-        description: 'Check if user email exists in the system',
-        protect: true,
-      }
-    })
-    .input(ValidateEmailSchema)
-    .output(z.object({
-      exists: z.boolean(),
-      message: z.string(),
-      user_name: z.string().optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // No authentication required
-      ctx.logger.info('Validating email exists:', input.email);
-      
-      try {
-        // Check if user exists in admin_users table
-        const { data: userData, error: userError } = await ctx.supabase
-          .from('admin_users')
-          .select('id, name, email')
-          .eq('email', input.email)
-          .single();
-
-        if (userError || !userData) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'No user found with this email address'
-          });
-        }
-
-        ctx.logger.info('Email validation successful for:', userData.name);
-        
-        return {
-          exists: true,
-          message: 'Email found. You can proceed to reset password.',
-          user_name: userData.name
-        };
-
-      } catch (error) {
-        ctx.logger.error('Email validation error:', error);
-        
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'No user found with this email address'
-        });
-      }
-    }),
-
-  // POST /users/reset-password-simple - Reset password with email validation
-  resetPasswordSimple: publicProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/users/reset-password-simple',
-        tags: ['users', 'password-reset'],
-        summary: 'Reset password (simple)',
-        description: 'Reset user password after validating email exists (no token required)',
-        protect: true,
-      }
-    })
-    .input(SimpleResetPasswordSchema)
-    .output(z.object({
-      success: z.boolean(),
-      message: z.string(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      // No authentication required
-      ctx.logger.info('Resetting password for email:', input.email);
-      
-      try {
-        // Validate that passwords match (also done in schema)
-        if (input.password !== input.confirm_password) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Passwords do not match'
-          });
-        }
-
-        // Check if user exists and get auth_user_id
-        const { data: userData, error: userError } = await ctx.supabase
-          .from('admin_users')
-          .select('id, name, email, auth_user_id')
-          .eq('email', input.email)
-          .single();
-
-        if (userError || !userData) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'No user found with this email address'
-          });
-        }
-
-        if (!userData.auth_user_id) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'User account is not properly configured'
-          });
-        }
-
-        // Update password in Supabase Auth
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-          userData.auth_user_id,
-          { password: input.password }
-        );
-
-        if (authError) {
-          ctx.logger.error('Password reset error:', authError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to reset password: ${authError.message}`
-          });
-        }
-
-        ctx.logger.info('Password reset successful for user:', userData.name);
-        
-        return {
-          success: true,
-          message: `Password has been reset successfully for ${userData.name}`
-        };
-
-      } catch (error) {
-        ctx.logger.error('Password reset error:', error);
-        
-        if (error instanceof TRPCError) {
-          throw error;
-        }
-        
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to reset password'
         });
       }
     }),
