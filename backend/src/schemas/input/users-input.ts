@@ -36,6 +36,15 @@ export const CreateUserSchema = z.object({
   notes: z.string().optional(),
   employee_id: z.string().optional(),
   department: z.string().optional(),
+}).refine((data) => {
+  // Password is required only for admin users
+  if (data.role === 'admin' && !data.password) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Password is required for admin users',
+  path: ['password'],
 });
 
 // User update schema

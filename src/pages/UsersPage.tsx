@@ -130,7 +130,15 @@ const UserForm: React.FC<{
               </label>
               <select
                 value={formData.role}
-                onChange={(e) => setFormData(prev => ({ ...prev, role: e.target.value as UserFormData['role'] }))}
+                onChange={(e) => {
+                  const newRole = e.target.value as UserFormData['role'];
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    role: newRole,
+                    // Clear password when switching to driver
+                    password: newRole === 'driver' ? '' : prev.password 
+                  }));
+                }}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 required
               >
@@ -295,13 +303,19 @@ export const UsersPage: React.FC = () => {
 
   const handleFormSubmit = async (data: UserFormData) => {
     try {
+      // For drivers, remove password field if it exists
+      const submitData = { ...data };
+      if (submitData.role === 'driver' && !editingUser) {
+        delete submitData.password;
+      }
+      
       if (editingUser) {
         await updateUser.mutateAsync({
           id: editingUser.id,
-          ...data
+          ...submitData
         });
       } else {
-        await createUser.mutateAsync(data);
+        await createUser.mutateAsync(submitData);
       }
       setIsFormOpen(false);
       setEditingUser(null);
