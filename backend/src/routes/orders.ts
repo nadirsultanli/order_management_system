@@ -754,9 +754,9 @@ export const ordersRouter = router({
         const validationWarnings: string[] = [];
         let totalAmount = 0;
         
-        // Skip order line validation for visit orders
-        if (input.order_type === 'visit') {
-          ctx.logger.info('Creating visit order - skipping order line validation');
+        // Skip order line validation for non-delivery orders
+        if (input.order_type !== 'delivery') {
+          ctx.logger.info(`Creating ${input.order_type} order - skipping order line validation`);
         } else if (input.order_lines && input.order_lines.length > 0) {
           for (let i = 0; i < input.order_lines.length; i++) {
           const line = input.order_lines[i];
@@ -929,8 +929,8 @@ export const ordersRouter = router({
           });
         }
         
-        // Validate minimum order amount if configured (skip for visit orders)
-        if (input.order_type !== 'visit') {
+        // Validate minimum order amount if configured (skip for non-delivery orders)
+        if (input.order_type === 'delivery') {
           const minimumOrderAmount = 100; // Could be configurable per tenant
           if (totalAmount < minimumOrderAmount) {
             throw new TRPCError({
@@ -972,8 +972,8 @@ export const ordersRouter = router({
           });
         }
 
-        // Create order lines (skip for visit orders)
-        if (input.order_type !== 'visit' && validatedOrderLines.length > 0) {
+        // Create order lines (skip for non-delivery orders)
+        if (input.order_type === 'delivery' && validatedOrderLines.length > 0) {
           const orderLinesData = validatedOrderLines.map(line => ({
             order_id: order.id,
             product_id: line.product_id,
@@ -1005,8 +1005,8 @@ export const ordersRouter = router({
               message: linesError.message
             });
           }
-        } else if (input.order_type === 'visit') {
-          ctx.logger.info('Visit order created - no order lines to create');
+        } else if (input.order_type !== 'delivery') {
+          ctx.logger.info(`${input.order_type} order created - no order lines to create`);
         }
 
         // Calculate and update order total (includes tax calculation)
