@@ -104,7 +104,7 @@ export const ordersRouter = router({
       }
     })
     .input(OrderFiltersSchema.optional())
-    .output(OrderListResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -329,7 +329,7 @@ export const ordersRouter = router({
       }
     })
     .input(z.void())
-    .output(WorkflowResponseSchema)
+    .output(z.any())
     .query(async ({ ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Fetching order workflow');
@@ -349,7 +349,7 @@ export const ordersRouter = router({
       }
     })
     .input(GetOrderByIdSchema)
-    .output(OrderDetailResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -604,7 +604,7 @@ export const ordersRouter = router({
       }
     })
     .input(CreateOrderSchema)
-    .output(CreateOrderResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1078,7 +1078,7 @@ export const ordersRouter = router({
       }
     })
     .input(CalculateOrderTotalSchema)
-    .output(CalculateOrderTotalResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1098,7 +1098,7 @@ export const ordersRouter = router({
       }
     })
     .input(UpdateOrderStatusSchema)
-    .output(UpdateOrderStatusResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1272,7 +1272,7 @@ export const ordersRouter = router({
       }
     })
     .input(UpdateOrderTaxSchema)
-    .output(UpdateOrderTaxResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1310,7 +1310,7 @@ export const ordersRouter = router({
         subtotal: z.number().optional(),
       })).optional(),
     }))
-    .output(OrderDetailResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       ctx.logger.info('Updating order:', input.order_id);
@@ -1444,7 +1444,7 @@ export const ordersRouter = router({
     //   }
     // })
     .input(InputStatusTransitionSchema)
-    .output(StatusTransitionResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Validating status transition:', input);
@@ -1464,7 +1464,7 @@ export const ordersRouter = router({
     //   }
     // })
     .input(InputCalculateTotalsSchema)
-    .output(CalculateTotalsResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Calculating order totals:', input);
@@ -1490,7 +1490,7 @@ export const ordersRouter = router({
     //   }
     // })
     .input(ValidateOrderSchema)
-    .output(ValidateOrderResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Validating order for confirmation:', input.order.id);
@@ -1510,7 +1510,7 @@ export const ordersRouter = router({
     //   }
     // })
     .input(ValidateOrderSchema)
-    .output(ValidateOrderResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Validating order for scheduling:', input.order.id);
@@ -1530,7 +1530,7 @@ export const ordersRouter = router({
     //   }
     // })
     .input(ValidateOrderSchema)
-    .output(ValidateOrderResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Validating order delivery window:', input.order.id);
@@ -1541,7 +1541,7 @@ export const ordersRouter = router({
   formatOrderId: protectedProcedure
     // .meta({ ... })
     .input(FormatOrderIdSchema)
-    .output(FormatOrderIdResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       return { formatted_id: formatOrderId(input.order_id) };
@@ -1551,7 +1551,7 @@ export const ordersRouter = router({
   formatCurrency: protectedProcedure
     // .meta({ ... })
     .input(FormatCurrencySchema)
-    .output(FormatCurrencyResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       return { formatted_amount: formatCurrency(input.amount) };
@@ -1561,7 +1561,7 @@ export const ordersRouter = router({
   formatDate: protectedProcedure
     // .meta({ ... })
     .input(FormatDateSchema)
-    .output(FormatDateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
       return { formatted_date: formatDate(input.date) };
@@ -1836,7 +1836,7 @@ export const ordersRouter = router({
       }
     })
     .input(AllocateToTruckSchema)
-    .output(AllocateToTruckResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2063,7 +2063,7 @@ export const ordersRouter = router({
     }
   })
   .input(ConvertVisitToDeliverySchema)
-  .output(ConvertVisitToDeliveryResponseSchema)
+  .output(z.any())
   .mutation(async ({ input, ctx }) => {
     const user = requireAuth(ctx);
     

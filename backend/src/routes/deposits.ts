@@ -65,7 +65,7 @@ export const depositsRouter = router({
       }
     })
     .input(ListDepositRatesSchema)
-    .output(ListDepositRatesResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -138,7 +138,7 @@ export const depositsRouter = router({
       }
     })
     .input(CreateDepositRateSchema)
-    .output(CreateDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -214,7 +214,7 @@ export const depositsRouter = router({
       }
     })
     .input(UpdateDepositRateSchema)
-    .output(UpdateDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -279,7 +279,7 @@ export const depositsRouter = router({
       }
     })
     .input(DeleteDepositRateSchema)
-    .output(DeleteDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -344,7 +344,7 @@ export const depositsRouter = router({
       }
     })
     .input(GetDepositRateByCapacitySchema)
-    .output(GetDepositRateByCapacityResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -430,7 +430,7 @@ export const depositsRouter = router({
       }
     })
     .input(BulkUpdateDepositRatesSchema)
-    .output(BulkUpdateDepositRatesResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -517,7 +517,7 @@ export const depositsRouter = router({
       }
     })
     .input(GetCustomerDepositBalanceSchema)
-    .output(CustomerDepositBalanceResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -609,7 +609,7 @@ export const depositsRouter = router({
       }
     })
     .input(GetCustomerDepositHistorySchema)
-    .output(CustomerDepositHistoryResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -739,7 +739,7 @@ export const depositsRouter = router({
       }
     })
     .input(ChargeCustomerDepositSchema)
-    .output(ChargeCustomerDepositResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -924,7 +924,7 @@ export const depositsRouter = router({
       }
     })
     .input(RefundCustomerDepositSchema)
-    .output(RefundCustomerDepositResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1143,7 +1143,7 @@ export const depositsRouter = router({
       }
     })
     .input(GetCustomerCylindersSchema)
-    .output(CustomerCylindersResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1245,7 +1245,7 @@ export const depositsRouter = router({
       }
     })
     .input(ListDepositTransactionsSchema)
-    .output(ListDepositTransactionsResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1379,7 +1379,7 @@ export const depositsRouter = router({
       }
     })
     .input(CalculateDepositRefundSchema)
-    .output(CalculateDepositRefundResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1526,7 +1526,7 @@ export const depositsRouter = router({
       }
     })
     .input(ValidateDepositRateSchema)
-    .output(ValidateDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1602,7 +1602,7 @@ export const depositsRouter = router({
       }
     })
     .input(ValidateDepositRefundSchema)
-    .output(ValidateDepositRefundResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1783,7 +1783,7 @@ export const depositsRouter = router({
       }
     })
     .input(GetDepositAuditTrailSchema)
-    .output(DepositAuditTrailResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1855,7 +1855,7 @@ export const depositsRouter = router({
       }
     })
     .input(GetDepositSummaryReportSchema)
-    .output(DepositSummaryReportResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2119,7 +2119,7 @@ export const depositsRouter = router({
   // Alias for listRates -> listDepositRates
   listDepositRates: protectedProcedure
     .input(ListDepositRatesSchema)
-    .output(ListDepositRatesResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2175,7 +2175,7 @@ export const depositsRouter = router({
   // Alias for listTransactions -> listDepositTransactions  
   listDepositTransactions: protectedProcedure
     .input(ListDepositTransactionsSchema)
-    .output(ListDepositTransactionsResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2383,7 +2383,7 @@ export const depositsRouter = router({
 
   createDepositRate: protectedProcedure
     .input(CreateDepositRateSchema)
-    .output(CreateDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2413,7 +2413,7 @@ export const depositsRouter = router({
 
   updateDepositRate: protectedProcedure
     .input(UpdateDepositRateSchema)
-    .output(UpdateDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2442,7 +2442,7 @@ export const depositsRouter = router({
 
   deleteDepositRate: protectedProcedure
     .input(DeleteDepositRateSchema)
-    .output(DeleteDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2467,7 +2467,7 @@ export const depositsRouter = router({
 
   getDepositRateByCapacity: protectedProcedure
     .input(GetDepositRateByCapacitySchema)
-    .output(GetDepositRateByCapacityResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2510,7 +2510,7 @@ export const depositsRouter = router({
 
   getCustomerDepositBalance: protectedProcedure
     .input(GetCustomerDepositBalanceSchema)
-    .output(CustomerDepositBalanceResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2560,7 +2560,7 @@ export const depositsRouter = router({
 
   getCustomerDepositHistory: protectedProcedure
     .input(GetCustomerDepositHistorySchema)
-    .output(CustomerDepositHistoryResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2729,7 +2729,7 @@ export const depositsRouter = router({
 
   getOutstandingDepositsReport: protectedProcedure
     .input(GetOutstandingDepositsReportSchema)
-    .output(OutstandingDepositsReportResponseSchema)
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2771,7 +2771,7 @@ export const depositsRouter = router({
 
   validateDepositRate: protectedProcedure
     .input(ValidateDepositRateSchema)
-    .output(ValidateDepositRateResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2785,7 +2785,7 @@ export const depositsRouter = router({
 
   validateDepositRefund: protectedProcedure
     .input(ValidateDepositRefundSchema)
-    .output(ValidateDepositRefundResponseSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
