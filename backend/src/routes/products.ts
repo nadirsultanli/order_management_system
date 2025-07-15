@@ -782,71 +782,168 @@ export const productsRouter = router({
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Creating product variant:', input);
-      
-      // Get parent product info from parent_products table
-      const { data: parentProduct, error: parentError } = await ctx.supabase
-        .from('parent_products')
-        .select('*')
-        .eq('id', input.parent_products_id)
-        .single();
+      ctx.logger.info('Creating product variant with input:', {
+        parent_products_id: input.parent_products_id,
+        sku_variant: input.sku_variant,
+        name: input.name,
+        description: input.description,
+        status: input.status,
+        barcode_uid: input.barcode_uid,
+      });
 
-      if (parentError || !parentProduct) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Parent product not found',
+      try {
+        // Get parent product info from parent_products table
+        const { data: parentProduct, error: parentError } = await ctx.supabase
+          .from('parent_products')
+          .select('*')
+          .eq('id', input.parent_products_id)
+          .single();
+
+        if (parentError) {
+          ctx.logger.error('Error fetching parent product:', {
+            error: parentError,
+            parent_products_id: input.parent_products_id,
+          });
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Parent product not found: ${parentError.message}`,
+          });
+        }
+
+        if (!parentProduct) {
+          ctx.logger.error('Parent product not found:', {
+            parent_products_id: input.parent_products_id,
+          });
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Parent product not found',
+          });
+        }
+
+        ctx.logger.info('Found parent product:', {
+          id: parentProduct.id,
+          sku: parentProduct.sku,
+          name: parentProduct.name,
         });
-      }
 
-      // Auto-generate SKU as {parent_sku}-{sku_variant}
-      const generatedSku = `${parentProduct.sku}-${input.sku_variant}`;
-      
-      // Check SKU uniqueness in both products and parent_products tables
-      const { data: existingSkuProducts } = await ctx.supabase
-        .from('products')
-        .select('id')
-        .eq('sku', generatedSku)
-        .single();
+        // Auto-generate SKU as {parent_sku}-{sku_variant}
+        const generatedSku = `${parentProduct.sku}-${input.sku_variant}`;
+        
+        ctx.logger.info('Generated SKU:', generatedSku);
 
-      const { data: existingSkuParentProducts } = await ctx.supabase
-        .from('parent_products')
-        .select('id')
-        .eq('sku', generatedSku)
-        .single();
+        // Check SKU uniqueness in both products and parent_products tables
+        const [
+          { data: existingSkuProducts },
+          { data: existingSkuParentProducts }
+        ] = await Promise.all([
+          ctx.supabase
+            .from('products')
+            .select('id')
+            .eq('sku', generatedSku)
+            .single(),
+          ctx.supabase
+            .from('parent_products')
+            .select('id')
+            .eq('sku', generatedSku)
+            .single()
+        ]);
 
-      if (existingSkuProducts || existingSkuParentProducts) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: `SKU already exists: ${generatedSku}. This variant may already exist.`,
-        });
-      }
+        if (existingSkuProducts || existingSkuParentProducts) {
+          ctx.logger.error('SKU already exists:', {
+            generatedSku,
+            existingInProducts: !!existingSkuProducts,
+            existingInParentProducts: !!existingSkuParentProducts,
+          });
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `SKU already exists: ${generatedSku}. This variant may already exist.`,
+          });
+        }
 
-      const { data, error } = await ctx.supabase
-        .from('products')
-        .insert([{
-          ...input,
+        // Determine if product is damaged based on sku_variant
+        const isDamaged = input.sku_variant === 'DAMAGED';
+
+        // Build the variant product data
+        const variantData = {
+          // Required fields from input
+          parent_products_id: input.parent_products_id,
+          sku_variant: input.sku_variant,
+          name: input.name,
+          description: input.description || null,
+          status: input.status || 'active',
+          barcode_uid: input.barcode_uid || null,
+          
+          // Auto-generated fields
           sku: generatedSku,
           is_variant: true,
-          unit_of_measure: parentProduct.unit_of_measure,
-          variant_type: parentProduct.variant_type,
+          damaged: isDamaged,
+          variant: 'outright' as const, // Set default variant type
+          
+          // Fields inherited from parent product
+          unit_of_measure: 'cylinder', // Default for variants
           capacity_kg: parentProduct.capacity_kg,
           tare_weight_kg: parentProduct.tare_weight_kg,
+          gross_weight_kg: parentProduct.gross_weight_kg,
+          // net_gas_weight_kg is a generated column - don't insert it
           valve_type: parentProduct.valve_type,
-          requires_tag: parentProduct.requires_tag,
+          variant_type: 'cylinder', // Default for variants
+          requires_tag: false, // Default for variants
+          
+          // Audit fields
           created_at: new Date().toISOString(),
-        }])
-        .select()
-        .single();
+        };
 
-      if (error) {
-        ctx.logger.error('Error creating product variant:', error);
+        ctx.logger.info('Inserting variant data:', variantData);
+
+        // Insert the variant
+        const { data, error } = await ctx.supabase
+          .from('products')
+          .insert([variantData])
+          .select()
+          .single();
+
+        if (error) {
+          ctx.logger.error('Error creating product variant:', {
+            error,
+            errorMessage: error.message,
+            errorCode: error.code,
+            errorDetails: error.details,
+            errorHint: error.hint,
+            variantData,
+          });
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to create product variant: ${error.message}`,
+          });
+        }
+
+        ctx.logger.info('Successfully created product variant:', {
+          id: data.id,
+          sku: data.sku,
+          name: data.name,
+          sku_variant: data.sku_variant,
+          is_variant: data.is_variant,
+          damaged: data.damaged,
+        });
+
+        return data;
+      } catch (error) {
+        ctx.logger.error('Unexpected error in createVariant:', {
+          error,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          errorStack: error instanceof Error ? error.stack : undefined,
+          input,
+        });
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create product variant',
+          message: 'An unexpected error occurred while creating the product variant',
         });
       }
-
-      return data;
     }),
 
   // POST /products/bulk-update-status - Update product status one by one
