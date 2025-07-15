@@ -82,6 +82,7 @@ export const ProductsPage: React.FC = () => {
         await updateProduct.mutateAsync({ id: editingProduct.id, ...data });
       } else {
         // Use createParentProduct for new products to create parent products
+        console.log('Creating parent product with data:', data);
         await createParentProduct.mutateAsync(data);
       }
       setIsFormOpen(false);

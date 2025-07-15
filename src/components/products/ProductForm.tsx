@@ -4,9 +4,7 @@ import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Product, CreateProductData } from '../../types/product';
 import { TAX_CATEGORIES } from '../../types/pricing';
 import { trpc } from '../../lib/trpc-client';
-import PricingMethodSelector from './PricingMethodSelector';
 import CylinderWeightCalculator from './CylinderWeightCalculator';
-import WeightBasedPricingPreview from './WeightBasedPricingPreview';
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -51,7 +49,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       tax_category: 'standard',
       tax_rate: 0.16,
       variant: 'outright',
-      pricing_method: 'per_unit',
     },
   });
 
@@ -60,7 +57,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   const watchedGrossWeight = watch('gross_weight_kg');
   const watchedTareWeight = watch('tare_weight_kg');
   const watchedCapacity = watch('capacity_kg');
-  const watchedPricingMethod = watch('pricing_method');
 
   useEffect(() => {
     if (product) {
@@ -80,7 +76,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         tax_category: product.tax_category || 'standard',
         tax_rate: product.tax_rate || 0.16,
         variant: product.variant || 'outright',
-        pricing_method: product.pricing_method || 'per_unit',
       });
     } else {
               reset({
@@ -99,7 +94,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           tax_category: 'standard',
           tax_rate: 0.16,
           variant: 'outright',
-          pricing_method: 'per_unit',
         });
     }
   }, [product, reset]);
@@ -182,20 +176,29 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       // Clean up data - all products are cylinders by default
       const cleanedData = { 
         ...processedData,
-        unit_of_measure: 'cylinder',
-        variant_type: 'cylinder'
+        unit_of_measure: 'cylinder' as const,
+        variant_type: 'cylinder' as const
       };
 
-      // Remove empty strings
-      Object.keys(cleanedData).forEach(key => {
-        const typedKey = key as keyof CreateProductData;
-        if (cleanedData[typedKey] === '') {
-          delete cleanedData[typedKey];
-        }
-      });
+      // Remove empty strings and fields not needed for parent products
+      const filteredData = Object.fromEntries(
+        Object.entries(cleanedData).filter(([key, value]) => {
+          // Remove empty strings
+          if (value === '') return false;
+          
+          // Remove fields that are not in CreateParentProductSchema
+          const allowedFields = [
+            'sku', 'name', 'description', 'unit_of_measure', 'capacity_kg', 
+            'tare_weight_kg', 'gross_weight_kg', 'valve_type', 'status', 
+            'barcode_uid', 'requires_tag', 'variant_type', 'variant', 
+            'tax_category', 'tax_rate'
+          ];
+          return allowedFields.includes(key);
+        })
+      );
 
       // Submit immediately and let backend handle validation
-      onSubmit(cleanedData);
+      onSubmit(filteredData);
       
       // Run validation in background (non-blocking)
       validateSKUAndWeight(processedData).then(isValid => {
@@ -512,20 +515,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                   />
                 )}
 
-                {/* Pricing Method */}
-                <PricingMethodSelector
-                  value={watchedPricingMethod}
-                  onChange={(value) => setValue('pricing_method', value)}
-                />
-
-                {/* Pricing Preview */}
-                {watchedPricingMethod && watchedGrossWeight && watchedTareWeight && (
-                  <WeightBasedPricingPreview
-                    pricingMethod={watchedPricingMethod}
-                    netGasWeight={watchedGrossWeight - watchedTareWeight}
-                    capacityKg={watchedCapacity}
-                  />
-                )}
               </div>
             </div>
 

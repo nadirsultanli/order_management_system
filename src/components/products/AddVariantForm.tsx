@@ -14,14 +14,9 @@ interface VariantFormData {
   parent_products_id: string;
   sku_variant: 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED';
   name: string;
-  description: string;
+  description?: string;
   status: 'active' | 'obsolete';
-  tax_category: string;
-  tax_rate: number;
-  capacity_kg?: number;
-  tare_weight_kg?: number;
-  gross_weight_kg?: number;
-  valve_type?: string;
+  barcode_uid?: string;
   is_damaged?: boolean;
 }
 
@@ -59,12 +54,7 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
       name: '',
       description: '',
       status: 'active',
-      tax_category: 'standard',
-      tax_rate: 0.16,
-      capacity_kg: undefined,
-      tare_weight_kg: undefined,
-      gross_weight_kg: undefined,
-      valve_type: '',
+      barcode_uid: '',
       is_damaged: false,
     },
   });
@@ -86,7 +76,7 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
   );
 
   // Get SKU variants options
-  const { data: skuVariantsData } = trpc.products.getSkuVariants.useQuery();
+  const { data: skuVariantsData } = trpc.products.getSkuVariants.useQuery({});
 
   useEffect(() => {
     if (parentProductsData?.products) {
@@ -122,10 +112,14 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
   const handleFormSubmit = async (data: VariantFormData) => {
     if (!selectedParent) return;
 
+    // Only send fields that are expected by CreateVariantSchema
     const variantData = {
-      ...data,
       parent_products_id: selectedParent.id,
-      sku_variant: watchedIsDamaged ? 'DAMAGED' : data.sku_variant,
+      sku_variant: watchedIsDamaged ? 'DAMAGED' as const : data.sku_variant,
+      name: data.name,
+      description: data.description || undefined,
+      status: data.status,
+      barcode_uid: data.barcode_uid || undefined,
     };
 
     try {
@@ -373,101 +367,18 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
                   </div>
                 </div>
 
-                {/* Tax Information */}
+                {/* Barcode UID */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Tax Information</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="tax_category" className="block text-sm font-medium text-gray-700">
-                        Tax Category
-                      </label>
-                      <select
-                        id="tax_category"
-                        {...register('tax_category')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="standard">Standard</option>
-                        <option value="reduced">Reduced</option>
-                        <option value="exempt">Exempt</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label htmlFor="tax_rate" className="block text-sm font-medium text-gray-700">
-                        Tax Rate
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        id="tax_rate"
-                        {...register('tax_rate', { valueAsNumber: true })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Physical Properties */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Physical Properties</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label htmlFor="capacity_kg" className="block text-sm font-medium text-gray-700">
-                        Capacity (kg)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        id="capacity_kg"
-                        {...register('capacity_kg', { valueAsNumber: true })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="tare_weight_kg" className="block text-sm font-medium text-gray-700">
-                        Tare Weight (kg)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        id="tare_weight_kg"
-                        {...register('tare_weight_kg', { valueAsNumber: true })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="gross_weight_kg" className="block text-sm font-medium text-gray-700">
-                        Gross Weight (kg)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        id="gross_weight_kg"
-                        {...register('gross_weight_kg', { valueAsNumber: true })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <label htmlFor="valve_type" className="block text-sm font-medium text-gray-700">
-                      Valve Type
-                    </label>
-                    <input
-                      type="text"
-                      id="valve_type"
-                      {...register('valve_type')}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Standard valve specifications"
-                    />
-                  </div>
+                  <label htmlFor="barcode_uid" className="block text-sm font-medium text-gray-700">
+                    Barcode/RFID UID
+                  </label>
+                  <input
+                    type="text"
+                    id="barcode_uid"
+                    {...register('barcode_uid')}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="Optional unique identifier"
+                  />
                 </div>
 
                 {/* Variant Limits Warning */}
