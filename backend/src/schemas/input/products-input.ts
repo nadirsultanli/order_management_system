@@ -224,18 +224,19 @@ export const CreateParentProductSchema = z.object({
   sku: z.string().min(1, 'SKU is required'),
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  unit_of_measure: UnitOfMeasureEnum,
   capacity_kg: z.number().positive().optional(),
   tare_weight_kg: z.number().positive().optional(),
   gross_weight_kg: z.number().positive().optional(),
   valve_type: z.string().optional(),
   status: ProductStatusEnum.default('active'),
   barcode_uid: z.string().optional(),
-  requires_tag: z.boolean().default(false),
-  variant_type: VariantTypeEnum.default('cylinder'),
-  variant: VariantEnum.default('outright'),
   tax_category: z.string().optional(),
   tax_rate: z.number().min(0).max(1).optional(),
+  // Allow but ignore fields that don't exist in parent_products table
+  unit_of_measure: UnitOfMeasureEnum.optional(),
+  requires_tag: z.boolean().optional(),
+  variant_type: VariantTypeEnum.optional(),
+  variant: VariantEnum.optional(),
 });
 
 export const GetGroupedProductsSchema = z.object({

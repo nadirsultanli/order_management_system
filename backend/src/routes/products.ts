@@ -1674,20 +1674,51 @@ export const productsRouter = router({
         });
       }
 
+      // Filter input to only include fields that exist in parent_products table
+      const parentProductData = {
+        sku: input.sku,
+        name: input.name,
+        description: input.description,
+        status: input.status,
+        tax_category: input.tax_category,
+        tax_rate: input.tax_rate,
+        gross_weight_kg: input.gross_weight_kg,
+        tare_weight_kg: input.tare_weight_kg,
+        capacity_kg: input.capacity_kg,
+        barcode_uid: input.barcode_uid,
+        valve_type: input.valve_type,
+        // Calculate net_gas_weight_kg if both gross and tare weights are provided
+        net_gas_weight_kg: input.gross_weight_kg && input.tare_weight_kg 
+          ? input.gross_weight_kg - input.tare_weight_kg 
+          : undefined,
+        created_at: new Date().toISOString(),
+      };
+
+      // Remove undefined values
+      const cleanedData = Object.fromEntries(
+        Object.entries(parentProductData).filter(([_, value]) => value !== undefined)
+      );
+
+      ctx.logger.info('Inserting parent product data:', cleanedData);
+
       const { data, error } = await ctx.supabase
         .from('parent_products')
-        .insert([{
-          ...input,
-          created_at: new Date().toISOString(),
-        }])
+        .insert([cleanedData])
         .select()
         .single();
 
       if (error) {
-        ctx.logger.error('Error creating parent product:', error);
+        ctx.logger.error('Error creating parent product:', {
+          error,
+          input: cleanedData,
+          errorMessage: error.message,
+          errorCode: error.code,
+          errorDetails: error.details,
+          errorHint: error.hint,
+        });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create parent product',
+          message: `Failed to create parent product: ${error.message}`,
         });
       }
 
