@@ -116,6 +116,9 @@ export const tripsRouter = router({
       if (input.date_from) {
         query = query.gte('route_date', input.date_from);
       }
+      if (input.driver_id) {
+        query = query.eq('driver_id', input.driver_id);
+      }
       
       if (input.date_to) {
         query = query.lte('route_date', input.date_to);
