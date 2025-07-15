@@ -285,19 +285,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       </select>
                     </div>
 
-                    <div>
-                      <label htmlFor="variant" className="block text-sm font-medium text-gray-700">
-                        Variant
-                      </label>
-                      <select
-                        id="variant"
-                        {...register('variant')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      >
-                        <option value="outright">Outright</option>
-                        <option value="refill">Refill</option>
-                      </select>
-                    </div>
 
                     <div className="sm:col-span-3">
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700">
