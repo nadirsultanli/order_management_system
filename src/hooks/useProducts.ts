@@ -30,7 +30,7 @@ export const useProduct = (id: string) => {
 };
 
 export const useProductStats = () => {
-  return trpc.products.getStats.useQuery(undefined, {
+  return trpc.products.getStats.useQuery({}, {
     staleTime: 60000,
   });
 };
