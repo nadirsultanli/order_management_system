@@ -1476,6 +1476,10 @@ export const productsRouter = router({
         parent_product_id: input.parent_product.id,
         variant_name: input.variant_name,
         sku: variant_sku,
+        name: `${input.parent_product.name} - ${input.variant_name}`,
+        description: `${input.variant_name} variant`,
+        status: 'active' as const,
+        barcode_uid: undefined,
       };
     }),
 });
