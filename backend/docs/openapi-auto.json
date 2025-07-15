@@ -59,6 +59,9 @@
                         "id": {
                           "type": "string"
                         },
+                        "auth_user_id": {
+                          "type": "string"
+                        },
                         "email": {
                           "type": "string"
                         },
@@ -71,6 +74,7 @@
                       },
                       "required": [
                         "id",
+                        "auth_user_id",
                         "email",
                         "name",
                         "role"
@@ -226,6 +230,9 @@
                         "id": {
                           "type": "string"
                         },
+                        "auth_user_id": {
+                          "type": "string"
+                        },
                         "email": {
                           "type": "string"
                         },
@@ -234,17 +241,14 @@
                         },
                         "role": {
                           "type": "string"
-                        },
-                        "user_id": {
-                          "type": "string"
                         }
                       },
                       "required": [
                         "id",
+                        "auth_user_id",
                         "email",
                         "name",
-                        "role",
-                        "user_id"
+                        "role"
                       ],
                       "additionalProperties": false
                     }
@@ -6538,7 +6542,137 @@
                   "type": "object",
                   "properties": {
                     "receipts": {
-                      "type": "array"
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "warehouse_id": {
+                            "type": "string"
+                          },
+                          "receipt_date": {
+                            "type": "string"
+                          },
+                          "supplier": {
+                            "type": "string"
+                          },
+                          "truck_number": {
+                            "type": "string"
+                          },
+                          "driver_name": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "warehouse": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "receipt_lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "receipt_id": {
+                                  "type": "string"
+                                },
+                                "product_id": {
+                                  "type": "string"
+                                },
+                                "qty_received_good": {
+                                  "type": "number"
+                                },
+                                "qty_received_damaged": {
+                                  "type": "number"
+                                },
+                                "notes": {
+                                  "type": "string"
+                                },
+                                "created_at": {
+                                  "type": "string"
+                                },
+                                "product": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "sku": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "unit_of_measure": {
+                                      "type": "string"
+                                    },
+                                    "status": {
+                                      "type": "string"
+                                    },
+                                    "capacity_kg": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "sku",
+                                    "name",
+                                    "unit_of_measure"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "receipt_id",
+                                "product_id",
+                                "qty_received_good",
+                                "created_at",
+                                "product"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "warehouse_id",
+                          "receipt_date",
+                          "status",
+                          "created_at",
+                          "updated_at",
+                          "warehouse",
+                          "receipt_lines"
+                        ],
+                        "additionalProperties": false
+                      }
                     },
                     "totalCount": {
                       "type": "number"
@@ -6636,13 +6770,94 @@
                     "transfer_id": {
                       "type": "string"
                     },
-                    "transfer": {},
+                    "transfer": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "source_warehouse_id": {
+                          "type": "string"
+                        },
+                        "destination_warehouse_id": {
+                          "type": "string"
+                        },
+                        "product_id": {
+                          "type": "string"
+                        },
+                        "qty_full": {
+                          "type": "number"
+                        },
+                        "qty_empty": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "reference_number": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "source_warehouse": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "destination_warehouse": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "source_warehouse_id",
+                        "destination_warehouse_id",
+                        "product_id",
+                        "qty_full",
+                        "qty_empty",
+                        "status",
+                        "created_at",
+                        "updated_at",
+                        "source_warehouse",
+                        "destination_warehouse"
+                      ],
+                      "additionalProperties": false
+                    },
                     "status": {
                       "type": "string"
                     }
                   },
                   "required": [
                     "transfer_id",
+                    "transfer",
                     "status"
                   ],
                   "additionalProperties": false
@@ -6714,12 +6929,93 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "transfer": {},
+                    "transfer": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "source_warehouse_id": {
+                          "type": "string"
+                        },
+                        "destination_warehouse_id": {
+                          "type": "string"
+                        },
+                        "product_id": {
+                          "type": "string"
+                        },
+                        "qty_full": {
+                          "type": "number"
+                        },
+                        "qty_empty": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "reference_number": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "source_warehouse": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "destination_warehouse": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "source_warehouse_id",
+                        "destination_warehouse_id",
+                        "product_id",
+                        "qty_full",
+                        "qty_empty",
+                        "status",
+                        "created_at",
+                        "updated_at",
+                        "source_warehouse",
+                        "destination_warehouse"
+                      ],
+                      "additionalProperties": false
+                    },
                     "status": {
                       "type": "string"
                     }
                   },
                   "required": [
+                    "transfer",
                     "status"
                   ],
                   "additionalProperties": false
@@ -6823,8 +7119,144 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "cycle_count": {}
+                    "cycle_count": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "warehouse_id": {
+                          "type": "string"
+                        },
+                        "count_date": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "counted_by_user_id": {
+                          "type": "string"
+                        },
+                        "notes": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "warehouse": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "cycle_count_lines": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "cycle_count_id": {
+                                "type": "string"
+                              },
+                              "product_id": {
+                                "type": "string"
+                              },
+                              "system_qty_full": {
+                                "type": "number"
+                              },
+                              "system_qty_empty": {
+                                "type": "number"
+                              },
+                              "counted_qty_full": {
+                                "type": "number"
+                              },
+                              "counted_qty_empty": {
+                                "type": "number"
+                              },
+                              "notes": {
+                                "type": "string"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "product": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "sku": {
+                                    "type": "string"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "unit_of_measure": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "capacity_kg": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "sku",
+                                  "name",
+                                  "unit_of_measure"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "cycle_count_id",
+                              "product_id",
+                              "system_qty_full",
+                              "system_qty_empty",
+                              "counted_qty_full",
+                              "counted_qty_empty",
+                              "created_at",
+                              "product"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "warehouse_id",
+                        "count_date",
+                        "status",
+                        "counted_by_user_id",
+                        "created_at",
+                        "updated_at",
+                        "warehouse",
+                        "cycle_count_lines"
+                      ],
+                      "additionalProperties": false
+                    }
                   },
+                  "required": [
+                    "cycle_count"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -6903,7 +7335,141 @@
                   "type": "object",
                   "properties": {
                     "cycle_counts": {
-                      "type": "array"
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "warehouse_id": {
+                            "type": "string"
+                          },
+                          "count_date": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "counted_by_user_id": {
+                            "type": "string"
+                          },
+                          "notes": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "warehouse": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "name"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "cycle_count_lines": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "cycle_count_id": {
+                                  "type": "string"
+                                },
+                                "product_id": {
+                                  "type": "string"
+                                },
+                                "system_qty_full": {
+                                  "type": "number"
+                                },
+                                "system_qty_empty": {
+                                  "type": "number"
+                                },
+                                "counted_qty_full": {
+                                  "type": "number"
+                                },
+                                "counted_qty_empty": {
+                                  "type": "number"
+                                },
+                                "notes": {
+                                  "type": "string"
+                                },
+                                "created_at": {
+                                  "type": "string"
+                                },
+                                "product": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "sku": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "unit_of_measure": {
+                                      "type": "string"
+                                    },
+                                    "status": {
+                                      "type": "string"
+                                    },
+                                    "capacity_kg": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "sku",
+                                    "name",
+                                    "unit_of_measure"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "cycle_count_id",
+                                "product_id",
+                                "system_qty_full",
+                                "system_qty_empty",
+                                "counted_qty_full",
+                                "counted_qty_empty",
+                                "created_at",
+                                "product"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "warehouse_id",
+                          "count_date",
+                          "status",
+                          "counted_by_user_id",
+                          "created_at",
+                          "updated_at",
+                          "warehouse",
+                          "cycle_count_lines"
+                        ],
+                        "additionalProperties": false
+                      }
                     },
                     "totalCount": {
                       "type": "number"
@@ -8990,6 +9556,29 @@
             }
           },
           {
+            "name": "parent_products_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sku_variant",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "EMPTY",
+                "FULL-XCH",
+                "FULL-OUT",
+                "DAMAGED"
+              ]
+            }
+          },
+          {
             "name": "created_after",
             "in": "query",
             "required": false,
@@ -9144,12 +9733,18 @@
                               "refill"
                             ]
                           },
-                          "parent_product_id": {
+                          "parent_products_id": {
                             "type": "string",
                             "nullable": true
                           },
-                          "variant_name": {
+                          "sku_variant": {
                             "type": "string",
+                            "enum": [
+                              "EMPTY",
+                              "FULL-XCH",
+                              "FULL-OUT",
+                              "DAMAGED"
+                            ],
                             "nullable": true
                           },
                           "is_variant": {
@@ -9270,8 +9865,8 @@
                           "status",
                           "requires_tag",
                           "variant_type",
-                          "parent_product_id",
-                          "variant_name",
+                          "parent_products_id",
+                          "sku_variant",
                           "is_variant",
                           "created_at",
                           "popularity_score",
@@ -9441,6 +10036,19 @@
                     "type": "boolean",
                     "default": false
                   },
+                  "parent_products_id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "sku_variant": {
+                    "type": "string",
+                    "enum": [
+                      "EMPTY",
+                      "FULL-XCH",
+                      "FULL-OUT",
+                      "DAMAGED"
+                    ]
+                  },
                   "tax_category": {
                     "type": "string"
                   },
@@ -9525,12 +10133,18 @@
                         "refill"
                       ]
                     },
-                    "parent_product_id": {
+                    "parent_products_id": {
                       "type": "string",
                       "nullable": true
                     },
-                    "variant_name": {
+                    "sku_variant": {
                       "type": "string",
+                      "enum": [
+                        "EMPTY",
+                        "FULL-XCH",
+                        "FULL-OUT",
+                        "DAMAGED"
+                      ],
                       "nullable": true
                     },
                     "is_variant": {
@@ -9554,8 +10168,8 @@
                     "status",
                     "requires_tag",
                     "variant_type",
-                    "parent_product_id",
-                    "variant_name",
+                    "parent_products_id",
+                    "sku_variant",
                     "is_variant",
                     "created_at"
                   ],
@@ -9848,12 +10462,18 @@
                         "refill"
                       ]
                     },
-                    "parent_product_id": {
+                    "parent_products_id": {
                       "type": "string",
                       "nullable": true
                     },
-                    "variant_name": {
+                    "sku_variant": {
                       "type": "string",
+                      "enum": [
+                        "EMPTY",
+                        "FULL-XCH",
+                        "FULL-OUT",
+                        "DAMAGED"
+                      ],
                       "nullable": true
                     },
                     "is_variant": {
@@ -9877,8 +10497,8 @@
                     "status",
                     "requires_tag",
                     "variant_type",
-                    "parent_product_id",
-                    "variant_name",
+                    "parent_products_id",
+                    "sku_variant",
                     "is_variant",
                     "created_at"
                   ],
@@ -10067,12 +10687,18 @@
                         "refill"
                       ]
                     },
-                    "parent_product_id": {
+                    "parent_products_id": {
                       "type": "string",
                       "nullable": true
                     },
-                    "variant_name": {
+                    "sku_variant": {
                       "type": "string",
+                      "enum": [
+                        "EMPTY",
+                        "FULL-XCH",
+                        "FULL-OUT",
+                        "DAMAGED"
+                      ],
                       "nullable": true
                     },
                     "is_variant": {
@@ -10096,8 +10722,8 @@
                     "status",
                     "requires_tag",
                     "variant_type",
-                    "parent_product_id",
-                    "variant_name",
+                    "parent_products_id",
+                    "sku_variant",
                     "is_variant",
                     "created_at"
                   ],
@@ -10309,12 +10935,18 @@
                               "refill"
                             ]
                           },
-                          "parent_product_id": {
+                          "parent_products_id": {
                             "type": "string",
                             "nullable": true
                           },
-                          "variant_name": {
+                          "sku_variant": {
                             "type": "string",
+                            "enum": [
+                              "EMPTY",
+                              "FULL-XCH",
+                              "FULL-OUT",
+                              "DAMAGED"
+                            ],
                             "nullable": true
                           },
                           "is_variant": {
@@ -10338,8 +10970,8 @@
                           "status",
                           "requires_tag",
                           "variant_type",
-                          "parent_product_id",
-                          "variant_name",
+                          "parent_products_id",
+                          "sku_variant",
                           "is_variant",
                           "created_at"
                         ],
@@ -10743,8 +11375,14 @@
                           "product_id": {
                             "type": "string"
                           },
-                          "variant_name": {
-                            "type": "string"
+                          "sku_variant": {
+                            "type": "string",
+                            "enum": [
+                              "EMPTY",
+                              "FULL-XCH",
+                              "FULL-OUT",
+                              "DAMAGED"
+                            ]
                           },
                           "qty_full_change": {
                             "type": "number"
@@ -10766,7 +11404,7 @@
                         },
                         "required": [
                           "product_id",
-                          "variant_name",
+                          "sku_variant",
                           "qty_full_change",
                           "qty_empty_change",
                           "movement_type",
@@ -10857,6 +11495,927 @@
                   },
                   "required": [
                     "exchange_quantity"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/products/grouped": {
+      "get": {
+        "operationId": "products-getGroupedProducts",
+        "summary": "Get hierarchical product structure",
+        "description": "Retrieve products grouped by parent-child relationships with their variants.",
+        "tags": [
+          "products"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "obsolete"
+              ]
+            }
+          },
+          {
+            "name": "unit_of_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cylinder",
+                "kg"
+              ]
+            }
+          },
+          {
+            "name": "variant_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cylinder",
+                "refillable",
+                "disposable"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "name",
+                "sku"
+              ],
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "name": "show_obsolete",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "products": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "parent": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "sku": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "unit_of_measure": {
+                                "type": "string",
+                                "enum": [
+                                  "cylinder",
+                                  "kg"
+                                ]
+                              },
+                              "capacity_kg": {
+                                "type": "number"
+                              },
+                              "tare_weight_kg": {
+                                "type": "number"
+                              },
+                              "valve_type": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "obsolete"
+                                ]
+                              },
+                              "barcode_uid": {
+                                "type": "string"
+                              },
+                              "requires_tag": {
+                                "type": "boolean"
+                              },
+                              "variant_type": {
+                                "type": "string",
+                                "enum": [
+                                  "cylinder",
+                                  "refillable",
+                                  "disposable"
+                                ]
+                              },
+                              "variant": {
+                                "type": "string",
+                                "enum": [
+                                  "outright",
+                                  "refill"
+                                ]
+                              },
+                              "tax_category": {
+                                "type": "string"
+                              },
+                              "tax_rate": {
+                                "type": "number"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "variant_count": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "sku",
+                              "name",
+                              "unit_of_measure",
+                              "status",
+                              "requires_tag",
+                              "variant_type",
+                              "created_at"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "variants": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string"
+                                },
+                                "sku": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "description": {
+                                  "type": "string"
+                                },
+                                "unit_of_measure": {
+                                  "type": "string",
+                                  "enum": [
+                                    "cylinder",
+                                    "kg"
+                                  ]
+                                },
+                                "capacity_kg": {
+                                  "type": "number"
+                                },
+                                "tare_weight_kg": {
+                                  "type": "number"
+                                },
+                                "valve_type": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "active",
+                                    "obsolete"
+                                  ]
+                                },
+                                "barcode_uid": {
+                                  "type": "string"
+                                },
+                                "requires_tag": {
+                                  "type": "boolean"
+                                },
+                                "variant_type": {
+                                  "type": "string",
+                                  "enum": [
+                                    "cylinder",
+                                    "refillable",
+                                    "disposable"
+                                  ]
+                                },
+                                "variant": {
+                                  "type": "string",
+                                  "enum": [
+                                    "outright",
+                                    "refill"
+                                  ]
+                                },
+                                "parent_products_id": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "sku_variant": {
+                                  "type": "string",
+                                  "enum": [
+                                    "EMPTY",
+                                    "FULL-XCH",
+                                    "FULL-OUT",
+                                    "DAMAGED"
+                                  ],
+                                  "nullable": true
+                                },
+                                "is_variant": {
+                                  "type": "boolean"
+                                },
+                                "tax_category": {
+                                  "type": "string"
+                                },
+                                "tax_rate": {
+                                  "type": "number"
+                                },
+                                "created_at": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "sku",
+                                "name",
+                                "unit_of_measure",
+                                "status",
+                                "requires_tag",
+                                "variant_type",
+                                "parent_products_id",
+                                "sku_variant",
+                                "is_variant",
+                                "created_at"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "parent",
+                          "variants"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalCount": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
+                    },
+                    "currentPage": {
+                      "type": "number"
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total_parent_products": {
+                          "type": "number"
+                        },
+                        "total_variants": {
+                          "type": "number"
+                        },
+                        "active_parent_products": {
+                          "type": "number"
+                        },
+                        "obsolete_parent_products": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total_parent_products",
+                        "total_variants",
+                        "active_parent_products",
+                        "obsolete_parent_products"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "products",
+                    "totalCount",
+                    "totalPages",
+                    "currentPage",
+                    "summary"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/products/parent": {
+      "post": {
+        "operationId": "products-createParentProduct",
+        "summary": "Create parent product",
+        "description": "Create a new parent product that can have variants.",
+        "tags": [
+          "products"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sku": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "unit_of_measure": {
+                    "type": "string",
+                    "enum": [
+                      "cylinder",
+                      "kg"
+                    ]
+                  },
+                  "capacity_kg": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "tare_weight_kg": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "gross_weight_kg": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "valve_type": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "active",
+                      "obsolete"
+                    ],
+                    "default": "active"
+                  },
+                  "barcode_uid": {
+                    "type": "string"
+                  },
+                  "requires_tag": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "variant_type": {
+                    "type": "string",
+                    "enum": [
+                      "cylinder",
+                      "refillable",
+                      "disposable"
+                    ],
+                    "default": "cylinder"
+                  },
+                  "variant": {
+                    "type": "string",
+                    "enum": [
+                      "outright",
+                      "refill"
+                    ],
+                    "default": "outright"
+                  },
+                  "tax_category": {
+                    "type": "string"
+                  },
+                  "tax_rate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "sku",
+                  "name",
+                  "unit_of_measure"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "unit_of_measure": {
+                      "type": "string",
+                      "enum": [
+                        "cylinder",
+                        "kg"
+                      ]
+                    },
+                    "capacity_kg": {
+                      "type": "number"
+                    },
+                    "tare_weight_kg": {
+                      "type": "number"
+                    },
+                    "valve_type": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "obsolete"
+                      ]
+                    },
+                    "barcode_uid": {
+                      "type": "string"
+                    },
+                    "requires_tag": {
+                      "type": "boolean"
+                    },
+                    "variant_type": {
+                      "type": "string",
+                      "enum": [
+                        "cylinder",
+                        "refillable",
+                        "disposable"
+                      ]
+                    },
+                    "variant": {
+                      "type": "string",
+                      "enum": [
+                        "outright",
+                        "refill"
+                      ]
+                    },
+                    "tax_category": {
+                      "type": "string"
+                    },
+                    "tax_rate": {
+                      "type": "number"
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "variant_count": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "sku",
+                    "name",
+                    "unit_of_measure",
+                    "status",
+                    "requires_tag",
+                    "variant_type",
+                    "created_at"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      },
+      "get": {
+        "operationId": "products-listParentProducts",
+        "summary": "List parent products with variant counts",
+        "description": "Get a list of parent products with their variant counts.",
+        "tags": [
+          "products"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "obsolete"
+              ]
+            }
+          },
+          {
+            "name": "unit_of_measure",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cylinder",
+                "kg"
+              ]
+            }
+          },
+          {
+            "name": "variant_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cylinder",
+                "refillable",
+                "disposable"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 50
+            }
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "created_at",
+                "name",
+                "sku"
+              ],
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "default": "desc"
+            }
+          },
+          {
+            "name": "show_obsolete",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "include_variant_counts",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "products": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "sku": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "unit_of_measure": {
+                            "type": "string",
+                            "enum": [
+                              "cylinder",
+                              "kg"
+                            ]
+                          },
+                          "capacity_kg": {
+                            "type": "number"
+                          },
+                          "tare_weight_kg": {
+                            "type": "number"
+                          },
+                          "valve_type": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "obsolete"
+                            ]
+                          },
+                          "barcode_uid": {
+                            "type": "string"
+                          },
+                          "requires_tag": {
+                            "type": "boolean"
+                          },
+                          "variant_type": {
+                            "type": "string",
+                            "enum": [
+                              "cylinder",
+                              "refillable",
+                              "disposable"
+                            ]
+                          },
+                          "variant": {
+                            "type": "string",
+                            "enum": [
+                              "outright",
+                              "refill"
+                            ]
+                          },
+                          "tax_category": {
+                            "type": "string"
+                          },
+                          "tax_rate": {
+                            "type": "number"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "variant_count": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "sku",
+                          "name",
+                          "unit_of_measure",
+                          "status",
+                          "requires_tag",
+                          "variant_type",
+                          "created_at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalCount": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
+                    },
+                    "currentPage": {
+                      "type": "number"
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total_parent_products": {
+                          "type": "number"
+                        },
+                        "active_parent_products": {
+                          "type": "number"
+                        },
+                        "obsolete_parent_products": {
+                          "type": "number"
+                        },
+                        "total_variants": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total_parent_products",
+                        "active_parent_products",
+                        "obsolete_parent_products",
+                        "total_variants"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "products",
+                    "totalCount",
+                    "totalPages",
+                    "currentPage",
+                    "summary"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/products/sku-variants": {
+      "get": {
+        "operationId": "products-getSkuVariants",
+        "summary": "Get available SKU variant types",
+        "description": "Get the available SKU variant types for product variants.",
+        "tags": [
+          "products"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "variants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "type": "string",
+                            "enum": [
+                              "EMPTY",
+                              "FULL-XCH",
+                              "FULL-OUT",
+                              "DAMAGED"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "value",
+                          "label",
+                          "description"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "variants"
                   ],
                   "additionalProperties": false
                 }
@@ -14063,11 +15622,6 @@
                     "exclusiveMinimum": true,
                     "minimum": 0
                   },
-                  "driver_id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "nullable": true
-                  },
                   "active": {
                     "type": "boolean",
                     "default": true
@@ -14556,11 +16110,6 @@
                     "exclusiveMinimum": true,
                     "minimum": 0
                   },
-                  "driver_id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "nullable": true
-                  },
                   "active": {
                     "type": "boolean"
                   },
@@ -14868,8 +16417,7 @@
                         "type": "number"
                       },
                       "stop_sequence": {
-                        "type": "number",
-                        "nullable": true
+                        "type": "number"
                       },
                       "status": {
                         "type": "string"
@@ -14884,7 +16432,6 @@
                       "order_id",
                       "allocation_date",
                       "estimated_weight_kg",
-                      "stop_sequence",
                       "status",
                       "created_at"
                     ],
@@ -14976,8 +16523,7 @@
                       "type": "number"
                     },
                     "stop_sequence": {
-                      "type": "number",
-                      "nullable": true
+                      "type": "number"
                     },
                     "status": {
                       "type": "string"
@@ -14992,7 +16538,6 @@
                     "order_id",
                     "allocation_date",
                     "estimated_weight_kg",
-                    "stop_sequence",
                     "status",
                     "created_at"
                   ],
@@ -15082,8 +16627,7 @@
                       "type": "number"
                     },
                     "stop_sequence": {
-                      "type": "number",
-                      "nullable": true
+                      "type": "number"
                     },
                     "status": {
                       "type": "string"
@@ -15098,7 +16642,6 @@
                     "order_id",
                     "allocation_date",
                     "estimated_weight_kg",
-                    "stop_sequence",
                     "status",
                     "created_at"
                   ],
@@ -19943,201 +21486,74 @@
                     "success": {
                       "type": "boolean"
                     },
-                    "trip": {
+                    "loading_detail": {
                       "type": "object",
                       "properties": {
                         "id": {
                           "type": "string"
                         },
-                        "truck_id": {
+                        "trip_id": {
                           "type": "string"
                         },
-                        "route_date": {
+                        "product_id": {
                           "type": "string"
                         },
-                        "planned_start_time": {
-                          "type": "string",
-                          "nullable": true
+                        "loading_sequence": {
+                          "type": "number"
                         },
-                        "planned_end_time": {
-                          "type": "string",
-                          "nullable": true
+                        "planned_quantity": {
+                          "type": "number"
                         },
-                        "actual_start_time": {
-                          "type": "string",
-                          "nullable": true
+                        "actual_quantity": {
+                          "type": "number"
                         },
-                        "actual_end_time": {
-                          "type": "string",
-                          "nullable": true
+                        "variance": {
+                          "type": "number"
                         },
-                        "route_status": {
-                          "type": "string"
-                        },
-                        "trip_notes": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "warehouse_id": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "driver_id": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "created_by_user_id": {
+                        "notes": {
                           "type": "string",
                           "nullable": true
                         },
                         "created_at": {
                           "type": "string"
                         },
-                        "updated_at": {
-                          "type": "string"
-                        },
-                        "load_started_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "load_completed_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "delivery_started_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "unload_started_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "unload_completed_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "total_distance_km": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "estimated_duration_hours": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "actual_duration_hours": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "fuel_used_liters": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "truck": {
+                        "product": {
                           "type": "object",
                           "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "fleet_number": {
-                              "type": "string"
-                            },
-                            "license_plate": {
-                              "type": "string"
-                            },
-                            "capacity_cylinders": {
-                              "type": "number"
-                            },
-                            "capacity_kg": {
-                              "type": "number"
-                            },
-                            "driver_name": {
-                              "type": "string",
-                              "nullable": true
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "fleet_number",
-                            "license_plate",
-                            "capacity_cylinders",
-                            "capacity_kg",
-                            "driver_name"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "warehouse": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
                             "name": {
                               "type": "string"
                             },
-                            "address": {
-                              "type": "string",
-                              "nullable": true
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "name",
-                            "address"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "driver": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
+                            "sku": {
                               "type": "string"
-                            },
-                            "email": {
-                              "type": "string",
-                              "nullable": true
                             }
                           },
                           "required": [
-                            "id",
-                            "email"
+                            "name",
+                            "sku"
                           ],
                           "additionalProperties": false
                         }
                       },
                       "required": [
                         "id",
-                        "truck_id",
-                        "route_date",
-                        "planned_start_time",
-                        "planned_end_time",
-                        "actual_start_time",
-                        "actual_end_time",
-                        "route_status",
-                        "trip_notes",
-                        "warehouse_id",
-                        "driver_id",
-                        "created_by_user_id",
-                        "created_at",
-                        "updated_at",
-                        "load_started_at",
-                        "load_completed_at",
-                        "delivery_started_at",
-                        "unload_started_at",
-                        "unload_completed_at",
-                        "total_distance_km",
-                        "estimated_duration_hours",
-                        "actual_duration_hours",
-                        "fuel_used_liters"
+                        "trip_id",
+                        "product_id",
+                        "loading_sequence",
+                        "planned_quantity",
+                        "actual_quantity",
+                        "variance",
+                        "notes",
+                        "created_at"
                       ],
                       "additionalProperties": false
                     },
+                    "transfer_result": {},
                     "message": {
                       "type": "string"
                     }
                   },
                   "required": [
                     "success",
-                    "trip",
                     "message"
                   ],
                   "additionalProperties": false
@@ -20738,201 +22154,74 @@
                     "success": {
                       "type": "boolean"
                     },
-                    "trip": {
+                    "loading_detail": {
                       "type": "object",
                       "properties": {
                         "id": {
                           "type": "string"
                         },
-                        "truck_id": {
+                        "trip_id": {
                           "type": "string"
                         },
-                        "route_date": {
+                        "product_id": {
                           "type": "string"
                         },
-                        "planned_start_time": {
-                          "type": "string",
-                          "nullable": true
+                        "loading_sequence": {
+                          "type": "number"
                         },
-                        "planned_end_time": {
-                          "type": "string",
-                          "nullable": true
+                        "planned_quantity": {
+                          "type": "number"
                         },
-                        "actual_start_time": {
-                          "type": "string",
-                          "nullable": true
+                        "actual_quantity": {
+                          "type": "number"
                         },
-                        "actual_end_time": {
-                          "type": "string",
-                          "nullable": true
+                        "variance": {
+                          "type": "number"
                         },
-                        "route_status": {
-                          "type": "string"
-                        },
-                        "trip_notes": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "warehouse_id": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "driver_id": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "created_by_user_id": {
+                        "notes": {
                           "type": "string",
                           "nullable": true
                         },
                         "created_at": {
                           "type": "string"
                         },
-                        "updated_at": {
-                          "type": "string"
-                        },
-                        "load_started_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "load_completed_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "delivery_started_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "unload_started_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "unload_completed_at": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "total_distance_km": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "estimated_duration_hours": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "actual_duration_hours": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "fuel_used_liters": {
-                          "type": "number",
-                          "nullable": true
-                        },
-                        "truck": {
+                        "product": {
                           "type": "object",
                           "properties": {
-                            "id": {
-                              "type": "string"
-                            },
-                            "fleet_number": {
-                              "type": "string"
-                            },
-                            "license_plate": {
-                              "type": "string"
-                            },
-                            "capacity_cylinders": {
-                              "type": "number"
-                            },
-                            "capacity_kg": {
-                              "type": "number"
-                            },
-                            "driver_name": {
-                              "type": "string",
-                              "nullable": true
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "fleet_number",
-                            "license_plate",
-                            "capacity_cylinders",
-                            "capacity_kg",
-                            "driver_name"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "warehouse": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
-                              "type": "string"
-                            },
                             "name": {
                               "type": "string"
                             },
-                            "address": {
-                              "type": "string",
-                              "nullable": true
-                            }
-                          },
-                          "required": [
-                            "id",
-                            "name",
-                            "address"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "driver": {
-                          "type": "object",
-                          "properties": {
-                            "id": {
+                            "sku": {
                               "type": "string"
-                            },
-                            "email": {
-                              "type": "string",
-                              "nullable": true
                             }
                           },
                           "required": [
-                            "id",
-                            "email"
+                            "name",
+                            "sku"
                           ],
                           "additionalProperties": false
                         }
                       },
                       "required": [
                         "id",
-                        "truck_id",
-                        "route_date",
-                        "planned_start_time",
-                        "planned_end_time",
-                        "actual_start_time",
-                        "actual_end_time",
-                        "route_status",
-                        "trip_notes",
-                        "warehouse_id",
-                        "driver_id",
-                        "created_by_user_id",
-                        "created_at",
-                        "updated_at",
-                        "load_started_at",
-                        "load_completed_at",
-                        "delivery_started_at",
-                        "unload_started_at",
-                        "unload_completed_at",
-                        "total_distance_km",
-                        "estimated_duration_hours",
-                        "actual_duration_hours",
-                        "fuel_used_liters"
+                        "trip_id",
+                        "product_id",
+                        "loading_sequence",
+                        "planned_quantity",
+                        "actual_quantity",
+                        "variance",
+                        "notes",
+                        "created_at"
                       ],
                       "additionalProperties": false
                     },
+                    "transfer_result": {},
                     "message": {
                       "type": "string"
                     }
                   },
                   "required": [
                     "success",
-                    "trip",
                     "message"
                   ],
                   "additionalProperties": false
@@ -20976,7 +22265,174 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "trip_id": {
+                      "type": "string"
+                    },
+                    "trip_status": {
+                      "type": "string"
+                    },
+                    "total_warnings": {
+                      "type": "number"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "string"
+                          },
+                          "product_name": {
+                            "type": "string"
+                          },
+                          "product_sku": {
+                            "type": "string"
+                          },
+                          "required_qty_full": {
+                            "type": "number"
+                          },
+                          "loaded_qty_full": {
+                            "type": "number"
+                          },
+                          "shortage_full": {
+                            "type": "number"
+                          },
+                          "required_qty_empty": {
+                            "type": "number"
+                          },
+                          "loaded_qty_empty": {
+                            "type": "number"
+                          },
+                          "shortage_empty": {
+                            "type": "number"
+                          },
+                          "shortage_percentage": {
+                            "type": "number"
+                          },
+                          "affected_orders": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "order_id": {
+                                  "type": "string"
+                                },
+                                "stop_sequence": {
+                                  "type": "number",
+                                  "nullable": true
+                                },
+                                "order": {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string"
+                                    },
+                                    "order_date": {
+                                      "type": "string"
+                                    },
+                                    "customer_id": {
+                                      "type": "string"
+                                    },
+                                    "delivery_address": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "order_lines": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "product_id": {
+                                            "type": "string"
+                                          },
+                                          "qty_full": {
+                                            "type": "number"
+                                          },
+                                          "qty_empty": {
+                                            "type": "number"
+                                          }
+                                        },
+                                        "required": [
+                                          "product_id",
+                                          "qty_full",
+                                          "qty_empty"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "order_date",
+                                    "customer_id",
+                                    "delivery_address",
+                                    "order_lines"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": [
+                                "order_id",
+                                "stop_sequence",
+                                "order"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "low",
+                              "medium",
+                              "high"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "product_name",
+                          "product_sku",
+                          "required_qty_full",
+                          "loaded_qty_full",
+                          "shortage_full",
+                          "required_qty_empty",
+                          "loaded_qty_empty",
+                          "shortage_empty",
+                          "shortage_percentage",
+                          "affected_orders",
+                          "severity"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "high_severity_count": {
+                      "type": "number"
+                    },
+                    "medium_severity_count": {
+                      "type": "number"
+                    },
+                    "low_severity_count": {
+                      "type": "number"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "trip_id",
+                    "trip_status",
+                    "total_warnings",
+                    "warnings",
+                    "high_severity_count",
+                    "medium_severity_count",
+                    "low_severity_count",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -21056,7 +22512,106 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "is_valid": {
+                      "type": "boolean"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "capacity_check": {
+                      "type": "object",
+                      "properties": {
+                        "truck_capacity_cylinders": {
+                          "type": "number"
+                        },
+                        "truck_capacity_kg": {
+                          "type": "number"
+                        },
+                        "current_cylinders": {
+                          "type": "number"
+                        },
+                        "additional_cylinders": {
+                          "type": "number"
+                        },
+                        "total_after_loading_cylinders": {
+                          "type": "number"
+                        },
+                        "estimated_total_weight_kg": {
+                          "type": "number"
+                        },
+                        "weight_calculation_accurate": {
+                          "type": "boolean"
+                        },
+                        "utilization_percentage": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "truck_capacity_cylinders",
+                        "truck_capacity_kg",
+                        "current_cylinders",
+                        "additional_cylinders",
+                        "total_after_loading_cylinders",
+                        "estimated_total_weight_kg",
+                        "weight_calculation_accurate",
+                        "utilization_percentage"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "truck": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "fleet_number": {
+                          "type": "string"
+                        },
+                        "license_plate": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "fleet_number",
+                        "license_plate"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "trip_id": {
+                      "type": "string"
+                    },
+                    "loading_items_count": {
+                      "type": "number"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "is_valid",
+                    "errors",
+                    "warnings",
+                    "capacity_check",
+                    "truck",
+                    "trip_id",
+                    "loading_items_count",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -21114,7 +22669,126 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "trip_id": {
+                      "type": "string"
+                    },
+                    "warehouse_id": {
+                      "type": "string"
+                    },
+                    "products_checked": {
+                      "type": "number"
+                    },
+                    "products_available": {
+                      "type": "number"
+                    },
+                    "products_insufficient": {
+                      "type": "number"
+                    },
+                    "availability_details": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "string"
+                          },
+                          "product_name": {
+                            "type": "string"
+                          },
+                          "product_sku": {
+                            "type": "string"
+                          },
+                          "required_qty_full": {
+                            "type": "number"
+                          },
+                          "required_qty_empty": {
+                            "type": "number"
+                          },
+                          "available_qty_full": {
+                            "type": "number"
+                          },
+                          "available_qty_empty": {
+                            "type": "number"
+                          },
+                          "inventory_qty_full": {
+                            "type": "number"
+                          },
+                          "inventory_qty_empty": {
+                            "type": "number"
+                          },
+                          "reserved_qty": {
+                            "type": "number"
+                          },
+                          "safety_stock": {
+                            "type": "number"
+                          },
+                          "full_sufficient": {
+                            "type": "boolean"
+                          },
+                          "empty_sufficient": {
+                            "type": "boolean"
+                          },
+                          "overall_sufficient": {
+                            "type": "boolean"
+                          },
+                          "shortage_full": {
+                            "type": "number"
+                          },
+                          "shortage_empty": {
+                            "type": "number"
+                          },
+                          "total_orders": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "product_name",
+                          "product_sku",
+                          "required_qty_full",
+                          "required_qty_empty",
+                          "available_qty_full",
+                          "available_qty_empty",
+                          "inventory_qty_full",
+                          "inventory_qty_empty",
+                          "reserved_qty",
+                          "safety_stock",
+                          "full_sufficient",
+                          "empty_sufficient",
+                          "overall_sufficient",
+                          "shortage_full",
+                          "shortage_empty",
+                          "total_orders"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "overall_availability": {
+                      "type": "boolean"
+                    },
+                    "safety_stock_considered": {
+                      "type": "boolean"
+                    },
+                    "timestamp": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "trip_id",
+                    "warehouse_id",
+                    "products_checked",
+                    "products_available",
+                    "products_insufficient",
+                    "availability_details",
+                    "overall_availability",
+                    "safety_stock_considered",
+                    "timestamp"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -22776,8 +24450,21 @@
                         },
                         "price_list_id": {
                           "type": "string",
-                          "format": "uuid",
-                          "nullable": true
+                          "format": "uuid"
+                        },
+                        "include_deposit": {
+                          "type": "boolean",
+                          "default": false
+                        },
+                        "pricing_method": {
+                          "type": "string",
+                          "enum": [
+                            "per_unit",
+                            "per_kg",
+                            "flat_rate",
+                            "tiered"
+                          ],
+                          "default": "per_unit"
                         }
                       },
                       "required": [
@@ -29959,7 +31646,47 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "netGasWeight_kg": {
+                      "type": "number"
+                    },
+                    "gasPricePerKg": {
+                      "type": "number"
+                    },
+                    "gasCharge": {
+                      "type": "number"
+                    },
+                    "depositAmount": {
+                      "type": "number"
+                    },
+                    "taxAmount": {
+                      "type": "number"
+                    },
+                    "totalAmount": {
+                      "type": "number"
+                    },
+                    "product_id": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "number"
+                    },
+                    "calculation_date": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "netGasWeight_kg",
+                    "gasPricePerKg",
+                    "gasCharge",
+                    "depositAmount",
+                    "taxAmount",
+                    "totalAmount"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -30018,7 +31745,78 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "capacity_l": {
+                      "type": "number"
+                    },
+                    "deposit_amount": {
+                      "type": "number"
+                    },
+                    "currency_code": {
+                      "type": "string"
+                    },
+                    "as_of_date": {
+                      "type": "string"
+                    },
+                    "rate_details": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "capacity_l": {
+                          "type": "number"
+                        },
+                        "deposit_amount": {
+                          "type": "number"
+                        },
+                        "currency_code": {
+                          "type": "string"
+                        },
+                        "effective_date": {
+                          "type": "string"
+                        },
+                        "end_date": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "is_active": {
+                          "type": "boolean"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "capacity_l",
+                        "deposit_amount",
+                        "currency_code",
+                        "effective_date",
+                        "end_date",
+                        "is_active",
+                        "created_at",
+                        "updated_at"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "capacity_l",
+                    "deposit_amount",
+                    "currency_code",
+                    "as_of_date",
+                    "rate_details"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -30114,7 +31912,119 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "customer_id": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "product_id": {
+                            "type": "string"
+                          },
+                          "product_name": {
+                            "type": "string"
+                          },
+                          "product_sku": {
+                            "type": "string"
+                          },
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "pricing_method": {
+                            "type": "string"
+                          },
+                          "unit_price": {
+                            "type": "number"
+                          },
+                          "gas_weight_kg": {
+                            "type": "number"
+                          },
+                          "price_per_kg": {
+                            "type": "number"
+                          },
+                          "gas_charge": {
+                            "type": "number"
+                          },
+                          "deposit_amount": {
+                            "type": "number"
+                          },
+                          "subtotal": {
+                            "type": "number"
+                          },
+                          "tax_amount": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "product_id",
+                          "product_name",
+                          "product_sku",
+                          "quantity",
+                          "pricing_method",
+                          "gas_charge",
+                          "deposit_amount",
+                          "subtotal",
+                          "tax_amount",
+                          "total"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "total_gas_charges": {
+                          "type": "number"
+                        },
+                        "total_deposits": {
+                          "type": "number"
+                        },
+                        "subtotal": {
+                          "type": "number"
+                        },
+                        "tax_amount": {
+                          "type": "number"
+                        },
+                        "grand_total": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "total_gas_charges",
+                        "total_deposits",
+                        "subtotal",
+                        "tax_amount",
+                        "grand_total"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "include_deposits": {
+                      "type": "boolean"
+                    },
+                    "tax_rate": {
+                      "type": "number"
+                    },
+                    "calculation_date": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "customer_id",
+                    "items",
+                    "summary",
+                    "include_deposits",
+                    "calculation_date"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -30195,7 +32105,52 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "product_id": {
+                      "type": "string"
+                    },
+                    "product_name": {
+                      "type": "string"
+                    },
+                    "product_sku": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "number"
+                    },
+                    "pricing_method": {
+                      "type": "string"
+                    },
+                    "unit_price": {
+                      "type": "number"
+                    },
+                    "surcharge_percent": {
+                      "type": "number"
+                    },
+                    "final_price": {
+                      "type": "number"
+                    },
+                    "price_per_unit": {
+                      "type": "number"
+                    },
+                    "calculation_date": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "product_id",
+                    "quantity",
+                    "pricing_method",
+                    "unit_price",
+                    "surcharge_percent",
+                    "final_price",
+                    "price_per_unit",
+                    "calculation_date"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -32728,7 +34683,57 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "transaction_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "customer_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "adjustment_amount": {
+                      "type": "number"
+                    },
+                    "currency_code": {
+                      "type": "string"
+                    },
+                    "previous_balance": {
+                      "type": "number"
+                    },
+                    "new_balance": {
+                      "type": "number"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "reference_number": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "created_by": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "transaction_id",
+                    "customer_id",
+                    "adjustment_amount",
+                    "currency_code",
+                    "previous_balance",
+                    "new_balance",
+                    "reason",
+                    "reference_number",
+                    "created_at",
+                    "created_by"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -33134,7 +35139,107 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "as_of_date": {
+                      "type": "string"
+                    },
+                    "total_outstanding": {
+                      "type": "number"
+                    },
+                    "currency_code": {
+                      "type": "string"
+                    },
+                    "customer_count": {
+                      "type": "number"
+                    },
+                    "cylinder_count": {
+                      "type": "number"
+                    },
+                    "breakdown": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "group": {
+                            "type": "string"
+                          },
+                          "outstanding_amount": {
+                            "type": "number"
+                          },
+                          "customer_count": {
+                            "type": "number"
+                          },
+                          "cylinder_count": {
+                            "type": "number"
+                          },
+                          "average_days_outstanding": {
+                            "type": "number"
+                          },
+                          "oldest_deposit_date": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "group",
+                          "outstanding_amount",
+                          "customer_count",
+                          "cylinder_count",
+                          "average_days_outstanding",
+                          "oldest_deposit_date"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "top_customers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "customer_id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "customer_name": {
+                            "type": "string"
+                          },
+                          "outstanding_amount": {
+                            "type": "number"
+                          },
+                          "cylinder_count": {
+                            "type": "number"
+                          },
+                          "oldest_deposit_date": {
+                            "type": "string"
+                          },
+                          "days_outstanding": {
+                            "type": "number"
+                          }
+                        },
+                        "required": [
+                          "customer_id",
+                          "customer_name",
+                          "outstanding_amount",
+                          "cylinder_count",
+                          "oldest_deposit_date",
+                          "days_outstanding"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "as_of_date",
+                    "total_outstanding",
+                    "currency_code",
+                    "customer_count",
+                    "cylinder_count",
+                    "breakdown",
+                    "top_customers"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -33245,15 +35350,31 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "license_number": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "hire_date": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "emergency_contact": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "emergency_phone": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "employee_id": {
                             "type": "string",
                             "nullable": true
                           },
                           "department": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "hire_date": {
                             "type": "string",
                             "nullable": true
                           },
@@ -33344,36 +35465,26 @@
                   "phone": {
                     "type": "string"
                   },
+                  "license_number": {
+                    "type": "string"
+                  },
+                  "hire_date": {
+                    "type": "string"
+                  },
+                  "emergency_contact": {
+                    "type": "string"
+                  },
+                  "emergency_phone": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
                   "employee_id": {
                     "type": "string"
                   },
                   "department": {
                     "type": "string"
-                  },
-                  "hire_date": {
-                    "allOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "not": {}
-                          },
-                          {
-                            "type": "string"
-                          }
-                        ]
-                      },
-                      {
-                        "anyOf": [
-                          {
-                            "not": {}
-                          },
-                          {
-                            "type": "string",
-                            "format": "date-time"
-                          }
-                        ]
-                      }
-                    ]
                   }
                 },
                 "required": [
@@ -33386,45 +35497,6 @@
           }
         },
         "parameters": [],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/error"
-          }
-        }
-      }
-    },
-    "/users/{user_id}": {
-      "get": {
-        "operationId": "users-getById",
-        "summary": "Get user by ID",
-        "description": "Get a single user by their ID",
-        "tags": [
-          "users"
-        ],
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful response",
@@ -33464,15 +35536,31 @@
                       "type": "string",
                       "nullable": true
                     },
+                    "license_number": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hire_date": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "emergency_contact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "emergency_phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
                     "employee_id": {
                       "type": "string",
                       "nullable": true
                     },
                     "department": {
-                      "type": "string",
-                      "nullable": true
-                    },
-                    "hire_date": {
                       "type": "string",
                       "nullable": true
                     },
@@ -33493,145 +35581,6 @@
                   ],
                   "additionalProperties": false
                 }
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/error"
-          }
-        }
-      },
-      "delete": {
-        "operationId": "users-delete",
-        "summary": "Delete user",
-        "description": "Delete or deactivate a user account",
-        "tags": [
-          "users"
-        ],
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/error"
-          }
-        }
-      }
-    },
-    "/users/{id}": {
-      "put": {
-        "operationId": "users-update",
-        "summary": "Update user",
-        "description": "Update user information",
-        "tags": [
-          "users"
-        ],
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email"
-                  },
-                  "name": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "role": {
-                    "type": "string",
-                    "enum": [
-                      "admin",
-                      "driver",
-                      "user"
-                    ]
-                  },
-                  "phone": {
-                    "type": "string"
-                  },
-                  "employee_id": {
-                    "type": "string"
-                  },
-                  "department": {
-                    "type": "string"
-                  },
-                  "hire_date": {
-                    "allOf": [
-                      {
-                        "anyOf": [
-                          {
-                            "not": {}
-                          },
-                          {
-                            "type": "string"
-                          }
-                        ]
-                      },
-                      {
-                        "anyOf": [
-                          {
-                            "not": {}
-                          },
-                          {
-                            "type": "string",
-                            "format": "date-time"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                },
-                "additionalProperties": false
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -33662,6 +35611,14 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "active",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -33699,66 +35656,109 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "default": {
-            "$ref": "#/components/responses/error"
-          }
-        }
-      }
-    },
-    "/users/{user_id}/change-password": {
-      "post": {
-        "operationId": "users-changePassword",
-        "summary": "Change user password",
-        "description": "Change password for a user",
-        "tags": [
-          "users"
-        ],
-        "security": [
-          {
-            "Authorization": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "new_password": {
-                    "type": "string",
-                    "minLength": 6
-                  }
-                },
-                "required": [
-                  "new_password"
-                ],
-                "additionalProperties": false
-              }
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "user_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "drivers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "auth_user_id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "nullable": true
+                          },
+                          "email": {
+                            "type": "string",
+                            "format": "email"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "driver",
+                              "user"
+                            ]
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "phone": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "license_number": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "hire_date": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "emergency_contact": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "emergency_phone": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "employee_id": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "department": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "auth_user_id",
+                          "email",
+                          "name",
+                          "role",
+                          "active"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "totalCount": {
+                      "type": "number"
+                    },
+                    "totalPages": {
+                      "type": "number"
+                    },
+                    "currentPage": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "drivers",
+                    "totalCount",
+                    "totalPages",
+                    "currentPage"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -33815,7 +35815,32 @@
             "description": "Successful response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "valid": {
+                      "type": "boolean"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "valid",
+                    "errors",
+                    "warnings"
+                  ],
+                  "additionalProperties": false
+                }
               }
             }
           },
@@ -33952,6 +35977,419 @@
           }
         },
         "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/users/{user_id}": {
+      "get": {
+        "operationId": "users-getById",
+        "summary": "Get user by ID",
+        "description": "Get a single user by their ID",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "auth_user_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "admin",
+                        "driver",
+                        "user"
+                      ]
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "license_number": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hire_date": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "emergency_contact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "emergency_phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "employee_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "department": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "auth_user_id",
+                    "email",
+                    "name",
+                    "role",
+                    "active"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "users-delete",
+        "summary": "Delete user",
+        "description": "Delete or deactivate a user account",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/users/{id}": {
+      "put": {
+        "operationId": "users-update",
+        "summary": "Update user",
+        "description": "Update user information",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "driver",
+                      "user"
+                    ]
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "license_number": {
+                    "type": "string"
+                  },
+                  "hire_date": {
+                    "type": "string"
+                  },
+                  "emergency_contact": {
+                    "type": "string"
+                  },
+                  "emergency_phone": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "employee_id": {
+                    "type": "string"
+                  },
+                  "department": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "auth_user_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
+                    },
+                    "email": {
+                      "type": "string",
+                      "format": "email"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "admin",
+                        "driver",
+                        "user"
+                      ]
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "license_number": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "hire_date": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "emergency_contact": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "emergency_phone": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "notes": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "employee_id": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "department": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "updated_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "auth_user_id",
+                    "email",
+                    "name",
+                    "role",
+                    "active"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/error"
+          }
+        }
+      }
+    },
+    "/users/{user_id}/change-password": {
+      "post": {
+        "operationId": "users-changePassword",
+        "summary": "Change user password",
+        "description": "Change password for a user",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "Authorization": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "new_password": {
+                    "type": "string",
+                    "minLength": 6
+                  }
+                },
+                "required": [
+                  "new_password"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful response",
