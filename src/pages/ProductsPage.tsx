@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Package } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '../hooks/useProducts';
-import { ProductTable } from '../components/products/ProductTable';
 import { GroupedProductTable } from '../components/products/GroupedProductTable';
 import { ProductFilters } from '../components/products/ProductFilters';
 import { ProductForm } from '../components/products/ProductForm';
@@ -22,12 +21,8 @@ export const ProductsPage: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'grouped' | 'flat'>('grouped');
 
-  const { data, isLoading, error, refetch } = useProducts(filters);
-  const { data: groupedData, isLoading: groupedLoading, error: groupedError } = trpc.products.getGroupedProducts.useQuery(filters, {
-    enabled: viewMode === 'grouped',
-  });
+  const { data: groupedData, isLoading: groupedLoading, error: groupedError, refetch } = trpc.products.getGroupedProducts.useQuery(filters);
   const createProduct = useCreateProduct();
   const createParentProduct = trpc.products.createParentProduct.useMutation();
   const updateProduct = useUpdateProduct();
@@ -38,14 +33,14 @@ export const ProductsPage: React.FC = () => {
   useEffect(() => {
     console.log('ProductsPage state:', {
       filters,
-      data,
-      isLoading,
-      error,
+      groupedData,
+      groupedLoading,
+      groupedError,
       isFormOpen,
       editingProduct,
       selectedProducts,
     });
-  }, [filters, data, isLoading, error, isFormOpen, editingProduct, selectedProducts]);
+  }, [filters, groupedData, groupedLoading, groupedError, isFormOpen, editingProduct, selectedProducts]);
 
   const handleAddProduct = () => {
     console.log('Adding new product');
@@ -98,12 +93,8 @@ export const ProductsPage: React.FC = () => {
     try {
       await createVariant.mutateAsync(data);
       setIsVariantFormOpen(false);
-      // Refresh the data to show the new variant
-      if (viewMode === 'grouped') {
-        // The grouped query will automatically refetch
-      } else {
-        refetch();
-      }
+      // Refresh the grouped data to show the new variant
+      refetch();
     } catch (error) {
       console.error('Variant form submit error:', error);
       // Error handling is done in the mutation - it will show toast notifications
@@ -165,36 +156,13 @@ export const ProductsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Products</h1>
           <p className="text-gray-600">Manage your LPG product catalog</p>
-          {error && (
+          {groupedError && (
             <p className="text-red-600 text-sm mt-1">
-              Error: {error.message}
+              Error: {groupedError.message}
             </p>
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('grouped')}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'grouped' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Grouped
-            </button>
-            <button
-              onClick={() => setViewMode('flat')}
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'flat' 
-                  ? 'bg-white text-gray-900 shadow-sm' 
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Flat
-            </button>
-          </div>
-          
           <button
             onClick={handleAddProduct}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -221,34 +189,21 @@ export const ProductsPage: React.FC = () => {
         onClearSelection={handleClearSelection}
       />
 
-      {viewMode === 'grouped' ? (
-        <GroupedProductTable
-          products={groupedData?.products || []}
-          loading={groupedLoading}
-          onView={handleViewProduct}
-          onEdit={handleEditProduct}
-          onDelete={handleDeleteProduct}
-          selectedProducts={selectedProducts}
-          onSelectionChange={handleSelectionChange}
-        />
-      ) : (
-        <ProductTable
-          products={data?.products || []}
-          loading={isLoading}
-          onView={handleViewProduct}
-          onEdit={handleEditProduct}
-          onDelete={handleDeleteProduct}
-          selectedProducts={selectedProducts}
-          onSelectionChange={handleSelectionChange}
-        />
-      )}
+      <GroupedProductTable
+        products={groupedData?.products || []}
+        loading={groupedLoading}
+        onView={handleViewProduct}
+        onEdit={handleEditProduct}
+        onDelete={handleDeleteProduct}
+        selectedProducts={selectedProducts}
+        onSelectionChange={handleSelectionChange}
+      />
 
-      {((viewMode === 'grouped' && groupedData && groupedData.totalPages > 1) || 
-        (viewMode === 'flat' && data && data.totalPages > 1)) && (
+      {groupedData && groupedData.totalPages > 1 && (
         <CustomerPagination
-          currentPage={viewMode === 'grouped' ? groupedData?.currentPage || 1 : data?.currentPage || 1}
-          totalPages={viewMode === 'grouped' ? groupedData?.totalPages || 1 : data?.totalPages || 1}
-          totalCount={viewMode === 'grouped' ? groupedData?.totalCount || 0 : data?.totalCount || 0}
+          currentPage={groupedData.currentPage || 1}
+          totalPages={groupedData.totalPages || 1}
+          totalCount={groupedData.totalCount || 0}
           onPageChange={handlePageChange}
           itemsPerPage={15}
         />

@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
-  Tag
 } from 'lucide-react';
 import { Product } from '../../types/product';
 import { StatusBadge } from '../ui/StatusBadge';
@@ -151,11 +150,6 @@ export const GroupedProductTable: React.FC<GroupedProductTableProps> = ({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center space-x-2">
                   <span className="font-medium text-gray-900 truncate">{product.sku}</span>
-                  {isVariant && product.sku_variant && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {product.sku_variant}
-                    </span>
-                  )}
                 </div>
                 <div className="text-sm text-gray-500 truncate">{product.name}</div>
               </div>
