@@ -1,4 +1,4 @@
-import { CreateProductData, UpdateProductData, ProductFilters, CreateVariantData } from '../types/product';
+import { CreateProductData, UpdateProductData, ProductFilters, CreateVariantData, CreateParentProductData, SkuVariant } from '../types/product';
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
 
@@ -110,21 +110,33 @@ export const useDeleteProduct = () => {
   });
 };
 
-export const useProductVariants = (parentProductId: string) => {
+export const useProductVariants = (parentProductsId: string) => {
   return trpc.products.getVariants.useQuery(
-    { parent_product_id: parentProductId },
+    { parent_products_id: parentProductsId },
     {
-      enabled: Boolean(parentProductId),
+      enabled: Boolean(parentProductsId),
       staleTime: 60000,
     }
   );
 };
 
 export const useCreateVariant = () => {
+  const utils = trpc.useContext();
+  
   return trpc.products.createVariant.useMutation({
     onSuccess: (data) => {
       console.log('Product variant created successfully:', data);
       toast.success('Product variant created successfully');
+      
+      // Invalidate multiple queries to ensure UI consistency
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
+      if (data.parent_products_id) {
+        utils.products.getVariants.invalidate({ parent_products_id: data.parent_products_id });
+      }
     },
     onError: (error: Error) => {
       console.error('Create variant mutation error:', error);
@@ -174,4 +186,78 @@ export const useValidateProduct = () => {
       toast.error(error.message || 'Failed to validate product');
     },
   });
+};
+
+// New hooks for hierarchical product structure
+export const useGroupedProducts = (filters: ProductFilters & { search?: string } = {}) => {
+  return trpc.products.getGroupedProducts.useQuery({
+    search: filters.search,
+    status: filters.status as any,
+    page: filters.page || 1,
+    limit: filters.limit || 10,
+    sort_by: filters.sort_by || 'name',
+    sort_order: filters.sort_order || 'asc',
+  }, {
+    retry: 1,
+    staleTime: 30000,
+  });
+};
+
+export const useCreateParentProduct = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.products.createParentProduct.useMutation({
+    onSuccess: (data) => {
+      console.log('Parent product created successfully:', data);
+      toast.success('Parent product created successfully');
+      
+      // Invalidate relevant queries
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
+    },
+    onError: (error: Error) => {
+      console.error('Create parent product mutation error:', error);
+      toast.error(error.message || 'Failed to create parent product');
+    },
+  });
+};
+
+export const useSkuVariants = () => {
+  return trpc.products.getSkuVariants.useQuery({}, {
+    staleTime: 300000, // 5 minutes - these don't change often
+  });
+};
+
+export const useParentProducts = (filters: { 
+  search?: string;
+  status?: 'active' | 'obsolete';
+  page?: number;
+  limit?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+} = {}) => {
+  return trpc.products.getParentProducts.useQuery({
+    search: filters.search,
+    status: filters.status,
+    page: filters.page || 1,
+    limit: filters.limit || 15,
+    sort_by: filters.sort_by || 'name',
+    sort_order: filters.sort_order || 'asc',
+  }, {
+    retry: 1,
+    staleTime: 30000,
+  });
+};
+
+export const useParentProduct = (id: string) => {
+  return trpc.products.getParentProduct.useQuery(
+    { id },
+    {
+      enabled: Boolean(id),
+      staleTime: 60000,
+    }
+  );
 };
