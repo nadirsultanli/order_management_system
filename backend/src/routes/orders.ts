@@ -2399,10 +2399,34 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
     };
   }
 
-  throw new TRPCError({
-    code: 'NOT_FOUND',
-    message: 'No order lines found'
-  });
+  // For visit orders or orders without order lines, set totals to 0
+  ctx.logger.info('Order has no order lines, setting totals to 0:', { orderId });
+  
+  const { error: updateError } = await ctx.supabase
+    .from('orders')
+    .update({ 
+      total_amount: 0,
+      tax_amount: 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', orderId);
+
+  if (updateError) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: updateError.message
+    });
+  }
+
+  return {
+    subtotal: 0,
+    tax_percent: 0,
+    tax_amount: 0,
+    total_amount: 0,
+    gas_charges_total: 0,
+    deposit_total: 0,
+    breakdown: []
+  };
 }
 
 // Helper function to update order tax and recalculate total
@@ -2422,7 +2446,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
     });
   }
 
-  if (lines) {
+  if (lines && lines.length > 0) {
     const subtotal = lines.reduce((sum: number, line: any) => {
       const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
       return sum + lineSubtotal;
@@ -2473,10 +2497,36 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
     };
   }
 
-  throw new TRPCError({
-    code: 'NOT_FOUND',
-    message: 'No order lines found'
-  });
+  // For visit orders or orders without order lines, set totals to 0
+  ctx.logger.info('Order has no order lines, setting tax totals to 0:', { orderId });
+  
+  const { error: updateError } = await ctx.supabase
+    .from('orders')
+    .update({ 
+      tax_percent: taxPercent,
+      tax_amount: 0,
+      total_amount: 0,
+      gas_charges_total: 0,
+      deposit_total: 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', orderId);
+
+  if (updateError) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: updateError.message
+    });
+  }
+
+  return {
+    subtotal: 0,
+    tax_percent: taxPercent,
+    tax_amount: 0,
+    total_amount: 0,
+    gas_charges_total: 0,
+    deposit_total: 0
+  };
 }
 
 // Helper function to get order by ID with all relations
