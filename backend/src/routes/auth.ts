@@ -34,7 +34,8 @@ export const authRouter = router({
     .input(LoginSchema)
     .output(z.object({
       user: z.object({
-        id: z.string(),
+        id: z.string(), // This will now be admin_users.id
+        auth_user_id: z.string(), // Add auth user ID for reference
         email: z.string(),
         name: z.string(),
         role: z.string(),
@@ -76,7 +77,8 @@ export const authRouter = router({
 
         return {
           user: {
-            id: data.user.id,
+            id: adminUser.id, // Return admin_users.id instead of auth user ID
+            auth_user_id: data.user.id, // Keep auth user ID for reference
             email: data.user.email!,
             name: adminUser.name || data.user.email!,
             role: adminUser.role || 'admin',
@@ -194,11 +196,11 @@ export const authRouter = router({
     .input(z.void())
     .output(z.object({
       user: z.object({
-        id: z.string(),
+        id: z.string(), // This will now be admin_users.id
+        auth_user_id: z.string(), // Add auth user ID for reference
         email: z.string(),
         name: z.string(),
         role: z.string(),
-        user_id: z.string(),
       }),
     }))
     .query(async ({ ctx }) => {
@@ -226,11 +228,11 @@ export const authRouter = router({
 
       return {
         user: {
-          id: ctx.user.id,
+          id: adminUser.id, // Return admin_users.id instead of auth user ID
+          auth_user_id: ctx.user.id, // Keep auth user ID for reference
           email: ctx.user.email || adminUser.email,
           name: adminUser.name,
           role: adminUser.role || 'admin',
-          user_id: ctx.user.id,
         },
       };
     }),
