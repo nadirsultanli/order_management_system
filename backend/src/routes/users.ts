@@ -179,8 +179,12 @@ export const usersRouter = router({
       
       try {
         let authUserId: string | null = null;
-        if (input.password) {
-          // Create user in Supabase Auth first if password is provided
+        
+        // Skip password creation for drivers
+        if (input.role === 'driver') {
+          ctx.logger.info('Creating driver user - skipping password and auth user creation');
+        } else if (input.password) {
+          // Create user in Supabase Auth first if password is provided (for non-driver roles)
           const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email: input.email,
             password: input.password,
@@ -226,8 +230,8 @@ export const usersRouter = router({
           .single();
 
         if (userError) {
-          // Clean up auth user if admin_users creation fails
-          if (authUserId) {
+          // Clean up auth user if admin_users creation fails (only if auth user was created)
+          if (authUserId && input.role !== 'driver') {
             await supabaseAdmin.auth.admin.deleteUser(authUserId);
           }
           ctx.logger.error('User creation failed:', userError);

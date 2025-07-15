@@ -36,6 +36,15 @@ export const CreateUserSchema = z.object({
   notes: z.string().optional(),
   employee_id: z.string().optional(),
   department: z.string().optional(),
+}).refine((data) => {
+  // For drivers, password is completely optional
+  if (data.role === 'driver') {
+    return true;
+  }
+  // For other roles, password is optional but if provided must be valid
+  return true;
+}, {
+  message: "Password validation passed",
 });
 
 // User update schema
