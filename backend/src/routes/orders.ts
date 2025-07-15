@@ -909,6 +909,9 @@ export const ordersRouter = router({
             product_name: product.name,
           });
           }
+        } else if (input.order_type === 'delivery' && (!input.order_lines || input.order_lines.length === 0)) {
+          // Delivery orders require at least one order line
+          validationErrors.push('Delivery orders must include at least one product');
         }
         
         // Check for validation errors

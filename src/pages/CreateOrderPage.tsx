@@ -300,17 +300,8 @@ export const CreateOrderPage: React.FC = () => {
   };
 
   const handleCreateOrder = async () => {
-<<<<<<< Updated upstream
-    if (selectedVariant === 'visit') {
-      alert('Visit orders are not yet available.');
-      return;
-    }
-
-    if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || orderLines.length === 0) {
-=======
     if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || 
         (selectedOrderType === 'delivery' && orderLines.length === 0)) {
->>>>>>> Stashed changes
       return;
     }
     
