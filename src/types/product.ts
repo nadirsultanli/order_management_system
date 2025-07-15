@@ -15,8 +15,8 @@ export interface Product {
   created_at: string;
   // Product variant fields
   variant_type: 'cylinder' | 'refillable' | 'disposable';
-  parent_product_id?: string; // null for parent products
-  variant_name?: string; // 'full', 'empty', etc.
+  parent_products_id?: string; // null for parent products
+  sku_variant?: 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED'; // SKU variant type
   is_variant: boolean; // true for variants, false for parents
   // Tax-related fields
   tax_category?: string;
@@ -44,8 +44,8 @@ export interface CreateProductData {
   requires_tag: boolean;
   // Product variant fields
   variant_type: 'cylinder' | 'refillable' | 'disposable';
-  parent_product_id?: string;
-  variant_name?: string;
+  parent_products_id?: string;
+  sku_variant?: 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED';
   is_variant: boolean;
   // Tax-related fields
   tax_category?: string;
@@ -83,8 +83,8 @@ export interface ProductStats {
 // Product variant-specific interfaces
 export interface ProductVariant {
   id: string;
-  parent_product_id: string;
-  variant_name: string;
+  parent_products_id: string;
+  sku_variant: 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED';
   sku: string;
   name: string;
   status: 'active' | 'obsolete';
@@ -92,13 +92,13 @@ export interface ProductVariant {
 }
 
 export interface CreateVariantData {
-  parent_product_id: string;
-  variant_name: string;
-  sku: string;
+  parent_products_id: string;
+  sku_variant: 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED';
   name: string;
   description?: string;
   status: 'active' | 'obsolete';
   barcode_uid?: string;
+  // SKU will be auto-generated as {parent_sku}-{sku_variant}
 }
 
 export interface ProductWithVariants extends Product {
@@ -110,9 +110,74 @@ export interface ProductWithVariants extends Product {
 // Inventory with variant support
 export interface VariantInventory {
   product_id: string;
-  variant_name: string;
+  sku_variant: 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED';
   warehouse_id: string;
   qty_full: number;
   qty_empty: number;
   qty_reserved: number;
+}
+
+// ============ New Hierarchical Parent-Child Types ============
+
+export type SkuVariant = 'EMPTY' | 'FULL-XCH' | 'FULL-OUT' | 'DAMAGED';
+
+export interface SkuVariantOption {
+  value: SkuVariant;
+  label: string;
+  description: string;
+}
+
+export interface ParentProduct {
+  id: string;
+  sku: string;
+  name: string;
+  description?: string;
+  unit_of_measure: 'cylinder' | 'kg';
+  capacity_kg?: number;
+  tare_weight_kg?: number;
+  valve_type?: string;
+  status: 'active' | 'obsolete';
+  variant_type: 'cylinder' | 'refillable' | 'disposable';
+  requires_tag: boolean;
+  tax_category?: string;
+  tax_rate?: number;
+  created_at: string;
+  variant_count: number;
+}
+
+export interface GroupedProduct {
+  parent: ParentProduct;
+  variants: Product[];
+}
+
+export interface GroupedProductsResponse {
+  grouped_products: GroupedProduct[];
+  summary: {
+    total_parent_products: number;
+    total_variants: number;
+    active_parent_products: number;
+    active_variants: number;
+  };
+}
+
+export interface CreateParentProductData {
+  sku: string;
+  name: string;
+  description?: string;
+  unit_of_measure: 'cylinder' | 'kg';
+  capacity_kg?: number;
+  tare_weight_kg?: number;
+  valve_type?: string;
+  status: 'active' | 'obsolete';
+  variant_type: 'cylinder' | 'refillable' | 'disposable';
+  requires_tag: boolean;
+  tax_category?: string;
+  tax_rate?: number;
+}
+
+export interface ParentProductsResponse {
+  parent_products: ParentProduct[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
 }

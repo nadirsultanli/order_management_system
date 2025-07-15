@@ -9,6 +9,7 @@ import {
   UnitOfMeasureEnum,
   VariantTypeEnum,
   VariantEnum,
+  SkuVariantEnum,
   ProductFiltersSchema,
   GetProductByIdSchema,
   GetProductStatsSchema,
@@ -32,6 +33,11 @@ import {
   GetStandardCylinderVariantsSchema,
   GenerateVariantSkuSchema,
   CreateVariantDataSchema,
+  CreateParentProductSchema,
+  GetGroupedProductsSchema,
+  GetSkuVariantsSchema,
+  ListParentProductsSchema,
+  GetParentProductByIdSchema,
 } from '../schemas/input/products-input';
 
 // Import output schemas
@@ -59,6 +65,11 @@ import {
   StandardCylinderVariantsResponseSchema,
   GeneratedSkuResponseSchema,
   CreateVariantDataResponseSchema,
+  CreateParentProductResponseSchema,
+  GetGroupedProductsResponseSchema,
+  GetSkuVariantsResponseSchema,
+  ListParentProductsResponseSchema,
+  GetParentProductByIdResponseSchema,
 } from '../schemas/output/products-output';
 
 
@@ -99,7 +110,7 @@ export const productsRouter = router({
       // Only include inventory data if explicitly requested
       // Note: When using nested selects in PostgREST, we can't use '*' in combination with nested fields
       if (include_inventory_data) {
-        selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_product_id, variant_name, is_variant, variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
+        selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_products_id, sku_variant, is_variant, variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
       }
       
       let query = ctx.supabase
@@ -322,7 +333,7 @@ export const productsRouter = router({
       
       const { data, error } = await ctx.supabase
         .from('products')
-        .select('id, sku, name, variant_name, is_variant')
+        .select('id, sku, name, sku_variant, is_variant')
         
         .in('status', input.status)
         .order('name');
@@ -346,7 +357,7 @@ export const productsRouter = router({
         id: p.id,
         sku: p.sku,
         name: p.name,
-        display_name: p.variant_name ? `${p.name} - ${p.variant_name}` : p.name,
+        display_name: p.sku_variant ? `${p.name} - ${p.sku_variant}` : p.name,
         is_variant: p.is_variant,
       }));
     }),
@@ -740,10 +751,10 @@ export const productsRouter = router({
       const { data, error } = await ctx.supabase
         .from('products')
         .select('*')
-        .eq('parent_product_id', input.parent_product_id)
+        .eq('parent_products_id', input.parent_products_id)
         
         .eq('is_variant', true)
-        .order('variant_name');
+        .order('sku_variant');
 
       if (error) {
         ctx.logger.error('Error fetching product variants:', error);
@@ -775,25 +786,11 @@ export const productsRouter = router({
       
       ctx.logger.info('Creating product variant:', input);
       
-      // Check SKU uniqueness
-      const { data: existingSku } = await ctx.supabase
-        .from('products')
-        .select('id')
-        .eq('sku', input.sku)
-        .single();
-
-      if (existingSku) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'SKU already exists. Please use a unique SKU.',
-        });
-      }
-
       // Get parent product info
       const { data: parentProduct, error: parentError } = await ctx.supabase
         .from('products')
         .select('*')
-        .eq('id', input.parent_product_id)
+        .eq('id', input.parent_products_id)
         
         .single();
 
@@ -804,11 +801,28 @@ export const productsRouter = router({
         });
       }
 
+      // Auto-generate SKU: {parent_sku}-{sku_variant}
+      const generatedSku = `${parentProduct.sku}-${input.sku_variant}`;
+
+      // Check SKU uniqueness
+      const { data: existingSku } = await ctx.supabase
+        .from('products')
+        .select('id')
+        .eq('sku', generatedSku)
+        .single();
+
+      if (existingSku) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Generated SKU already exists. Please choose a different variant.',
+        });
+      }
+
       const { data, error } = await ctx.supabase
         .from('products')
         .insert([{
           ...input,
-          
+          sku: generatedSku,
           is_variant: true,
           unit_of_measure: parentProduct.unit_of_measure,
           variant_type: parentProduct.variant_type,
@@ -1480,6 +1494,308 @@ export const productsRouter = router({
         description: `${input.variant_name} variant`,
         status: 'active' as const,
         barcode_uid: undefined,
+      };
+    }),
+
+  // ============ New Hierarchical Parent-Child Endpoints ============
+
+  // GET /products/grouped - Get products grouped by parent-child hierarchy
+  getGroupedProducts: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/grouped',
+        tags: ['products'],
+        summary: 'Get products grouped by parent-child hierarchy',
+        description: 'Retrieve products organized in parent-child hierarchical structure.',
+        protect: true,
+      }
+    })
+    .input(GetGroupedProductsSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching grouped products');
+      
+      // Get all parent products
+      let parentQuery = ctx.supabase
+        .from('products')
+        .select('*')
+        .eq('is_variant', false)
+        .order('name');
+      
+      if (!input.include_inactive) {
+        parentQuery = parentQuery.eq('status', 'active');
+      }
+      
+      const { data: parentProducts, error: parentError } = await parentQuery;
+      
+      if (parentError) {
+        ctx.logger.error('Error fetching parent products:', parentError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch parent products',
+        });
+      }
+      
+      // Get all variants for each parent
+      const groupedProducts = await Promise.all(
+        (parentProducts || []).map(async (parent) => {
+          let variantQuery = ctx.supabase
+            .from('products')
+            .select('*')
+            .eq('parent_products_id', parent.id)
+            .eq('is_variant', true)
+            .order('sku_variant');
+          
+          if (!input.include_inactive) {
+            variantQuery = variantQuery.eq('status', 'active');
+          }
+          
+          const { data: variants } = await variantQuery;
+          
+          return {
+            parent: {
+              ...parent,
+              variant_count: variants ? variants.length : 0,
+            },
+            variants: variants || [],
+          };
+        })
+      );
+      
+      // Filter out parents with no variants if include_variants_only is true
+      const filteredGroups = input.include_variants_only
+        ? groupedProducts.filter(group => group.variants.length > 0)
+        : groupedProducts;
+      
+      const summary = {
+        total_parent_products: filteredGroups.length,
+        total_variants: filteredGroups.reduce((sum, group) => sum + group.variants.length, 0),
+        active_parent_products: filteredGroups.filter(group => group.parent.status === 'active').length,
+        active_variants: filteredGroups.reduce((sum, group) => 
+          sum + group.variants.filter(variant => variant.status === 'active').length, 0
+        ),
+      };
+      
+      return {
+        grouped_products: filteredGroups,
+        summary,
+      };
+    }),
+
+  // POST /products/parent - Create parent product
+  createParentProduct: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/products/parent',
+        tags: ['products'],
+        summary: 'Create parent product',
+        description: 'Create a new parent product for hierarchical structure.',
+        protect: true,
+      }
+    })
+    .input(CreateParentProductSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Creating parent product:', input);
+      
+      // Check SKU uniqueness
+      const { data: existingSku } = await ctx.supabase
+        .from('products')
+        .select('id')
+        .eq('sku', input.sku)
+        .single();
+
+      if (existingSku) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'SKU already exists. Please use a unique SKU.',
+        });
+      }
+
+      const { data, error } = await ctx.supabase
+        .from('products')
+        .insert([{
+          ...input,
+          is_variant: false,
+          parent_products_id: null,
+          sku_variant: null,
+          created_at: new Date().toISOString(),
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error creating parent product:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create parent product',
+        });
+      }
+
+      return {
+        ...data,
+        variant_count: 0,
+      };
+    }),
+
+  // GET /products/sku-variants - Get available SKU variants
+  getSkuVariants: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/sku-variants',
+        tags: ['products'],
+        summary: 'Get available SKU variants',
+        description: 'Get the available SKU variant types for product variants.',
+        protect: true,
+      }
+    })
+    .input(GetSkuVariantsSchema)
+    .output(z.any())
+    .query(async ({ ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching SKU variants');
+      
+      return {
+        sku_variants: [
+          {
+            value: 'EMPTY',
+            label: 'Empty',
+            description: 'Empty cylinder for exchange/pickup',
+          },
+          {
+            value: 'FULL-XCH',
+            label: 'Full Exchange',
+            description: 'Full cylinder for exchange orders',
+          },
+          {
+            value: 'FULL-OUT',
+            label: 'Full Outright',
+            description: 'Full cylinder for outright purchase',
+          },
+          {
+            value: 'DAMAGED',
+            label: 'Damaged',
+            description: 'Damaged cylinder requiring repair/replacement',
+          },
+        ],
+      };
+    }),
+
+  // GET /products/parent-products - List parent products
+  listParentProducts: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/parent-products',
+        tags: ['products'],
+        summary: 'List parent products',
+        description: 'Get a paginated list of parent products.',
+        protect: true,
+      }
+    })
+    .input(ListParentProductsSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching parent products');
+      
+      const { page, limit } = input;
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      
+      const { data, error, count } = await ctx.supabase
+        .from('products')
+        .select('*', { count: 'exact' })
+        .eq('is_variant', false)
+        .eq('status', 'active')
+        .order('name')
+        .range(from, to);
+
+      if (error) {
+        ctx.logger.error('Error fetching parent products:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch parent products',
+        });
+      }
+
+      // Add variant count for each parent
+      const parentProductsWithCounts = await Promise.all(
+        (data || []).map(async (parent) => {
+          const { count: variantCount } = await ctx.supabase
+            .from('products')
+            .select('id', { count: 'exact' })
+            .eq('parent_products_id', parent.id)
+            .eq('is_variant', true);
+
+          return {
+            ...parent,
+            variant_count: variantCount || 0,
+          };
+        })
+      );
+
+      return {
+        parent_products: parentProductsWithCounts,
+        totalCount: count || 0,
+        totalPages: Math.ceil((count || 0) / limit),
+        currentPage: page,
+      };
+    }),
+
+  // GET /products/parent-products/{id} - Get parent product by ID
+  getParentProductById: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/parent-products/{id}',
+        tags: ['products'],
+        summary: 'Get parent product by ID',
+        description: 'Get detailed information about a specific parent product.',
+        protect: true,
+      }
+    })
+    .input(GetParentProductByIdSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching parent product:', input.id);
+      
+      const { data, error } = await ctx.supabase
+        .from('products')
+        .select('*')
+        .eq('id', input.id)
+        .eq('is_variant', false)
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error fetching parent product:', error);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Parent product not found',
+        });
+      }
+
+      // Get variant count
+      const { count: variantCount } = await ctx.supabase
+        .from('products')
+        .select('id', { count: 'exact' })
+        .eq('parent_products_id', input.id)
+        .eq('is_variant', true);
+
+      return {
+        ...data,
+        variant_count: variantCount || 0,
       };
     }),
 });

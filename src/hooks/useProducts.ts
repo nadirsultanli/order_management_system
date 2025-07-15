@@ -110,11 +110,11 @@ export const useDeleteProduct = () => {
   });
 };
 
-export const useProductVariants = (parentProductId: string) => {
+export const useProductVariants = (parentProductsId: string) => {
   return trpc.products.getVariants.useQuery(
-    { parent_product_id: parentProductId },
+    { parent_products_id: parentProductsId },
     {
-      enabled: Boolean(parentProductId),
+      enabled: Boolean(parentProductsId),
       staleTime: 60000,
     }
   );
@@ -174,4 +174,67 @@ export const useValidateProduct = () => {
       toast.error(error.message || 'Failed to validate product');
     },
   });
+};
+
+// ============ New Hierarchical Parent-Child Hooks ============
+
+export const useGroupedProducts = (filters: { 
+  include_inactive?: boolean,
+  include_variants_only?: boolean 
+} = {}) => {
+  return trpc.products.getGroupedProducts.useQuery({
+    include_inactive: filters.include_inactive || false,
+    include_variants_only: filters.include_variants_only || false,
+  }, {
+    staleTime: 60000,
+  });
+};
+
+export const useCreateParentProduct = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.products.createParentProduct.useMutation({
+    onSuccess: (data: any) => {
+      console.log('Parent product created successfully:', data);
+      toast.success('Parent product created successfully');
+      
+      // Invalidate and refetch queries
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.listParentProducts.invalidate();
+    },
+    onError: (error: Error) => {
+      console.error('Create parent product mutation error:', error);
+      toast.error(error.message || 'Failed to create parent product');
+    },
+  });
+};
+
+export const useSkuVariants = () => {
+  return trpc.products.getSkuVariants.useQuery({}, {
+    staleTime: 300000, // 5 minutes - these rarely change
+  });
+};
+
+export const useParentProducts = (filters: { 
+  page?: number,
+  limit?: number 
+} = {}) => {
+  return trpc.products.listParentProducts.useQuery({
+    page: filters.page || 1,
+    limit: filters.limit || 50,
+  }, {
+    staleTime: 60000,
+  });
+};
+
+export const useParentProduct = (id: string) => {
+  return trpc.products.getParentProductById.useQuery(
+    { id },
+    {
+      enabled: Boolean(id),
+    }
+  );
 };
