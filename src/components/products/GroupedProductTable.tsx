@@ -139,7 +139,7 @@ export const GroupedProductTable: React.FC<GroupedProductTableProps> = ({
             
             {isVariant && (
               <div className="mr-4 ml-6">
-                <Tag className="h-4 w-4 text-gray-400" />
+                {/* Variant indentation */}
               </div>
             )}
             

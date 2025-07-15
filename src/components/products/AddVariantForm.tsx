@@ -50,7 +50,7 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
   } = useForm<VariantFormData>({
     defaultValues: {
       parent_products_id: '',
-      sku_variant: 'EMPTY',
+      sku_variant: 'EMPTY', // This will be updated dynamically
       name: '',
       description: '',
       status: 'active',
@@ -90,12 +90,52 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
     }
   }, [variantsData]);
 
+  const canCreateVariant = (variant: string) => {
+    if (!selectedParent) return false;
+    
+    // Check if variant already exists
+    if (existingVariants.includes(variant)) return false;
+    
+    // Check variant count limit (max 3 variants per parent)
+    if (selectedParent.variant_count && selectedParent.variant_count >= 3) return false;
+    
+    return true;
+  };
+
+  // Set default variant to first available option when parent is selected
+  useEffect(() => {
+    if (selectedParent && existingVariants.length >= 0 && skuVariantsData?.variants) {
+      const availableVariants = skuVariantsData.variants.filter((variant: any) => 
+        canCreateVariant(variant.value)
+      );
+      
+      if (availableVariants.length > 0) {
+        const firstAvailable = availableVariants[0].value;
+        if (watchedSkuVariant !== firstAvailable) {
+          setValue('sku_variant', firstAvailable);
+        }
+      }
+    }
+  }, [selectedParent, existingVariants, skuVariantsData, setValue]);
+
   useEffect(() => {
     if (selectedParent && watchedSkuVariant) {
       const sku = watchedIsDamaged ? `${selectedParent.sku}-DAMAGED` : `${selectedParent.sku}-${watchedSkuVariant}`;
       setGeneratedSku(sku);
     }
   }, [selectedParent, watchedSkuVariant, watchedIsDamaged]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      reset();
+      setSelectedParent(null);
+      setSearchTerm('');
+      setShowDropdown(false);
+      setGeneratedSku('');
+      setExistingVariants([]);
+    }
+  }, [isOpen, reset]);
 
   const filteredParentProducts = parentProducts.filter(product =>
     product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,18 +168,6 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
       console.error('Error creating variant:', error);
       // Let the parent component handle the error display
     }
-  };
-
-  const canCreateVariant = (variant: string) => {
-    if (!selectedParent) return false;
-    
-    // Check if variant already exists
-    if (existingVariants.includes(variant)) return false;
-    
-    // Check variant count limit (max 3 variants per parent)
-    if (selectedParent.variant_count && selectedParent.variant_count >= 3) return false;
-    
-    return true;
   };
 
   const getVariantValidationRules = () => {

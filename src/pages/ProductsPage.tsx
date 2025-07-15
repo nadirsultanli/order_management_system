@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Package } from 'lucide-react';
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct } from '../hooks/useProducts';
+import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useCreateVariant, useCreateParentProduct } from '../hooks/useProducts';
 import { GroupedProductTable } from '../components/products/GroupedProductTable';
 import { ProductFilters } from '../components/products/ProductFilters';
 import { ProductForm } from '../components/products/ProductForm';
@@ -24,10 +24,10 @@ export const ProductsPage: React.FC = () => {
 
   const { data: groupedData, isLoading: groupedLoading, error: groupedError, refetch } = trpc.products.getGroupedProducts.useQuery(filters);
   const createProduct = useCreateProduct();
-  const createParentProduct = trpc.products.createParentProduct.useMutation();
+  const createParentProduct = useCreateParentProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
-  const createVariant = trpc.products.createVariant.useMutation();
+  const createVariant = useCreateVariant();
 
   // Debug logging
   useEffect(() => {
