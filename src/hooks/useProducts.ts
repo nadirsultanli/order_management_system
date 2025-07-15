@@ -1,7 +1,6 @@
 import { CreateProductData, UpdateProductData, ProductFilters, CreateVariantData } from '../types/product';
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
-import { useQueryClient } from '@tanstack/react-query';
 
 export const useProducts = (filters: ProductFilters = {}) => {
   return trpc.products.list.useQuery({
@@ -48,17 +47,17 @@ export const useProductOptions = (filters: {
 };
 
 export const useCreateProduct = () => {
-  const queryClient = useQueryClient();
+  const utils = trpc.useContext();
   
   return trpc.products.create.useMutation({
     onSuccess: (data: any) => {
       console.log('Product created successfully:', data);
       toast.success('Product created successfully');
       
-      // Invalidate and refetch product queries
-      queryClient.invalidateQueries(['products.list']);
-      queryClient.invalidateQueries(['products.getStats']);
-      queryClient.invalidateQueries(['products.getOptions']);
+      // Invalidate and refetch product queries using tRPC utils
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
     },
     onError: (error: Error) => {
       console.error('Create product mutation error:', error);
@@ -68,19 +67,19 @@ export const useCreateProduct = () => {
 };
 
 export const useUpdateProduct = () => {
-  const queryClient = useQueryClient();
+  const utils = trpc.useContext();
   
   return trpc.products.update.useMutation({
     onSuccess: (data: any) => {
       console.log('Product updated successfully:', data);
       toast.success('Product updated successfully');
       
-      // Invalidate and refetch product queries
-      queryClient.invalidateQueries(['products.list']);
-      queryClient.invalidateQueries(['products.getStats']);
-      queryClient.invalidateQueries(['products.getOptions']);
+      // Invalidate and refetch product queries using tRPC utils
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
       if (data.id) {
-        queryClient.invalidateQueries(['products.getById', { id: data.id }]);
+        utils.products.getById.invalidate({ id: data.id });
       }
     },
     onError: (error: Error) => {
@@ -91,18 +90,18 @@ export const useUpdateProduct = () => {
 };
 
 export const useDeleteProduct = () => {
-  const queryClient = useQueryClient();
+  const utils = trpc.useContext();
   
   return trpc.products.delete.useMutation({
     onSuccess: (_, variables) => {
       console.log('Product deleted successfully:', variables.id);
       toast.success('Product status set to obsolete');
       
-      // Invalidate and refetch product queries
-      queryClient.invalidateQueries(['products.list']);
-      queryClient.invalidateQueries(['products.getStats']);
-      queryClient.invalidateQueries(['products.getOptions']);
-      queryClient.invalidateQueries(['products.getById', { id: variables.id }]);
+      // Invalidate and refetch product queries using tRPC utils
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getById.invalidate({ id: variables.id });
     },
     onError: (error: Error) => {
       console.error('Delete product mutation error:', error);
