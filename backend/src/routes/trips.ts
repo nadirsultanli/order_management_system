@@ -96,17 +96,9 @@ export const tripsRouter = router({
       if (input.search) {
         query = query.or(`route_status.ilike.%${input.search}%,trip_notes.ilike.%${input.search}%,truck.fleet_number.ilike.%${input.search}%,truck.license_plate.ilike.%${input.search}%`);
       }
-
-      // Handle status filter - accepts comma-separated values
+      
       if (input.status) {
-        const allowed = ['planned', 'loading', 'loaded', 'in_transit', 'delivering', 'unloading', 'completed', 'cancelled'];
-        const statusList = input.status.split(',').map((s) => s.trim()).filter(s => allowed.includes(s));
-        
-        if (statusList.length === 1) {
-          query = query.eq('route_status', statusList[0]);
-        } else if (statusList.length > 1) {
-          query = query.in('route_status', statusList);
-        }
+        query = query.eq('route_status', input.status);
       }
       
       if (input.truck_id) {
@@ -115,9 +107,6 @@ export const tripsRouter = router({
       
       if (input.date_from) {
         query = query.gte('route_date', input.date_from);
-      }
-      if (input.driver_id) {
-        query = query.eq('driver_id', input.driver_id);
       }
       
       if (input.date_to) {
@@ -689,107 +678,102 @@ export const tripsRouter = router({
       return result;
     }),
 
-  // GET /trips - List trips with filters (DUPLICATE - COMMENTED OUT)
-  // getTrips: protectedProcedure
-  //   .meta({
-  //     openapi: {
-  //       method: 'GET',
-  //       path: '/trips',
-  //       tags: ['trips'],
-  //       summary: 'List trips',
-  //       description: 'Get a paginated list of trips with optional filtering',
-  //       protect: true,
-  //     }
-  //   })
-  //   .input(GetTripsSchema)
-  //   .output(z.any()) // ✅ No validation headaches!
-  //   .query(async ({ input, ctx }) => {
-  //     const user = requireAuth(ctx);
-  //     
-  //     ctx.logger.info('Fetching trips list:', input);
-  //     
-  //     let query = ctx.supabase
-  //       .from('truck_routes')
-  //       .select(`
-  //         *,
-  //         truck:truck_id (id, fleet_number, license_plate),
-  //         warehouse:warehouse_id (id, name)
-  //       `, { count: 'exact' });
+  // GET /trips - List trips with filters
+  getTrips: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trips',
+        tags: ['trips'],
+        summary: 'List trips',
+        description: 'Get a paginated list of trips with optional filtering',
+        protect: true,
+      }
+    })
+    .input(GetTripsSchema)
+    .output(z.any()) // ✅ No validation headaches!
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching trips list:', input);
+      
+      let query = ctx.supabase
+        .from('truck_routes')
+        .select(`
+          *,
+          truck:truck_id (id, fleet_number, license_plate),
+          warehouse:warehouse_id (id, name)
+        `, { count: 'exact' });
 
-  //     // Apply filters
-  //     if (input.truck_id) {
-  //       query = query.eq('truck_id', input.truck_id);
-  //     }
-  //     if (input.warehouse_id) {
-  //       query = query.eq('warehouse_id', input.warehouse_id);
-  //     }
-  //     if (input.driver_id) {
-  //       query = query.eq('driver_id', input.driver_id);
-  //     }
-  //     if (input.status) {
-  //       const statusList = input.status.split(',').map((s) => s.trim());
-  //       if (statusList.length === 1) {
-  //         query = query.eq('route_status', statusList[0]);
-  //       } else {
-  //         query = query.in('route_status', statusList);
-  //       }
-  //     }
-  //     if (input.date_from) {
-  //       query = query.gte('route_date', input.date_from);
-  //     }
-  //     if (input.date_to) {
-  //       query = query.lte('route_date', input.date_to);
-  //     }
+      // Apply filters
+      if (input.truck_id) {
+        query = query.eq('truck_id', input.truck_id);
+      }
+      if (input.warehouse_id) {
+        query = query.eq('warehouse_id', input.warehouse_id);
+      }
+      if (input.driver_id) {
+        query = query.eq('driver_id', input.driver_id);
+      }
+      if (input.status) {
+        query = query.eq('route_status', input.status);
+      }
+      if (input.date_from) {
+        query = query.gte('route_date', input.date_from);
+      }
+      if (input.date_to) {
+        query = query.lte('route_date', input.date_to);
+      }
 
-  //     // Apply pagination
-  //     const offset = (input.page - 1) * input.limit;
-  //     query = query.range(offset, offset + input.limit - 1);
-  //     query = query.order('route_date', { ascending: false });
+      // Apply pagination
+      const offset = (input.page - 1) * input.limit;
+      query = query.range(offset, offset + input.limit - 1);
+      query = query.order('route_date', { ascending: false });
 
-  //     const { data: trips, error, count } = await query;
+      const { data: trips, error, count } = await query;
 
-  //     if (error) {
-  //       ctx.logger.error('Error fetching trips:', error);
-  //       throw new TRPCError({
-  //         code: 'INTERNAL_SERVER_ERROR',
-  //         message: `Failed to fetch trips: ${formatErrorMessage(error)}`,
-  //       });
-  //     }
+      if (error) {
+        ctx.logger.error('Error fetching trips:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch trips: ${formatErrorMessage(error)}`,
+        });
+      }
 
-  //     // Fetch driver information for each trip
-  //     const tripsWithDrivers = await Promise.all(
-  //       (trips || []).map(async (trip) => {
-  //         let driver = null;
-  //         if (trip.driver_id) {
-  //           const { data: driverData } = await ctx.supabase
-  //             .from('admin_users')
-  //             .select('id, name, email, phone')
-  //             .eq('id', trip.driver_id)
-  //             .single();
-  //           
-  //           if (driverData) {
-  //             driver = driverData;
-  //           }
-  //         }
-  //         
-  //         return {
-  //           ...trip,
-  //           driver,
-  //           driver_name: driver?.name || null
-  //         };
-  //       })
-  //     );
+      // Fetch driver information for each trip
+      const tripsWithDrivers = await Promise.all(
+        (trips || []).map(async (trip) => {
+          let driver = null;
+          if (trip.driver_id) {
+            const { data: driverData } = await ctx.supabase
+              .from('admin_users')
+              .select('id, name, email, phone')
+              .eq('id', trip.driver_id)
+              .single();
+            
+            if (driverData) {
+              driver = driverData;
+            }
+          }
+          
+          return {
+            ...trip,
+            driver,
+            driver_name: driver?.name || null
+          };
+        })
+      );
 
-  //     return {
-  //       trips: tripsWithDrivers,
-  //       pagination: {
-  //         page: input.page,
-  //         limit: input.limit,
-  //         total: count || 0,
-  //         pages: Math.ceil((count || 0) / input.limit),
-  //       },
-  //     };
-  //   }),
+      return {
+        trips: tripsWithDrivers,
+        pagination: {
+          page: input.page,
+          limit: input.limit,
+          total: count || 0,
+          pages: Math.ceil((count || 0) / input.limit),
+        },
+      };
+    }),
 
   // PUT /trips/{id}/status - Update trip status
   updateTripStatus: protectedProcedure

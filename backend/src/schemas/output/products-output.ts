@@ -37,7 +37,6 @@ export const ProductBaseSchema = z.object({
   parent_product_id: z.string().nullable(),
   variant_name: z.string().nullable(),
   is_variant: z.boolean(),
-  sku_variant: z.enum(['EMPTY', 'FULL-XCH', 'FULL-OUT', 'DAMAGED']).nullable(),
   tax_category: z.string().optional(),
   tax_rate: z.number().optional(),
   created_at: z.string(),
@@ -224,45 +223,16 @@ export const StandardCylinderVariantsResponseSchema = z.object({
   })),
 });
 
+export const GeneratedSkuResponseSchema = z.object({
+  variant_sku: z.string(),
+});
 
-
-// ============ Parent Products ============
-
-export const ParentProductBaseSchema = z.object({
-  id: z.string(),
+export const CreateVariantDataResponseSchema = z.object({
+  parent_product_id: z.string(),
+  variant_name: z.string(),
   sku: z.string(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const ParentProductWithVariantsSchema = ParentProductBaseSchema.extend({
-  variants: z.array(ProductBaseSchema).optional(),
-  variant_count: z.number().default(0),
-});
-
-export const CreateParentProductResponseSchema = ParentProductBaseSchema;
-
-export const UpdateParentProductResponseSchema = ParentProductBaseSchema;
-
-export const GetParentProductByIdResponseSchema = ParentProductWithVariantsSchema;
-
-export const ParentProductListResponseSchema = z.object({
-  parent_products: z.array(ParentProductWithVariantsSchema),
-  totalCount: z.number(),
-  totalPages: z.number(),
-  currentPage: z.number(),
-  summary: z.object({
-    total_parent_products: z.number(),
-    products_with_variants: z.number(),
-    avg_variants_per_product: z.number(),
-  }),
-});
-
-export const ParentProductOptionSchema = z.object({
-  id: z.string(),
-  sku: z.string(),
-});
-
-export const ParentProductOptionsResponseSchema = z.array(ParentProductOptionSchema);
-
-export const ValidateParentProductSkuResponseSchema = ValidationResponseSchema; 
+  name: z.string(),
+  description: z.string(),
+  status: z.enum(['active', 'obsolete']),
+  barcode_uid: z.undefined(),
+}); 

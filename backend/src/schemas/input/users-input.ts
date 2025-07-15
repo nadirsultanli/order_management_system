@@ -45,7 +45,6 @@ export const CreateUserSchema = z.object({
 }, {
   message: 'Password is required for admin users',
   path: ['password'],
-
 });
 
 // User update schema

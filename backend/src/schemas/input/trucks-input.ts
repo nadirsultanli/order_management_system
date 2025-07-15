@@ -229,7 +229,7 @@ export const GetTripsSchema = z.object({
   truck_id: z.string().uuid().optional(),
   warehouse_id: z.string().uuid().optional(),
   driver_id: z.string().uuid().optional(),
-  status: z.string().optional(),
+  status: TripStatusEnum.optional(),
   date_from: z.string().optional(),
   date_to: z.string().optional(),
   search: z.string().optional(),
