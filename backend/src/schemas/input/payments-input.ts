@@ -19,7 +19,6 @@ export const RecordPaymentSchema = z.object({
   amount: z.number().positive(),
   payment_method: PaymentMethodEnum,
   payment_date: z.string().datetime().optional(),
-  reference_number: z.string().optional(),
   notes: z.string().optional(),
   metadata: z.record(z.any()).optional(),
   paid_by: z.string().uuid(), // The customer making the payment

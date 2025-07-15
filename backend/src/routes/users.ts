@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, protectedProcedure } from '../lib/trpc';
+import { router, publicProcedure, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { supabaseAdmin } from '../lib/supabase';
@@ -12,7 +12,10 @@ import {
   DriversFilterSchema,
   ChangePasswordSchema,
   UserValidationSchema,
+  ValidateEmailSchema,
+  SimpleResetPasswordSchema,
 } from '../schemas/input/users-input';
+import { UserSchema, UserListSchema } from '../schemas/output/users-output';
 
 export const usersRouter = router({
   // GET /users - List users with filtering and pagination
@@ -28,7 +31,7 @@ export const usersRouter = router({
       }
     })
     .input(UserFiltersSchema)
-    .output(z.any())
+    .output(UserListSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -126,7 +129,7 @@ export const usersRouter = router({
       }
     })
     .input(UserIdSchema)
-    .output(z.any())
+    .output(UserSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -175,28 +178,36 @@ export const usersRouter = router({
       ctx.logger.info('Creating user:', { email: input.email, role: input.role });
       
       try {
-        // Create user in Supabase Auth first
-        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: input.email,
-          password: input.password,
-          email_confirm: true, // Auto-confirm for admin-created users
-        });
-
-        if (authError || !authData.user) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: authError?.message || 'Failed to create auth user',
+        let authUserId: string | null = null;
+        if (input.password) {
+          // Create user in Supabase Auth first if password is provided
+          const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: input.email,
+            password: input.password,
+            email_confirm: true, // Auto-confirm for admin-created users
           });
+
+          if (authError || !authData.user) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: authError?.message || 'Failed to create auth user',
+            });
+          }
+          authUserId = authData.user.id;
         }
 
         // Create user record in admin_users table
         const insertData: any = {
-          auth_user_id: authData.user.id,
+          auth_user_id: authUserId,
           email: input.email,
           name: input.name,
           role: input.role,
           active: true, // Ensure users created by admins are active
         };
+        if (input.phone) insertData.phone = input.phone;
+        if (input.employee_id) insertData.employee_id = input.employee_id;
+        if (input.department) insertData.department = input.department;
+        if (input.hire_date) insertData.hire_date = input.hire_date;
 
         // Add optional fields if provided
         if (input.phone) insertData.phone = input.phone;
@@ -216,8 +227,9 @@ export const usersRouter = router({
 
         if (userError) {
           // Clean up auth user if admin_users creation fails
-          await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-          
+          if (authUserId) {
+            await supabaseAdmin.auth.admin.deleteUser(authUserId);
+          }
           ctx.logger.error('User creation failed:', userError);
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
@@ -587,5 +599,150 @@ export const usersRouter = router({
         errors,
         warnings,
       };
+    }),
+
+  // POST /users/validate-email - Validate if email exists
+  validateEmail: publicProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/users/validate-email',
+        tags: ['users', 'password-reset'],
+        summary: 'Validate email exists',
+        description: 'Check if user email exists in the system',
+        protect: true,
+      }
+    })
+    .input(ValidateEmailSchema)
+    .output(z.object({
+      exists: z.boolean(),
+      message: z.string(),
+      user_name: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // No authentication required
+      ctx.logger.info('Validating email exists:', input.email);
+      
+      try {
+        // Check if user exists in admin_users table
+        const { data: userData, error: userError } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name, email')
+          .eq('email', input.email)
+          .single();
+
+        if (userError || !userData) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No user found with this email address'
+          });
+        }
+
+        ctx.logger.info('Email validation successful for:', userData.name);
+        
+        return {
+          exists: true,
+          message: 'Email found. You can proceed to reset password.',
+          user_name: userData.name
+        };
+
+      } catch (error) {
+        ctx.logger.error('Email validation error:', error);
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No user found with this email address'
+        });
+      }
+    }),
+
+  // POST /users/reset-password-simple - Reset password with email validation
+  resetPasswordSimple: publicProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/users/reset-password-simple',
+        tags: ['users', 'password-reset'],
+        summary: 'Reset password (simple)',
+        description: 'Reset user password after validating email exists (no token required)',
+        protect: true,
+      }
+    })
+    .input(SimpleResetPasswordSchema)
+    .output(z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      // No authentication required
+      ctx.logger.info('Resetting password for email:', input.email);
+      
+      try {
+        // Validate that passwords match (also done in schema)
+        if (input.password !== input.confirm_password) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Passwords do not match'
+          });
+        }
+
+        // Check if user exists and get auth_user_id
+        const { data: userData, error: userError } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name, email, auth_user_id')
+          .eq('email', input.email)
+          .single();
+
+        if (userError || !userData) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'No user found with this email address'
+          });
+        }
+
+        if (!userData.auth_user_id) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'User account is not properly configured'
+          });
+        }
+
+        // Update password in Supabase Auth
+        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
+          userData.auth_user_id,
+          { password: input.password }
+        );
+
+        if (authError) {
+          ctx.logger.error('Password reset error:', authError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to reset password: ${authError.message}`
+          });
+        }
+
+        ctx.logger.info('Password reset successful for user:', userData.name);
+        
+        return {
+          success: true,
+          message: `Password has been reset successfully for ${userData.name}`
+        };
+
+      } catch (error) {
+        ctx.logger.error('Password reset error:', error);
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to reset password'
+        });
+      }
     }),
 });

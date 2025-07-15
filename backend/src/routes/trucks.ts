@@ -97,7 +97,7 @@ export const trucksRouter = router({
       }
     })
     .input(TruckFiltersSchema.optional())
-    .output(z.any())
+    .output(TruckListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -225,7 +225,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetTruckByIdSchema)
-    .output(z.any())
+    .output(TruckDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -304,7 +304,7 @@ export const trucksRouter = router({
       }
     })
     .input(CreateTruckSchema)
-    .output(z.any())
+    .output(CreateTruckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -361,7 +361,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateTruckSchema)
-    .output(z.any())
+    .output(UpdateTruckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -414,7 +414,7 @@ export const trucksRouter = router({
       }
     })
     .input(DeleteTruckSchema)
-    .output(z.any())
+    .output(DeleteTruckResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -457,7 +457,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetAllocationsSchema)
-    .output(z.any())
+    .output(GetAllocationsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -507,7 +507,7 @@ export const trucksRouter = router({
       }
     })
     .input(TruckAllocationSchema)
-    .output(z.any())
+    .output(CreateAllocationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -555,7 +555,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateTruckAllocationSchema)
-    .output(z.any())
+    .output(UpdateAllocationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -603,7 +603,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetRoutesSchema)
-    .output(z.any())
+    .output(GetRoutesResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -653,7 +653,7 @@ export const trucksRouter = router({
       }
     })
     .input(CreateTruckRouteSchema)
-    .output(z.any())
+    .output(CreateRouteResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -702,7 +702,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateTruckRouteSchema)
-    .output(z.any())
+    .output(UpdateRouteResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -753,7 +753,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetMaintenanceSchema)
-    .output(z.any())
+    .output(GetMaintenanceResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -800,7 +800,7 @@ export const trucksRouter = router({
       }
     })
     .input(CreateMaintenanceSchema)
-    .output(z.any())
+    .output(CreateMaintenanceResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -849,7 +849,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateMaintenanceSchema)
-    .output(z.any())
+    .output(UpdateMaintenanceResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -900,7 +900,7 @@ export const trucksRouter = router({
       }
     })
     .input(CalculateOrderWeightSchema)
-    .output(z.any())
+    .output(OrderWeightResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -947,7 +947,7 @@ export const trucksRouter = router({
       }
     })
     .input(CalculateCapacitySchema)
-    .output(z.any())
+    .output(TruckCapacityResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1040,7 +1040,7 @@ export const trucksRouter = router({
       }
     })
     .input(FindBestAllocationSchema)
-    .output(z.any())
+    .output(BestAllocationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1127,7 +1127,7 @@ export const trucksRouter = router({
       }
     })
     .input(ValidateAllocationSchema)
-    .output(z.any())
+    .output(AllocationValidationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1214,7 +1214,7 @@ export const trucksRouter = router({
     //   }
     // })
     .input(GenerateScheduleSchema)
-    // .output(z.any())
+    .output(TruckScheduleResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1306,7 +1306,7 @@ export const trucksRouter = router({
       }
     })
     .input(OptimizeAllocationsSchema)
-    .output(z.any())
+    .output(OptimizedAllocationsResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1415,7 +1415,7 @@ export const trucksRouter = router({
       }
     })
     .input(ValidateLoadingCapacitySchema)
-    .output(z.any())
+    .output(AllocationValidationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1502,7 +1502,7 @@ export const trucksRouter = router({
       }
     })
     .input(LoadInventorySchema)
-    .output(z.any())
+    .output(LoadInventoryResponseSchema)
     .mutation(async ({ input, ctx }) => {
         const user = requireAuth(ctx);
       
@@ -1857,7 +1857,7 @@ export const trucksRouter = router({
       }
     })
     .input(UnloadInventorySchema)
-    .output(z.any())
+    .output(UnloadInventoryResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1986,7 +1986,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetInventorySchema)
-    .output(z.any())
+    .output(TruckInventoryResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

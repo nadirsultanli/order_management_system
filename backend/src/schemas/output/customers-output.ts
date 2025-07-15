@@ -67,8 +67,8 @@ export const CustomerListItemSchema = z.object({
     is_primary: z.boolean(),
     postal_code: z.string(),
     instructions: z.string(),
-    delivery_window_end: z.string(),
-    delivery_window_start: z.string(),
+    delivery_window_end: z.string().nullable(),
+    delivery_window_start: z.string().nullable(),
   })), // ✅ ARRAY format - matches your API exactly!
 });
 
@@ -104,8 +104,8 @@ export const CustomerDetailsOutputSchema = CustomerOutputSchema.extend({
     is_primary: z.boolean(),
     postal_code: z.string(),
     instructions: z.string(),
-    delivery_window_end: z.string(),
-    delivery_window_start: z.string(),
+    delivery_window_end: z.string().nullable(),
+    delivery_window_start: z.string().nullable(),
   })).nullable(), // ✅ ARRAY format or null - matches API exactly!
 });
 

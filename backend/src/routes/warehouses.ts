@@ -38,7 +38,7 @@ export const warehousesRouter = router({
       }
     })
     .input(WarehouseFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(WarehouseListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -110,7 +110,7 @@ export const warehousesRouter = router({
       }
     })
     .input(GetWarehouseByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(WarehouseDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -161,7 +161,7 @@ export const warehousesRouter = router({
       }
     })
     .input(z.void())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(WarehouseStatsResponseSchema)
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -206,7 +206,7 @@ export const warehousesRouter = router({
       } 
     })
     .input(z.void())
-    .output(z.any())
+    .output(WarehouseOptionsResponseSchema)
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       

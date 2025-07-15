@@ -85,7 +85,7 @@ export const pricingRouter = router({
       }
     })
     .input(PriceListFiltersSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(PriceListListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -163,7 +163,7 @@ export const pricingRouter = router({
       }
     })
     .input(LegacyPriceListFiltersSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(PriceListDetailResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -199,7 +199,7 @@ export const pricingRouter = router({
       }
     })
     .input(CreatePriceListSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(CreatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -272,7 +272,7 @@ export const pricingRouter = router({
       }
     })
     .input(UpdatePriceListSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(UpdatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -362,7 +362,7 @@ export const pricingRouter = router({
       }
     })
     .input(PriceListItemFiltersSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(PriceListItemsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -431,7 +431,7 @@ export const pricingRouter = router({
       }
     })
     .input(CreatePriceListItemSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(CreatePriceListItemResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -501,7 +501,7 @@ export const pricingRouter = router({
       }
     })
     .input(CalculateFinalPriceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(CalculateFinalPriceResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -522,7 +522,7 @@ export const pricingRouter = router({
       }
     })
     .input(GetPriceListStatusSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(GetPriceListStatusResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -541,7 +541,7 @@ export const pricingRouter = router({
       }
     })
     .input(ValidateDateRangeSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ValidateDateRangeResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -562,7 +562,7 @@ export const pricingRouter = router({
       }
     })
     .input(IsExpiringSoonSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(IsExpiringSoonResponseSchema)
     .query(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -583,7 +583,7 @@ export const pricingRouter = router({
       }
     })
     .input(GetProductPriceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ProductPriceResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -603,7 +603,7 @@ export const pricingRouter = router({
       }
     })
     .input(GetProductPricesSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ProductPricesResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -623,7 +623,7 @@ export const pricingRouter = router({
       }
     })
     .input(GetProductPriceListItemsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ProductPriceListItemsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -690,7 +690,7 @@ export const pricingRouter = router({
       }
     })
     .input(CalculateOrderTotalsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(OrderTotalsResponseSchema)
     .mutation(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -715,7 +715,7 @@ export const pricingRouter = router({
       }
     })
     .input(ValidateProductPricingSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ValidateProductPricingResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -739,7 +739,7 @@ export const pricingRouter = router({
       }
     })
     .input(GetActivePriceListsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ActivePriceListsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -758,7 +758,7 @@ export const pricingRouter = router({
       }
     })
     .input(FormatCurrencySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(FormatCurrencyResponseSchema)
     .mutation(({ input, ctx }) => {
       const user = requireAuth(ctx);
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
@@ -779,7 +779,7 @@ export const pricingRouter = router({
       }
     })
     .input(PriceListFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(PriceListListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -974,7 +974,7 @@ export const pricingRouter = router({
       }
     })
     .input(UpdatePriceListSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(UpdatePriceListResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

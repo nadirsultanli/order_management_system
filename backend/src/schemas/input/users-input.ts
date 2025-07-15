@@ -25,7 +25,7 @@ export const UserFiltersSchema = z.object({
 // User creation schema
 export const CreateUserSchema = z.object({
   email: z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  password: z.string().min(6, 'Password must be at least 6 characters').optional(),
   name: z.string().min(1, 'Name is required'),
   role: z.enum(['admin', 'driver', 'user']).default('user'),
   phone: z.string().optional(),
@@ -97,3 +97,21 @@ export type DeleteUser = z.infer<typeof DeleteUserSchema>;
 export type DriversFilter = z.infer<typeof DriversFilterSchema>;
 export type ChangePassword = z.infer<typeof ChangePasswordSchema>;
 export type UserValidation = z.infer<typeof UserValidationSchema>;
+
+export const ValidateEmailSchema = z.object({
+  email: z.string().email('Valid email is required'),
+});
+
+export const SimpleResetPasswordSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/\d/, 'Password must contain at least one number')
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, 'Password must contain at least one special character'),
+  confirm_password: z.string().min(1, 'Password confirmation is required'),
+}).refine((data) => data.password === data.confirm_password, {
+  message: "Passwords don't match",
+  path: ["confirm_password"],
+});

@@ -42,7 +42,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(ProcessSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ProcessResultSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -138,7 +138,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(CompleteSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(CompleteResultSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -226,7 +226,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(ListDeliveriesSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(DeliveriesListSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -291,7 +291,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(ListPickupsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(PickupsListSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -356,7 +356,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(CustomerBalanceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(CustomerBalanceOutputSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -389,7 +389,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(DeliveryIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(DeliveryDetailsSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -451,7 +451,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(PickupIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(PickupDetailsSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       
@@ -513,7 +513,7 @@ export const deliveriesRouter = router({
       }
     })
     .input(CustomerTransactionsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(CustomerTransactionsOutputSchema)
     .query(async ({ input, ctx }) => {
       requireAuth(ctx);
       

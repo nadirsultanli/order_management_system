@@ -58,7 +58,7 @@ export const TransferFiltersSchema = z.object({
 });
 
 export const GetTransferByIdSchema = z.object({
-  transfer_id: z.string().uuid(),
+  id: z.string().uuid(),
 });
 
 export const ValidateTransferSchema = z.object({
@@ -71,7 +71,10 @@ export const ValidateTransferSchema = z.object({
 export const CreateTransferSchema = z.object({
   source_warehouse_id: z.string().uuid(),
   destination_warehouse_id: z.string().uuid(),
-  transfer_date: z.string(),
+  transfer_date: z.string().optional().default(() => {
+    const today = new Date();
+    return today.toISOString().slice(0, 10);
+  }),
   scheduled_date: z.string().optional(),
   priority: TransferPriorityEnum.default('normal'),
   transfer_reference: z.string().optional(),

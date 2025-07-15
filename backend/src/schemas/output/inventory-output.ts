@@ -194,7 +194,7 @@ export const LowStockItemSchema = z.object({
   qty_reserved: z.number(),
   updated_at: z.string(),
   warehouse: WarehouseBaseSchema,
-  product: ProductBaseSchema,
+  product: ProductBaseSchema.nullable(),
 }).merge(StockAnalysisSchema);
 
 export const LowStockSummarySchema = z.object({
@@ -239,4 +239,14 @@ export const OverallFulfillmentSchema = z.object({
 export const AvailabilityResponseSchema = z.object({
   availability_results: z.array(AvailabilityResultSchema),
   overall_fulfillment: OverallFulfillmentSchema,
+});
+
+// ============ Inventory Receipt Output Schema ============
+
+/**
+ * Output schema for /inventory/receipts endpoint
+ */
+export const CreateReceiptResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
 }); 

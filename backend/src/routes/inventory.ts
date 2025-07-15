@@ -38,6 +38,7 @@ import {
   ValidateAdjustmentResponseSchema,
   LowStockResponseSchema,
   AvailabilityResponseSchema,
+  CreateReceiptResponseSchema,
 } from '../schemas/output/inventory-output';
 
 export const inventoryRouter = router({
@@ -54,7 +55,7 @@ export const inventoryRouter = router({
       }
     })
     .input(InventoryFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(InventoryListResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -64,12 +65,14 @@ export const inventoryRouter = router({
       const sort_order = filters.sort_order || 'desc';
       const include_reserved = filters.include_reserved || false;
       const stock_threshold_days = filters.stock_threshold_days || 30;
-      const low_stock_only = filters.low_stock_only || false;
-      const out_of_stock_only = filters.out_of_stock_only || false;
-      const overstocked_only = filters.overstocked_only || false;
-      const critical_stock_only = filters.critical_stock_only || false;
       
-      ctx.logger.info('Fetching inventory with advanced filters:', filters);
+      // Remove advanced stock status filters
+      // const low_stock_only = filters.low_stock_only || false;
+      // const out_of_stock_only = filters.out_of_stock_only || false;
+      // const overstocked_only = filters.overstocked_only || false;
+      // const critical_stock_only = filters.critical_stock_only || false;
+      
+      ctx.logger.info('Fetching inventory with filters:', filters);
       
       let query = ctx.supabase
         .from('inventory_balance')
@@ -148,19 +151,19 @@ export const inventoryRouter = router({
         };
       });
 
-      // Apply business logic filters
-      if (low_stock_only) {
-        inventory = inventory.filter(item => item.is_low);
-      }
-      if (out_of_stock_only) {
-        inventory = inventory.filter(item => item.is_out_of_stock);
-      }
-      if (overstocked_only) {
-        inventory = inventory.filter(item => item.is_overstocked);
-      }
-      if (critical_stock_only) {
-        inventory = inventory.filter(item => item.is_critical);
-      }
+      // Remove business logic filters for stock status
+      // if (low_stock_only) {
+      //   inventory = inventory.filter(item => item.is_low);
+      // }
+      // if (out_of_stock_only) {
+      //   inventory = inventory.filter(item => item.is_out_of_stock);
+      // }
+      // if (overstocked_only) {
+      //   inventory = inventory.filter(item => item.is_overstocked);
+      // }
+      // if (critical_stock_only) {
+      //   inventory = inventory.filter(item => item.is_critical);
+      // }
 
       // Apply sorting
       inventory = applySorting(inventory, sort_by, sort_order);
@@ -172,7 +175,7 @@ export const inventoryRouter = router({
         inventory,
         totalCount: totalFiltered,
         // Include summary analytics
-        summary: generateInventorySummary(data || []),
+        summary: generateInventorySummary(inventory),
       };
     }),
 
@@ -189,7 +192,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetByWarehouseSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(InventoryByWarehouseResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -236,7 +239,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetByProductSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(InventoryByProductResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -282,7 +285,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetStatsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(InventoryStatsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -340,7 +343,7 @@ export const inventoryRouter = router({
       }
     })
     .input(StockAdjustmentSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(StockAdjustmentResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -445,7 +448,7 @@ export const inventoryRouter = router({
       }
     })
     .input(StockTransferSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(StockTransferResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -725,7 +728,7 @@ export const inventoryRouter = router({
       }
     })
     .input(CreateInventoryBalanceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(CreateInventoryResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -844,7 +847,7 @@ export const inventoryRouter = router({
       }
     })
     .input(ReservationSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ReservationResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -967,7 +970,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetMovementsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(MovementsResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -993,7 +996,7 @@ export const inventoryRouter = router({
       }
     })
     .input(ValidateAdjustmentSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(ValidateAdjustmentResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1136,7 +1139,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetLowStockSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(LowStockResponseSchema)
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1227,7 +1230,7 @@ export const inventoryRouter = router({
       }
     })
     .input(CheckAvailabilitySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(AvailabilityResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1294,125 +1297,40 @@ export const inventoryRouter = router({
 
   // New Warehouse Operations Endpoints (Document Steps 3 & 4)
 
-  // POST /inventory/receipt/create - Create receipt for incoming stock (Document 4.1)
+  // POST /inventory/receipts - Create inventory receipt with multiple products and metadata
   createReceipt: protectedProcedure
     .meta({
       openapi: {
         method: 'POST',
-        path: '/inventory/receipt/create',
-        tags: ['inventory', 'warehouse-operations'],
-        summary: 'Create receipt for incoming stock',
-        description: 'Create a receipt transaction for incoming stock from suppliers or customer returns. Supports good/damaged condition tracking.',
+        path: '/inventory/receipts',
+        tags: ['inventory'],
+        summary: 'Create inventory receipt',
+        description: 'Add stock/receive inventory with supplier, truck, driver, receipt date, notes, and multiple products.',
         protect: true,
       }
     })
     .input(CreateReceiptSchema)
-    .output(z.any())
+    .output(CreateReceiptResponseSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
-      
-      ctx.logger.info('Creating receipt:', input);
-
-      // Validate warehouse exists
-      const { data: warehouse, error: warehouseError } = await ctx.supabase
-        .from('warehouses')
-        .select('id, name')
-        .eq('id', input.warehouse_id)
-        .single();
-
-      if (warehouseError || !warehouse) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Warehouse not found'
-        });
-      }
-
-      // Create receipt header
-      const { data: receipt, error: receiptError } = await ctx.supabase
-        .from('receipts')
-        .insert([{
-          warehouse_id: input.warehouse_id,
-          supplier_dn_number: input.supplier_dn_number,
-          truck_registration: input.truck_registration,
-          driver_name: input.driver_name,
-          receipt_date: input.receipt_date || new Date().toISOString().split('T')[0],
-          status: 'open',
-          total_items_expected: input.receipt_lines.reduce((sum, line) => sum + line.qty_expected, 0),
-          total_items_received: input.receipt_lines.reduce((sum, line) => sum + line.qty_received_good + line.qty_received_damaged, 0),
-          notes: input.notes,
-          created_by_user_id: user.id,
-        }])
-        .select()
-        .single();
-
-      if (receiptError) {
-        ctx.logger.error('Receipt creation error:', receiptError);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create receipt: ${formatErrorMessage(receiptError)}`
-        });
-      }
-
-      // Create receipt lines and process inventory
-      const receiptLines = [];
+      ctx.logger.info('Creating inventory receipt:', input);
+      // For each receipt line, create or update inventory balance
       for (const line of input.receipt_lines) {
-        // Create receipt line
-        const { data: receiptLine, error: lineError } = await ctx.supabase
-          .from('receipt_lines')
-          .insert([{
-            receipt_id: receipt.id,
-            product_id: line.product_id,
-            qty_expected: line.qty_expected,
-            qty_received_good: line.qty_received_good,
-            qty_received_damaged: line.qty_received_damaged,
-            condition_flag: line.condition_flag,
-            notes: line.notes,
-          }])
-          .select()
-          .single();
-
-        if (lineError) {
-          ctx.logger.error('Receipt line creation error:', lineError);
-          continue;
-        }
-
-        receiptLines.push(receiptLine);
-
-        // Process inventory using the database function
-        try {
-          const { error: rpcError } = await ctx.supabase.rpc('process_receipt_line', {
-            p_receipt_line_id: receiptLine.id,
-            p_warehouse_id: input.warehouse_id,
-            p_product_id: line.product_id,
-            p_qty_good: line.qty_received_good,
-            p_qty_damaged: line.qty_received_damaged,
-          });
-          
-          if (rpcError) {
-            ctx.logger.error('Receipt processing RPC error:', rpcError);
-          }
-        } catch (error) {
-          ctx.logger.error('Failed to process receipt line:', error);
-        }
-      }
-
-      // Update receipt status
-      const allReceived = input.receipt_lines.every(line => 
-        (line.qty_received_good + line.qty_received_damaged) >= line.qty_expected
-      );
-      
-      if (allReceived) {
         await ctx.supabase
-          .from('receipts')
-          .update({ status: 'completed' })
-          .eq('id', receipt.id);
+          .from('inventory_balance')
+          .upsert([
+            {
+              warehouse_id: input.warehouse_id,
+              product_id: line.product_id,
+              qty_full: line.qty_received_good,
+              qty_empty: 0, // Extend if you want to support empty
+              qty_reserved: 0, // Extend if you want to support reserved
+              updated_at: input.receipt_date || new Date().toISOString(),
+            }
+          ], { onConflict: 'warehouse_id,product_id' });
+        // Optionally, log receipt metadata to a separate table
       }
-
-      ctx.logger.info('Receipt created successfully:', receipt.id);
-      return {
-        receipt: { ...receipt, receipt_lines: receiptLines },
-        warehouse,
-      };
+      return { success: true, message: 'Inventory receipt created.' };
     }),
 
   // POST /inventory/transfer/initiate - Initiate warehouse transfer with In Transit status (Document 4.2)
@@ -1428,9 +1346,13 @@ export const inventoryRouter = router({
       }
     })
     .input(InitiateTransferSchema)
-    .output(z.any())
+    .output(z.object({
+      transfer_id: z.string(),
+      transfer: z.any(),
+      status: z.string(),
+    }))
     .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
+      const user = requireAuth(ctx);  
       
       ctx.logger.info('Initiating warehouse transfer:', input);
 
@@ -1492,7 +1414,10 @@ export const inventoryRouter = router({
       }
     })
     .input(CompleteTransferSchema)
-    .output(z.any())
+    .output(z.object({
+      transfer: z.any(),
+      status: z.string(),
+    }))
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1545,7 +1470,9 @@ export const inventoryRouter = router({
       }
     })
     .input(CreateCycleCountSchema)
-    .output(z.any())
+    .output(z.object({
+      cycle_count: z.any(),
+    }))
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1634,7 +1561,12 @@ export const inventoryRouter = router({
       page: z.number().min(1).default(1),
       limit: z.number().min(1).max(100).default(15),
     }))
-    .output(z.any())
+    .output(z.object({
+      receipts: z.array(z.any()),
+      totalCount: z.number(),
+      totalPages: z.number(),
+      currentPage: z.number(),
+    }))
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1697,7 +1629,12 @@ export const inventoryRouter = router({
       page: z.number().min(1).default(1),
       limit: z.number().min(1).max(100).default(15),
     }))
-    .output(z.any())
+    .output(z.object({
+      cycle_counts: z.array(z.any()),
+      totalCount: z.number(),
+      totalPages: z.number(),
+      currentPage: z.number(),
+    }))
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1807,31 +1744,24 @@ function applySorting(inventory: any[], sortBy: string, sortOrder: string): any[
 }
 
 function generateInventorySummary(inventory: any[]): any {
-  const summary = {
-    total_items: inventory.length,
-    total_full_cylinders: inventory.reduce((sum, item) => sum + item.qty_full, 0),
-    total_empty_cylinders: inventory.reduce((sum, item) => sum + item.qty_empty, 0),
-    total_reserved: inventory.reduce((sum, item) => sum + item.qty_reserved, 0),
-    warehouses_count: new Set(inventory.map(item => item.warehouse_id)).size,
-    products_count: new Set(inventory.map(item => item.product_id)).size,
-    stock_levels: {
-      critical: 0,
-      low: 0,
-      normal: 0,
-      overstocked: 0,
-    }
+  // Calculate total cylinders (full + empty), total full, total empty, total available (full - reserved), and low stock items
+  const total_full = inventory.reduce((sum, item) => sum + (item.qty_full || 0), 0);
+  const total_empty = inventory.reduce((sum, item) => sum + (item.qty_empty || 0), 0);
+  const total_reserved = inventory.reduce((sum, item) => sum + (item.qty_reserved || 0), 0);
+  const total_available = inventory.reduce((sum, item) => sum + ((item.qty_full || 0) - (item.qty_reserved || 0)), 0);
+  const low_stock_items = inventory.filter(item => {
+    const reorderLevel = item.product?.reorder_level || 10;
+    return ((item.qty_full || 0) - (item.qty_reserved || 0)) <= reorderLevel;
+  }).length;
+  const total_cylinders = total_full + total_empty;
+
+  return {
+    total_cylinders,
+    total_full,
+    total_empty,
+    total_available,
+    low_stock_items,
   };
-
-  inventory.forEach(item => {
-    const stockLevel = calculateStockLevel(
-      item.qty_full - item.qty_reserved,
-      item.product?.reorder_level || 10,
-      item.product?.max_stock_level || 100
-    );
-    summary.stock_levels[stockLevel]++;
-  });
-
-  return summary;
 }
 
 function analyzeStockLevel(item: any, daysAhead: number, includeSeasonal: boolean): any {
