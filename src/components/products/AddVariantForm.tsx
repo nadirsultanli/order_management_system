@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { X, Loader2, AlertTriangle, Search, Check } from 'lucide-react';
+import { X, Loader2, Search, Check } from 'lucide-react';
 import { trpc } from '../../lib/trpc-client';
 
 interface AddVariantFormProps {
@@ -63,10 +63,13 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
   const watchedIsDamaged = watch('is_damaged');
 
   // Fetch parent products
-  const { data: parentProductsData, isLoading: loadingParents } = trpc.products.listParentProducts.useQuery({
+  const { data: parentProductsData, isLoading: loadingParents, refetch: refetchParentProducts } = trpc.products.listParentProducts.useQuery({
     page: 1,
     limit: 100,
     include_variant_counts: true,
+  }, {
+    staleTime: 0, // Always refetch to get latest data
+    refetchOnWindowFocus: true,
   });
 
   // Fetch existing variants for selected parent
@@ -93,11 +96,8 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
   const canCreateVariant = (variant: string) => {
     if (!selectedParent) return false;
     
-    // Check if variant already exists
+    // Check if variant already exists (only one of each variant type allowed)
     if (existingVariants.includes(variant)) return false;
-    
-    // Check variant count limit (max 3 variants per parent)
-    if (selectedParent.variant_count && selectedParent.variant_count >= 3) return false;
     
     return true;
   };
@@ -125,7 +125,7 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
     }
   }, [selectedParent, watchedSkuVariant, watchedIsDamaged]);
 
-  // Reset form when modal closes
+  // Reset form when modal closes, refetch parent products when modal opens
   useEffect(() => {
     if (!isOpen) {
       reset();
@@ -134,8 +134,11 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
       setShowDropdown(false);
       setGeneratedSku('');
       setExistingVariants([]);
+    } else {
+      // Refetch parent products when modal opens to get latest data
+      refetchParentProducts();
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, refetchParentProducts]);
 
   const filteredParentProducts = parentProducts.filter(product =>
     product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -280,7 +283,7 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
                         <div className="text-sm font-medium text-blue-900">{selectedParent.sku}</div>
                         <div className="text-sm text-blue-700">{selectedParent.name}</div>
                         <div className="text-xs text-blue-600">
-                          {selectedParent.variant_count || 0}/3 variants created
+                          {selectedParent.variant_count || 0} variants created
                         </div>
                       </div>
                     </div>
@@ -409,18 +412,6 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
                   />
                 </div>
 
-                {/* Variant Limits Warning */}
-                {selectedParent && selectedParent.variant_count && selectedParent.variant_count >= 3 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                    <div className="flex items-center space-x-2">
-                      <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                      <div className="text-sm text-yellow-800">
-                        <strong>Variant Limit Reached:</strong> This parent product already has the maximum of 3 variants. 
-                        You cannot create additional variants.
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -430,7 +421,6 @@ export const AddVariantForm: React.FC<AddVariantFormProps> = ({
                 disabled={
                   loading || 
                   !selectedParent || 
-                  (selectedParent.variant_count && selectedParent.variant_count >= 3) ||
                   (!watchedIsDamaged && !canCreateVariant(watchedSkuVariant))
                 }
                 className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
