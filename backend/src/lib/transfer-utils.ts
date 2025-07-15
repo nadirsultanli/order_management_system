@@ -68,11 +68,15 @@ export function validateTransferBasics(transfer: any): { errors: string[]; warni
 
   // Validate transfer date
   if (transfer.transfer_date) {
-    const transferDate = new Date(transfer.transfer_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Parse the date string and create a date at midnight in local timezone
+    const [year, month, day] = transfer.transfer_date.split('-').map(Number);
+    const transferDate = new Date(year, month - 1, day); // month is 0-indexed
     
-    if (transferDate < today) {
+    // Get today's date at midnight in local timezone
+    const today = new Date();
+    const todayAtMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    if (transferDate < todayAtMidnight) {
       errors.push('Transfer date cannot be in the past');
     }
   }

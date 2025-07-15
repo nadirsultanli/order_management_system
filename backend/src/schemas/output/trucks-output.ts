@@ -128,7 +128,7 @@ export const TruckAllocationSchema = z.object({
   order_id: z.string(),
   allocation_date: z.string(),
   estimated_weight_kg: z.number(),
-  stop_sequence: z.number().nullable(),
+  stop_sequence: z.number().optional(),
   status: z.string(),
   created_at: z.string(),
 });

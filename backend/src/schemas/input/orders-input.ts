@@ -87,7 +87,7 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
     delivery_address_id: z.string().uuid().optional(),
     source_warehouse_id: z.string().uuid(),
     order_date: z.string().optional(),
-    scheduled_date: optionalDatetime(),
+    scheduled_date: z.string().datetime().nullable().optional(),
     notes: z.string().optional(),
     idempotency_key: z.string().optional(),
     validate_pricing: z.boolean().default(true),
@@ -120,7 +120,7 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
   export const UpdateOrderStatusSchema = z.object({
     order_id: z.string().uuid(),
     new_status: OrderStatusEnum,
-    scheduled_date: optionalDatetime(),
+    scheduled_date: z.string().datetime().nullable().optional(),
     reason: z.string().optional(),
     metadata: z.record(z.any()).optional(),
   });
@@ -176,7 +176,7 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
       product_id: z.string().uuid(),
       quantity: z.number().positive(),
       expected_price: z.number().positive().optional(),
-      price_list_id: z.string().uuid().optional(),
+      price_list_id: z.string().uuid().nullable().optional(),
     })).min(1),
   });
 

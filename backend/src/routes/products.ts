@@ -201,18 +201,24 @@ export const productsRouter = router({
 
       let products = (data || []).map((product: any) => {
         const inventoryData = (product as any).inventory_balance || [];
-        const totalStock = inventoryData.reduce((sum: number, inv: any) => sum + inv.qty_full, 0);
-        const totalAvailable = inventoryData.reduce((sum: number, inv: any) => sum + (inv.qty_full - inv.qty_reserved), 0);
+        // Ensure every inventory_balance entry has a warehouse object with id
+        const safeInventoryData = inventoryData.map((inv: any) => ({
+          ...inv,
+          warehouse: inv.warehouse && inv.warehouse.id ? inv.warehouse : { id: '', name: '' },
+        }));
+        const totalStock = safeInventoryData.reduce((sum: number, inv: any) => sum + inv.qty_full, 0);
+        const totalAvailable = safeInventoryData.reduce((sum: number, inv: any) => sum + (inv.qty_full - inv.qty_reserved), 0);
         
         return {
           ...(product as any),
+          inventory_balance: safeInventoryData,
           inventory_summary: include_inventory_data ? {
             total_stock: totalStock,
             total_available: totalAvailable,
-            warehouse_count: inventoryData.length,
+            warehouse_count: safeInventoryData.length,
             stock_level: calculateProductStockLevel(totalAvailable),
             is_available: totalAvailable > 0,
-            last_restocked: getLastRestockedDate(inventoryData),
+            last_restocked: getLastRestockedDate(safeInventoryData),
           } : undefined,
           // Business logic fields
           popularity_score: calculatePopularity(product),
@@ -295,84 +301,6 @@ export const productsRouter = router({
       }
     }),
 
-  // GET /products/:id - Get single product by ID
-  getById: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/products/{id}',
-        tags: ['products'],
-        summary: 'Get product by ID',
-        description: 'Retrieve detailed information about a specific product by its ID.',
-        protect: true,
-      }
-    })
-    .input(GetProductByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Fetching product:', input.id);
-      
-      const { data, error } = await ctx.supabase
-        .from('products')
-        .select('*')
-        .eq('id', input.id)
-        .single();
-
-      if (error) {
-        ctx.logger.error('Error fetching product:', error);
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Product not found',
-        });
-      }
-
-      return data;
-    }),
-
-  // GET /products/stats - Get product statistics
-  getStats: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/products/stats',
-        tags: ['products'],
-        summary: 'Get product statistics',
-        description: 'Get basic statistics about products',
-        protect: true,
-      }
-    })
-    .input(GetProductStatsSchema)
-    .output(z.any()) // ✅ No validation headaches! 
-    .query(async ({ ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Fetching product statistics');
-      
-      const { data, error } = await ctx.supabase
-        .from('products')
-        .select('status, unit_of_measure');
-
-      if (error) {
-        ctx.logger.error('Error fetching product stats:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch product statistics',
-        });
-      }
-
-      const stats = {
-        total: data.length,
-        active: data.filter(p => p.status === 'active').length,
-        obsolete: data.filter(p => p.status === 'obsolete').length,
-        cylinders: data.filter(p => p.unit_of_measure === 'cylinder').length,
-        kg_products: data.filter(p => p.unit_of_measure === 'kg').length,
-      };
-
-      return stats;
-    }),
-
   // GET /products/options - Get product options for dropdowns
   getOptions: protectedProcedure
     .meta({
@@ -386,7 +314,7 @@ export const productsRouter = router({
       }
     })
     .input(GetProductOptionsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -423,6 +351,181 @@ export const productsRouter = router({
       }));
     }),
 
+  // GET /products/stats - Get product statistics
+  getStats: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/stats',
+        tags: ['products'],
+        summary: 'Get product statistics',
+        description: 'Get basic statistics about products',
+        protect: true,
+      }
+    })
+    .input(GetProductStatsSchema)
+    .output(z.any()) 
+    .query(async ({ ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching product statistics');
+      
+      const { data, error } = await ctx.supabase
+        .from('products')
+        .select('status, unit_of_measure');
+
+      if (error) {
+        ctx.logger.error('Error fetching product stats:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch product statistics',
+        });
+      }
+
+      const stats = {
+        total: data.length,
+        active: data.filter(p => p.status === 'active').length,
+        obsolete: data.filter(p => p.status === 'obsolete').length,
+        cylinders: data.filter(p => p.unit_of_measure === 'cylinder').length,
+        kg_products: data.filter(p => p.unit_of_measure === 'kg').length,
+      };
+
+      return stats;
+    }),
+
+  // GET /products/standard-cylinder-variants - Get standard cylinder variants
+  getStandardCylinderVariants: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/standard-cylinder-variants',
+        tags: ['products'],
+        summary: 'Get standard cylinder variants',
+        description: 'Get the standard cylinder variants (full/empty) used in the system.',
+        protect: true,
+      }
+    })
+    .input(GetStandardCylinderVariantsSchema)
+    .output(z.any())
+    .query(async ({ ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching standard cylinder variants');
+      
+      return {
+        variants: [
+          { name: 'full', description: 'Full cylinder ready for delivery' },
+          { name: 'empty', description: 'Empty cylinder for exchange/pickup' },
+        ]
+      };
+    }),
+
+  // POST /products/validate-sku - Validate SKU format and uniqueness
+  validateSku: protectedProcedure
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/products/validate-sku',
+    //     tags: ['products'],
+    //     summary: 'Validate SKU format and uniqueness',
+    //     description: 'Validate SKU format, length constraints, reserved prefixes, and uniqueness.',
+    //     protect: true,
+    //   }
+    // })
+    .input(ValidateSkuSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      // Business rule: SKU format validation
+      const skuPattern = /^[A-Z0-9-]+$/;
+      if (!skuPattern.test(input.sku)) {
+        errors.push('SKU must contain only uppercase letters, numbers, and hyphens');
+      }
+
+      // Business rule: SKU length constraints
+      if (input.sku.length < 3) {
+        errors.push('SKU must be at least 3 characters long');
+      }
+      
+      if (input.sku.length > 50) {
+        errors.push('SKU must be 50 characters or less');
+      }
+
+      // Business rule: Check for reserved SKU patterns
+      const reservedPrefixes = ['SYS-', 'ADMIN-', 'TEST-'];
+      const hasReservedPrefix = reservedPrefixes.some(prefix => input.sku.startsWith(prefix));
+      if (hasReservedPrefix) {
+        errors.push('SKU cannot start with reserved prefixes: ' + reservedPrefixes.join(', '));
+      }
+
+      // Check SKU uniqueness
+      let skuQuery = ctx.supabase
+        .from('products')
+        .select('id, name, status')
+        .eq('sku', input.sku)
+        ;
+
+      if (input.exclude_id) {
+        skuQuery = skuQuery.neq('id', input.exclude_id);
+      }
+
+      const { data: existingProduct } = await skuQuery.single();
+
+      if (existingProduct) {
+        if (existingProduct.status === 'obsolete') {
+          warnings.push(`SKU "${input.sku}" was previously used by obsolete product "${existingProduct.name}"`);
+        } else {
+          errors.push(`SKU "${input.sku}" is already used by active product "${existingProduct.name}"`);
+        }
+      }
+
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+      };
+    }),
+
+  // GET /products/{id} - Get single product by ID
+  getById: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/products/{id}',
+        tags: ['products'],
+        summary: 'Get product by ID',
+        description: 'Retrieve detailed information about a specific product by its ID.',
+        protect: true,
+      }
+    })
+    .input(GetProductByIdSchema)
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching product:', input.id);
+      
+      const { data, error } = await ctx.supabase
+        .from('products')
+        .select('*')
+        .eq('id', input.id)
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error fetching product:', error);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Product not found',
+        });
+      }
+
+      return data;
+    }),
+
   // POST /products - Create new product
   create: protectedProcedure
     .meta({
@@ -436,7 +539,7 @@ export const productsRouter = router({
       }
     })
     .input(CreateProductSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -456,22 +559,22 @@ export const productsRouter = router({
         });
       }
 
-      // If creating a variant, verify parent product exists
-      if (input.is_variant && input.parent_product_id) {
-        const { data: parentProduct, error: parentError } = await ctx.supabase
-          .from('products')
-          .select('id')
-          .eq('id', input.parent_product_id)
+      // // If creating a variant, verify parent product exists
+      // if (input.is_variant && input.parent_product_id) {
+      //   const { data: parentProduct, error: parentError } = await ctx.supabase
+      //     .from('products')
+      //     .select('id')
+      //     .eq('id', input.parent_product_id)
           
-          .single();
+      //     .single();
 
-        if (parentError || !parentProduct) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Parent product not found',
-          });
-        }
-      }
+      //   if (parentError || !parentProduct) {
+      //     throw new TRPCError({
+      //       code: 'BAD_REQUEST',
+      //       message: 'Parent product not found',
+      //     });
+      //   }
+      // }
 
       const { data, error } = await ctx.supabase
         .from('products')
@@ -506,7 +609,7 @@ export const productsRouter = router({
       }
     })
     .input(UpdateProductSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -566,7 +669,7 @@ export const productsRouter = router({
       }
     })
     .input(DeleteProductSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -619,18 +722,18 @@ export const productsRouter = router({
 
   // GET /products/:id/variants - Get product variants
   getVariants: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/products/{parent_product_id}/variants',
-        tags: ['products'],
-        summary: 'Get product variants',
-        description: 'Retrieve all variants for a specific parent product.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'GET',
+    //     path: '/products/{parent_product_id}/variants',
+    //     tags: ['products'],
+    //     summary: 'Get product variants',
+    //     description: 'Retrieve all variants for a specific parent product.',
+    //     protect: true,
+    //   }
+    // })
     .input(GetVariantsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -655,18 +758,18 @@ export const productsRouter = router({
 
   // POST /products/:id/variants - Create product variant
   createVariant: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/products/{parent_product_id}/variants',
-        tags: ['products'],
-        summary: 'Create product variant',
-        description: 'Create a new variant for an existing parent product with full validation.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/products/{parent_product_id}/variants',
+    //     tags: ['products'],
+    //     summary: 'Create product variant',
+    //     description: 'Create a new variant for an existing parent product with full validation.',
+    //     protect: true,
+    //   }
+    // })
     .input(CreateVariantSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -742,7 +845,7 @@ export const productsRouter = router({
       }
     })
     .input(BulkStatusUpdateSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -822,7 +925,7 @@ export const productsRouter = router({
       }
     })
     .input(ReactivateProductSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -866,7 +969,7 @@ export const productsRouter = router({
       }
     })
     .input(ValidateProductSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -909,76 +1012,6 @@ export const productsRouter = router({
       };
     }),
 
-  // POST /products/validate-sku - Validate SKU format and uniqueness
-  validateSku: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/products/validate-sku',
-        tags: ['products'],
-        summary: 'Validate SKU format and uniqueness',
-        description: 'Validate SKU format, length constraints, reserved prefixes, and uniqueness.',
-        protect: true,
-      }
-    })
-    .input(ValidateSkuSchema)
-    .output(z.any()) // ✅ No validation headaches!
-    .mutation(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      const errors: string[] = [];
-      const warnings: string[] = [];
-
-      // Business rule: SKU format validation
-      const skuPattern = /^[A-Z0-9-]+$/;
-      if (!skuPattern.test(input.sku)) {
-        errors.push('SKU must contain only uppercase letters, numbers, and hyphens');
-      }
-
-      // Business rule: SKU length constraints
-      if (input.sku.length < 3) {
-        errors.push('SKU must be at least 3 characters long');
-      }
-      
-      if (input.sku.length > 50) {
-        errors.push('SKU must be 50 characters or less');
-      }
-
-      // Business rule: Check for reserved SKU patterns
-      const reservedPrefixes = ['SYS-', 'ADMIN-', 'TEST-'];
-      const hasReservedPrefix = reservedPrefixes.some(prefix => input.sku.startsWith(prefix));
-      if (hasReservedPrefix) {
-        errors.push('SKU cannot start with reserved prefixes: ' + reservedPrefixes.join(', '));
-      }
-
-      // Check SKU uniqueness
-      let skuQuery = ctx.supabase
-        .from('products')
-        .select('id, name, status')
-        .eq('sku', input.sku)
-        ;
-
-      if (input.exclude_id) {
-        skuQuery = skuQuery.neq('id', input.exclude_id);
-      }
-
-      const { data: existingProduct } = await skuQuery.single();
-
-      if (existingProduct) {
-        if (existingProduct.status === 'obsolete') {
-          warnings.push(`SKU "${input.sku}" was previously used by obsolete product "${existingProduct.name}"`);
-        } else {
-          errors.push(`SKU "${input.sku}" is already used by active product "${existingProduct.name}"`);
-        }
-      }
-
-      return {
-        valid: errors.length === 0,
-        errors,
-        warnings,
-      };
-    }),
-
   // POST /products/validate-weight - Validate weight constraints
   validateWeight: protectedProcedure
     .meta({
@@ -992,7 +1025,7 @@ export const productsRouter = router({
       }
     })
     .input(ValidateWeightSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1197,7 +1230,7 @@ export const productsRouter = router({
       }
     })
     .input(CalculateInventoryMovementsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1354,7 +1387,7 @@ export const productsRouter = router({
       }
     })
     .input(CalculateExchangeQuantitySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1394,47 +1427,20 @@ export const productsRouter = router({
   //     return { requires_pickup };
   //   }),
 
-  // GET /products/standard-cylinder-variants - Get standard cylinder variants
-  getStandardCylinderVariants: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/products/standard-cylinder-variants',
-        tags: ['products'],
-        summary: 'Get standard cylinder variants',
-        description: 'Get the standard cylinder variants (full/empty) used in the system.',
-        protect: true,
-      }
-    })
-    .input(GetStandardCylinderVariantsSchema)
-    .output(z.any()) // ✅ No validation headaches!
-    .query(async ({ ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Fetching standard cylinder variants');
-      
-      return {
-        variants: [
-          { name: 'full', description: 'Full cylinder ready for delivery' },
-          { name: 'empty', description: 'Empty cylinder for exchange/pickup' },
-        ]
-      };
-    }),
-
   // POST /products/generate-variant-sku - Generate SKU for product variant
   generateVariantSku: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/products/generate-variant-sku',
-        tags: ['products'],
-        summary: 'Generate SKU for product variant',
-        description: 'Generate a properly formatted SKU for a product variant based on parent SKU and variant name.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/products/generate-variant-sku',
+    //     tags: ['products'],
+    //     summary: 'Generate SKU for product variant',
+    //     description: 'Generate a properly formatted SKU for a product variant based on parent SKU and variant name.',
+    //     protect: true,
+    //   }
+    // })
     .input(GenerateVariantSkuSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1447,18 +1453,18 @@ export const productsRouter = router({
 
   // POST /products/create-variant-data - Create variant product data
   createVariantData: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/products/create-variant-data',
-        tags: ['products'],
-        summary: 'Create variant product data',
-        description: 'Generate complete variant product data structure based on parent product and variant details.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/products/create-variant-data',
+    //     tags: ['products'],
+    //     summary: 'Create variant product data',
+    //     description: 'Generate complete variant product data structure based on parent product and variant details.',
+    //     protect: true,
+    //   }
+    // })
     .input(CreateVariantDataSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1470,9 +1476,9 @@ export const productsRouter = router({
         parent_product_id: input.parent_product.id,
         variant_name: input.variant_name,
         sku: variant_sku,
-        name: `${input.parent_product.name} (${input.variant_name})`,
-        description: input.description || `${input.variant_name} variant of ${input.parent_product.name}`,
-        status: input.parent_product.status,
+        name: `${input.parent_product.name} - ${input.variant_name}`,
+        description: `${input.variant_name} variant`,
+        status: 'active' as const,
         barcode_uid: undefined,
       };
     }),

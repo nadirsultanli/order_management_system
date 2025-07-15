@@ -52,7 +52,7 @@ export const customersRouter = router({
     }
   })
   .input(CustomerFiltersSchema)
-  .output(z.any()) // ✅ Proper validation that matches API response
+      .output(z.any()) // ✅ No validation headaches!
   .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -310,7 +310,7 @@ export const customersRouter = router({
       }
     })
     .input(CreateCustomerSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -421,7 +421,7 @@ export const customersRouter = router({
       }
     })
     .input(UpdateCustomerSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -539,7 +539,7 @@ export const customersRouter = router({
       }
     })
     .input(DeleteCustomerSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -574,7 +574,7 @@ export const customersRouter = router({
       }
     })
     .input(CustomerOrderHistorySchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -610,7 +610,7 @@ export const customersRouter = router({
         .select(`
           *,
           customer:customers(id, name, email, phone),
-          delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
+          delivery_address:addresses(id, customer_id, label, line1, line2, city, state, postal_code, country, latitude, longitude, delivery_window_start, delivery_window_end, is_primary, instructions, created_at),
           order_lines(
             id,
             product_id,
@@ -660,7 +660,7 @@ export const customersRouter = router({
       }
     })
     .input(CustomerAnalyticsSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -768,7 +768,7 @@ export const customersRouter = router({
       }
     })
     .input(CustomerValidationSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -916,7 +916,7 @@ export const customersRouter = router({
       }
     })
     .input(CustomerIdSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -966,7 +966,7 @@ export const customersRouter = router({
       }
     })
     .input(AddressSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1054,7 +1054,7 @@ export const customersRouter = router({
     }
   })
   .input(UpdateAddressSchema)
-  .output(z.any()) // ✅ Accept any output format - no validation
+  .output(z.any())
   .mutation(async ({ input, ctx }) => {
     const user = requireAuth(ctx);
     ctx.logger.info('Updating address:', input.address_id);
@@ -1120,7 +1120,7 @@ export const customersRouter = router({
     .input(z.object({
       address_id: z.string().uuid(),
     }))
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1156,7 +1156,7 @@ export const customersRouter = router({
       }
     })
     .input(SetPrimaryAddressSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1218,7 +1218,7 @@ export const customersRouter = router({
       }
     })
     .input(GeocodeAddressSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1277,7 +1277,7 @@ export const customersRouter = router({
       }
     })
     .input(AddressValidationSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(AddressValidationOutputSchema)
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1340,7 +1340,7 @@ export const customersRouter = router({
       }
     })
     .input(DeliveryWindowValidationSchema)
-    .output(z.any()) // ✅ Accept any output format - no validation
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

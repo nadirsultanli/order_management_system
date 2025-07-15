@@ -17,7 +17,7 @@ export const InventoryBaseSchema = z.object({
   qty_empty: z.number(),
   qty_reserved: z.number(),
   updated_at: z.string(),
-  warehouse: WarehouseBaseSchema.optional(),
+  warehouse: WarehouseBaseSchema,
 });
 
 export const ProductBaseSchema = z.object({
@@ -34,8 +34,8 @@ export const ProductBaseSchema = z.object({
   requires_tag: z.boolean(),
   variant_type: z.enum(['cylinder', 'refillable', 'disposable']),
   variant: z.enum(['outright', 'refill']).optional(),
-  parent_product_id: z.string().optional(),
-  variant_name: z.string().optional(),
+  parent_product_id: z.string().nullable(),
+  variant_name: z.string().nullable(),
   is_variant: z.boolean(),
   tax_category: z.string().optional(),
   tax_rate: z.number().optional(),
@@ -98,15 +98,15 @@ export const DeleteProductResponseSchema = z.object({
 // ============ Product Listing ============
 
 export const ProductSummarySchema = z.object({
-  total_products: z.number(),
-  active_products: z.number(),
-  obsolete_products: z.number(),
-  with_inventory: z.number(),
-  low_stock_count: z.number(),
-  out_of_stock_count: z.number(),
-  avg_capacity: z.number(),
-  avg_popularity: z.number(),
-  compliance_rate: z.number(),
+  total_products: z.number().default(0),
+  active_products: z.number().default(0),
+  obsolete_products: z.number().default(0),
+  with_inventory: z.number().default(0),
+  low_stock_count: z.number().default(0),
+  out_of_stock_count: z.number().default(0),
+  avg_capacity: z.number().default(0),
+  avg_popularity: z.number().default(0),
+  compliance_rate: z.number().default(0),
 });
 
 export const ProductListResponseSchema = z.object({

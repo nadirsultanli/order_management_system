@@ -906,7 +906,7 @@ export const depositsRouter = router({
         currency_code: 'KES',
         new_balance: newBalance,
         cylinders_charged: cylinderDetails,
-        order_id: input.order_id,
+        order_id: input.order_id ?? null,
         created_at: transaction.transaction_date,
       };
     }),
@@ -1102,6 +1102,21 @@ export const depositsRouter = router({
 
       ctx.logger.info('Customer deposit refunded successfully:', transaction.id);
 
+      // If no cylinders to refund, still return all required fields with empty array and order_id as null
+      if (cylinderRefunds.length === 0) {
+        return {
+          transaction_id: transaction.id,
+          customer_id: input.customer_id,
+          total_refunded: totalRefund,
+          currency_code: 'KES',
+          new_balance: newBalance,
+          cylinders_refunded: [],
+          refund_method: input.refund_method,
+          order_id: input.order_id ?? null,
+          created_at: transaction.transaction_date,
+        };
+      }
+
       return {
         transaction_id: transaction.id,
         customer_id: input.customer_id,
@@ -1110,7 +1125,7 @@ export const depositsRouter = router({
         new_balance: newBalance,
         cylinders_refunded: cylinderRefunds,
         refund_method: input.refund_method,
-        order_id: input.order_id,
+        order_id: input.order_id ?? null,
         created_at: transaction.transaction_date,
       };
     }),

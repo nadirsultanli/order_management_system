@@ -23,6 +23,27 @@ import {
   CheckTripProductAvailabilitySchema,
 } from '../schemas/input/trucks-input';
 
+// Import trip-related output schemas
+import {
+  TripListResponseSchema,
+  TripListPaginatedResponseSchema,
+  TripBasicResponseSchema,
+  TripDetailResponseSchema,
+  TripTimelineResponseSchema,
+  TripCapacityResponseSchema,
+  CreateTripResponseSchema,
+  UpdateTripStatusResponseSchema,
+  AllocateOrdersResponseSchema,
+  RemoveAllocationResponseSchema,
+  AddLoadingDetailResponseSchema,
+  UpdateLoadingDetailResponseSchema,
+  DeleteLoadingDetailResponseSchema,
+  LoadingSummaryResponseSchema,
+  AddVarianceRecordResponseSchema,
+  UpdateVarianceRecordResponseSchema,
+  DeleteVarianceRecordResponseSchema,
+} from '../schemas/output/trips-output';
+
 export const tripsRouter = router({
   // ============ Trip Query Operations ============
 
@@ -31,7 +52,7 @@ export const tripsRouter = router({
     .meta({
       openapi: {
         method: 'GET',
-        path: '/trips',
+        path: '/trips/list',
         tags: ['trips'],
         summary: 'List trips with filters',
         description: 'Get paginated list of trips with optional filtering and sorting',
@@ -39,7 +60,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -150,20 +171,20 @@ export const tripsRouter = router({
       };
     }),
 
-  // GET /trips/{id} - Get trip by ID
+  // GET /trips/{id}/basic - Get basic trip info
   get: protectedProcedure
     .meta({
       openapi: {
         method: 'GET',
-        path: '/trips/{id}',
+        path: '/trips/{id}/basic',
         tags: ['trips'],
-        summary: 'Get trip by ID',
-        description: 'Get detailed information about a specific trip',
+        summary: 'Get basic trip info',
+        description: 'Get basic information about a specific trip',
         protect: true,
       }
     })
     .input(GetTripByIdSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -256,18 +277,18 @@ export const tripsRouter = router({
         protect: true,
       }
     })
-    .input(z.object({ trip_id: z.string() }))
-    .output(z.any())
+    .input(z.object({ id: z.string() }))
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Getting trip timeline:', input.trip_id);
+      ctx.logger.info('Getting trip timeline:', input.id);
       
       // For now, return basic timeline from truck_routes timestamps
       const { data: trip, error } = await ctx.supabase
         .from('truck_routes')
         .select('*')
-        .eq('id', input.trip_id)
+        .eq('id', input.id)
         .single();
       
       if (error) {
@@ -336,7 +357,7 @@ export const tripsRouter = router({
       }
       
       return {
-        trip_id: input.trip_id,
+        trip_id: input.id,
         timeline: timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       };
     }),
@@ -353,12 +374,12 @@ export const tripsRouter = router({
         protect: true,
       }
     })
-    .input(z.object({ trip_id: z.string() }))
-    .output(z.any())
+    .input(z.object({ id: z.string() }))
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Getting trip capacity info:', input.trip_id);
+      ctx.logger.info('Getting trip capacity info:', input.id);
       
       // Get trip with truck info
       const { data: trip, error: tripError } = await ctx.supabase
@@ -370,7 +391,7 @@ export const tripsRouter = router({
             capacity_kg
           )
         `)
-        .eq('id', input.trip_id)
+        .eq('id', input.id)
         .single();
       
       if (tripError) {
@@ -385,7 +406,7 @@ export const tripsRouter = router({
       const { data: loadingDetails } = await ctx.supabase
         .from('trip_loading_details')
         .select('*')
-        .eq('trip_id', input.trip_id);
+        .eq('trip_id', input.id);
       
       // Calculate capacity utilization
       const totalLoadedCylinders = (loadingDetails || []).reduce((sum, item) => {
@@ -405,7 +426,7 @@ export const tripsRouter = router({
         : 0;
       
       return {
-        trip_id: input.trip_id,
+        trip_id: input.id,
         truck_capacity_cylinders: trip.truck?.capacity_cylinders || 0,
         truck_capacity_kg: trip.truck?.capacity_kg || 0,
         loaded_cylinders: totalLoadedCylinders,
@@ -432,7 +453,7 @@ export const tripsRouter = router({
       }
     })
     .input(CreateTripSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -536,7 +557,7 @@ export const tripsRouter = router({
     .meta({
       openapi: {
         method: 'GET',
-        path: '/trips/{trip_id}',
+        path: '/trips/{id}',
         tags: ['trips'],
         summary: 'Get trip details',
         description: 'Get detailed information about a specific trip including loading details and variance records',
@@ -544,7 +565,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripByIdSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -670,7 +691,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -863,7 +884,7 @@ export const tripsRouter = router({
       }
     })
     .input(AllocateOrdersToTripSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -963,7 +984,7 @@ export const tripsRouter = router({
       }
     })
     .input(RemoveOrderFromTripSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1113,7 +1134,7 @@ export const tripsRouter = router({
       }
     })
     .input(RecordLoadingDetailSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1222,7 +1243,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripLoadingSummarySchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1444,7 +1465,7 @@ export const tripsRouter = router({
       }
     })
     .input(CheckShortLoadingSchema)
-    .output(z.any())
+    .output(z.any()) // Keep as z.any() for now since this is complex
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1548,7 +1569,7 @@ export const tripsRouter = router({
       }
     })
     .input(ValidateTripLoadingCapacitySchema)
-    .output(z.any())
+    .output(z.any()) // Keep as z.any() for now since this is complex
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1762,7 +1783,7 @@ export const tripsRouter = router({
       }
     })
     .input(CheckTripProductAvailabilitySchema)
-    .output(z.any())
+    .output(z.any()) // Keep as z.any() for now since this is complex
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

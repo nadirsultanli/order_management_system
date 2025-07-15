@@ -109,9 +109,11 @@ export const CheckAvailabilitySchema = z.object({
   priority: z.enum(['normal', 'high', 'urgent']).default('normal'),
 });
 
-// ============ Warehouse Operations Schemas (Document Steps 3 & 4) ============
+// ============ Inventory Receipt Input Schema ============
 
-// Receipt Management (Document 4.1 - Receiving Stock)
+/**
+ * Input schema for /inventory/receipts endpoint (Add Stock / Receive Inventory)
+ */
 export const CreateReceiptSchema = z.object({
   warehouse_id: z.string().uuid(),
   supplier_dn_number: z.string().optional(),
@@ -128,6 +130,8 @@ export const CreateReceiptSchema = z.object({
     notes: z.string().optional(),
   })).min(1),
 });
+
+// ============ Warehouse Operations Schemas (Document Steps 3 & 4) ============
 
 // Enhanced Transfer Management (Document 4.2 - Warehouse-to-Warehouse Transfer)
 export const InitiateTransferSchema = z.object({

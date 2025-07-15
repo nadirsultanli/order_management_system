@@ -13,6 +13,7 @@ import { warehousesRouter } from './warehouses';
 import { ordersRouter } from './orders';
 import { pricingRouter } from './pricing';
 import { depositsRouter } from './deposits';
+import { usersRouter } from './users';
 import { router } from '../lib/trpc';
 import fs from 'fs';
 import path from 'path';
@@ -33,6 +34,7 @@ const openApiRouter = router({
   orders: ordersRouter,
   pricing: pricingRouter,
   deposits: depositsRouter,
+  users: usersRouter, // <-- Add this line
 });
 
 // 🔧 FIX: Dynamic baseUrl based on environment

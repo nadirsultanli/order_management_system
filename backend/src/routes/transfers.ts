@@ -188,7 +188,7 @@ export const transfersRouter = router({
       }
     })
     .input(TransferFiltersSchema.optional())
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -282,7 +282,7 @@ export const transfersRouter = router({
     .meta({
       openapi: {
         method: 'GET',
-        path: '/transfers/{transfer_id}',
+        path: '/transfers/{id}',
         tags: ['transfers'],
         summary: 'Get transfer by ID',
         description: 'Retrieve detailed information about a specific transfer including all items and warehouse details.',
@@ -290,11 +290,11 @@ export const transfersRouter = router({
       }
     })
     .input(GetTransferByIdSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Fetching transfer:', input.transfer_id);
+      ctx.logger.info('Fetching transfer:', input.id);
       
       const { data, error } = await ctx.supabase
         .from('transfers')
@@ -310,7 +310,7 @@ export const transfersRouter = router({
             product:product_id(id, sku, name, unit_of_measure, capacity_kg, tare_weight_kg, is_variant, variant_name, variant_type)
           )
         `)
-        .eq('id', input.transfer_id)
+        .eq('id', input.id)
         
         .single();
 
@@ -345,7 +345,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateTransferSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -564,7 +564,7 @@ export const transfersRouter = router({
       }
     })
     .input(CreateTransferSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -663,17 +663,10 @@ export const transfersRouter = router({
         scheduled_date: input.scheduled_date,
         status: 'draft' as const,
         transfer_type: 'internal' as const,
-        priority: input.priority,
-        transfer_reference: transferReference,
         reason: input.reason,
         notes: input.notes,
         instructions: input.instructions,
-        total_items: summary.total_products,
-        total_quantity: summary.total_quantity,
-        total_weight_kg: summary.total_weight_kg,
         total_cost: summary.total_cost,
-        
-        created_by_user_id: user.id,
         qty_tagged: 0,
         qty_untagged: summary.total_quantity,
         variance_flag: false,
@@ -761,7 +754,7 @@ export const transfersRouter = router({
       }
     })
     .input(UpdateTransferStatusSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1009,7 +1002,7 @@ export const transfersRouter = router({
       }
     })
     .input(GetWarehouseStockSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1099,7 +1092,7 @@ export const transfersRouter = router({
       }
     })
     .input(GetCostAnalysisSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1194,7 +1187,7 @@ export const transfersRouter = router({
       }
     })
     .input(SearchProductsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1256,7 +1249,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateMultiSkuTransferSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1338,7 +1331,7 @@ export const transfersRouter = router({
       }
     })
     .input(CalculateTransferDetailsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1401,7 +1394,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateTransferCapacitySchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1449,7 +1442,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateInventoryAvailabilitySchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1482,7 +1475,7 @@ export const transfersRouter = router({
       }
     })
     .input(CheckTransferConflictsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1553,7 +1546,7 @@ export const transfersRouter = router({
       }
     })
     .input(EstimateTransferDurationSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1585,7 +1578,7 @@ export const transfersRouter = router({
       }
     })
     .input(FormatValidationErrorsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

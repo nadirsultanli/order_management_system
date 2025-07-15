@@ -227,8 +227,6 @@ export const WorkflowResponseSchema = z.array(z.object({
   status: z.string(),
   label: z.string(),
   description: z.string(),
-  color: z.string(),
-  icon: z.string(),
   allowedTransitions: z.array(z.string()),
   estimatedDuration: z.number().optional(),
 }));

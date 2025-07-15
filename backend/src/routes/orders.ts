@@ -104,7 +104,7 @@ export const ordersRouter = router({
       }
     })
     .input(OrderFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -123,7 +123,7 @@ export const ordersRouter = router({
         .select(`
           *,
           customer:customers(id, name, email, phone, account_status, credit_terms_days),
-          delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
+          delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions, latitude, longitude),
           source_warehouse:warehouses(id, name, is_mobile),
           order_lines(
             id,
@@ -131,7 +131,7 @@ export const ordersRouter = router({
             quantity,
             unit_price,
             subtotal,
-            product:products(id, sku, name, unit_of_measure)
+            product:products(id, sku, name, unit_of_measure, capacity_kg, tare_weight_kg)
           ),
           payments(
             id,
@@ -139,7 +139,8 @@ export const ordersRouter = router({
             payment_method,
             payment_status,
             payment_date,
-            transaction_id
+            transaction_id,
+            reference_number
           )
         `, { count: 'exact' });
 
@@ -315,6 +316,26 @@ export const ordersRouter = router({
       };
     }),
 
+  // GET /orders/workflow - Get order workflow steps
+  getWorkflow: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/orders/workflow',
+        tags: ['orders', 'workflow'],
+        summary: 'Get order workflow steps',
+        description: 'Retrieve the complete order workflow with status definitions and transition rules.',
+        protect: true,
+      }
+    })
+    .input(z.void())
+    .output(z.any())
+    .query(async ({ ctx }) => {
+      requireAuth(ctx);
+      ctx.logger.info('Fetching order workflow');
+      return getOrderWorkflow();
+    }),
+
   // GET /orders/{id} - Get single order
   getById: protectedProcedure
     .meta({
@@ -339,7 +360,7 @@ export const ordersRouter = router({
         .select(`
           *,
           customer:customers(id, name, email, phone, account_status, credit_terms_days),
-          delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
+          delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions, latitude, longitude),
           source_warehouse:warehouses(id, name, is_mobile),
           order_lines(
             id,
@@ -376,15 +397,19 @@ export const ordersRouter = router({
         });
       }
 
-      // Add payment calculation to the order
-      const paymentSummary = calculateOrderPaymentSummary(data);
-      
-      return {
+      // Add all calculated fields to the order
+      const order = {
         ...data,
-        payment_summary: paymentSummary,
-        payment_balance: paymentSummary.balance,
-        payment_status: data.payment_status_cache || paymentSummary.status,
+        is_high_value: (data.total_amount || 0) > 1000,
+        days_since_order: Math.floor((new Date().getTime() - new Date(data.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+        estimated_delivery_window: calculateDeliveryWindow(data),
+        risk_level: calculateOrderRisk(data),
+        payment_summary: calculateOrderPaymentSummary(data),
+        payment_balance: (data.total_amount || 0) - (data.payments?.reduce((sum: number, p: any) => sum + (p.payment_status === 'completed' ? p.amount : 0), 0) || 0),
+        payment_status: data.payment_status_cache || 'pending'
       };
+
+      return order;
     }),
 
   // GET /orders/overdue - Get overdue orders with business logic
@@ -588,38 +613,40 @@ export const ordersRouter = router({
       // Generate hash for idempotency if key provided
       let idempotencyKeyId: string | null = null;
       if (input.idempotency_key) {
-        const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${user.id}`).toString('base64');
-        
-        // Check idempotency
-        const { data: idempotencyData, error: idempotencyError } = await ctx.supabase
-          .rpc('check_idempotency_key', {
-            p_key_hash: keyHash,
-            p_operation_type: 'order_create',
-            p_request_data: input
-          });
+        try {
+          const keyHash = Buffer.from(`order_create_${input.idempotency_key}_${user.id}`).toString('base64');
           
-        if (idempotencyError) {
-          ctx.logger.error('Idempotency check error:', idempotencyError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to check idempotency'
-          });
-        }
-        
-        const idempotencyResult = idempotencyData[0];
-        if (idempotencyResult.key_exists) {
-          if (idempotencyResult.is_processing) {
-            throw new TRPCError({
-              code: 'CONFLICT',
-              message: 'Order creation already in progress with this key'
+          // Check idempotency
+          const { data: idempotencyData, error: idempotencyError } = await ctx.supabase
+            .rpc('check_idempotency_key', {
+              p_key_hash: keyHash,
+              p_operation_type: 'order_create',
+              p_request_data: input
             });
+            
+          if (idempotencyError) {
+            ctx.logger.warn('Idempotency check failed, proceeding without idempotency:', idempotencyError);
+            // Continue without idempotency rather than failing
           } else {
-            // Return existing result
-            return idempotencyResult.response_data;
+            const idempotencyResult = idempotencyData[0];
+            if (idempotencyResult.key_exists) {
+              if (idempotencyResult.is_processing) {
+                throw new TRPCError({
+                  code: 'CONFLICT',
+                  message: 'Order creation already in progress with this key'
+                });
+              } else {
+                // Return existing result
+                return idempotencyResult.response_data;
+              }
+            }
+            
+            idempotencyKeyId = idempotencyResult.key_id;
           }
+        } catch (error) {
+          ctx.logger.warn('Idempotency system not available, proceeding without idempotency:', error);
+          // Continue without idempotency rather than failing
         }
-        
-        idempotencyKeyId = idempotencyResult.key_id;
       }
       
       try {
@@ -990,11 +1017,15 @@ export const ordersRouter = router({
         
         // Complete idempotency if used
         if (idempotencyKeyId) {
-          await ctx.supabase.rpc('complete_idempotency_key', {
-            p_key_id: idempotencyKeyId,
-            p_response_data: completeOrder,
-            p_status: 'completed'
-          });
+          try {
+            await ctx.supabase.rpc('complete_idempotency_key', {
+              p_key_id: idempotencyKeyId,
+              p_response_data: completeOrder,
+              p_status: 'completed'
+            });
+          } catch (error) {
+            ctx.logger.warn('Failed to complete idempotency, but order was created successfully:', error);
+          }
         }
         
         // Log warnings if any
@@ -1020,11 +1051,15 @@ export const ordersRouter = router({
       } catch (error) {
         // Complete idempotency with error if used
         if (idempotencyKeyId) {
-          await ctx.supabase.rpc('complete_idempotency_key', {
-            p_key_id: idempotencyKeyId,
-            p_response_data: { error: formatErrorMessage(error) },
-            p_status: 'failed'
-          });
+          try {
+            await ctx.supabase.rpc('complete_idempotency_key', {
+              p_key_id: idempotencyKeyId,
+              p_response_data: { error: formatErrorMessage(error) },
+              p_status: 'failed'
+            });
+          } catch (idempotencyError) {
+            ctx.logger.warn('Failed to complete idempotency with error:', idempotencyError);
+          }
         }
         throw error;
       }
@@ -1205,12 +1240,10 @@ export const ordersRouter = router({
         updateData.scheduled_date = input.scheduled_date;
       }
 
-      const { data: updatedOrder, error: updateError } = await ctx.supabase
+      const { error: updateError } = await ctx.supabase
         .from('orders')
         .update(updateData)
-        .eq('id', input.order_id)
-        .select()
-        .single();
+        .eq('id', input.order_id);
 
       if (updateError) {
         ctx.logger.error('Order status update error:', updateError);
@@ -1220,7 +1253,9 @@ export const ordersRouter = router({
         });
       }
 
-      ctx.logger.info('Order status updated successfully:', updatedOrder);
+      ctx.logger.info('Order status updated successfully:', input.order_id);
+      // Return the full order object with all calculated fields
+      const updatedOrder = await getOrderById(ctx, input.order_id);
       return updatedOrder;
     }),
 
@@ -1391,293 +1426,145 @@ export const ordersRouter = router({
 
       ctx.logger.info('Order updated successfully:', input.order_id);
       
-      // Return updated order
-      const { data: updatedOrder, error: fetchError } = await ctx.supabase
-        .from('orders')
-        .select(`
-          *,
-          customer:customers(*),
-          delivery_address:addresses(*),
-          source_warehouse:warehouses(*),
-          order_lines(
-            id,
-            product_id,
-            quantity,
-            unit_price,
-            subtotal,
-            product:products(*)
-          )
-        `)
-        .eq('id', input.order_id)
-        .single();
-
-      if (fetchError) {
-        ctx.logger.error('Error fetching updated order:', fetchError);
-        // Don't throw error here, just return basic success since update worked
-        return { id: input.order_id, message: 'Order updated successfully' };
-      }
-
+      // Return updated order with all calculated fields
+      const updatedOrder = await getOrderById(ctx, input.order_id);
       return updatedOrder;
-    }),
-
-  // GET /orders/workflow - Get order workflow steps
-  getWorkflow: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/orders/workflow',
-        tags: ['orders', 'workflow'],
-        summary: 'Get order workflow steps',
-        description: 'Retrieve the complete order workflow with status definitions and transition rules.',
-        protect: true,
-      }
-    })
-    .input(z.void())
-    .output(z.any())
-    .query(async ({ ctx }) => {
-      requireAuth(ctx);
-      
-      ctx.logger.info('Fetching order workflow');
-      
-      return getOrderWorkflow();
     }),
 
   // POST /orders/workflow/validate-transition - Validate status transition
   validateTransition: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/validate-transition',
-        tags: ['orders', 'workflow'],
-        summary: 'Validate status transition',
-        description: 'Validate whether a status transition is allowed according to business rules.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/orders/workflow/validate-transition',
+    //     tags: ['orders', 'workflow'],
+    //     summary: 'Validate status transition',
+    //     description: 'Validate whether a status transition is allowed according to business rules.',
+    //     protect: true,
+    //   }
+    // })
     .input(InputStatusTransitionSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
       ctx.logger.info('Validating status transition:', input);
-      
       return validateTransition(input.current_status, input.new_status);
     }),
 
   // POST /orders/workflow/calculate-totals - Calculate order totals with tax
   calculateTotals: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/calculate-totals',
-        tags: ['orders', 'workflow'],
-        summary: 'Calculate order totals with tax',
-        description: 'Calculate order totals including tax for order lines with detailed breakdown.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/orders/workflow/calculate-totals',
+    //     tags: ['orders', 'workflow'],
+    //     summary: 'Calculate order totals with tax',
+    //     description: 'Calculate order totals including tax for order lines with detailed breakdown.',
+    //     protect: true,
+    //   }
+    // })
     .input(InputCalculateTotalsSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
       ctx.logger.info('Calculating order totals:', input);
-      
       // Ensure lines have the correct types
       const validatedLines = input.lines.map(line => ({
         quantity: line.quantity!,
         unit_price: line.unit_price!,
         subtotal: line.subtotal,
       }));
-      
       return calculateOrderTotalWithTax(validatedLines, input.tax_percent || 0);
     }),
 
   // POST /orders/workflow/validate-for-confirmation - Validate order for confirmation
   validateForConfirmation: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/validate-for-confirmation',
-        tags: ['orders', 'workflow'],
-        summary: 'Validate order for confirmation',
-        description: 'Validate whether an order can be confirmed according to business rules and inventory availability.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/orders/workflow/validate-for-confirmation',
+    //     tags: ['orders', 'workflow'],
+    //     summary: 'Validate order for confirmation',
+    //     description: 'Validate whether an order can be confirmed according to business rules and inventory availability.',
+    //     protect: true,
+    //   }
+    // })
     .input(ValidateOrderSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
       ctx.logger.info('Validating order for confirmation:', input.order.id);
-      
       return validateOrderForConfirmation(input.order);
     }),
 
   // POST /orders/workflow/validate-for-scheduling - Validate order for scheduling
   validateForScheduling: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/validate-for-scheduling',
-        tags: ['orders', 'workflow'],
-        summary: 'Validate order for scheduling',
-        description: 'Validate whether an order can be scheduled for delivery according to business rules.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/orders/workflow/validate-for-scheduling',
+    //     tags: ['orders', 'workflow'],
+    //     summary: 'Validate order for scheduling',
+    //     description: 'Validate whether an order can be scheduled for delivery according to business rules.',
+    //     protect: true,
+    //   }
+    // })
     .input(ValidateOrderSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
       ctx.logger.info('Validating order for scheduling:', input.order.id);
-      
       return validateOrderForScheduling(input.order);
     }),
 
   // POST /orders/workflow/validate-delivery-window - Validate order delivery window
   validateDeliveryWindow: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/validate-delivery-window',
-        tags: ['orders', 'workflow'],
-        summary: 'Validate delivery window',
-        description: 'Validate the delivery window for an order based on address and service constraints.',
-        protect: true,
-      }
-    })
+    // .meta({
+    //   openapi: {
+    //     method: 'POST',
+    //     path: '/orders/workflow/validate-delivery-window',
+    //     tags: ['orders', 'workflow'],
+    //     summary: 'Validate delivery window',
+    //     description: 'Validate the delivery window for an order based on address and service constraints.',
+    //     protect: true,
+    //   }
+    // })
     .input(ValidateOrderSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
       ctx.logger.info('Validating order delivery window:', input.order.id);
-      
       return validateOrderDeliveryWindow(input.order);
-    }),
-
-  // GET /orders/{id}/workflow-info - Get workflow information for a specific order
-  getWorkflowInfo: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/orders/{order_id}/workflow-info',
-        tags: ['orders', 'workflow'],
-        summary: 'Get order workflow information',
-        description: 'Get detailed workflow information for a specific order including current status and possible transitions.',
-        protect: true,
-      }
-    })
-    .input(GetWorkflowInfoSchema)
-    .output(z.any())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Getting workflow info for order:', input.order_id);
-      
-      // Get order to check current status
-      const { data: order, error } = await ctx.supabase
-        .from('orders')
-        .select('id, status')
-        .eq('id', input.order_id)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Order not found'
-          });
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message
-        });
-      }
-
-      const currentStatus = order.status as OrderStatus;
-      const currentStep = getOrderStatusInfo(currentStatus);
-      const nextPossibleStatuses = getNextPossibleStatuses(currentStatus);
-      
-      return {
-        currentStatus,
-        currentStep,
-        nextPossibleStatuses,
-        nextSteps: nextPossibleStatuses.map(status => getOrderStatusInfo(status)),
-        isEditable: isOrderEditable(currentStatus),
-        isCancellable: isOrderCancellable(currentStatus),
-        formattedOrderId: formatOrderId(order.id),
-        statusColor: getStatusColor(currentStatus),
-      };
     }),
 
   // POST /orders/workflow/format-order-id - Format order ID for display
   formatOrderId: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/format-order-id',
-        tags: ['orders', 'workflow'],
-        summary: 'Format order ID',
-        description: 'Format an order ID for display purposes.',
-        protect: true,
-      }
-    })
+    // .meta({ ... })
     .input(FormatOrderIdSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
-      return {
-        formatted_id: formatOrderId(input.order_id),
-      };
+      return { formatted_id: formatOrderId(input.order_id) };
     }),
 
   // POST /orders/workflow/format-currency - Format currency amount
   formatCurrency: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/format-currency',
-        tags: ['orders', 'workflow'],
-        summary: 'Format currency amount',
-        description: 'Format a currency amount for display purposes.',
-        protect: true,
-      }
-    })
+    // .meta({ ... })
     .input(FormatCurrencySchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
-      return {
-        formatted_amount: formatCurrency(input.amount),
-      };
+      return { formatted_amount: formatCurrency(input.amount) };
     }),
 
-  // POST /orders/workflow/format-date - Format date for display
+  // POST /orders/workflow/format-date - Format date
   formatDate: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/orders/workflow/format-date',
-        tags: ['orders', 'workflow'],
-        summary: 'Format date',
-        description: 'Format a date for display purposes.',
-        protect: true,
-      }
-    })
+    // .meta({ ... })
     .input(FormatDateSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
       requireAuth(ctx);
-      
-      return {
-        formatted_date: formatDate(input.date),
-      };
+      return { formatted_date: formatDate(input.date) };
     }),
 
   // POST /orders/validate-order-pricing - Validate order pricing before creation
@@ -2463,34 +2350,24 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
     });
   }
 
-  if (lines) {
+  if (lines && lines.length > 0) {
     const subtotal = lines.reduce((sum: number, line: any) => {
       const lineSubtotal = line.subtotal || (line.quantity * line.unit_price);
       return sum + lineSubtotal;
     }, 0);
     
-    // Calculate gas charges and deposit totals
-    const gasChargesTotal = lines.reduce((sum: number, line: any) => {
-      return sum + (line.gas_charge || 0);
-    }, 0);
-    
-    const depositTotal = lines.reduce((sum: number, line: any) => {
-      return sum + (line.deposit_amount || 0);
-    }, 0);
-    
-    const taxAmount = order?.tax_amount || 0;
+    // Calculate tax based on current subtotal and tax percentage
+    const taxPercent = order?.tax_percent || 0;
+    const taxAmount = subtotal * (taxPercent / 100);
     const grandTotal = subtotal + taxAmount;
     
-    ctx.logger.info('Order total calculation:', { 
-      orderId, subtotal, taxAmount, grandTotal, gasChargesTotal, depositTotal 
-    });
+    ctx.logger.info('Order total calculation:', { orderId, subtotal, taxPercent, taxAmount, grandTotal });
     
     const { error: updateError } = await ctx.supabase
       .from('orders')
       .update({ 
         total_amount: grandTotal,
-        gas_charges_total: gasChargesTotal,
-        deposit_total: depositTotal,
+        tax_amount: taxAmount, // Update the tax amount as well
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId);
@@ -2504,10 +2381,11 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
 
     return {
       subtotal,
+      tax_percent: taxPercent,
       tax_amount: taxAmount,
       total_amount: grandTotal,
-      gas_charges_total: gasChargesTotal,
-      deposit_total: depositTotal,
+      gas_charges_total: lines.reduce((sum: number, line: any) => sum + (line.gas_charge || 0), 0),
+      deposit_total: lines.reduce((sum: number, line: any) => sum + (line.deposit_amount || 0), 0),
       breakdown: lines.map((line: any) => ({
         quantity: line.quantity,
         unit_price: line.unit_price,
@@ -2605,18 +2483,24 @@ async function getOrderById(ctx: any, orderId: string) {
     .select(`
       *,
       customer:customers(id, name, email, phone, account_status, credit_terms_days),
-      delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions),
+      delivery_address:addresses(id, line1, line2, city, state, postal_code, country, instructions, latitude, longitude),
+      source_warehouse:warehouses(id, name, is_mobile),
       order_lines(
         id,
         product_id,
         quantity,
         unit_price,
         subtotal,
-        gas_charge,
-        deposit_amount,
-        include_deposit,
-        pricing_method,
-        product:products(id, sku, name, unit_of_measure)
+        product:products(id, sku, name, unit_of_measure, capacity_kg, tare_weight_kg)
+      ),
+      payments(
+        id,
+        amount,
+        payment_method,
+        payment_status,
+        payment_date,
+        transaction_id,
+        reference_number
       )
     `)
     .eq('id', orderId)
@@ -2629,7 +2513,19 @@ async function getOrderById(ctx: any, orderId: string) {
     });
   }
 
-  return data;
+  // Add calculated fields
+  const order = {
+    ...data,
+    is_high_value: (data.total_amount || 0) > 1000,
+    days_since_order: Math.floor((new Date().getTime() - new Date(data.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+    estimated_delivery_window: calculateDeliveryWindow(data),
+    risk_level: calculateOrderRisk(data),
+    payment_summary: calculateOrderPaymentSummary(data),
+    payment_balance: (data.total_amount || 0) - (data.payments?.reduce((sum: number, p: any) => sum + (p.payment_status === 'completed' ? p.amount : 0), 0) || 0),
+    payment_status: data.payment_status_cache || 'pending'
+  };
+
+  return order;
 }
 
 // Helper functions for business logic
