@@ -179,12 +179,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         sku: data.sku.toUpperCase()
       };
 
-      // Validate using backend
-      const isValid = await validateSKUAndWeight(processedData);
-      if (!isValid) {
-        return; // Validation failed, errors logged to console
-      }
-
       // Clean up data - all products are cylinders by default
       const cleanedData = { 
         ...processedData,
@@ -200,7 +194,15 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         }
       });
 
+      // Submit immediately and let backend handle validation
       onSubmit(cleanedData);
+      
+      // Run validation in background (non-blocking)
+      validateSKUAndWeight(processedData).then(isValid => {
+        if (!isValid) {
+          console.warn('Background validation found issues');
+        }
+      });
     } catch (error) {
       console.error('Form validation error:', error);
     }
@@ -544,7 +546,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 sm:ml-3 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
               >
                 {loading ? (
                   <div className="flex items-center space-x-2">

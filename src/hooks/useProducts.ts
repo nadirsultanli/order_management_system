@@ -1,6 +1,7 @@
 import { CreateProductData, UpdateProductData, ProductFilters, CreateVariantData } from '../types/product';
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 
 export const useProducts = (filters: ProductFilters = {}) => {
   return trpc.products.list.useQuery({
@@ -47,10 +48,17 @@ export const useProductOptions = (filters: {
 };
 
 export const useCreateProduct = () => {
+  const queryClient = useQueryClient();
+  
   return trpc.products.create.useMutation({
     onSuccess: (data: any) => {
       console.log('Product created successfully:', data);
       toast.success('Product created successfully');
+      
+      // Invalidate and refetch product queries
+      queryClient.invalidateQueries(['products.list']);
+      queryClient.invalidateQueries(['products.getStats']);
+      queryClient.invalidateQueries(['products.getOptions']);
     },
     onError: (error: Error) => {
       console.error('Create product mutation error:', error);
@@ -60,10 +68,20 @@ export const useCreateProduct = () => {
 };
 
 export const useUpdateProduct = () => {
+  const queryClient = useQueryClient();
+  
   return trpc.products.update.useMutation({
     onSuccess: (data: any) => {
       console.log('Product updated successfully:', data);
       toast.success('Product updated successfully');
+      
+      // Invalidate and refetch product queries
+      queryClient.invalidateQueries(['products.list']);
+      queryClient.invalidateQueries(['products.getStats']);
+      queryClient.invalidateQueries(['products.getOptions']);
+      if (data.id) {
+        queryClient.invalidateQueries(['products.getById', { id: data.id }]);
+      }
     },
     onError: (error: Error) => {
       console.error('Update product mutation error:', error);
@@ -73,10 +91,18 @@ export const useUpdateProduct = () => {
 };
 
 export const useDeleteProduct = () => {
+  const queryClient = useQueryClient();
+  
   return trpc.products.delete.useMutation({
     onSuccess: (_, variables) => {
       console.log('Product deleted successfully:', variables.id);
       toast.success('Product status set to obsolete');
+      
+      // Invalidate and refetch product queries
+      queryClient.invalidateQueries(['products.list']);
+      queryClient.invalidateQueries(['products.getStats']);
+      queryClient.invalidateQueries(['products.getOptions']);
+      queryClient.invalidateQueries(['products.getById', { id: variables.id }]);
     },
     onError: (error: Error) => {
       console.error('Delete product mutation error:', error);
