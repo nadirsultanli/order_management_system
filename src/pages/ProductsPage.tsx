@@ -82,6 +82,8 @@ export const ProductsPage: React.FC = () => {
       }
       setIsFormOpen(false);
       setEditingProduct(null);
+      // Refresh the grouped data to show the new/updated product
+      refetch();
     } catch (error) {
       console.error('Form submit error:', error);
       // Error handling is done in the hooks
