@@ -121,7 +121,14 @@ export const ProductsPage: React.FC = () => {
     if (deletingProduct) {
       console.log('Confirming mark as obsolete:', deletingProduct);
       try {
-        await deleteProduct.mutateAsync({ id: deletingProduct.id });
+        // Check if this is a parent product by looking for parent_products_id field
+        // If parent_products_id is null or undefined, it's a parent product
+        const isParentProduct = !deletingProduct.parent_products_id;
+        
+        await deleteProduct.mutateAsync({ 
+          id: deletingProduct.id,
+          is_parent_product: isParentProduct
+        });
         setDeletingProduct(null);
       } catch (error) {
         console.error('Mark obsolete error:', error);
@@ -149,11 +156,19 @@ export const ProductsPage: React.FC = () => {
     if (!deletingProduct) return { title: '', message: '' };
 
     const isObsolete = deletingProduct.status === 'obsolete';
+    const isParentProduct = !deletingProduct.parent_products_id;
     
     if (isObsolete) {
       return {
         title: 'Product Already Obsolete',
         message: `"${deletingProduct.name}" is already marked as obsolete and hidden from active lists.`,
+      };
+    }
+
+    if (isParentProduct) {
+      return {
+        title: 'Mark Parent Product as Obsolete',
+        message: `Are you sure you want to mark "${deletingProduct.name}" as obsolete? This will also mark ALL child products as obsolete automatically. This action will hide the parent product and all its variants from active product lists but preserve all historical data including price lists, inventory records, and order history. The products can be reactivated later if needed.`,
       };
     }
 
@@ -253,7 +268,13 @@ export const ProductsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         title={dialogContent.title}
         message={dialogContent.message}
-        confirmText={deletingProduct?.status === 'obsolete' ? 'OK' : 'Mark as Obsolete'}
+        confirmText={
+          deletingProduct?.status === 'obsolete' 
+            ? 'OK' 
+            : !deletingProduct?.parent_products_id 
+              ? 'Mark Parent & Children as Obsolete'
+              : 'Mark as Obsolete'
+        }
         type={deletingProduct?.status === 'obsolete' ? 'info' : 'warning'}
         loading={deleteProduct.isPending}
       />

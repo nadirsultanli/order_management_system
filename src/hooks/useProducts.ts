@@ -145,14 +145,21 @@ export const useDeleteProduct = () => {
   const utils = trpc.useContext();
   
   return trpc.products.delete.useMutation({
-    onSuccess: (_, variables) => {
-      console.log('Product deleted successfully:', variables.id);
-      toast.success('Product status set to obsolete');
+    onSuccess: (data, variables) => {
+      console.log('Product deleted successfully:', variables);
+      
+      if (variables.is_parent_product) {
+        toast.success(`Parent product and ${data.children_count || 0} child products marked as obsolete`);
+      } else {
+        toast.success('Product status set to obsolete');
+      }
       
       // Invalidate and refetch product queries using tRPC utils
       utils.products.list.invalidate();
       utils.products.getStats.invalidate();
       utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
       utils.products.getById.invalidate({ id: variables.id });
     },
     onError: (error: Error) => {
@@ -198,10 +205,27 @@ export const useCreateVariant = () => {
 };
 
 export const useBulkUpdateProductStatus = () => {
+  const utils = trpc.useContext();
+  
   return trpc.products.bulkUpdateStatus.useMutation({
     onSuccess: (data) => {
       console.log('Bulk product status update successful:', data);
-      toast.success(`Updated ${data.updated_count} products successfully`);
+      
+      if (data.partial_success) {
+        toast.success(`Updated ${data.updated_count} out of ${data.total_requested} products successfully`);
+        if (data.errors) {
+          console.warn('Some products failed to update:', data.errors);
+        }
+      } else {
+        toast.success(`Updated ${data.updated_count} products successfully`);
+      }
+      
+      // Invalidate and refetch product queries
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
     },
     onError: (error: Error) => {
       console.error('Bulk update status mutation error:', error);
@@ -211,10 +235,25 @@ export const useBulkUpdateProductStatus = () => {
 };
 
 export const useReactivateProduct = () => {
+  const utils = trpc.useContext();
+  
   return trpc.products.reactivate.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       console.log('Product reactivated successfully:', data);
-      toast.success('Product reactivated successfully');
+      
+      if (variables.is_parent_product) {
+        toast.success(`Parent product and ${data.children_count || 0} child products reactivated successfully`);
+      } else {
+        toast.success('Product reactivated successfully');
+      }
+      
+      // Invalidate and refetch product queries
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
+      utils.products.getById.invalidate({ id: variables.id });
     },
     onError: (error: Error) => {
       console.error('Reactivate product mutation error:', error);
