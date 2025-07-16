@@ -11,6 +11,7 @@ import { trucksRouter } from './trucks';
 import { tripsRouter } from './trips';
 import { warehousesRouter } from './warehouses';
 import { productsRouter } from './products';
+import { accessoriesRouter } from './accessories';
 // import { stockMovementsRouter } from './stock-movements';
 import { deliveriesRouter } from './deliveries';
 import { depositsRouter } from './deposits';
@@ -31,6 +32,7 @@ export const appRouter = router({
   trips: tripsRouter as any,
   warehouses: warehousesRouter as any,
   products: productsRouter as any,
+  accessories: accessoriesRouter as any,
   // stockMovements: stockMovementsRouter as any,
   deliveries: deliveriesRouter as any,
   deposits: depositsRouter as any,

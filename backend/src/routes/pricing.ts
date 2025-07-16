@@ -560,10 +560,67 @@ export const pricingRouter = router({
           message: 'Product already exists in this price list'
         });
       }
+
+      // Get product details to determine capacity for deposit calculation
+      const { data: product } = await ctx.supabase
+        .from('products')
+        .select(`
+          id,
+          capacity_kg,
+          parent_products_id
+        `)
+        .eq('id', input.product_id)
+        .single();
+
+      // Determine capacity for deposit calculation
+      let capacityForDeposit = 0;
+      if (product) {
+        // If product has direct capacity, use it
+        if (product.capacity_kg) {
+          capacityForDeposit = product.capacity_kg;
+        }
+        // If product is a variant, get capacity from parent product
+        else if (product.parent_products_id) {
+          const { data: parentProduct } = await ctx.supabase
+            .from('parent_products')
+            .select('capacity_kg')
+            .eq('id', product.parent_products_id)
+            .single();
+          
+          if (parentProduct) {
+            capacityForDeposit = parentProduct.capacity_kg || 0;
+          }
+        }
+      }
+
+      // Get deposit amount from cylinder_deposit_rates table if capacity is available
+      let depositAmount = input.deposit_amount || 0;
+      if (capacityForDeposit > 0 && !input.deposit_amount) {
+        const { data: depositRate } = await ctx.supabase
+          .from('cylinder_deposit_rates')
+          .select('deposit_amount')
+          .eq('capacity_l', capacityForDeposit)
+          .eq('is_active', true)
+          .lte('effective_date', new Date().toISOString().split('T')[0])
+          .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
+          .order('effective_date', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (depositRate) {
+          depositAmount = depositRate.deposit_amount;
+        }
+      }
+
+      // Prepare the data to insert with deposit amount
+      const insertData = {
+        ...input,
+        deposit_amount: depositAmount
+      };
       
       const { data, error } = await ctx.supabase
         .from('price_list_item')
-        .insert([input])
+        .insert([insertData])
         .select(`
           *,
           product:parent_products(id, name, sku, description, capacity_kg)
@@ -821,21 +878,43 @@ export const pricingRouter = router({
           // Use capacity_kg for deposit matching since cylinder_deposit_rates.capacity_l represents kg capacity
           const capacityForDeposit = item.product?.capacity_kg || 0;
           if (capacityForDeposit > 0) {
-            const { data: depositRate } = await ctx.supabase
+            // First try exact match
+            let { data: depositRate } = await ctx.supabase
               .from('cylinder_deposit_rates')
               .select('deposit_amount')
               .eq('capacity_l', capacityForDeposit)
-              .eq('currency_code', item.price_list.currency_code)
               .eq('is_active', true)
+              .lte('effective_date', new Date().toISOString().split('T')[0])
+              .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
               .order('effective_date', { ascending: false })
               .limit(1)
               .maybeSingle();
+            
+            // If no exact match, try to find the closest capacity
+            if (!depositRate) {
+              const { data: closestRate } = await ctx.supabase
+                .from('cylinder_deposit_rates')
+                .select('deposit_amount, capacity_l')
+                .eq('is_active', true)
+                .lte('effective_date', new Date().toISOString().split('T')[0])
+                .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
+                .order('capacity_l', { ascending: true })
+                .limit(1)
+                .maybeSingle();
+              
+              if (closestRate) {
+                depositRate = closestRate;
+                console.log(`Using closest deposit rate: ${closestRate.capacity_l}kg for ${capacityForDeposit}kg capacity`);
+              }
+            }
             
             // Use default tax rate since tax_rate column might not exist
             const taxRate = 0.16; // Default to 16%
             taxAmount = effectivePrice * taxRate;
             totalWithTax = effectivePrice + taxAmount;
             depositAmount = depositRate?.deposit_amount || 0;
+            
+            console.log(`Capacity: ${capacityForDeposit}kg, Deposit: ${depositAmount}`);
           } else {
             // Fallback to product tax rate if no capacity found
             const productTaxRate = item.product?.tax_rate || 0;
@@ -1509,6 +1588,7 @@ export const pricingRouter = router({
         .from('price_list_item')
         .select(`
           id,
+          product_id,
           price_list:price_list(*)
         `)
         .eq('id', id)
@@ -1519,6 +1599,59 @@ export const pricingRouter = router({
           code: 'NOT_FOUND',
           message: 'Price list item not found'
         });
+      }
+
+      // If deposit_amount is not provided in the update, calculate it automatically
+      if (!updateData.deposit_amount) {
+        // Get product details to determine capacity for deposit calculation
+        const { data: product } = await ctx.supabase
+          .from('products')
+          .select(`
+            id,
+            capacity_kg,
+            parent_products_id
+          `)
+          .eq('id', item.product_id)
+          .single();
+
+        // Determine capacity for deposit calculation
+        let capacityForDeposit = 0;
+        if (product) {
+          // If product has direct capacity, use it
+          if (product.capacity_kg) {
+            capacityForDeposit = product.capacity_kg;
+          }
+          // If product is a variant, get capacity from parent product
+          else if (product.parent_products_id) {
+            const { data: parentProduct } = await ctx.supabase
+              .from('parent_products')
+              .select('capacity_kg')
+              .eq('id', product.parent_products_id)
+              .single();
+            
+            if (parentProduct) {
+              capacityForDeposit = parentProduct.capacity_kg || 0;
+            }
+          }
+        }
+
+        // Get deposit amount from cylinder_deposit_rates table if capacity is available
+        if (capacityForDeposit > 0) {
+          const { data: depositRate } = await ctx.supabase
+            .from('cylinder_deposit_rates')
+            .select('deposit_amount')
+            .eq('capacity_l', capacityForDeposit)
+            .eq('is_active', true)
+            .lte('effective_date', new Date().toISOString().split('T')[0])
+            .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
+            .order('effective_date', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (depositRate) {
+            updateData.deposit_amount = depositRate.deposit_amount;
+          }
+        }
       }
       
       const { data, error } = await ctx.supabase

@@ -777,10 +777,10 @@ export const productsRouter = router({
         .eq('is_variant', true);
 
       if (childError) {
-        ctx.logger.error('Error fetching child variants:', childError);
+        ctx.logger.error('Error fetching variants:', childError);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch child variants',
+          message: 'Failed to fetch  variants',
         });
       }
 
@@ -846,9 +846,9 @@ export const productsRouter = router({
         
         try {
           updatedChildren = await Promise.all(childUpdatePromises);
-          ctx.logger.info(`Successfully updated ${updatedChildren.length} child variants`);
+          ctx.logger.info(`Successfully updated ${updatedChildren.length} variants`);
         } catch (error) {
-          ctx.logger.error('Error updating child variants:', error);
+          ctx.logger.error('Error updating variants:', error);
           throw error;
         }
       }
@@ -2073,6 +2073,7 @@ export const productsRouter = router({
         parentQuery = parentQuery.or(`sku.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
       }
       
+      // Apply status filter if explicitly set, regardless of show_obsolete
       if (input.status) {
         parentQuery = parentQuery.eq('status', input.status);
       }
@@ -2101,6 +2102,13 @@ export const productsRouter = router({
         });
       }
       
+      // Debug logging
+      ctx.logger.info('Fetched parent products:', {
+        show_obsolete,
+        parentCount: parentProducts?.length || 0,
+        parentIds: parentProducts?.map(p => ({ id: p.id, sku: p.sku, status: p.status })) || [],
+      });
+      
       if (!parentProducts || parentProducts.length === 0) {
         return {
           products: [],
@@ -2112,18 +2120,33 @@ export const productsRouter = router({
             total_variants: 0,
             active_parent_products: 0,
             obsolete_parent_products: 0,
+            active_variants: 0,
+            obsolete_variants: 0,
           },
         };
       }
       
       // Get variants for each parent product
       const parentIds = parentProducts.map(p => p.id);
-      const { data: variants, error: variantsError } = await ctx.supabase
+      let variantsQuery = ctx.supabase
         .from('products')
         .select('*')
         .in('parent_products_id', parentIds)
-        .eq('is_variant', true)
-        .order('sku_variant');
+        .eq('is_variant', true);
+      
+      // Apply the same obsolete filter to variants
+      if (!show_obsolete) {
+        variantsQuery = variantsQuery.eq('status', 'active');
+      }
+      
+      const { data: variants, error: variantsError } = await variantsQuery.order('sku_variant');
+      
+      // Debug logging
+      ctx.logger.info('Fetched variants:', {
+        show_obsolete,
+        variantCount: variants?.length || 0,
+        variants: variants?.map(v => ({ id: v.id, sku: v.sku, parent_id: v.parent_products_id, status: v.status })) || [],
+      });
       
       if (variantsError) {
         ctx.logger.error('Error fetching variants:', variantsError);
@@ -2151,6 +2174,8 @@ export const productsRouter = router({
       const totalVariants = variants ? variants.length : 0;
       const activeParents = parentProducts.filter(p => p.status === 'active').length;
       const obsoleteParents = parentProducts.filter(p => p.status === 'obsolete').length;
+      const activeVariants = variants ? variants.filter(v => v.status === 'active').length : 0;
+      const obsoleteVariants = variants ? variants.filter(v => v.status === 'obsolete').length : 0;
       
       return {
         products: groupedProducts,
@@ -2162,6 +2187,8 @@ export const productsRouter = router({
           total_variants: totalVariants,
           active_parent_products: activeParents,
           obsolete_parent_products: obsoleteParents,
+          active_variants: activeVariants,
+          obsolete_variants: obsoleteVariants,
         },
       };
     }),

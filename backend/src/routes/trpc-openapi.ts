@@ -13,6 +13,7 @@ import { warehousesRouter } from './warehouses';
 import { ordersRouter } from './orders';
 import { pricingRouter } from './pricing';
 import { depositsRouter } from './deposits';
+import { accessoriesRouter } from './accessories';
 import { usersRouter } from './users';
 import { router } from '../lib/trpc';
 import fs from 'fs';
@@ -26,6 +27,7 @@ const openApiRouter = router({
   inventory: inventoryRouter,
   payments: paymentsRouter,
   products: productsRouter,
+  accessories: accessoriesRouter,
   // stockMovements: stockMovementsRouter,
   transfers: transfersRouter,
   trucks: trucksRouter,
@@ -52,7 +54,7 @@ const openApiDocument = generateOpenApiDocument(openApiRouter, {
   description: 'Auto-generated OpenAPI spec from tRPC routes with OpenAPI metadata',
   version: '1.0.0',
   baseUrl: getBaseUrl(), // 🔧 Dynamic baseUrl
-  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'transfers', 'trucks', 'trips', 'warehouses', 'pricing', 'deposits'],
+  tags: ['auth', 'orders', 'customers', 'products', 'inventory', 'transfers', 'trucks', 'trips', 'warehouses', 'pricing', 'deposits', 'accessories'],
   docsUrl: 'https://example.com',
 });
 
