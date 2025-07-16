@@ -112,6 +112,7 @@ export const SearchProductsSchema = z.object({
   search_text: z.string().optional(),
   variant_type: VariantTypeEnum.optional(),
   variant_name: z.string().optional(),
+  include_variants: z.boolean().default(true),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(50),
 });

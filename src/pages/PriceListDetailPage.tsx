@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Plus, DollarSign, Calendar, Package, Trash2 } from 'lucide-react';
 import { usePriceListNew, useUpdatePriceListNew } from '../hooks/usePricing';
@@ -14,10 +14,10 @@ import { formatDateSync } from '../utils/order';
 export const PriceListDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isEditFormOpen, setIsEditFormOpen] = useState(false);
-  const [isAddProductsOpen, setIsAddProductsOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<PriceListItem | null>(null);
-  const [deletingItem, setDeletingItem] = useState<PriceListItem | null>(null);
+  const [isEditFormOpen, setIsEditFormOpen] = React.useState(false);
+  const [isAddProductsOpen, setIsAddProductsOpen] = React.useState(false);
+  const [editingItem, setEditingItem] = React.useState<PriceListItem | null>(null);
+  const [deletingItem, setDeletingItem] = React.useState<PriceListItem | null>(null);
 
   const { data: priceList, isLoading, error } = usePriceListNew(id!);
   const { data: priceListItemsData, refetch: refetchItems } = usePriceListItemsNew(id!);
@@ -46,8 +46,10 @@ export const PriceListDetailPage: React.FC = () => {
           price_list_id: id!,
           product_id: productPrice.productId,
           unit_price: productPrice.unitPrice,
-          min_qty: productPrice.minQty || 1,
+          price_per_kg: productPrice.pricePerKg,
+          min_qty: 1,
           surcharge_pct: productPrice.surchargeRate || undefined,
+          pricing_method: productPrice.pricingMethod,
         });
       }
       setIsAddProductsOpen(false);
@@ -276,11 +278,13 @@ export const PriceListDetailPage: React.FC = () => {
                     Product
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Unit Price
+                    {priceList.pricing_method === 'per_unit' ? 'Unit Price' : priceList.pricing_method === 'per_kg' ? 'Price per KG (Estimated)' : 'Price'}
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Min Qty
-                  </th>
+                  {priceList.pricing_method === 'per_unit' && (
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Min Qty
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Surcharge
                   </th>
@@ -293,28 +297,34 @@ export const PriceListDetailPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {priceListItems.map((item) => (
+                {priceListItems.map((item: PriceListItem) => (
                   <tr key={item.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
                           {item.product?.name || 'Unknown Product'}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           SKU: {item.product?.sku || 'N/A'}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <span className="text-sm font-medium text-gray-900">
-                        {formatCurrencySync(item.unit_price, priceList.currency_code)}
+                        {priceList.pricing_method === 'per_unit'
+                          ? formatCurrencySync(item.unit_price, priceList.currency_code)
+                          : priceList.pricing_method === 'per_kg'
+                            ? <>{formatCurrencySync(item.price_per_kg, priceList.currency_code)} <span className="text-xs text-gray-500">(Estimated)</span></>
+                            : '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <span className="text-sm text-gray-900">
-                        {item.min_qty}
-                      </span>
-                    </td>
+                    {priceList.pricing_method === 'per_unit' && (
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="text-sm text-gray-900">
+                          {item.min_qty}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <span className="text-sm text-gray-900">
                         {item.surcharge_pct ? `${item.surcharge_pct}%` : '-'}
@@ -322,7 +332,11 @@ export const PriceListDetailPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <span className="text-sm font-medium text-gray-900">
-                        {formatCurrencySync(calculateFinalPrice(item.unit_price, item.surcharge_pct), priceList.currency_code)}
+                        {priceList.pricing_method === 'per_unit'
+                          ? formatCurrencySync(calculateFinalPriceSync(item.unit_price, item.surcharge_pct), priceList.currency_code)
+                          : priceList.pricing_method === 'per_kg' && item.product?.capacity_kg && item.price_per_kg
+                            ? `${formatCurrencySync(item.product.capacity_kg * item.price_per_kg, priceList.currency_code)} (for ${item.product.capacity_kg}kg)`
+                            : '-'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

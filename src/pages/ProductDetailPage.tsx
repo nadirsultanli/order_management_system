@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Package, Cylinder, Weight, Barcode, Calendar, AlertTriangle, DollarSign } from 'lucide-react';
-import { useProduct, useUpdateProduct } from '../hooks/useProducts';
+import { useProduct, useUpdateProduct, useUpdateParentProduct } from '../hooks/useProducts';
 import { ProductForm } from '../components/products/ProductForm';
 import { ProductPricing } from '../components/products/ProductPricing';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -16,15 +16,32 @@ export const ProductDetailPage: React.FC = () => {
 
   const { data: product, isLoading, error, refetch } = useProduct(id!);
   const updateProduct = useUpdateProduct();
+  const updateParentProduct = useUpdateParentProduct();
 
   const handleEditSubmit = async (data: CreateProductData) => {
     if (product) {
       try {
-        await updateProduct.mutateAsync({ id: product.id, ...data });
-        setIsEditFormOpen(false);
+        // Check if this is a parent product by looking for parent_products_id field
+        // If parent_products_id is null or undefined, it's a parent product
+        const isParentProduct = !product.parent_products_id;
         
-        // Manually refetch the product data to update the UI
-        await refetch();
+        if (isParentProduct) {
+          // For parent products, only send fields that exist in parent_products table
+          const parentProductData = {
+            id: product.id,
+            name: data.name,
+            sku: data.sku,
+            description: data.description,
+            status: data.status,
+            capacity_kg: data.capacity_kg,
+          };
+          await updateParentProduct.mutateAsync(parentProductData);
+        } else {
+          await updateProduct.mutateAsync({ id: product.id, ...data });
+        }
+        
+        setIsEditFormOpen(false);
+        refetch();
       } catch (error) {
         // Error handling is done in the hook
       }
@@ -296,7 +313,7 @@ export const ProductDetailPage: React.FC = () => {
         onClose={() => setIsEditFormOpen(false)}
         onSubmit={handleEditSubmit}
         product={product}
-        loading={updateProduct.isPending}
+        loading={product && !product.parent_products_id ? updateParentProduct.isPending : updateProduct.isPending}
         title="Edit Product"
       />
     </div>

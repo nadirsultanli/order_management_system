@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Package } from 'lucide-react';
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useCreateVariant, useCreateParentProduct } from '../hooks/useProducts';
+import { useProducts, useCreateProduct, useUpdateProduct, useUpdateParentProduct, useDeleteProduct, useCreateVariant, useCreateParentProduct } from '../hooks/useProducts';
 import { GroupedProductTable } from '../components/products/GroupedProductTable';
 import { ProductFilters } from '../components/products/ProductFilters';
 import { ProductForm } from '../components/products/ProductForm';
@@ -26,6 +26,7 @@ export const ProductsPage: React.FC = () => {
   const createProduct = useCreateProduct();
   const createParentProduct = useCreateParentProduct();
   const updateProduct = useUpdateProduct();
+  const updateParentProduct = useUpdateParentProduct();
   const deleteProduct = useDeleteProduct();
   const createVariant = useCreateVariant();
 
@@ -73,20 +74,32 @@ export const ProductsPage: React.FC = () => {
   const handleFormSubmit = async (data: CreateProductData) => {
     console.log('Form submit:', data);
     try {
-      if (editingProduct) {
-        await updateProduct.mutateAsync({ id: editingProduct.id, ...data });
+      if (editingProduct?.id) {
+        // Check if this is a parent product
+        const isParentProduct = !editingProduct.parent_products_id;
+        
+        if (isParentProduct) {
+          // For parent products, only send fields that exist in parent_products table
+          const parentProductData = {
+            id: editingProduct.id,
+            name: data.name,
+            sku: data.sku,
+            description: data.description,
+            status: data.status,
+            capacity_kg: data.capacity_kg,
+          };
+          await updateParentProduct.mutateAsync(parentProductData);
+        } else {
+          await updateProduct.mutateAsync({ id: editingProduct.id, ...data });
+        }
       } else {
-        // Use createParentProduct for new products to create parent products
-        console.log('Creating parent product with data:', data);
-        await createParentProduct.mutateAsync(data);
+        await createProduct.mutateAsync(data);
       }
       setIsFormOpen(false);
       setEditingProduct(null);
-      // Refresh the grouped data to show the new/updated product
-      refetch();
     } catch (error) {
       console.error('Form submit error:', error);
-      // Error handling is done in the hooks
+      // Error handling is done in the hook
     }
   };
 
@@ -214,14 +227,13 @@ export const ProductsPage: React.FC = () => {
       <ProductForm
         isOpen={isFormOpen}
         onClose={() => {
-          console.log('Closing form');
           setIsFormOpen(false);
           setEditingProduct(null);
         }}
         onSubmit={handleFormSubmit}
-        product={editingProduct || undefined}
-        loading={createProduct.isPending || createParentProduct.isPending || updateProduct.isPending}
-        title={editingProduct ? 'Edit Product' : 'Add New Product'}
+        product={editingProduct}
+        loading={editingProduct && !editingProduct.parent_products_id ? updateParentProduct.isPending : updateProduct.isPending || createProduct.isPending}
+        title={editingProduct ? 'Edit Product' : 'Add Product'}
       />
 
       <AddVariantForm

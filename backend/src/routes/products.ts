@@ -329,35 +329,58 @@ export const productsRouter = router({
       
       ctx.logger.info('Fetching product options');
       
-      const { data, error } = await ctx.supabase
-        .from('products')
-        .select('id, sku, name, sku_variant, is_variant')
-        
-        .in('status', input.status)
-        .order('name');
-
-      if (error) {
-        ctx.logger.error('Error fetching product options:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch product options',
-        });
-      }
-
-      let products = data || [];
-
-      // Filter variants if not requested
       if (!input.include_variants) {
-        products = products.filter(p => !p.is_variant);
-      }
+        // Query parent_products table directly for parent products only
+        const { data, error } = await ctx.supabase
+          .from('parent_products')
+          .select('id, name, status')
+          .eq('status', 'active')
+          .order('name');
 
-      return products.map(p => ({
-        id: p.id,
-        sku: p.sku,
-        name: p.name,
-        display_name: p.sku_variant ? `${p.name} - ${p.sku_variant}` : p.name,
-        is_variant: p.is_variant,
-      }));
+        if (error) {
+          ctx.logger.error('Error fetching parent products:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch parent products',
+          });
+        }
+
+        const parentProducts = data || [];
+
+        return parentProducts.map(p => ({
+          id: p.id,
+          sku: p.name, // Use name as SKU since parent_products doesn't have SKU
+          name: p.name,
+          display_name: p.name,
+          is_variant: false,
+        }));
+      } else {
+        // Query products table for all products (including variants)
+        let query = ctx.supabase
+          .from('products')
+          .select('id, sku, name, sku_variant, is_variant')
+          .in('status', input.status);
+
+        const { data, error } = await query.order('name');
+
+        if (error) {
+          ctx.logger.error('Error fetching product options:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch product options',
+          });
+        }
+
+        const products = data || [];
+
+        return products.map(p => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          display_name: p.sku_variant ? `${p.name} - ${p.sku_variant}` : p.name,
+          is_variant: p.is_variant,
+        }));
+      }
     }),
 
   // GET /products/stats - Get product statistics
@@ -605,7 +628,7 @@ export const productsRouter = router({
       return data;
     }),
 
-  // PUT /products/:id - Update product
+  // PUT /products/{id} - Update product
   update: protectedProcedure
     .meta({
       openapi: {
@@ -613,7 +636,7 @@ export const productsRouter = router({
         path: '/products/{id}',
         tags: ['products'],
         summary: 'Update product',
-        description: 'Update an existing product with validation. SKU uniqueness is checked if SKU is being updated.',
+        description: 'Update an existing product with new information. Validates SKU uniqueness and business rules.',
         protect: true,
       }
     })
@@ -662,6 +685,86 @@ export const productsRouter = router({
         });
       }
 
+      return data;
+    }),
+
+  // PUT /parent-products/{id} - Update parent product
+  updateParentProduct: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/parent-products/{id}',
+        tags: ['products'],
+        summary: 'Update parent product',
+        description: 'Update an existing parent product with new information.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      id: z.string().uuid(),
+      name: z.string().min(1, 'Name is required').optional(),
+      sku: z.string().min(1, 'SKU is required').optional(),
+      description: z.string().optional(),
+      status: z.enum(['active', 'obsolete']).optional(),
+      capacity_kg: z.number().positive().optional(),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      const { id, ...updateData } = input;
+      
+      ctx.logger.info('Updating parent product:', id, updateData);
+      
+      // Check if parent product exists
+      const { data: existingProduct, error: fetchError } = await ctx.supabase
+        .from('parent_products')
+        .select('id, name, status, sku, description')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !existingProduct) {
+        ctx.logger.error('Parent product not found:', id);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Parent product not found',
+        });
+      }
+
+      // Check SKU uniqueness if SKU is being updated
+      if (updateData.sku) {
+        const { data: existingSku } = await ctx.supabase
+          .from('parent_products')
+          .select('id')
+          .eq('sku', updateData.sku)
+          .neq('id', id)
+          .single();
+
+        if (existingSku) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'SKU already exists. Please use a unique SKU.',
+          });
+        }
+      }
+
+      // Update the parent product
+      const { data, error } = await ctx.supabase
+        .from('parent_products')
+        .update(updateData)
+        .eq('id', id)
+        .select('id, name, status, sku, description, capacity_kg')
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error updating parent product:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to update parent product',
+        });
+      }
+
+      ctx.logger.info('Parent product updated successfully:', data);
       return data;
     }),
 
@@ -1984,6 +2087,62 @@ export const productsRouter = router({
           total_variants: totalVariants,
         },
       };
+    }),
+
+  // GET /parent-products/{id} - Get single parent product by ID
+  getParentProductById: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/parent-products/{id}',
+        tags: ['products'],
+        summary: 'Get parent product by ID',
+        description: 'Retrieve detailed information about a specific parent product by its ID.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      id: z.string().uuid(),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching parent product:', input.id);
+      
+      const { data, error } = await ctx.supabase
+        .from('parent_products')
+        .select('*')
+        .eq('id', input.id)
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error fetching parent product:', error);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Parent product not found',
+        });
+      }
+
+      // Transform the data to match the Product interface
+      const transformedProduct = {
+        ...data,
+        parent_products_id: null, // This is a parent product
+        is_variant: false,
+        unit_of_measure: 'cylinder' as const,
+        variant_type: 'cylinder' as const,
+        requires_tag: false,
+        barcode_uid: null,
+        tare_weight_kg: null,
+        gross_weight_kg: null,
+        valve_type: null,
+        tax_category: null,
+        tax_rate: null,
+        variant: 'outright' as const,
+        sku_variant: null,
+      };
+
+      return transformedProduct;
     }),
 });
 

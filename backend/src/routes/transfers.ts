@@ -1196,9 +1196,12 @@ export const transfersRouter = router({
       let query = ctx.supabase
         .from('products')
         .select('*')
-        
-        .eq('status', 'active')
-        .order('name');
+        .eq('status', 'active');
+
+      // Filter variants if not requested - only show parent products
+      if (!input.include_variants) {
+        query = query.eq('is_variant', false);
+      }
 
       if (input.variant_type) {
         query = query.eq('variant_type', input.variant_type);
@@ -1206,6 +1209,8 @@ export const transfersRouter = router({
       if (input.variant_name) {
         query = query.eq('variant_name', input.variant_name);
       }
+
+      query = query.order('name');
 
       // Apply pagination
       const from = (input.page - 1) * input.limit;
