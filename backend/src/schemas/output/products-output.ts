@@ -123,6 +123,8 @@ export const ProductVariantsResponseSchema = z.array(ProductBaseSchema);
 
 export const CreateVariantResponseSchema = ProductBaseSchema;
 
+export const UpdateVariantResponseSchema = ProductBaseSchema;
+
 // ============ Bulk Operations ============
 
 export const BulkUpdateErrorSchema = z.object({

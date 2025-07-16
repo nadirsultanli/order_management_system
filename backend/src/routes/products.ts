@@ -19,6 +19,7 @@ import {
   DeleteProductSchema,
   GetVariantsSchema,
   CreateVariantSchema,
+  UpdateVariantSchema,
   BulkStatusUpdateSchema,
   ReactivateProductSchema,
   ValidateProductSchema,
@@ -50,6 +51,7 @@ import {
   DeleteProductResponseSchema,
   ProductVariantsResponseSchema,
   CreateVariantResponseSchema,
+  UpdateVariantResponseSchema,
   BulkStatusUpdateResponseSchema,
   ReactivateProductResponseSchema,
   ValidateProductResponseSchema,
@@ -707,6 +709,9 @@ export const productsRouter = router({
       description: z.string().optional(),
       status: z.enum(['active', 'obsolete']).optional(),
       capacity_kg: z.number().positive().optional(),
+      tare_weight_kg: z.number().positive().optional(),
+      valve_type: z.string().optional(),
+      gross_weight_kg: z.number().positive().optional(),
     }))
     .output(z.any())
     .mutation(async ({ input, ctx }) => {
@@ -753,7 +758,7 @@ export const productsRouter = router({
         .from('parent_products')
         .update(updateData)
         .eq('id', id)
-        .select('id, name, status, sku, description, capacity_kg')
+        .select('id, name, status, sku, description, capacity_kg, tare_weight_kg, valve_type, gross_weight_kg')
         .single();
 
       if (error) {
@@ -764,8 +769,101 @@ export const productsRouter = router({
         });
       }
 
-      ctx.logger.info('Parent product updated successfully:', data);
-      return data;
+      // Get all child variants for this parent
+      const { data: childVariants, error: childError } = await ctx.supabase
+        .from('products')
+        .select('id, sku, name, sku_variant')
+        .eq('parent_products_id', id)
+        .eq('is_variant', true);
+
+      if (childError) {
+        ctx.logger.error('Error fetching child variants:', childError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch child variants',
+        });
+      }
+
+      let updatedChildren: any[] = [];
+      
+      // Update all child variants with inherited properties
+      if (childVariants && childVariants.length > 0) {
+        const childUpdatePromises = childVariants.map(async (child) => {
+          // Prepare child update data - inherit relevant properties from parent
+          const childUpdateData: any = {};
+          
+          // Inherit capacity, tare weight, gross weight, and valve type
+          if (updateData.capacity_kg !== undefined) {
+            childUpdateData.capacity_kg = updateData.capacity_kg;
+          }
+          if (updateData.tare_weight_kg !== undefined) {
+            childUpdateData.tare_weight_kg = updateData.tare_weight_kg;
+          }
+          if (updateData.gross_weight_kg !== undefined) {
+            childUpdateData.gross_weight_kg = updateData.gross_weight_kg;
+          }
+          if (updateData.valve_type !== undefined) {
+            childUpdateData.valve_type = updateData.valve_type;
+          }
+          
+          // Inherit status if updated
+          if (updateData.status !== undefined) {
+            childUpdateData.status = updateData.status;
+          }
+          
+          // Update child variant name if parent name changed
+          if (updateData.name !== undefined) {
+            childUpdateData.name = `${updateData.name} - ${child.sku_variant}`;
+          }
+          
+          // Update child SKU if parent SKU changed
+          if (updateData.sku !== undefined) {
+            childUpdateData.sku = `${updateData.sku}-${child.sku_variant}`;
+          }
+          
+          // Only update if there are changes to make
+          if (Object.keys(childUpdateData).length > 0) {
+            const { data: updatedChild, error: updateError } = await ctx.supabase
+              .from('products')
+              .update(childUpdateData)
+              .eq('id', child.id)
+              .select('id, sku, name, sku_variant, status')
+              .single();
+              
+            if (updateError) {
+              ctx.logger.error(`Error updating child variant ${child.id}:`, updateError);
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to update child variant: ${updateError.message}`,
+              });
+            }
+            
+            return updatedChild;
+          }
+          
+          return child;
+        });
+        
+        try {
+          updatedChildren = await Promise.all(childUpdatePromises);
+          ctx.logger.info(`Successfully updated ${updatedChildren.length} child variants`);
+        } catch (error) {
+          ctx.logger.error('Error updating child variants:', error);
+          throw error;
+        }
+      }
+
+      ctx.logger.info('Parent product and child variants updated successfully:', {
+        parent: data,
+        children_updated: updatedChildren.length,
+        children: updatedChildren.map((child: any) => ({ id: child.id, sku: child.sku, name: child.name }))
+      });
+      
+      return {
+        ...data,
+        children_updated: updatedChildren.length,
+        updated_children: updatedChildren
+      };
     }),
 
   // DELETE /products/:id - Delete product (soft delete by setting status to obsolete)
@@ -1009,6 +1107,150 @@ export const productsRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'An unexpected error occurred while creating the product variant',
+        });
+      }
+    }),
+
+  // PUT /products/variants/:id - Update product variant
+  updateVariant: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/products/variants/{id}',
+        tags: ['products'],
+        summary: 'Update product variant',
+        description: 'Update a product variant. SKU and barcode_uid cannot be changed - they remain unchanged for data integrity.',
+        protect: true,
+      }
+    })
+    .input(UpdateVariantSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Updating product variant with input:', {
+        id: input.id,
+        name: input.name,
+        description: input.description,
+        status: input.status,
+      });
+
+      try {
+        // First, verify this is actually a variant product
+        const { data: existingVariant, error: fetchError } = await ctx.supabase
+          .from('products')
+          .select('*')
+          .eq('id', input.id)
+          .eq('is_variant', true)
+          .single();
+
+        if (fetchError) {
+          ctx.logger.error('Error fetching variant product:', {
+            error: fetchError,
+            id: input.id,
+          });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Variant product not found: ${fetchError.message}`,
+          });
+        }
+
+        if (!existingVariant) {
+          ctx.logger.error('Variant product not found:', {
+            id: input.id,
+          });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Variant product not found',
+          });
+        }
+
+        ctx.logger.info('Found variant product:', {
+          id: existingVariant.id,
+          sku: existingVariant.sku,
+          name: existingVariant.name,
+          sku_variant: existingVariant.sku_variant,
+          parent_products_id: existingVariant.parent_products_id,
+        });
+
+        // Build update data - only allow updating specific fields
+        const updateData: any = {};
+        
+        if (input.name !== undefined) {
+          updateData.name = input.name;
+        }
+        
+        if (input.description !== undefined) {
+          updateData.description = input.description;
+        }
+        
+        if (input.status !== undefined) {
+          updateData.status = input.status;
+        }
+
+        // Ensure we have something to update
+        if (Object.keys(updateData).length === 0) {
+          ctx.logger.warn('No fields to update for variant:', {
+            id: input.id,
+            input,
+          });
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'No fields provided for update',
+          });
+        }
+
+        ctx.logger.info('Updating variant with data:', updateData);
+
+        // Update the variant
+        const { data, error } = await ctx.supabase
+          .from('products')
+          .update(updateData)
+          .eq('id', input.id)
+          .eq('is_variant', true) // Extra safety check
+          .select()
+          .single();
+
+        if (error) {
+          ctx.logger.error('Error updating product variant:', {
+            error,
+            errorMessage: error.message,
+            errorCode: error.code,
+            errorDetails: error.details,
+            errorHint: error.hint,
+            updateData,
+          });
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to update product variant: ${error.message}`,
+          });
+        }
+
+        ctx.logger.info('Successfully updated product variant:', {
+          id: data.id,
+          sku: data.sku,
+          name: data.name,
+          sku_variant: data.sku_variant,
+          status: data.status,
+          updated_fields: Object.keys(updateData),
+        });
+
+        return data;
+      } catch (error) {
+        ctx.logger.error('Unexpected error in updateVariant:', {
+          error,
+          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          errorStack: error instanceof Error ? error.stack : undefined,
+          input,
+        });
+        
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An unexpected error occurred while updating the product variant',
         });
       }
     }),
