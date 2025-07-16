@@ -36,7 +36,7 @@ export interface WeightBasedPriceCalculation {
   subtotal: number;
   taxAmount: number;
   totalPrice: number;
-  pricingMethod: 'per_kg' | 'per_unit' | 'flat_rate' | 'tiered';
+  pricingMethod: 'per_kg' | 'per_unit' | 'flat_rate' | 'tiered' | 'copy_from_list' | 'markup';
 }
 
 export interface CylinderDepositRate {
@@ -66,7 +66,7 @@ export class PricingService {
   async calculateFinalPriceWithMethod(
     productId: string,
     quantity: number,
-    pricingMethod: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered',
+    pricingMethod: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered' | 'copy_from_list' | 'markup',
     unitPrice: number,
     surchargePercent?: number,
     customerId?: string,
@@ -87,6 +87,14 @@ export class PricingService {
       case 'tiered':
         // Tiered pricing - apply bulk discounts based on quantity
         return this.applyTieredPricing(unitPrice, quantity, surchargePercent);
+      
+      case 'copy_from_list':
+        // Copy from list - this should be handled in the route logic
+        return this.calculateFinalPrice(unitPrice, surchargePercent) * quantity;
+      
+      case 'markup':
+        // Markup pricing - this should be handled in the route logic
+        return this.calculateFinalPrice(unitPrice, surchargePercent) * quantity;
       
       default:
         return this.calculateFinalPrice(unitPrice, surchargePercent) * quantity;
@@ -459,7 +467,7 @@ export class PricingService {
       product_id: string;
       quantity: number;
       unit_price: number;
-      pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
+      pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered' | 'copy_from_list' | 'markup';
       include_deposit?: boolean;
       subtotal?: number;
     }>,
