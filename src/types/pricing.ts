@@ -6,6 +6,7 @@ export interface PriceList {
   start_date: string;
   end_date?: string;
   is_default: boolean;
+  pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
   created_at: string;
   product_count?: number;
 }
@@ -38,6 +39,7 @@ export interface CreatePriceListData {
   start_date: string;
   end_date?: string;
   is_default: boolean;
+  pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
 }
 
 export interface UpdatePriceListData extends Partial<CreatePriceListData> {
@@ -47,9 +49,11 @@ export interface UpdatePriceListData extends Partial<CreatePriceListData> {
 export interface CreatePriceListItemData {
   price_list_id: string;
   product_id: string;
-  unit_price: number;
+  unit_price?: number;
+  price_per_kg?: number;
   min_qty: number;
   surcharge_pct?: number;
+  pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
   // Tax-related fields (optional, calculated if not provided)
   price_excluding_tax?: number;
   tax_amount?: number;

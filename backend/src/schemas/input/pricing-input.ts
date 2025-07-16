@@ -7,7 +7,7 @@ import { z } from 'zod';
 // ============ Base Enums ============
 
 export const PriceListStatusEnum = z.enum(['active', 'future', 'expired']);
-export const PricingMethodEnum = z.enum(['fixed', 'copy_from_list', 'markup', 'cost_plus']);
+export const PricingMethodEnum = z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered', 'copy_from_list', 'markup']);
 
 // ============ Core Price List Operations ============
 
@@ -30,6 +30,7 @@ export const CreatePriceListSchema = z.object({
   start_date: z.string(),
   end_date: z.string().optional(),
   is_default: z.boolean().default(false),
+  pricing_method: PricingMethodEnum.default('per_unit'),
 });
 
 export const UpdatePriceListSchema = z.object({
@@ -40,6 +41,7 @@ export const UpdatePriceListSchema = z.object({
   start_date: z.string().optional(),
   end_date: z.string().optional(),
   is_default: z.boolean().optional(),
+  pricing_method: PricingMethodEnum.optional(),
 });
 
 export const DeletePriceListSchema = z.object({
@@ -62,20 +64,40 @@ export const PriceListItemFiltersSchema = z.object({
 export const CreatePriceListItemSchema = z.object({
   price_list_id: z.string().uuid(),
   product_id: z.string().uuid(),
-  unit_price: z.number().positive(),
+  unit_price: z.number().positive().optional(),
+  price_per_kg: z.number().positive().optional(),
   min_qty: z.number().int().min(1).optional(),
   surcharge_pct: z.number().min(0).max(100).optional(),
+  pricing_method: PricingMethodEnum.default('per_unit'),
   // Tax-related fields (optional, calculated if not provided)
   price_excluding_tax: z.number().positive().optional(),
   tax_amount: z.number().min(0).optional(),
   price_including_tax: z.number().positive().optional(),
+}).refine((data) => {
+  // Ensure either unit_price or price_per_kg is provided based on pricing_method
+  if (data.pricing_method === 'per_unit') {
+    return data.unit_price !== undefined && data.unit_price > 0;
+  } else if (data.pricing_method === 'per_kg') {
+    return data.price_per_kg !== undefined && data.price_per_kg > 0;
+  } else if (data.pricing_method === 'copy_from_list') {
+    // For copy_from_list, we need source_price_list_id
+    return true; // Validation handled in the route
+  } else if (data.pricing_method === 'markup') {
+    // For markup, we need markup_percentage
+    return true; // Validation handled in the route
+  }
+  return true;
+}, {
+  message: "Unit price is required for per_unit method, price per kg is required for per_kg method"
 });
 
 export const UpdatePriceListItemSchema = z.object({
   id: z.string().uuid(),
   unit_price: z.number().positive().optional(),
+  price_per_kg: z.number().positive().optional(),
   min_qty: z.number().int().min(1).optional(),
   surcharge_pct: z.number().min(0).max(100).optional(),
+  pricing_method: PricingMethodEnum.optional(),
   // Tax-related fields (optional, calculated if not provided)
   price_excluding_tax: z.number().positive().optional(),
   tax_amount: z.number().min(0).optional(),
@@ -216,7 +238,7 @@ export const CalculateTotalWithDepositsSchema = z.object({
   items: z.array(z.object({
     product_id: z.string().uuid(),
     quantity: z.number().positive(),
-    pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).optional(),
+    pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered', 'copy_from_list', 'markup']).optional(),
     price_list_id: z.string().uuid().optional(),
   })),
   include_deposits: z.boolean().default(true),
@@ -227,7 +249,7 @@ export const CalculateTotalWithDepositsSchema = z.object({
 export const EnhancedCalculateFinalPriceSchema = z.object({
   product_id: z.string().uuid(),
   quantity: z.number().positive(),
-  pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']),
+  pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered', 'copy_from_list', 'markup']),
   unit_price: z.number().positive(),
   surcharge_percent: z.number().optional(),
   customer_id: z.string().uuid().optional(),

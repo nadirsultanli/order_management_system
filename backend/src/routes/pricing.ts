@@ -3,6 +3,100 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { PricingService } from '../lib/pricing';
+import { SupabaseClient } from '@supabase/supabase-js';
+
+// Helper function for calculating empty return credit
+async function calculateEmptyReturnCredit(
+  capacity_l: number,
+  quantity: number,
+  customer_id: string | undefined,
+  supabase: SupabaseClient
+): Promise<any> {
+  try {
+    // Get deposit rate for this capacity
+    const { data: depositRate, error } = await supabase
+      .from('cylinder_deposit_rates')
+      .select('deposit_amount')
+      .eq('capacity_l', capacity_l)
+      .eq('currency_code', 'KES')
+      .eq('is_active', true)
+      .lte('effective_date', new Date().toISOString().split('T')[0])
+      .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
+      .order('effective_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !depositRate) {
+      return null;
+    }
+
+    // Apply condition-based refund percentage (default to 'good' condition)
+    const conditionRefunds = {
+      'excellent': 1.0,   // 100% refund
+      'good': 0.9,        // 90% refund
+      'fair': 0.75,       // 75% refund
+      'poor': 0.5,        // 50% refund
+      'damaged': 0.25,    // 25% refund
+      'scrap': 0.0,       // 0% refund
+    };
+
+    const refundPercentage = conditionRefunds['good']; // Default to good condition
+    const creditAmount = depositRate.deposit_amount * quantity * refundPercentage;
+
+    return {
+      capacity_l,
+      quantity,
+      condition: 'good',
+      deposit_amount_per_unit: depositRate.deposit_amount,
+      refund_percentage: refundPercentage * 100,
+      credit_amount: creditAmount,
+      late_penalty: 0,
+      is_late: false,
+      return_date: new Date().toISOString().split('T')[0],
+      currency_code: 'KES',
+    };
+  } catch (error) {
+    console.error('Error calculating empty return credit:', error);
+    return null;
+  }
+}
+
+// Helper function to convert kg to liters for propane
+function convertKgToLiters(kg: number): number {
+  // Propane density: ~0.51 kg/L at 15°C
+  // This is an approximation - in practice, you might want to store both values
+  return kg / 0.51;
+}
+
+// Helper function to get product capacity in liters
+async function getProductCapacityL(productId: string, supabase: SupabaseClient): Promise<number | null> {
+  try {
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('capacity_kg, capacity_l')
+      .eq('id', productId)
+      .single();
+
+    if (error || !product) {
+      return null;
+    }
+
+    // If capacity_l exists, use it directly
+    if (product.capacity_l) {
+      return product.capacity_l;
+    }
+
+    // If only capacity_kg exists, convert to liters
+    if (product.capacity_kg) {
+      return convertKgToLiters(product.capacity_kg);
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error getting product capacity:', error);
+    return null;
+  }
+}
 
 // Import input schemas
 import {
@@ -387,13 +481,13 @@ export const pricingRouter = router({
         .from('price_list_item')
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
+          product:parent_products(id, name, sku, description, capacity_kg)
         `, { count: 'exact' })
         .eq('price_list_id', input.price_list_id)
         .order('unit_price', { ascending: false });
 
       if (input.search) {
-        query = query.or(`product.sku.ilike.%${input.search}%,product.name.ilike.%${input.search}%`);
+        query = query.or(`product.name.ilike.%${input.search}%`);
       }
 
       // Apply pagination
@@ -472,7 +566,7 @@ export const pricingRouter = router({
         .insert([input])
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
+          product:parent_products(id, name, sku, description, capacity_kg)
         `)
         .single();
 
@@ -639,12 +733,19 @@ export const pricingRouter = router({
             start_date,
             end_date,
             is_default,
-            currency_code
+            currency_code,
+            pricing_method
           ),
-          product:products(
+          product:parent_products(
             id,
             name,
-            sku
+            sku,
+            description,
+            capacity_kg,
+            tare_weight_kg,
+            gross_weight_kg,
+            tax_rate,
+            tax_category
           )
         `)
         .eq('product_id', input.productId);
@@ -657,23 +758,114 @@ export const pricingRouter = router({
         });
       }
 
-      // Add status information to each price list
+      // Add status information to each price list and calculate effective prices
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      const enrichedData = (data || []).map((item: any) => {
+      const enrichedData = await Promise.all((data || []).map(async (item: any) => {
         const statusInfo = pricingService.getPriceListStatus(
           item.price_list.start_date, 
           item.price_list.end_date
         );
         
+        // Calculate net weight from product properties
+        let netWeight = 0;
+        if (item.product?.gross_weight_kg && item.product?.tare_weight_kg) {
+          netWeight = item.product.gross_weight_kg - item.product.tare_weight_kg;
+        } else if (item.product?.capacity_kg) {
+          netWeight = item.product.capacity_kg;
+        } else if (item.product?.sku) {
+          const kgMatch = item.product.sku.match(/(\d+)KG/i);
+          if (kgMatch) {
+            netWeight = parseInt(kgMatch[1]);
+          }
+        }
+        
+        // Calculate the effective price based on pricing method
+        let effectivePrice = 0;
+        let priceDisplay = '-';
+        let basePrice = 0;
+        let taxAmount = 0;
+        let totalWithTax = 0;
+        
+        if (item.pricing_method === 'per_unit' && item.unit_price) {
+          basePrice = item.unit_price;
+          effectivePrice = pricingService.calculateFinalPrice(item.unit_price, item.surcharge_pct || 0);
+          priceDisplay = pricingService.formatCurrency(item.unit_price, item.price_list.currency_code);
+        } else if (item.pricing_method === 'per_kg' && item.price_per_kg) {
+          basePrice = item.price_per_kg * netWeight; // Calculate total price based on net weight
+          effectivePrice = pricingService.calculateFinalPrice(basePrice, item.surcharge_pct || 0);
+          priceDisplay = pricingService.formatCurrency(item.price_per_kg, item.price_list.currency_code) + '/kg';
+        }
+        
+        // Calculate tax based on cylinder deposit rates (net weight-based)
+        let depositAmount = 0;
+        
+        if (effectivePrice > 0) {
+          // Calculate net weight from product properties
+          let netWeight = 0;
+          
+          // Try to get net weight from product properties
+          if (item.product?.gross_weight_kg && item.product?.tare_weight_kg) {
+            netWeight = item.product.gross_weight_kg - item.product.tare_weight_kg;
+          } else if (item.product?.capacity_kg) {
+            // Fallback to capacity if net weight can't be calculated
+            netWeight = item.product.capacity_kg;
+          } else if (item.product?.sku) {
+            // Extract from SKU as last resort
+            const kgMatch = item.product.sku.match(/(\d+)KG/i);
+            if (kgMatch) {
+              netWeight = parseInt(kgMatch[1]);
+            }
+          }
+          
+          // Get tax rate and deposit amount from cylinder deposit rates based on capacity_kg
+          // Use capacity_kg for deposit matching since cylinder_deposit_rates.capacity_l represents kg capacity
+          const capacityForDeposit = item.product?.capacity_kg || 0;
+          if (capacityForDeposit > 0) {
+            const { data: depositRate } = await ctx.supabase
+              .from('cylinder_deposit_rates')
+              .select('deposit_amount')
+              .eq('capacity_l', capacityForDeposit)
+              .eq('currency_code', item.price_list.currency_code)
+              .eq('is_active', true)
+              .order('effective_date', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            // Use default tax rate since tax_rate column might not exist
+            const taxRate = 0.16; // Default to 16%
+            taxAmount = effectivePrice * taxRate;
+            totalWithTax = effectivePrice + taxAmount;
+            depositAmount = depositRate?.deposit_amount || 0;
+          } else {
+            // Fallback to product tax rate if no capacity found
+            const productTaxRate = item.product?.tax_rate || 0;
+            taxAmount = effectivePrice * (productTaxRate / 100);
+            totalWithTax = effectivePrice + taxAmount;
+          }
+        } else {
+          totalWithTax = effectivePrice;
+        }
+        
+        // Calculate total including deposit
+        const totalWithDeposit = totalWithTax + depositAmount;
+        
         return {
           ...item,
+          effective_price: effectivePrice,
+          price_display: priceDisplay,
+          net_weight: netWeight,
+          base_price: basePrice,
+          tax_amount: taxAmount,
+          total_with_tax: totalWithTax,
+          total_with_deposit: totalWithDeposit,
+          deposit_amount: depositAmount,
           price_list: {
             ...item.price_list,
             status: statusInfo.status,
             statusInfo,
           }
         };
-      });
+      }));
 
       return enrichedData;
     }),
@@ -1189,13 +1381,13 @@ export const pricingRouter = router({
         .from('price_list_item')
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
+          product:parent_products(id, name, sku, description, capacity_kg)
         `, { count: 'exact' })
         .eq('price_list_id', input.price_list_id)
         .order('unit_price', { ascending: false });
 
       if (input.search) {
-        query = query.or(`product.sku.ilike.%${input.search}%,product.name.ilike.%${input.search}%`);
+        query = query.or(`product.name.ilike.%${input.search}%`);
       }
 
       // Apply pagination
@@ -1275,7 +1467,7 @@ export const pricingRouter = router({
         .insert([input])
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
+          product:parent_products(id, name, sku, description, capacity_kg)
         `)
         .single();
 
@@ -2298,6 +2490,632 @@ export const pricingRouter = router({
         };
       } catch (error) {
         ctx.logger.error('Enhanced final price calculation error:', error);
+        throw error;
+      }
+    }),
+
+  // ============ NEW ORDER FLOW PRICING ENDPOINTS ============
+
+  // POST /pricing/calculate-order-flow - Calculate pricing based on order type and flow
+  calculateOrderFlow: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate-order-flow',
+        tags: ['pricing'],
+        summary: 'Calculate pricing based on order flow (Outright vs Refill/Exchange)',
+        description: 'Calculate pricing according to document: Outright = Gas Fill + Cylinder Deposit, Refill/Exchange = Gas Fill only with auto-generated empty return credit',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      order_type: z.enum(['outright', 'refill', 'exchange', 'pickup']),
+      items: z.array(z.object({
+        product_id: z.string().uuid(),
+        quantity: z.number().positive(),
+        variant: z.enum(['FULL', 'EMPTY', 'FULL-XCH', 'FULL-OUT']).optional(),
+        scenario: z.enum(['OUT', 'XCH']).optional(),
+      })),
+      customer_id: z.string().uuid().optional(),
+      pricing_date: z.string().optional(),
+      include_deposits: z.boolean().default(true),
+      auto_generate_empty_returns: z.boolean().default(true),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      
+      ctx.logger.info('Calculating order flow pricing:', input);
+      
+      try {
+        const calculations = [];
+        let totalGasCharges = 0;
+        let totalDeposits = 0;
+        let totalEmptyCredits = 0;
+        let totalSubtotal = 0;
+        let totalTax = 0;
+
+        for (const item of input.items) {
+          // Get product details including variants
+          const { data: product, error: productError } = await ctx.supabase
+            .from('products')
+            .select(`
+              id, name, sku, capacity_l, gross_weight_kg, net_gas_weight_kg, 
+              tare_weight_kg, tax_rate, tax_category, variant_type, sku_variant
+            `)
+            .eq('id', item.product_id)
+            .single();
+
+          if (productError || !product) {
+            ctx.logger.error('Product not found:', item.product_id);
+            continue;
+          }
+
+          let calculation: any = {
+            product_id: item.product_id,
+            product_name: product.name,
+            product_sku: product.sku,
+            quantity: item.quantity,
+            variant: item.variant || product.sku_variant || 'FULL',
+            scenario: item.scenario || (input.order_type === 'outright' ? 'OUT' : 'XCH'),
+          };
+
+          // Determine pricing based on order flow
+          if (input.order_type === 'outright') {
+            // Outright: Gas Fill + Cylinder Deposit
+            if (product.net_gas_weight_kg && product.capacity_l) {
+              const weightBasedPrice = await pricingService.getWeightBasedPrice(
+                item.product_id,
+                item.quantity,
+                input.customer_id,
+                input.pricing_date
+              );
+
+              if (weightBasedPrice) {
+                calculation = {
+                  ...calculation,
+                  pricing_method: 'outright',
+                  gas_weight_kg: weightBasedPrice.netGasWeight_kg,
+                  price_per_kg: weightBasedPrice.gasPricePerKg,
+                  gas_charge: weightBasedPrice.gasCharge,
+                  deposit_amount: input.include_deposits ? weightBasedPrice.depositAmount : 0,
+                  subtotal: weightBasedPrice.gasCharge + (input.include_deposits ? weightBasedPrice.depositAmount : 0),
+                  tax_amount: weightBasedPrice.taxAmount,
+                  total: weightBasedPrice.gasCharge + (input.include_deposits ? weightBasedPrice.depositAmount : 0) + weightBasedPrice.taxAmount,
+                };
+
+                totalGasCharges += weightBasedPrice.gasCharge;
+                totalDeposits += input.include_deposits ? weightBasedPrice.depositAmount : 0;
+              }
+            } else {
+              // Fallback to per-unit pricing
+              const price = await pricingService.getProductPrice(
+                item.product_id,
+                input.customer_id,
+                input.pricing_date
+              );
+
+              if (price) {
+                const unitPrice = price.finalPrice;
+                const subtotal = unitPrice * item.quantity;
+                const depositAmount = input.include_deposits && product.capacity_l ? 
+                  await pricingService.getCurrentDepositRate(product.capacity_l) * item.quantity : 0;
+                
+                const taxableAmount = subtotal + depositAmount;
+                const taxAmount = taxableAmount * ((product.tax_rate || 0) / 100);
+
+                calculation = {
+                  ...calculation,
+                  pricing_method: 'outright_per_unit',
+                  unit_price: unitPrice,
+                  gas_charge: subtotal,
+                  deposit_amount: depositAmount,
+                  subtotal: subtotal + depositAmount,
+                  tax_amount: taxAmount,
+                  total: subtotal + depositAmount + taxAmount,
+                };
+
+                totalGasCharges += subtotal;
+                totalDeposits += depositAmount;
+              }
+            }
+          } else if (input.order_type === 'refill' || input.order_type === 'exchange') {
+            // Refill/Exchange: Gas Fill only + auto-generated empty return credit
+            if (product.net_gas_weight_kg && product.capacity_l) {
+              const weightBasedPrice = await pricingService.getWeightBasedPrice(
+                item.product_id,
+                item.quantity,
+                input.customer_id,
+                input.pricing_date
+              );
+
+              if (weightBasedPrice) {
+                calculation = {
+                  ...calculation,
+                  pricing_method: 'refill_exchange',
+                  gas_weight_kg: weightBasedPrice.netGasWeight_kg,
+                  price_per_kg: weightBasedPrice.gasPricePerKg,
+                  gas_charge: weightBasedPrice.gasCharge,
+                  deposit_amount: 0, // No deposit for refill/exchange
+                  subtotal: weightBasedPrice.gasCharge,
+                  tax_amount: weightBasedPrice.taxAmount,
+                  total: weightBasedPrice.gasCharge + weightBasedPrice.taxAmount,
+                };
+
+                totalGasCharges += weightBasedPrice.gasCharge;
+              }
+            } else {
+              // Fallback to per-unit pricing
+              const price = await pricingService.getProductPrice(
+                item.product_id,
+                input.customer_id,
+                input.pricing_date
+              );
+
+              if (price) {
+                const unitPrice = price.finalPrice;
+                const subtotal = unitPrice * item.quantity;
+                const taxAmount = subtotal * ((product.tax_rate || 0) / 100);
+
+                calculation = {
+                  ...calculation,
+                  pricing_method: 'refill_exchange_per_unit',
+                  unit_price: unitPrice,
+                  gas_charge: subtotal,
+                  deposit_amount: 0,
+                  subtotal: subtotal,
+                  tax_amount: taxAmount,
+                  total: subtotal + taxAmount,
+                };
+
+                totalGasCharges += subtotal;
+              }
+            }
+
+            // Auto-generate empty return credit if enabled
+            if (input.auto_generate_empty_returns) {
+              const capacityL = await getProductCapacityL(item.product_id, ctx.supabase);
+              if (capacityL) {
+                const emptyCredit = await calculateEmptyReturnCredit(
+                  capacityL,
+                  item.quantity,
+                  input.customer_id,
+                  ctx.supabase
+                );
+
+                if (emptyCredit) {
+                  calculation.empty_return_credit = emptyCredit;
+                  totalEmptyCredits += emptyCredit.credit_amount;
+                }
+              }
+            }
+          } else if (input.order_type === 'pickup') {
+            // Pickup: Empty return credit only
+            const capacityL = await getProductCapacityL(item.product_id, ctx.supabase);
+            if (capacityL) {
+              const emptyCredit = await calculateEmptyReturnCredit(
+                capacityL,
+                item.quantity,
+                input.customer_id,
+                ctx.supabase
+              );
+
+              if (emptyCredit) {
+                calculation = {
+                  ...calculation,
+                  pricing_method: 'pickup',
+                  gas_charge: 0,
+                  deposit_amount: 0,
+                  empty_return_credit: emptyCredit,
+                  subtotal: -emptyCredit.credit_amount,
+                  tax_amount: 0,
+                  total: -emptyCredit.credit_amount,
+                };
+
+                totalEmptyCredits += emptyCredit.credit_amount;
+              }
+            }
+          }
+
+          totalSubtotal += calculation.subtotal || 0;
+          totalTax += calculation.tax_amount || 0;
+          calculations.push(calculation);
+        }
+
+        const grandTotal = totalSubtotal + totalTax;
+
+        return {
+          order_type: input.order_type,
+          customer_id: input.customer_id,
+          items: calculations,
+          summary: {
+            total_gas_charges: totalGasCharges,
+            total_deposits: totalDeposits,
+            total_empty_credits: totalEmptyCredits,
+            subtotal: totalSubtotal,
+            tax_amount: totalTax,
+            grand_total: grandTotal,
+          },
+          include_deposits: input.include_deposits,
+          auto_generated_empty_returns: input.auto_generate_empty_returns,
+          calculation_date: input.pricing_date || new Date().toISOString().split('T')[0],
+        };
+      } catch (error) {
+        ctx.logger.error('Order flow pricing calculation error:', error);
+        throw error;
+      }
+    }),
+
+  // POST /pricing/calculate-empty-return-credit - Calculate empty return credit
+  calculateEmptyReturnCredit: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/calculate-empty-return-credit',
+        tags: ['pricing'],
+        summary: 'Calculate empty return credit for cylinder returns',
+        description: 'Calculate credit amount for returning empty cylinders (negative price)',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      capacity_l: z.number().positive(),
+      quantity: z.number().positive(),
+      customer_id: z.string().uuid().optional(),
+      condition: z.enum(['excellent', 'good', 'fair', 'poor', 'damaged', 'scrap']).default('good'),
+      return_date: z.string().optional(),
+      expected_return_date: z.string().optional(),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+      
+      ctx.logger.info('Calculating empty return credit:', input);
+      
+      try {
+        // Get deposit rate for this capacity
+        const depositAmount = await pricingService.getCurrentDepositRate(
+          input.capacity_l,
+          'KES',
+          input.return_date
+        );
+
+        // Apply condition-based refund percentage
+        const conditionRefunds = {
+          'excellent': 1.0,   // 100% refund
+          'good': 0.9,        // 90% refund
+          'fair': 0.75,       // 75% refund
+          'poor': 0.5,        // 50% refund
+          'damaged': 0.25,    // 25% refund
+          'scrap': 0.0,       // 0% refund
+        };
+
+        const refundPercentage = conditionRefunds[input.condition];
+        const creditAmount = depositAmount * input.quantity * refundPercentage;
+
+        // Check if return is late (if expected return date provided)
+        let latePenalty = 0;
+        let isLate = false;
+        
+        if (input.expected_return_date && input.return_date) {
+          const expectedDate = new Date(input.expected_return_date);
+          const actualDate = new Date(input.return_date);
+          const daysLate = Math.ceil((actualDate.getTime() - expectedDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysLate > 0) {
+            isLate = true;
+            // Apply 5% penalty per week late, max 25%
+            const weeksLate = Math.ceil(daysLate / 7);
+            const penaltyPercentage = Math.min(weeksLate * 0.05, 0.25);
+            latePenalty = creditAmount * penaltyPercentage;
+          }
+        }
+
+        const finalCreditAmount = creditAmount - latePenalty;
+
+        return {
+          capacity_l: input.capacity_l,
+          quantity: input.quantity,
+          condition: input.condition,
+          deposit_amount_per_unit: depositAmount,
+          refund_percentage: refundPercentage * 100,
+          credit_amount: finalCreditAmount,
+          late_penalty: latePenalty,
+          is_late: isLate,
+          return_date: input.return_date || new Date().toISOString().split('T')[0],
+          expected_return_date: input.expected_return_date,
+          currency_code: 'KES',
+        };
+      } catch (error) {
+        ctx.logger.error('Empty return credit calculation error:', error);
+        throw error;
+      }
+    }),
+
+  // POST /pricing/validate-product-variant-pricing - Validate product variant pricing
+  validateProductVariantPricing: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/validate-product-variant-pricing',
+        tags: ['pricing'],
+        summary: 'Validate product variant pricing configuration',
+        description: 'Validate that product variants have proper pricing for different scenarios (FULL, EMPTY, FULL-XCH, FULL-OUT)',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      product_id: z.string().uuid(),
+      variants: z.array(z.object({
+        sku_variant: z.enum(['FULL', 'EMPTY', 'FULL-XCH', 'FULL-OUT']),
+        scenario: z.enum(['OUT', 'XCH']),
+        status: z.enum(['FULL', 'EMPTY']),
+        expected_pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']),
+      })),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Validating product variant pricing:', input);
+      
+      try {
+        const validationResults = [];
+        const errors = [];
+        const warnings = [];
+
+        // Get product details
+        const { data: product, error: productError } = await ctx.supabase
+          .from('products')
+          .select(`
+            id, name, sku, capacity_l, gross_weight_kg, net_gas_weight_kg, 
+            tare_weight_kg, tax_rate, tax_category, variant_type
+          `)
+          .eq('id', input.product_id)
+          .single();
+
+        if (productError || !product) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Product not found'
+          });
+        }
+
+        for (const variant of input.variants) {
+          const validation: any = {
+            sku_variant: variant.sku_variant,
+            scenario: variant.scenario,
+            status: variant.status,
+            expected_pricing_method: variant.expected_pricing_method,
+            is_valid: true,
+            issues: [],
+          };
+
+          // Check if variant exists in price lists
+          const { data: priceListItems } = await ctx.supabase
+            .from('price_list_item')
+            .select(`
+              id, unit_price, surcharge_pct, min_qty,
+              price_list:price_list(id, name, pricing_method, start_date, end_date)
+            `)
+            .eq('product_id', input.product_id)
+            .eq('price_list.pricing_method', variant.expected_pricing_method);
+
+          if (!priceListItems || priceListItems.length === 0) {
+            validation.is_valid = false;
+            validation.issues.push(`No ${variant.expected_pricing_method} pricing found for ${variant.sku_variant} variant`);
+          }
+
+          // Validate pricing logic based on variant type
+          if (variant.sku_variant === 'EMPTY') {
+            // EMPTY variants should have negative or zero pricing
+            const hasNegativePricing = priceListItems?.some(item => item.unit_price <= 0);
+            if (!hasNegativePricing) {
+              validation.is_valid = false;
+              validation.issues.push('EMPTY variant should have negative or zero pricing for return credits');
+            }
+          } else if (variant.sku_variant === 'FULL-XCH') {
+            // FULL-XCH should not include deposits
+            if (variant.scenario === 'XCH') {
+              validation.warnings = validation.warnings || [];
+              validation.warnings.push('FULL-XCH should not include cylinder deposits in pricing');
+            }
+          } else if (variant.sku_variant === 'FULL-OUT') {
+            // FULL-OUT should include deposits
+            if (variant.scenario === 'OUT') {
+              validation.warnings = validation.warnings || [];
+              validation.warnings.push('FULL-OUT should include cylinder deposits in pricing');
+            }
+          }
+
+          // Check weight-based pricing requirements
+          if (variant.expected_pricing_method === 'per_kg') {
+            if (!product.net_gas_weight_kg || !product.capacity_l) {
+              validation.is_valid = false;
+              validation.issues.push('Per_kg pricing requires net_gas_weight_kg and capacity_l');
+            }
+          }
+
+          validationResults.push(validation);
+
+          if (!validation.is_valid) {
+            errors.push(...validation.issues);
+          }
+          if (validation.warnings) {
+            warnings.push(...validation.warnings);
+          }
+        }
+
+        return {
+          product_id: input.product_id,
+          product_name: product.name,
+          product_sku: product.sku,
+          validation_results: validationResults,
+          total_variants: input.variants.length,
+          valid_variants: validationResults.filter(r => r.is_valid).length,
+          errors,
+          warnings,
+          overall_valid: errors.length === 0,
+        };
+      } catch (error) {
+        ctx.logger.error('Product variant pricing validation error:', error);
+        throw error;
+      }
+    }),
+
+  // ============ EXAMPLE: PRICING FOR SPECIFIC PRODUCT ============
+
+  // POST /pricing/example/{product_id} - Example pricing calculation for specific product
+  calculateExamplePricing: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/pricing/example/{product_id}',
+        tags: ['pricing'],
+        summary: 'Example pricing calculation for specific product',
+        description: 'Calculate pricing for all scenarios (outright, refill, exchange, pickup) for a specific product to demonstrate the complete pricing system.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      product_id: z.string().uuid(),
+      quantity: z.number().positive().default(1),
+      customer_id: z.string().uuid().optional(),
+      pricing_date: z.string().optional(),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      const pricingService = new PricingService(ctx.supabase, ctx.logger);
+
+      try {
+        // Get product details
+        const { data: product, error: productError } = await ctx.supabase
+          .from('products')
+          .select(`
+            id, name, sku, capacity_kg, capacity_l, tare_weight_kg, 
+            gross_weight_kg, net_gas_weight_kg, sku_variant, variant,
+            tax_rate, tax_category
+          `)
+          .eq('id', input.product_id)
+          .single();
+
+        if (productError || !product) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Product not found',
+          });
+        }
+
+        // Calculate capacity in liters
+        const capacityL = await getProductCapacityL(input.product_id, ctx.supabase);
+        
+        // Get deposit rate
+        const depositRate = capacityL ? await pricingService.getCurrentDepositRate(capacityL) : 0;
+
+        // Calculate all pricing scenarios
+        const scenarios = {
+          // 1. OUTRIGHT: Gas Fill + Cylinder Deposit (no empty expected back)
+          outright: await pricingService.calculateOrderTotalsWithDeposits(
+            [{
+              product_id: input.product_id,
+              quantity: input.quantity,
+              unit_price: 0, // Will be calculated by weight-based pricing
+              pricing_method: 'per_kg',
+              include_deposit: true
+            }],
+            product.tax_rate || 0,
+            input.customer_id,
+            input.pricing_date
+          ),
+
+          // 2. REFILL: Gas Fill only + auto-generated empty return credit
+          refill: await pricingService.calculateOrderTotalsWithDeposits(
+            [{
+              product_id: input.product_id,
+              quantity: input.quantity,
+              unit_price: 0, // Will be calculated by weight-based pricing
+              pricing_method: 'per_kg',
+              include_deposit: false
+            }],
+            product.tax_rate || 0,
+            input.customer_id,
+            input.pricing_date
+          ),
+
+          // 3. EXCHANGE: Gas Fill only + auto-generated empty return credit
+          exchange: await pricingService.calculateOrderTotalsWithDeposits(
+            [{
+              product_id: input.product_id,
+              quantity: input.quantity,
+              unit_price: 0, // Will be calculated by weight-based pricing
+              pricing_method: 'per_kg',
+              include_deposit: false
+            }],
+            product.tax_rate || 0,
+            input.customer_id,
+            input.pricing_date
+          ),
+
+          // 4. PICKUP: Empty return credit only
+          pickup: await pricingService.calculateOrderTotalsWithDeposits(
+            [{
+              product_id: input.product_id,
+              quantity: input.quantity,
+              unit_price: 0, // Will be calculated by weight-based pricing
+              pricing_method: 'per_kg',
+              include_deposit: false
+            }],
+            product.tax_rate || 0,
+            input.customer_id,
+            input.pricing_date
+          ),
+
+          // 5. Weight-based pricing calculation
+          weight_based: await pricingService.getWeightBasedPrice(
+            input.product_id,
+            input.quantity,
+            input.customer_id,
+            input.pricing_date
+          )
+        };
+
+        return {
+          product: {
+            id: product.id,
+            name: product.name,
+            sku: product.sku,
+            capacity_kg: product.capacity_kg,
+            capacity_l: capacityL,
+            tare_weight_kg: product.tare_weight_kg,
+            gross_weight_kg: product.gross_weight_kg,
+            net_gas_weight_kg: product.net_gas_weight_kg,
+            sku_variant: product.sku_variant,
+            variant: product.variant,
+            tax_rate: product.tax_rate,
+            tax_category: product.tax_category
+          },
+          deposit_rate: {
+            capacity_l: capacityL,
+            deposit_amount: depositRate,
+            currency: 'KES'
+          },
+          quantity: input.quantity,
+          pricing_date: input.pricing_date || new Date().toISOString().split('T')[0],
+          scenarios,
+          explanation: {
+            outright: "Gas Fill + Cylinder Deposit (customer keeps the cylinder)",
+            refill: "Gas Fill only + Empty Return Credit (customer returns empty cylinder)",
+            exchange: "Gas Fill only + Empty Return Credit (customer exchanges empty for full)",
+            pickup: "Empty Return Credit only (customer returns empty cylinder)",
+            weight_based: "Per-kg pricing based on net gas weight"
+          }
+        };
+
+      } catch (error) {
+        ctx.logger.error('Example pricing calculation error:', error);
         throw error;
       }
     }),

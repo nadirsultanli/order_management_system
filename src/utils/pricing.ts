@@ -20,7 +20,8 @@ export const formatCurrency = async (amount: number, currencyCode: string = 'KES
 };
 
 // Synchronous fallback for backward compatibility
-export const formatCurrencySync = (amount: number, currencyCode: string = 'KES'): string => {
+export const formatCurrencySync = (amount: number | null | undefined, currencyCode: string = 'KES'): string => {
+  if (amount == null || isNaN(amount)) return '-';
   const currency = getCurrencyByCode(currencyCode);
   const symbol = currency?.symbol || 'Ksh';
   return `${symbol} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

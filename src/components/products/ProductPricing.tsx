@@ -160,14 +160,22 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Unit Price
                   </th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    KG
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tax Info
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Min Qty
-                  </th>
+                  {productPriceListItems.some((item: any) => item.pricing_method === 'per_unit') && (
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Min Qty
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Surcharge
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Deposit
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Final Price
@@ -180,7 +188,11 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
               <tbody className="bg-white divide-y divide-gray-200">
                 {productPriceListItems.map((item: any) => {
                   const priceList = item.price_list;
-                  const finalPrice = calculateFinalPriceSync(item.unit_price, item.surcharge_pct);
+                  const finalPrice = item.pricing_method === 'per_unit' && item.unit_price 
+                    ? calculateFinalPriceSync(item.unit_price, item.surcharge_pct)
+                    : item.pricing_method === 'per_kg' && item.price_per_kg
+                    ? calculateFinalPriceSync(item.price_per_kg, item.surcharge_pct)
+                    : 0;
                   
                   return (
                     <tr key={item.id} className="hover:bg-gray-50">
@@ -203,34 +215,83 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <span className="text-sm font-medium text-gray-900">
-                          {formatCurrencySync(item.unit_price, priceList.currency_code)}
+                          {item.pricing_method === 'per_unit' && item.unit_price ? (
+                            formatCurrencySync(item.unit_price, priceList.currency_code)
+                          ) : item.pricing_method === 'per_kg' && item.price_per_kg ? (
+                            <>
+                              {formatCurrencySync(item.price_per_kg, priceList.currency_code)}
+                              <span className="text-xs text-gray-500 ml-1">/kg</span>
+                            </>
+                          ) : (
+                            '-'
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="text-sm text-gray-900">
+                          {item.pricing_method === 'per_kg' ? item.net_weight || '-' : '-'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="text-sm text-gray-900">
-                          {item.price_excluding_tax && item.tax_amount ? (
+                          {item.tax_amount > 0 ? (
                             <>
-                              <div className="text-xs text-gray-500">Ex-tax: {formatCurrencySync(item.price_excluding_tax, priceList.currency_code)}</div>
+                              <div className="text-xs text-gray-500">
+                                Tax Rate: {((item.tax_amount / item.effective_price) * 100).toFixed(1)}%
+                                {item.pricing_method === 'per_kg' && item.net_weight && (
+                                  <span className="text-blue-600"> (from {item.net_weight}kg net weight)</span>
+                                )}
+                              </div>
+                              {item.deposit_amount > 0 && (
+                                <div className="text-xs text-gray-500">
+                                  Deposit: {formatCurrencySync(item.deposit_amount, priceList.currency_code)}
+                                  <span className="text-blue-600"> (from cylinder capacity)</span>
+                                </div>
+                              )}
                               <div className="text-xs text-gray-500">Tax: {formatCurrencySync(item.tax_amount, priceList.currency_code)}</div>
-                              <div className="font-medium">Inc-tax: {formatCurrencySync(item.price_including_tax || item.unit_price, priceList.currency_code)}</div>
+                              <div className="font-medium">Total: {formatCurrencySync(item.total_with_tax, priceList.currency_code)}</div>
+                              {item.deposit_amount > 0 && (
+                                <div className="text-xs text-gray-500">+ Deposit: {formatCurrencySync(item.deposit_amount, priceList.currency_code)}</div>
+                              )}
                             </>
                           ) : (
-                            <div className="text-xs text-gray-500">Tax calculated</div>
+                            <div className="text-xs text-gray-500">No tax</div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm text-gray-900">{item.min_qty}</span>
-                      </td>
+                      {productPriceListItems.some((priceItem: any) => priceItem.pricing_method === 'per_unit') && (
+                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-sm text-gray-900">
+                            {item.pricing_method === 'per_unit' ? item.min_qty : '-'}
+                          </span>
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="text-sm text-gray-900">
                           {item.surcharge_pct ? `${item.surcharge_pct}%` : '-'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm font-medium text-green-600">
-                          {formatCurrencySync(finalPrice, priceList.currency_code)}
+                        <span className="text-sm font-medium text-gray-900">
+                          {item.deposit_amount ? formatCurrencySync(item.deposit_amount, priceList.currency_code) : '-'}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="text-sm">
+                          <div className="font-medium text-green-600">
+                            {formatCurrencySync(item.total_with_deposit || finalPrice, priceList.currency_code)}
+                          </div>
+                          {item.pricing_method === 'per_kg' && item.net_weight && (
+                            <div className="text-xs text-gray-500">
+                              ({formatCurrencySync(item.price_per_kg, priceList.currency_code)} × {item.net_weight}kg)
+                            </div>
+                          )}
+                          {item.deposit_amount > 0 && (
+                            <div className="text-xs text-blue-600">
+                              + {formatCurrencySync(item.deposit_amount, priceList.currency_code)} deposit
+                            </div>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button

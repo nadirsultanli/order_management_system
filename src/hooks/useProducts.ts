@@ -20,12 +20,40 @@ export const useProducts = (filters: ProductFilters = {}) => {
 };
 
 export const useProduct = (id: string) => {
-  return trpc.products.getById.useQuery(
+  // First try to get from products table
+  const productQuery = trpc.products.getById.useQuery(
     { id },
     {
       enabled: Boolean(id),
+      retry: false, // Don't retry if not found
     }
   );
+
+  // If product not found, try parent_products table
+  const parentProductQuery = trpc.products.getParentProductById.useQuery(
+    { id },
+    {
+      enabled: Boolean(id) && productQuery.isError && productQuery.error?.data?.code === 'NOT_FOUND',
+      retry: false,
+    }
+  );
+
+  // Return the successful query result
+  if (productQuery.data) {
+    return productQuery;
+  } else if (parentProductQuery.data) {
+    return parentProductQuery;
+  } else if (productQuery.isError && parentProductQuery.isError) {
+    // Both failed, return the original error
+    return productQuery;
+  } else if (productQuery.isLoading) {
+    return productQuery;
+  } else if (parentProductQuery.isLoading) {
+    return parentProductQuery;
+  } else {
+    // Return the parent product query state
+    return parentProductQuery;
+  }
 };
 
 export const useProductStats = () => {
@@ -39,7 +67,7 @@ export const useProductOptions = (filters: {
   include_variants?: boolean 
 } = {}) => {
   return trpc.products.getOptions.useQuery({
-    status: filters.status || ['active'],
+    status: (filters.status || ['active']).join(','),
     include_variants: filters.include_variants ?? true,
   }, {
     staleTime: 300000, // 5 minutes
@@ -89,18 +117,72 @@ export const useUpdateProduct = () => {
   });
 };
 
+export const useUpdateParentProduct = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.products.updateParentProduct.useMutation({
+    onSuccess: (data: any) => {
+      console.log('Parent product updated successfully:', data);
+      
+      // Show success message with child update info
+      if (data.children_updated && data.children_updated > 0) {
+        toast.success(`Parent product updated successfully! ${data.children_updated} child variant${data.children_updated > 1 ? 's' : ''} also updated.`);
+      } else {
+        toast.success('Parent product updated successfully');
+      }
+      
+      // Invalidate and refetch ALL product queries to ensure UI consistency
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
+      utils.products.listParentProducts.invalidate();
+      
+      // Invalidate specific product queries
+      if (data.id) {
+        utils.products.getById.invalidate({ id: data.id });
+        utils.products.getParentProductById.invalidate({ id: data.id });
+      }
+      
+      // Invalidate child variant queries if children were updated
+      if (data.updated_children && data.updated_children.length > 0) {
+        data.updated_children.forEach((child: any) => {
+          utils.products.getById.invalidate({ id: child.id });
+        });
+      }
+      
+      // Force refetch to ensure immediate UI update
+      utils.products.list.refetch();
+      utils.products.getGroupedProducts.refetch();
+      utils.products.getParentProducts.refetch();
+    },
+    onError: (error: Error) => {
+      console.error('Update parent product mutation error:', error);
+      toast.error(error.message || 'Failed to update parent product');
+    },
+  });
+};
+
 export const useDeleteProduct = () => {
   const utils = trpc.useContext();
   
   return trpc.products.delete.useMutation({
-    onSuccess: (_, variables) => {
-      console.log('Product deleted successfully:', variables.id);
-      toast.success('Product status set to obsolete');
+    onSuccess: (data, variables) => {
+      console.log('Product deleted successfully:', variables);
+      
+      if (variables.is_parent_product) {
+        toast.success(`Parent product and ${data.children_count || 0} child products marked as obsolete`);
+      } else {
+        toast.success('Product status set to obsolete');
+      }
       
       // Invalidate and refetch product queries using tRPC utils
       utils.products.list.invalidate();
       utils.products.getStats.invalidate();
       utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
       utils.products.getById.invalidate({ id: variables.id });
     },
     onError: (error: Error) => {
@@ -145,11 +227,55 @@ export const useCreateVariant = () => {
   });
 };
 
+export const useUpdateVariant = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.products.updateVariant.useMutation({
+    onSuccess: (data) => {
+      console.log('Product variant updated successfully:', data);
+      toast.success('Product variant updated successfully');
+      
+      // Invalidate multiple queries to ensure UI consistency
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
+      if (data.parent_products_id) {
+        utils.products.getVariants.invalidate({ parent_products_id: data.parent_products_id });
+      }
+      // Invalidate the specific product
+      utils.products.getById.invalidate({ id: data.id });
+    },
+    onError: (error: Error) => {
+      console.error('Update variant mutation error:', error);
+      toast.error(error.message || 'Failed to update product variant');
+    },
+  });
+};
+
 export const useBulkUpdateProductStatus = () => {
+  const utils = trpc.useContext();
+  
   return trpc.products.bulkUpdateStatus.useMutation({
     onSuccess: (data) => {
       console.log('Bulk product status update successful:', data);
-      toast.success(`Updated ${data.updated_count} products successfully`);
+      
+      if (data.partial_success) {
+        toast.success(`Updated ${data.updated_count} out of ${data.total_requested} products successfully`);
+        if (data.errors) {
+          console.warn('Some products failed to update:', data.errors);
+        }
+      } else {
+        toast.success(`Updated ${data.updated_count} products successfully`);
+      }
+      
+      // Invalidate and refetch product queries
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
     },
     onError: (error: Error) => {
       console.error('Bulk update status mutation error:', error);
@@ -159,10 +285,25 @@ export const useBulkUpdateProductStatus = () => {
 };
 
 export const useReactivateProduct = () => {
+  const utils = trpc.useContext();
+  
   return trpc.products.reactivate.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       console.log('Product reactivated successfully:', data);
-      toast.success('Product reactivated successfully');
+      
+      if (variables.is_parent_product) {
+        toast.success(`Parent product and ${data.children_count || 0} child products reactivated successfully`);
+      } else {
+        toast.success('Product reactivated successfully');
+      }
+      
+      // Invalidate and refetch product queries
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
+      utils.products.getById.invalidate({ id: variables.id });
     },
     onError: (error: Error) => {
       console.error('Reactivate product mutation error:', error);
@@ -253,11 +394,10 @@ export const useParentProducts = (filters: {
 };
 
 export const useParentProduct = (id: string) => {
-  return trpc.products.getParentProduct.useQuery(
+  return trpc.products.getParentProductById.useQuery(
     { id },
     {
       enabled: Boolean(id),
-      staleTime: 60000,
     }
   );
 };

@@ -137,7 +137,6 @@ export interface ParentProduct {
   valve_type?: string;
   status: 'active' | 'obsolete';
   variant_type: 'cylinder' | 'refillable' | 'disposable';
-  requires_tag: boolean;
   tax_category?: string;
   tax_rate?: number;
   variant?: 'outright' | 'refill';
@@ -170,7 +169,6 @@ export interface CreateParentProductData {
   valve_type?: string;
   status: 'active' | 'obsolete';
   variant_type: 'cylinder' | 'refillable' | 'disposable';
-  requires_tag: boolean;
   tax_category?: string;
   tax_rate?: number;
   variant?: 'outright' | 'refill';

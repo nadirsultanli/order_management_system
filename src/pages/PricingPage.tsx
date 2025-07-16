@@ -251,6 +251,8 @@ export const PricingPage: React.FC = () => {
 
       {activeTab === 'price-lists' && <PricingStats />}
 
+
+
       {/* Content Area - Conditional based on active tab */}
       {activeTab === 'price-lists' ? (
         <>

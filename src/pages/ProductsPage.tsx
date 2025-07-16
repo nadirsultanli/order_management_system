@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Package } from 'lucide-react';
-import { useProducts, useCreateProduct, useUpdateProduct, useDeleteProduct, useCreateVariant, useCreateParentProduct } from '../hooks/useProducts';
+import { useProducts, useCreateProduct, useUpdateProduct, useUpdateParentProduct, useUpdateVariant, useDeleteProduct, useCreateVariant, useCreateParentProduct } from '../hooks/useProducts';
 import { GroupedProductTable } from '../components/products/GroupedProductTable';
 import { ProductFilters } from '../components/products/ProductFilters';
 import { ProductForm } from '../components/products/ProductForm';
@@ -26,6 +26,8 @@ export const ProductsPage: React.FC = () => {
   const createProduct = useCreateProduct();
   const createParentProduct = useCreateParentProduct();
   const updateProduct = useUpdateProduct();
+  const updateParentProduct = useUpdateParentProduct();
+  const updateVariant = useUpdateVariant();
   const deleteProduct = useDeleteProduct();
   const createVariant = useCreateVariant();
 
@@ -74,19 +76,46 @@ export const ProductsPage: React.FC = () => {
     console.log('Form submit:', data);
     try {
       if (editingProduct) {
-        await updateProduct.mutateAsync({ id: editingProduct.id, ...data });
+        // Check if this is a parent product by looking for parent_products_id field
+        // If parent_products_id is null or undefined, it's a parent product
+        const isParentProduct = !editingProduct.parent_products_id;
+        
+        if (isParentProduct) {
+          // For parent products, send all relevant fields that exist in parent_products table
+          const parentProductData = {
+            id: editingProduct.id,
+            name: data.name,
+            sku: data.sku,
+            description: data.description,
+            status: data.status,
+            capacity_kg: data.capacity_kg,
+            tare_weight_kg: data.tare_weight_kg,
+            gross_weight_kg: data.gross_weight_kg,
+            valve_type: data.valve_type,
+            barcode_uid: data.barcode_uid,
+            tax_category: data.tax_category,
+            tax_rate: data.tax_rate,
+            variant: data.variant,
+          };
+          await updateParentProduct.mutateAsync(parentProductData);
+        } else {
+          // For variant products, use the updateVariant endpoint which only allows specific fields
+          const variantData = {
+            id: editingProduct.id,
+            name: data.name,
+            description: data.description,
+            status: data.status,
+          };
+          await updateVariant.mutateAsync(variantData);
+        }
       } else {
-        // Use createParentProduct for new products to create parent products
-        console.log('Creating parent product with data:', data);
-        await createParentProduct.mutateAsync(data);
+        await createProduct.mutateAsync(data);
       }
       setIsFormOpen(false);
       setEditingProduct(null);
-      // Refresh the grouped data to show the new/updated product
-      refetch();
     } catch (error) {
       console.error('Form submit error:', error);
-      // Error handling is done in the hooks
+      // Error handling is done in the hook
     }
   };
 
@@ -108,7 +137,14 @@ export const ProductsPage: React.FC = () => {
     if (deletingProduct) {
       console.log('Confirming mark as obsolete:', deletingProduct);
       try {
-        await deleteProduct.mutateAsync({ id: deletingProduct.id });
+        // Check if this is a parent product by looking for parent_products_id field
+        // If parent_products_id is null or undefined, it's a parent product
+        const isParentProduct = !deletingProduct.parent_products_id;
+        
+        await deleteProduct.mutateAsync({ 
+          id: deletingProduct.id,
+          is_parent_product: isParentProduct
+        });
         setDeletingProduct(null);
       } catch (error) {
         console.error('Mark obsolete error:', error);
@@ -136,6 +172,7 @@ export const ProductsPage: React.FC = () => {
     if (!deletingProduct) return { title: '', message: '' };
 
     const isObsolete = deletingProduct.status === 'obsolete';
+    const isParentProduct = !deletingProduct.parent_products_id;
     
     if (isObsolete) {
       return {
@@ -144,10 +181,26 @@ export const ProductsPage: React.FC = () => {
       };
     }
 
+    if (isParentProduct) {
+      return {
+        title: 'Mark Product as Obsolete',
+        message: `Are you sure you want to mark "${deletingProduct.name}" as obsolete? All its variants will also be marked obsolete.
+    
+    ⚠️ Action blocked if the product or any variant has inventory. Please clear all stock first.
+    
+    This will hide the product and variants from active lists. Historical data remains. You can reactivate later if needed.`,
+      };
+    }
+    
     return {
-      title: 'Mark Product as Obsolete',
-      message: `Are you sure you want to mark "${deletingProduct.name}" as obsolete? This will hide it from active product lists but preserve all historical data including price lists, inventory records, and order history. The product can be reactivated later if needed.`,
+      title: 'Mark Variant as Obsolete',
+      message: `Are you sure you want to mark "${deletingProduct.name}" as obsolete?
+    
+    ⚠️ Action blocked if this variant has inventory. Please clear stock first.
+    
+    The variant will be hidden from active lists. Historical data remains. Reactivation is possible.`,
     };
+    
   };
 
   const dialogContent = getDeleteDialogContent();
@@ -214,14 +267,13 @@ export const ProductsPage: React.FC = () => {
       <ProductForm
         isOpen={isFormOpen}
         onClose={() => {
-          console.log('Closing form');
           setIsFormOpen(false);
           setEditingProduct(null);
         }}
         onSubmit={handleFormSubmit}
-        product={editingProduct || undefined}
-        loading={createProduct.isPending || createParentProduct.isPending || updateProduct.isPending}
-        title={editingProduct ? 'Edit Product' : 'Add New Product'}
+        product={editingProduct}
+        loading={editingProduct && !editingProduct.parent_products_id ? updateParentProduct.isPending : editingProduct && editingProduct.parent_products_id ? updateVariant.isPending : updateProduct.isPending || createProduct.isPending}
+        title={editingProduct ? (editingProduct.parent_products_id ? 'Edit Variant' : 'Edit Parent Product') : 'Add Product'}
       />
 
       <AddVariantForm
@@ -241,7 +293,13 @@ export const ProductsPage: React.FC = () => {
         onConfirm={handleConfirmDelete}
         title={dialogContent.title}
         message={dialogContent.message}
-        confirmText={deletingProduct?.status === 'obsolete' ? 'OK' : 'Mark as Obsolete'}
+        confirmText={
+          deletingProduct?.status === 'obsolete' 
+            ? 'OK' 
+            : !deletingProduct?.parent_products_id 
+              ? 'Mark Parent & Children as Obsolete'
+              : 'Mark as Obsolete'
+        }
         type={deletingProduct?.status === 'obsolete' ? 'info' : 'warning'}
         loading={deleteProduct.isPending}
       />

@@ -4,6 +4,7 @@ import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { PriceList, CreatePriceListData } from '../../types/pricing';
 import { validateDateRangeSync } from '../../utils/pricing';
 import { CurrencySelect } from '../ui/CurrencySelect';
+import { PricingMethodSelector } from './PricingMethodSelector';
 
 interface PriceListFormProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
       start_date: new Date().toISOString().split('T')[0],
       end_date: '',
       is_default: false,
+      pricing_method: 'per_unit',
     },
   });
 
@@ -54,6 +56,7 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
         start_date: priceList.start_date,
         end_date: priceList.end_date || '',
         is_default: priceList.is_default,
+        pricing_method: priceList.pricing_method || 'per_unit',
       });
     } else {
       reset({
@@ -63,6 +66,7 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
         start_date: new Date().toISOString().split('T')[0],
         end_date: '',
         is_default: false,
+        pricing_method: 'per_unit',
       });
     }
   }, [priceList, reset]);
@@ -143,6 +147,15 @@ export const PriceListForm: React.FC<PriceListFormProps> = ({
                     className="mt-1"
                   />
                   <input type="hidden" {...register('currency_code')} />
+                </div>
+
+                <div>
+                  <PricingMethodSelector
+                    value={watch('pricing_method') || 'per_unit'}
+                    onChange={(value) => setValue('pricing_method', value)}
+                    className="mt-1"
+                  />
+                  <input type="hidden" {...register('pricing_method')} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

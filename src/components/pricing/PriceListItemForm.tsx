@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { X, Loader2, Plus } from 'lucide-react';
 import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
 import { Product } from '../../types/product';
-import { useProducts } from '../../hooks/useProducts';
+import { useProducts, useProductOptions } from '../../hooks/useProducts';
 import { formatCurrencySync, calculateFinalPriceSync } from '../../utils/pricing';
 
 interface PriceListItemFormProps {
@@ -32,6 +32,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [bulkPrice, setBulkPrice] = useState<number>(0);
   const [useBulkPrice, setUseBulkPrice] = useState(false);
+  const [pricingMethod, setPricingMethod] = useState<'per_unit' | 'per_kg'>('per_unit');
 
   const {
     register,
@@ -45,8 +46,10 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
       price_list_id: priceListId,
       product_id: '',
       unit_price: 0,
+      price_per_kg: 0,
       min_qty: 1,
       surcharge_pct: 0,
+      pricing_method: 'per_unit',
       // Tax fields (optional, will be calculated if not provided)
       price_excluding_tax: undefined,
       tax_amount: undefined,
@@ -54,10 +57,10 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
     },
   });
 
-  const { data: productsData } = useProducts({ limit: 1000 });
-  const products = productsData?.products || [];
-  const availableProducts = products.filter((p: Product) => 
-    p.status === 'active' && !existingProductIds.includes(p.id)
+  const { data: productsData } = useProductOptions({ include_variants: false });
+  const products = productsData || [];
+  const availableProducts = products.filter((p: any) => 
+    !existingProductIds.includes(p.id)
   );
 
   const watchedPrice = watch('unit_price');
@@ -69,23 +72,29 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
         price_list_id: item.price_list_id,
         product_id: item.product_id,
         unit_price: item.unit_price,
+        price_per_kg: item.price_per_kg,
         min_qty: item.min_qty,
         surcharge_pct: item.surcharge_pct || 0,
+        pricing_method: item.pricing_method || 'per_unit',
         price_excluding_tax: item.price_excluding_tax,
         tax_amount: item.tax_amount,
         price_including_tax: item.price_including_tax,
       });
+      setPricingMethod(item.pricing_method || 'per_unit');
     } else {
-              reset({
-          price_list_id: priceListId,
-          product_id: '',
-          unit_price: 0,
-          min_qty: 1,
-          surcharge_pct: 0,
-          price_excluding_tax: undefined,
-          tax_amount: undefined,
-          price_including_tax: undefined,
-        });
+      reset({
+        price_list_id: priceListId,
+        product_id: '',
+        unit_price: 0,
+        price_per_kg: 0,
+        min_qty: 1,
+        surcharge_pct: 0,
+        pricing_method: 'per_unit',
+        price_excluding_tax: undefined,
+        tax_amount: undefined,
+        price_including_tax: undefined,
+      });
+      setPricingMethod('per_unit');
     }
   }, [item, priceListId, reset]);
 
@@ -93,9 +102,11 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
     // Ensure numeric conversion for all price fields
     const numericData = {
       ...data,
-      unit_price: parseFloat(data.unit_price.toString()),
-      min_qty: parseInt(data.min_qty?.toString() || '1'),
+      unit_price: pricingMethod === 'per_unit' ? parseFloat(data.unit_price?.toString() || '0') : undefined,
+      price_per_kg: pricingMethod === 'per_kg' ? parseFloat(data.price_per_kg?.toString() || '0') : undefined,
+      min_qty: pricingMethod === 'per_unit' ? parseInt(data.min_qty?.toString() || '1') : 1,
       surcharge_pct: parseFloat(data.surcharge_pct?.toString() || '0'),
+      pricing_method: pricingMethod,
     };
 
     if (item) {
@@ -107,7 +118,8 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
         onSubmit({
           ...numericData,
           product_id: productId,
-          unit_price: useBulkPrice ? parseFloat(bulkPrice.toString()) : numericData.unit_price,
+          unit_price: useBulkPrice && pricingMethod === 'per_unit' ? parseFloat(bulkPrice.toString()) : numericData.unit_price,
+          price_per_kg: useBulkPrice && pricingMethod === 'per_kg' ? parseFloat(bulkPrice.toString()) : numericData.price_per_kg,
         });
       });
     } else {
@@ -200,6 +212,25 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                   </div>
                 )}
 
+                {/* Pricing Method Selection */}
+                <div>
+                  <label htmlFor="pricing_method" className="block text-sm font-medium text-gray-700">
+                    Pricing Method *
+                  </label>
+                  <select
+                    id="pricing_method"
+                    value={pricingMethod}
+                    onChange={(e) => {
+                      setPricingMethod(e.target.value as 'per_unit' | 'per_kg');
+                      setValue('pricing_method', e.target.value as 'per_unit' | 'per_kg');
+                    }}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="per_unit">Per Unit</option>
+                    <option value="per_kg">Per KG</option>
+                  </select>
+                </div>
+
                 {!item && selectedProducts.length > 0 && (
                   <div className="p-3 bg-blue-50 rounded-lg">
                     <div className="flex items-center mb-2">
@@ -235,48 +266,69 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
 
                 {(item || !useBulkPrice) && (
                   <div>
-                    <label htmlFor="unit_price" className="block text-sm font-medium text-gray-700">
-                      Unit Price ({currencyCode}) *
+                    <label htmlFor={pricingMethod === 'per_unit' ? 'unit_price' : 'price_per_kg'} className="block text-sm font-medium text-gray-700">
+                      {pricingMethod === 'per_unit' ? 'Unit Price' : 'Price per KG'} ({currencyCode}) *
                     </label>
-                    <input
-                      type="number"
-                      id="unit_price"
-                      min="0"
-                      step="0.01"
-                      {...register('unit_price', { 
-                        required: 'Unit price is required',
-                        min: { value: 0, message: 'Price must be positive' },
-                        valueAsNumber: true,
-                      })}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="0.00"
-                    />
+                    {pricingMethod === 'per_unit' ? (
+                      <input
+                        type="number"
+                        id="unit_price"
+                        min="0"
+                        step="0.01"
+                        {...register('unit_price', { 
+                          required: 'Unit price is required',
+                          min: { value: 0, message: 'Price must be positive' },
+                          valueAsNumber: true,
+                        })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="0.00"
+                      />
+                    ) : (
+                      <input
+                        type="number"
+                        id="price_per_kg"
+                        min="0"
+                        step="0.01"
+                        {...register('price_per_kg', { 
+                          required: 'Price per KG is required',
+                          min: { value: 0, message: 'Price must be positive' },
+                          valueAsNumber: true,
+                        })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="0.00"
+                      />
+                    )}
                     {errors.unit_price && (
                       <p className="mt-1 text-sm text-red-600">{errors.unit_price.message}</p>
+                    )}
+                    {errors.price_per_kg && (
+                      <p className="mt-1 text-sm text-red-600">{errors.price_per_kg.message}</p>
                     )}
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="min_qty" className="block text-sm font-medium text-gray-700">
-                      Minimum Quantity
-                    </label>
-                    <input
-                      type="number"
-                      id="min_qty"
-                      min="1"
-                      {...register('min_qty', { 
-                        required: 'Minimum quantity is required',
-                        min: { value: 1, message: 'Minimum quantity must be at least 1' },
-                        valueAsNumber: true,
-                      })}
-                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    />
-                    {errors.min_qty && (
-                      <p className="mt-1 text-sm text-red-600">{errors.min_qty.message}</p>
-                    )}
-                  </div>
+                  {pricingMethod === 'per_unit' && (
+                    <div>
+                      <label htmlFor="min_qty" className="block text-sm font-medium text-gray-700">
+                        Minimum Quantity
+                      </label>
+                      <input
+                        type="number"
+                        id="min_qty"
+                        min="1"
+                        {...register('min_qty', { 
+                          required: 'Minimum quantity is required',
+                          min: { value: 1, message: 'Minimum quantity must be at least 1' },
+                          valueAsNumber: true,
+                        })}
+                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      {errors.min_qty && (
+                        <p className="mt-1 text-sm text-red-600">{errors.min_qty.message}</p>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <label htmlFor="surcharge_pct" className="block text-sm font-medium text-gray-700">
@@ -300,18 +352,60 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                   </div>
                 </div>
 
-                {(watchedPrice > 0 || bulkPrice > 0) && watchedSurcharge > 0 && (
+                {/* Tax Information Display */}
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-800">
+                    <strong>Tax Information:</strong>
+                    <div className="mt-1 text-xs">
+                      {pricingMethod === 'per_kg' ? (
+                        <>
+                          • Tax will be calculated from the product's tax rate<br/>
+                          • Final price = (Price per kg × KG from SKU) + Surcharge + Tax<br/>
+                          • KG is automatically extracted from product SKU (e.g., "PROPAN 12KG" = 12kg)
+                        </>
+                      ) : (
+                        <>
+                          • Tax will be calculated from the product's tax rate<br/>
+                          • Final price = Unit Price + Surcharge + Tax
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {(watchedPrice > 0 || bulkPrice > 0) && (
                   <div className="p-3 bg-green-50 rounded-lg">
                     <div className="text-sm text-green-800">
-                      <strong>Final Price:</strong> {formatCurrencySync(
-                        calculateFinalPrice(
-                          useBulkPrice ? bulkPrice : watchedPrice, 
-                          watchedSurcharge
-                        ),
-                        currencyCode
-                      )}
-                      <div className="text-xs mt-1">
-                        (Base price + {watchedSurcharge}% surcharge)
+                      <strong>Price Calculation:</strong>
+                      <div className="mt-1 text-xs">
+                        {pricingMethod === 'per_unit' ? (
+                          <>
+                            Base Price: {formatCurrencySync(useBulkPrice ? bulkPrice : watchedPrice, currencyCode)}<br/>
+                            {watchedSurcharge > 0 && (
+                              <>Surcharge ({watchedSurcharge}%): {formatCurrencySync(
+                                (useBulkPrice ? bulkPrice : watchedPrice) * (watchedSurcharge / 100), 
+                                currencyCode
+                              )}<br/></>
+                            )}
+                            Final Price: {formatCurrencySync(
+                              calculateFinalPrice(
+                                useBulkPrice ? bulkPrice : watchedPrice, 
+                                watchedSurcharge
+                              ),
+                              currencyCode
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            Price per KG: {formatCurrencySync(useBulkPrice ? bulkPrice : watchedPrice, currencyCode)}<br/>
+                            KG from SKU: Will be extracted automatically<br/>
+                            {watchedSurcharge > 0 && (
+                              <>Surcharge ({watchedSurcharge}%): Will be calculated<br/></>
+                            )}
+                            Tax: Will be calculated from product tax rate<br/>
+                            Final Price: Will be calculated per cylinder
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

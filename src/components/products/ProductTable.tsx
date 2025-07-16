@@ -67,7 +67,14 @@ export const ProductTable: React.FC<ProductTableProps> = ({
 
   const handleReactivate = async (product: Product) => {
     try {
-      await reactivateProduct.mutateAsync({ id: product.id });
+      // Check if this is a parent product by looking for parent_products_id field
+      // If parent_products_id is null or undefined, it's a parent product
+      const isParentProduct = !product.parent_products_id;
+      
+      await reactivateProduct.mutateAsync({ 
+        id: product.id,
+        is_parent_product: isParentProduct
+      });
     } catch (error) {
       // Error handling is done in the hook
     }

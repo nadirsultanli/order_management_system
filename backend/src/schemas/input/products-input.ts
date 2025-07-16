@@ -103,6 +103,7 @@ export const UpdateProductSchema = z.object({
 
 export const DeleteProductSchema = z.object({
   id: z.string().uuid(),
+  is_parent_product: z.boolean().default(false),
 });
 
 // ============ Product Variants ============
@@ -120,6 +121,14 @@ export const CreateVariantSchema = z.object({
   barcode_uid: z.string().optional(),
 });
 
+export const UpdateVariantSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1, 'Name is required').optional(),
+  description: z.string().optional(),
+  status: ProductStatusEnum.optional(),
+  // SKU and barcode_uid are NOT allowed to be updated - they remain unchanged
+});
+
 // ============ Bulk Operations ============
 
 export const BulkStatusUpdateSchema = z.object({
@@ -129,6 +138,7 @@ export const BulkStatusUpdateSchema = z.object({
 
 export const ReactivateProductSchema = z.object({
   id: z.string().uuid(),
+  is_parent_product: z.boolean().default(false),
 });
 
 // ============ Product Validation ============
