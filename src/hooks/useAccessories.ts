@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Accessory, CreateAccessoryData, UpdateAccessoryData, AccessoryFilters, AccessoryStats, AccessoryOptions, AccessoryCategory } from '../types/accessory';
+import toast from 'react-hot-toast';
 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 
   (import.meta.env.PROD ? 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1' : 'http://localhost:3001/api/v1');
@@ -165,10 +166,17 @@ export const useCreateAccessory = () => {
       const result = await response.json();
       return result.result?.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Accessory created successfully:', data);
+      toast.success('Accessory created successfully');
+      
       queryClient.invalidateQueries({ queryKey: ['accessories'] });
       queryClient.invalidateQueries({ queryKey: ['accessory-stats'] });
       queryClient.invalidateQueries({ queryKey: ['accessory-options'] });
+    },
+    onError: (error: Error) => {
+      console.error('Create accessory mutation error:', error);
+      toast.error(error.message || 'Failed to create accessory');
     },
   });
 };

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Package, Search } from 'lucide-react';
+import { Plus, Package, Search, Eye, EyeOff } from 'lucide-react';
 import { useProducts, useCreateProduct, useUpdateProduct, useUpdateParentProduct, useUpdateVariant, useDeleteProduct, useCreateVariant, useCreateParentProduct, useGroupedProducts } from '../hooks/useProducts';
 import { useCreateAccessory, useAccessories, useDeleteAccessory, useUpdateAccessory } from '../hooks/useAccessories';
 import { GroupedProductTable } from '../components/products/GroupedProductTable';
@@ -35,12 +35,20 @@ export const ProductsPage: React.FC = () => {
   const [deletingAccessory, setDeletingAccessory] = useState<Accessory | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [accessorySearchTerm, setAccessorySearchTerm] = useState('');
+  const [showObsoleteAccessories, setShowObsoleteAccessories] = useState(false);
   const [viewMode, setViewMode] = useState<'products' | 'accessories'>('products');
 
   const { data: groupedData, isLoading: groupedLoading, error: groupedError, refetch } = useGroupedProducts(filters);
-  const { data: accessoriesData, isLoading: accessoriesLoading, error: accessoriesError } = useAccessories(undefined, {
-    enabled: viewMode === 'accessories' && !!localStorage.getItem('auth_token'), // Only fetch when authenticated and in accessories view
-  });
+  const { data: accessoriesData, isLoading: accessoriesLoading, error: accessoriesError } = useAccessories(
+    { 
+      show_obsolete: showObsoleteAccessories,
+      page: 1,
+      limit: 1000
+    }, 
+    {
+      enabled: viewMode === 'accessories' && !!localStorage.getItem('auth_token'), // Only fetch when authenticated and in accessories view
+    }
+  );
 
   // Debug logging for filters
   useEffect(() => {
@@ -335,7 +343,12 @@ export const ProductsPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
             Products
-            {filters.show_obsolete && (
+            {viewMode === 'products' && filters.show_obsolete && (
+              <span className="ml-2 text-sm font-normal text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                Showing Obsolete
+              </span>
+            )}
+            {viewMode === 'accessories' && showObsoleteAccessories && (
               <span className="ml-2 text-sm font-normal text-orange-600 bg-orange-100 px-2 py-1 rounded">
                 Showing Obsolete
               </span>
@@ -452,7 +465,7 @@ export const ProductsPage: React.FC = () => {
         </>
       ) : (
         <>
-          {/* Accessory Search */}
+          {/* Accessory Search and Filters */}
           <div className="bg-white p-4 rounded-lg shadow">
             <div className="flex gap-4">
               <div className="flex-1">
@@ -467,6 +480,29 @@ export const ProductsPage: React.FC = () => {
                   />
                 </div>
               </div>
+              
+              <button
+                onClick={() => setShowObsoleteAccessories(!showObsoleteAccessories)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md transition-colors ${
+                  showObsoleteAccessories
+                    ? 'bg-red-100 text-red-800 border border-red-200'
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                }`}
+                title={showObsoleteAccessories ? 'Hide obsolete accessories' : 'Show obsolete accessories'}
+              >
+                                 {showObsoleteAccessories ? (
+                   <>
+                     <EyeOff className="h-4 w-4" />
+                     <span className="hidden sm:inline">Hide Obsolete</span>
+                   </>
+                 ) : (
+                   <>
+                     <Eye className="h-4 w-4" />
+                     <span className="hidden sm:inline">Show Obsolete</span>
+                   </>
+                 )}
+              </button>
+              
               {accessorySearchTerm && (
                 <button
                   onClick={() => setAccessorySearchTerm('')}
