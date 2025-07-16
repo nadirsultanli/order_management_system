@@ -13,7 +13,8 @@ import {
   CheckCircle,
   X,
   AlertTriangle,
-  MoreVertical
+  MoreVertical,
+  Plus
 } from 'lucide-react';
 import { 
   useTrip, 
@@ -26,6 +27,7 @@ import {
 } from '../hooks/useTrips';
 import { TripStatusBadge } from '../components/trips/TripStatusBadge';
 import { LoadingProgressDisplay } from '../components/trips/LoadingProgressDisplay';
+import { AssignOrdersModal } from '../components/trips/AssignOrdersModal';
 import { Card } from '../components/ui/Card';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import toast from 'react-hot-toast';
@@ -35,6 +37,7 @@ export const TripDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showAssignOrdersModal, setShowAssignOrdersModal] = useState(false);
 
   // UUID validation pattern
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -455,9 +458,20 @@ export const TripDetailPage: React.FC = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Assigned Orders</h2>
-                <span className="text-sm text-gray-500">
-                  {trip.trip_orders?.length || 0} orders
-                </span>
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm text-gray-500">
+                    {trip.trip_orders?.length || 0} orders
+                  </span>
+                  {(trip.route_status === 'draft' || trip.route_status === 'planned') && (
+                    <button
+                      onClick={() => setShowAssignOrdersModal(true)}
+                      className="flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus size={16} className="mr-1" />
+                      Assign Orders
+                    </button>
+                  )}
+                </div>
               </div>
               
               {trip.trip_orders && trip.trip_orders.length > 0 ? (
@@ -606,6 +620,17 @@ export const TripDetailPage: React.FC = () => {
         confirmText="Complete Trip"
         confirmVariant="success"
         isLoading={completeTrip.isLoading}
+      />
+
+      {/* Assign Orders Modal */}
+      <AssignOrdersModal
+        tripId={id}
+        isOpen={showAssignOrdersModal}
+        onClose={() => setShowAssignOrdersModal(false)}
+        onSuccess={() => {
+          refetch(); // Refresh trip data to show newly assigned orders
+          setShowAssignOrdersModal(false);
+        }}
       />
     </div>
   );
