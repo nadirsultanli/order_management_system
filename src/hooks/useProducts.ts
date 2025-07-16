@@ -123,16 +123,39 @@ export const useUpdateParentProduct = () => {
   return trpc.products.updateParentProduct.useMutation({
     onSuccess: (data: any) => {
       console.log('Parent product updated successfully:', data);
-      toast.success('Parent product updated successfully');
       
-      // Invalidate and refetch product queries using tRPC utils
+      // Show success message with child update info
+      if (data.children_updated && data.children_updated > 0) {
+        toast.success(`Parent product updated successfully! ${data.children_updated} child variant${data.children_updated > 1 ? 's' : ''} also updated.`);
+      } else {
+        toast.success('Parent product updated successfully');
+      }
+      
+      // Invalidate and refetch ALL product queries to ensure UI consistency
       utils.products.list.invalidate();
       utils.products.getStats.invalidate();
       utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
       utils.products.getParentProducts.invalidate();
+      utils.products.listParentProducts.invalidate();
+      
+      // Invalidate specific product queries
       if (data.id) {
         utils.products.getById.invalidate({ id: data.id });
+        utils.products.getParentProductById.invalidate({ id: data.id });
       }
+      
+      // Invalidate child variant queries if children were updated
+      if (data.updated_children && data.updated_children.length > 0) {
+        data.updated_children.forEach((child: any) => {
+          utils.products.getById.invalidate({ id: child.id });
+        });
+      }
+      
+      // Force refetch to ensure immediate UI update
+      utils.products.list.refetch();
+      utils.products.getGroupedProducts.refetch();
+      utils.products.getParentProducts.refetch();
     },
     onError: (error: Error) => {
       console.error('Update parent product mutation error:', error);
@@ -200,6 +223,33 @@ export const useCreateVariant = () => {
     onError: (error: Error) => {
       console.error('Create variant mutation error:', error);
       toast.error(error.message || 'Failed to create product variant');
+    },
+  });
+};
+
+export const useUpdateVariant = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.products.updateVariant.useMutation({
+    onSuccess: (data) => {
+      console.log('Product variant updated successfully:', data);
+      toast.success('Product variant updated successfully');
+      
+      // Invalidate multiple queries to ensure UI consistency
+      utils.products.list.invalidate();
+      utils.products.getStats.invalidate();
+      utils.products.getOptions.invalidate();
+      utils.products.getGroupedProducts.invalidate();
+      utils.products.getParentProducts.invalidate();
+      if (data.parent_products_id) {
+        utils.products.getVariants.invalidate({ parent_products_id: data.parent_products_id });
+      }
+      // Invalidate the specific product
+      utils.products.getById.invalidate({ id: data.id });
+    },
+    onError: (error: Error) => {
+      console.error('Update variant mutation error:', error);
+      toast.error(error.message || 'Failed to update product variant');
     },
   });
 };

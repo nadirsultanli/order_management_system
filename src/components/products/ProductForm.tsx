@@ -24,6 +24,9 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   title,
 }) => {
   const [showObsoleteWarning, setShowObsoleteWarning] = useState(false);
+  
+  // Check if this is a variant product
+  const isVariant = product?.parent_products_id;
 
   const {
     register,
@@ -49,6 +52,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       tax_category: 'standard',
       tax_rate: 0.16,
       variant: 'outright',
+      sku_variant: undefined,
+      parent_products_id: undefined,
     },
   });
 
@@ -76,6 +81,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         tax_category: product.tax_category || 'standard',
         tax_rate: product.tax_rate || 0.16,
         variant: product.variant || 'outright',
+        sku_variant: product.sku_variant,
+        parent_products_id: product.parent_products_id,
       });
     } else {
               reset({
@@ -94,6 +101,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           tax_category: 'standard',
           tax_rate: 0.16,
           variant: 'outright',
+          sku_variant: undefined,
+          parent_products_id: undefined,
         });
     }
   }, [product, reset]);
@@ -234,45 +243,103 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                 </button>
               </div>
 
+
+
               <div className="space-y-6">
+                {/* Parent Product - Only show for variants */}
+                {isVariant && (
+                  <div>
+                    <label htmlFor="parent_product" className="block text-sm font-medium text-gray-700">
+                      Parent Product *
+                    </label>
+                    <input
+                      type="text"
+                      id="parent_product"
+                      value={product?.parent_product?.name || product?.sku?.split('-').slice(0, -2).join('-') || 'Unknown Parent'}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm bg-gray-50 cursor-not-allowed"
+                      placeholder="Search parent products..."
+                      disabled
+                    />
+                  </div>
+                )}
+
+                {/* Variant Type - Only show for variants */}
+                {isVariant && (
+                  <div>
+                    <label htmlFor="sku_variant" className="block text-sm font-medium text-gray-700">
+                      Variant Type *
+                    </label>
+                    <select
+                      id="sku_variant"
+                      {...register('sku_variant')}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="EMPTY">Empty (Already exists)</option>
+                      <option value="FULL-XCH">Full - Exchange</option>
+                      <option value="FULL-OUT">Full - Outright</option>
+                      <option value="DAMAGED">Damaged</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* SKU - Show for variants but disabled */}
+                {isVariant && (
+                  <div>
+                    <label htmlFor="sku" className="block text-sm font-medium text-gray-700">
+                      SKU
+                    </label>
+                    <input
+                      type="text"
+                      id="sku"
+                      value={product?.sku || ''}
+                      className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm bg-gray-50 cursor-not-allowed"
+                      placeholder="Auto-generated SKU"
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                )}
+
                 {/* Basic Information */}
                 <div>
                   <h4 className="text-sm font-medium text-gray-900 mb-4">Basic Information</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label htmlFor="sku" className="block text-sm font-medium text-gray-700">
-                        SKU *
-                      </label>
-                      <input
-                        type="text"
-                        id="sku"
-                        {...register('sku', { 
-                          required: 'SKU is required',
-                          pattern: {
-                            value: /^[A-Z0-9-]+$/,
-                            message: 'SKU must contain only uppercase letters, numbers, and hyphens'
-                          },
-                          minLength: {
-                            value: 3,
-                            message: 'SKU must be at least 3 characters long'
-                          },
-                          maxLength: {
-                            value: 50,
-                            message: 'SKU must be 50 characters or less'
-                          },
-                          onChange: (e) => {
-                            // Transform to uppercase as user types
-                            e.target.value = e.target.value.toUpperCase();
-                          }
-                        })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="CYL-50KG-S"
-                        style={{ textTransform: 'uppercase' }}
-                      />
-                      {errors.sku && (
-                        <p className="mt-1 text-sm text-red-600">{errors.sku.message}</p>
-                      )}
-                    </div>
+                    {!isVariant && (
+                      <div>
+                        <label htmlFor="sku" className="block text-sm font-medium text-gray-700">
+                          SKU *
+                        </label>
+                        <input
+                          type="text"
+                          id="sku"
+                          {...register('sku', { 
+                            required: 'SKU is required',
+                            pattern: {
+                              value: /^[A-Z0-9-]+$/,
+                              message: 'SKU must contain only uppercase letters, numbers, and hyphens'
+                            },
+                            minLength: {
+                              value: 3,
+                              message: 'SKU must be at least 3 characters long'
+                            },
+                            maxLength: {
+                              value: 50,
+                              message: 'SKU must be 50 characters or less'
+                            },
+                            onChange: (e) => {
+                              // Transform to uppercase as user types
+                              e.target.value = e.target.value.toUpperCase();
+                            }
+                          })}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="CYL-50KG-S"
+                          style={{ textTransform: 'uppercase' }}
+                        />
+                        {errors.sku && (
+                          <p className="mt-1 text-sm text-red-600">{errors.sku.message}</p>
+                        )}
+                      </div>
+                    )}
 
                     <div>
                       <label htmlFor="status" className="block text-sm font-medium text-gray-700">
@@ -288,17 +355,16 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       </select>
                     </div>
 
-
-                    <div className="sm:col-span-3">
+                    <div className={isVariant ? "sm:col-span-2" : "sm:col-span-3"}>
                       <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                        Product Name *
+                        {isVariant ? "Variant Name *" : "Product Name *"}
                       </label>
                       <input
                         type="text"
                         id="name"
                         {...register('name', { required: 'Product name is required' })}
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="LPG Cylinder 50kg"
+                        placeholder={isVariant ? "e.g., 50kg Empty Cylinder" : "LPG Cylinder 50kg"}
                       />
                       {errors.name && (
                         <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
@@ -314,12 +380,25 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                         rows={3}
                         {...register('description')}
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Detailed product description..."
+                        placeholder={isVariant ? "Variant description..." : "Detailed product description..."}
                       />
                     </div>
                   </div>
 
-                  {/* Tax Information */}
+                  {showObsoleteWarning && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                        <span className="text-sm text-red-800">
+                          Warning: Setting status to "Obsolete" will make this product unavailable for future orders.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Tax Information - Only show for parent products */}
+                {!isVariant && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-900 mb-4">Tax Information</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -374,140 +453,131 @@ export const ProductForm: React.FC<ProductFormProps> = ({
                       </div>
                     </div>
                   </div>
+                )}
 
-                  {showObsoleteWarning && (
-                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                      <div className="flex items-center space-x-2">
-                        <AlertTriangle className="h-4 w-4 text-red-600" />
-                        <span className="text-sm text-red-800">
-                          Warning: Setting status to "Obsolete" will make this product unavailable for future orders.
-                        </span>
+                {/* Physical Properties - Only show for parent products */}
+                {!isVariant && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-4">Physical Properties</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                      <div>
+                        <label htmlFor="barcode_uid" className="block text-sm font-medium text-gray-700">
+                          Barcode/RFID UID
+                        </label>
+                        <input
+                          type="text"
+                          id="barcode_uid"
+                          {...register('barcode_uid')}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Optional unique identifier"
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="capacity_kg" className="block text-sm font-medium text-gray-700">
+                          Capacity (kg)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="500"
+                          id="capacity_kg"
+                          {...register('capacity_kg', {
+                            valueAsNumber: true,
+                            min: {
+                              value: 0.1,
+                              message: 'Capacity must be greater than 0'
+                            }
+                          })}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="50.0"
+                        />
+                        {errors.capacity_kg && (
+                          <p className="mt-1 text-sm text-red-600">{errors.capacity_kg.message}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="tare_weight_kg" className="block text-sm font-medium text-gray-700">
+                          Tare Weight (kg)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="500"
+                          id="tare_weight_kg"
+                          {...register('tare_weight_kg', {
+                            valueAsNumber: true,
+                            min: {
+                              value: 0.1,
+                              message: 'Tare weight must be greater than 0'
+                            }
+                          })}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="15.0"
+                        />
+                        {errors.tare_weight_kg && (
+                          <p className="mt-1 text-sm text-red-600">{errors.tare_weight_kg.message}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="gross_weight_kg" className="block text-sm font-medium text-gray-700">
+                          Gross Weight (kg) *
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="500"
+                          id="gross_weight_kg"
+                          {...register('gross_weight_kg', {
+                            valueAsNumber: true,
+                            required: 'Gross weight is required for gas cylinders',
+                            min: {
+                              value: 0.1,
+                              message: 'Gross weight must be greater than 0'
+                            },
+                            validate: (value) => {
+                              const tareWeight = watchedTareWeight;
+                              if (value && tareWeight && value <= tareWeight) {
+                                return 'Gross weight must be greater than tare weight';
+                              }
+                              return true;
+                            }
+                          })}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="65.0"
+                        />
+                        {errors.gross_weight_kg && (
+                          <p className="mt-1 text-sm text-red-600">{errors.gross_weight_kg.message}</p>
+                        )}
+                        <p className="mt-1 text-xs text-gray-500">
+                          Total weight including gas content
+                        </p>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label htmlFor="valve_type" className="block text-sm font-medium text-gray-700">
+                          Valve Type
+                        </label>
+                        <input
+                          type="text"
+                          id="valve_type"
+                          {...register('valve_type')}
+                          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          placeholder="Standard valve specifications"
+                        />
                       </div>
                     </div>
-                  )}
-                </div>
-
-                {/* Physical Properties */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Physical Properties</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                    <div>
-                      <label htmlFor="barcode_uid" className="block text-sm font-medium text-gray-700">
-                        Barcode/RFID UID
-                      </label>
-                      <input
-                        type="text"
-                        id="barcode_uid"
-                        {...register('barcode_uid')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Optional unique identifier"
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="capacity_kg" className="block text-sm font-medium text-gray-700">
-                        Capacity (kg)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        max="500"
-                        id="capacity_kg"
-                        {...register('capacity_kg', {
-                          valueAsNumber: true,
-                          min: {
-                            value: 0.1,
-                            message: 'Capacity must be greater than 0'
-                          }
-                        })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="50.0"
-                      />
-                      {errors.capacity_kg && (
-                        <p className="mt-1 text-sm text-red-600">{errors.capacity_kg.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="tare_weight_kg" className="block text-sm font-medium text-gray-700">
-                        Tare Weight (kg)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        max="500"
-                        id="tare_weight_kg"
-                        {...register('tare_weight_kg', {
-                          valueAsNumber: true,
-                          min: {
-                            value: 0.1,
-                            message: 'Tare weight must be greater than 0'
-                          }
-                        })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="15.0"
-                      />
-                      {errors.tare_weight_kg && (
-                        <p className="mt-1 text-sm text-red-600">{errors.tare_weight_kg.message}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label htmlFor="gross_weight_kg" className="block text-sm font-medium text-gray-700">
-                        Gross Weight (kg) *
-                      </label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0.1"
-                        max="500"
-                        id="gross_weight_kg"
-                        {...register('gross_weight_kg', {
-                          valueAsNumber: true,
-                          required: 'Gross weight is required for gas cylinders',
-                          min: {
-                            value: 0.1,
-                            message: 'Gross weight must be greater than 0'
-                          },
-                          validate: (value) => {
-                            const tareWeight = watchedTareWeight;
-                            if (value && tareWeight && value <= tareWeight) {
-                              return 'Gross weight must be greater than tare weight';
-                            }
-                            return true;
-                          }
-                        })}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="65.0"
-                      />
-                      {errors.gross_weight_kg && (
-                        <p className="mt-1 text-sm text-red-600">{errors.gross_weight_kg.message}</p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-500">
-                        Total weight including gas content
-                      </p>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label htmlFor="valve_type" className="block text-sm font-medium text-gray-700">
-                        Valve Type
-                      </label>
-                      <input
-                        type="text"
-                        id="valve_type"
-                        {...register('valve_type')}
-                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="Standard valve specifications"
-                      />
-                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Weight Calculator */}
-                {(watchedGrossWeight || watchedTareWeight) && (
+                {/* Weight Calculator - Only show for parent products */}
+                {!isVariant && (watchedGrossWeight || watchedTareWeight) && (
                   <CylinderWeightCalculator
                     grossWeight={watchedGrossWeight}
                     tareWeight={watchedTareWeight}
