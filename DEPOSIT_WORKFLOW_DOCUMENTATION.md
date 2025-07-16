@@ -31,7 +31,7 @@ The deposit system is built around the following core components:
 
 ### Rate Structure
 
-Deposit rates are configured by cylinder capacity in liters:
+Deposit rates are configured by cylinder capacity in kg:
 
 | Capacity | Deposit Amount | Currency |
 |----------|----------------|----------|
