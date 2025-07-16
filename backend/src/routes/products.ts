@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { any, z } from 'zod';
 import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
@@ -1021,7 +1021,7 @@ export const productsRouter = router({
         path: '/products/bulk-update-status',
         tags: ['products'],
         summary: 'Bulk update product status',
-        description: 'Update the status of multiple products individually with detailed success/error tracking. Handles both regular products and parent products.',
+        description: 'Update the status of multiple products individually with detailed success/error tracking. Handles both regular products and parent products. When marking products as obsolete, checks for inventory and handles child products.',
         protect: true,
       }
     })
@@ -1041,54 +1041,171 @@ export const productsRouter = router({
         try {
           ctx.logger.info(`Updating product status for ID: ${productId}`);
           
-          // First, try to update in products table
-          let { data, error } = await ctx.supabase
-            .from('products')
-            .update({
-              status: input.status,
-            })
+          // First, check if this is a parent product by looking in parent_products table
+          const { data: parentProduct } = await ctx.supabase
+            .from('parent_products')
+            .select('id, sku, name, status')
             .eq('id', productId)
-            .select('id, sku, name, status, parent_products_id')
-            .maybeSingle(); // Use maybeSingle instead of single to avoid errors
+            .maybeSingle();
           
-          // If not found in products table, try parent_products table
-          if (!data && !error) {
-            ctx.logger.info(`Product ${productId} not found in products table, trying parent_products table`);
+          if (parentProduct) {
+            // This is a parent product - handle accordingly
+            if (input.status === 'obsolete') {
+              // Check if any child products have inventory before marking obsolete
+              const { data: childInventory } = await ctx.supabase
+                .from('inventory_balance')
+                .select('qty_full, qty_empty')
+                .eq('product_id', productId)
+                .or('qty_full.gt.0,qty_empty.gt.0');
+              
+              if (childInventory && childInventory.length > 0) {
+                const totalInventory = childInventory.reduce((sum, inv) => sum + inv.qty_full + inv.qty_empty, 0);
+                errors.push({
+                  product_id: productId,
+                  error: `Cannot mark parent product "${parentProduct.name}" as obsolete. It has ${totalInventory} units in inventory across all warehouses. Please remove all inventory first.`,
+                });
+                continue;
+              }
+              
+              // Mark parent product as obsolete
+              const { data: updatedParent, error: parentUpdateError } = await ctx.supabase
+                .from('parent_products')
+                .update({ status: 'obsolete' })
+                .eq('id', productId)
+                .select('id, sku, name, status')
+                .single();
+              
+              if (parentUpdateError) {
+                errors.push({
+                  product_id: productId,
+                  error: parentUpdateError.message,
+                });
+                continue;
+              }
+              
+              // Mark all child products as obsolete
+              const { data: childProducts } = await ctx.supabase
+                .from('products')
+                .select('id, sku, name, status')
+                .eq('parent_products_id', productId)
+                .eq('is_variant', true);
+              
+              if (childProducts && childProducts.length > 0) {
+                const childIds = childProducts.map((child: { id: string }) => child.id);
+                
+                const { error: childUpdateError } = await ctx.supabase
+                  .from('products')
+                  .update({ status: 'obsolete' })
+                  .in('id', childIds);
+                
+                if (childUpdateError) {
+                  errors.push({
+                    product_id: productId,
+                    error: `Parent updated but failed to update child products: ${childUpdateError.message}`,
+                  });
+                  continue;
+                }
+              }
+              
+              successCount++;
+              results.push({
+                ...updatedParent,
+                parent_products_id: null,
+                children_updated: childProducts?.length || 0
+              });
+            } else {
+              // Reactivate parent product
+              const { data: updatedParent, error: parentUpdateError } = await ctx.supabase
+                .from('parent_products')
+                .update({ status: input.status })
+                .eq('id', productId)
+                .select('id, sku, name, status')
+                .single();
+              
+              if (parentUpdateError) {
+                errors.push({
+                  product_id: productId,
+                  error: parentUpdateError.message,
+                });
+                continue;
+              }
+              
+              // Reactivate all child products
+              const { data: childProducts } = await ctx.supabase
+                .from('products')
+                .select('id, sku, name, status')
+                .eq('parent_products_id', productId)
+                .eq('is_variant', true);
+              
+              if (childProducts && childProducts.length > 0) {
+                const childIds = childProducts.map((child: { id: string }) => child.id);
+                
+                const { error: childUpdateError } = await ctx.supabase
+                  .from('products')
+                  .update({ status: input.status })
+                  .in('id', childIds);
+                
+                if (childUpdateError) {
+                  errors.push({
+                    product_id: productId,
+                    error: `Parent updated but failed to update child products: ${childUpdateError.message}`,
+                  });
+                  continue;
+                }
+              }
+              
+              successCount++;
+              results.push({
+                ...updatedParent,
+                parent_products_id: null,
+                children_updated: childProducts?.length || 0
+              });
+            }
+          } else {
+            // This is a regular product - check inventory if marking as obsolete
+            if (input.status === 'obsolete') {
+              const { data: inventory } = await ctx.supabase
+                .from('inventory_balance')
+                .select('qty_full, qty_empty')
+                .eq('product_id', productId)
+                .or('qty_full.gt.0,qty_empty.gt.0');
+              
+              if (inventory && inventory.length > 0) {
+                const totalInventory = inventory.reduce((sum, inv) => sum + inv.qty_full + inv.qty_empty, 0);
+                errors.push({
+                  product_id: productId,
+                  error: `Cannot mark product as obsolete. It has ${totalInventory} units in inventory across all warehouses. Please remove all inventory first.`,
+                });
+                continue;
+              }
+            }
             
-            const parentResult = await ctx.supabase
-              .from('parent_products')
+            // Update regular product
+            const { data, error } = await ctx.supabase
+              .from('products')
               .update({
                 status: input.status,
               })
               .eq('id', productId)
-              .select('id, sku, name, status')
+              .select('id, sku, name, status, parent_products_id')
               .maybeSingle();
             
-            if (parentResult.error) {
-              error = parentResult.error;
-                         } else if (parentResult.data) {
-               data = {
-                 ...parentResult.data,
-                 parent_products_id: null // Mark as parent product
-               };
-             }
-          }
-          
-          if (error) {
-            ctx.logger.error(`Error updating product ${productId}:`, error);
-            errors.push({
-              product_id: productId,
-              error: error.message,
-            });
-          } else if (data) {
-            successCount++;
-            results.push(data);
-            ctx.logger.info(`Successfully updated product ${productId} to status: ${input.status}`);
-          } else {
-            errors.push({
-              product_id: productId,
-              error: 'Product not found in either products or parent_products table',
-            });
+            if (error) {
+              ctx.logger.error(`Error updating product ${productId}:`, error);
+              errors.push({
+                product_id: productId,
+                error: error.message,
+              });
+            } else if (data) {
+              successCount++;
+              results.push(data);
+              ctx.logger.info(`Successfully updated product ${productId} to status: ${input.status}`);
+            } else {
+              errors.push({
+                product_id: productId,
+                error: 'Product not found in either products or parent_products table',
+              });
+            }
           }
         } catch (err) {
           ctx.logger.error(`Unexpected error updating product ${productId}:`, err);
@@ -2266,18 +2383,19 @@ function buildAvailabilityMatrix(inventoryData: any[], includeReserved: boolean,
 async function deleteRegularProduct(productId: string, ctx: any) {
   ctx.logger.info('Deleting regular product:', productId);
   
-  // Check if product has inventory or is used in orders
+  // Check if product has inventory (both full and empty)
   const { data: inventoryCheck } = await ctx.supabase
     .from('inventory_balance')
-    .select('id')
+    .select('qty_full, qty_empty')
     .eq('product_id', productId)
-    .gt('qty_full', 0)
+    .or('qty_full.gt.0,qty_empty.gt.0')
     .limit(1);
 
   if (inventoryCheck && inventoryCheck.length > 0) {
+    const totalInventory = inventoryCheck.reduce((sum: number, inv: { qty_full: number; qty_empty: number }) => sum + inv.qty_full + inv.qty_empty, 0);
     throw new TRPCError({
       code: 'BAD_REQUEST',
-      message: 'Cannot delete product with existing inventory. Set status to obsolete instead.',
+      message: `Cannot delete product with existing inventory (${totalInventory} units). Please remove all inventory first or set status to obsolete instead.`,
     });
   }
 
@@ -2331,11 +2449,12 @@ async function deleteParentProduct(parentId: string, ctx: any) {
     });
   }
 
-  // Check if any child products have inventory
+  // Check if any child products have inventory (both full and empty)
   const { data: childInventoryCheck } = await ctx.supabase
     .from('inventory_balance')
     .select(`
-      id, 
+      qty_full, 
+      qty_empty,
       product:products!inner(
         id, 
         sku, 
@@ -2344,17 +2463,18 @@ async function deleteParentProduct(parentId: string, ctx: any) {
       )
     `)
     .eq('products.parent_products_id', parentId)
-    .gt('qty_full', 0)
+    .or('qty_full.gt.0,qty_empty.gt.0')
     .limit(1);
 
   if (childInventoryCheck && childInventoryCheck.length > 0) {
     const childProduct = childInventoryCheck[0].product;
     const productName = childProduct?.name || 'Unknown Product';
     const productSku = childProduct?.sku || 'Unknown SKU';
+    const totalInventory = childInventoryCheck.reduce((sum: number, inv: { qty_full: number; qty_empty: number }) => sum + inv.qty_full + inv.qty_empty, 0);
     
     throw new TRPCError({
       code: 'BAD_REQUEST',
-      message: `Cannot delete parent product - child product "${productName}" (${productSku}) has existing inventory. Set status to obsolete instead.`,
+      message: `Cannot delete parent product - child product "${productName}" (${productSku}) has existing inventory (${totalInventory} units). Please remove all inventory first or set status to obsolete instead.`,
     });
   }
 
@@ -2395,7 +2515,7 @@ async function deleteParentProduct(parentId: string, ctx: any) {
   
   // Update all child products to obsolete
   if (childProducts && childProducts.length > 0) {
-    const childIds = childProducts.map(child => child.id);
+    const childIds = childProducts.map((child: { id: string }) => child.id);
     
     const { data: updatedChildData, error: childUpdateError } = await ctx.supabase
       .from('products')
