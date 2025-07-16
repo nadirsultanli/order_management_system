@@ -94,24 +94,12 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
     skip_inventory_check: z.boolean().default(false),
     // Order type fields
     order_type: OrderTypeEnum.default('delivery'),
+    order_flow_type: z.enum(['outright', 'exchange', 'refill']).optional(),
     service_type: ServiceTypeEnum.default('standard'),
     exchange_empty_qty: z.number().min(0).default(0),
     requires_pickup: z.boolean().default(false),
     order_lines: z.array(OrderLineSchema).optional(),
-  }).refine(
-    (data) => {
-      // For visit orders, order_lines are optional
-      if (data.order_type === 'visit') {
-        return true;
-      }
-      // For all other order types, at least one order line is required
-      return data.order_lines && data.order_lines.length > 0;
-    },
-    {
-      message: 'At least one order line is required for non-visit orders',
-      path: ['order_lines'],
-    }
-  );
+  });
 
   export const CalculateOrderTotalSchema = z.object({
     order_id: z.string().uuid(),

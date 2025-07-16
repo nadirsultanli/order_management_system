@@ -12,6 +12,10 @@ import { createContext } from './lib/context';
 import { logger } from './lib/logger';
 import { openApiDocument } from './openapi-complete';
 import mpesaRouter from './helpers/mpesa';
+import { trucksRouter } from './routes/trucks';
+import { tripsRouter } from './routes/trips';
+import { emptyReturnsRouter } from './routes/emptyReturns';
+import { expireCreditsHandler } from './jobs/expireCredits';
 
 dotenv.config();
 
@@ -328,6 +332,9 @@ app.use('/api/v1', createOpenApiExpressMiddleware({
 
 // Mpesa webhook routes
 app.use(mpesaRouter);
+
+// Manual job endpoints (for testing and admin use)
+app.post('/api/jobs/expire-credits', expireCreditsHandler);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

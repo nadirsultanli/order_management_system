@@ -1,0 +1,9 @@
+# Empty Return Credits Expiration Job
+# Runs daily at 2:00 AM to expire overdue credits and send notifications
+0 2 * * * cd /path/to/backend && node -e "require('./dist/jobs/expireCredits').expireOverdueCredits()"
+
+# Alternative using curl to call the API endpoint
+# 0 2 * * * curl -X POST http://localhost:3001/api/jobs/expire-credits
+
+# Alternative using node directly
+# 0 2 * * * cd /path/to/backend && node dist/jobs/expireCredits.js 

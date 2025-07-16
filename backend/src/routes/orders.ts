@@ -956,6 +956,7 @@ export const ordersRouter = router({
           created_by_user_id: user.id,
           // Order type fields
           order_type: input.order_type,
+          order_flow_type: input.order_flow_type || (input.order_type === 'delivery' ? 'outright' : undefined),
           service_type: input.service_type,
           exchange_empty_qty: input.exchange_empty_qty,
           requires_pickup: input.requires_pickup,
