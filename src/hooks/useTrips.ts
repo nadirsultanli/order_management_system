@@ -432,6 +432,24 @@ export const useAvailableOrders = (filters: { date?: string; truck_id?: string }
   });
 };
 
+// Hook for getting confirmed orders available for trip assignment
+export const useAvailableOrdersForAssignment = (filters: { 
+  search?: string; 
+  limit?: number; 
+  offset?: number; 
+} = {}) => {
+  return trpc.trips.getAvailableOrdersForAssignment.useQuery({
+    search: filters.search,
+    limit: filters.limit || 50,
+    offset: filters.offset || 0,
+  }, {
+    staleTime: 30000,
+    onError: (error: any) => {
+      console.error('useAvailableOrdersForAssignment query error:', error);
+    }
+  });
+};
+
 // Real-time trip tracking hook (for active trips)
 export const useActiveTripTracking = () => {
   return trpc.trips.getActiveTrips.useQuery(undefined, {

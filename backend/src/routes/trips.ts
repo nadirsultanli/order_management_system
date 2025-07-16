@@ -879,7 +879,7 @@ export const tripsRouter = router({
         path: '/trips/{trip_id}/allocations',
         tags: ['trips'],
         summary: 'Allocate orders to trip',
-        description: 'Allocate multiple orders to a trip with automatic sequencing',
+        description: 'Allocate multiple confirmed orders to a trip and change their status to dispatched',
         protect: true,
       }
     })
@@ -889,6 +889,40 @@ export const tripsRouter = router({
       const user = requireAuth(ctx);
       
       ctx.logger.info('Allocating orders to trip:', input);
+      
+      // First, validate that all orders are in 'confirmed' status
+      const { data: orders, error: ordersError } = await ctx.supabase
+        .from('orders')
+        .select('id, status')
+        .in('id', input.order_ids);
+      
+      if (ordersError) {
+        ctx.logger.error('Error fetching orders:', ordersError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch orders: ${formatErrorMessage(ordersError)}`,
+        });
+      }
+
+      // Check if all orders exist and are in confirmed status
+      const foundOrderIds = orders?.map(o => o.id) || [];
+      const missingOrders = input.order_ids.filter(id => !foundOrderIds.includes(id));
+      
+      if (missingOrders.length > 0) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Orders not found: ${missingOrders.join(', ')}`,
+        });
+      }
+
+      const nonConfirmedOrders = orders?.filter(o => o.status !== 'confirmed') || [];
+      if (nonConfirmedOrders.length > 0) {
+        const nonConfirmedIds = nonConfirmedOrders.map(o => o.id).join(', ');
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Only confirmed orders can be assigned to trips. Non-confirmed orders: ${nonConfirmedIds}`,
+        });
+      }
       
       const allocations = input.order_ids.map((orderId, index) => ({
         trip_id: input.trip_id,
@@ -950,6 +984,21 @@ export const tripsRouter = router({
             message: `Failed to allocate orders: ${formatErrorMessage(upsertError)}`,
           });
         }
+
+        // Update order status from 'confirmed' to 'dispatched'
+        const { error: statusUpdateError } = await ctx.supabase
+          .from('orders')
+          .update({ 
+            status: 'dispatched',
+            updated_at: new Date().toISOString()
+          })
+          .in('id', input.order_ids);
+
+        if (statusUpdateError) {
+          ctx.logger.error('Error updating order status to dispatched:', statusUpdateError);
+          // Note: We don't throw here as the allocation succeeded, but we should log the issue
+          ctx.logger.warn('Orders were allocated but status update failed. Manual intervention may be required.');
+        }
         
         return upsertData;
       }
@@ -962,12 +1011,26 @@ export const tripsRouter = router({
         });
       }
 
+      // Update order status from 'confirmed' to 'dispatched' even when using RPC
+      const { error: statusUpdateError } = await ctx.supabase
+        .from('orders')
+        .update({ 
+          status: 'dispatched',
+          updated_at: new Date().toISOString()
+        })
+        .in('id', input.order_ids);
+
+      if (statusUpdateError) {
+        ctx.logger.error('Error updating order status to dispatched:', statusUpdateError);
+        ctx.logger.warn('Orders were allocated but status update failed. Manual intervention may be required.');
+      }
+
       return {
         success: true,
         trip_id: input.trip_id,
         allocated_orders: input.order_ids,
         allocations: data,
-        message: `${input.order_ids.length} orders allocated to trip`,
+        message: `${input.order_ids.length} orders allocated to trip and status changed to dispatched`,
       };
     }),
 
@@ -1009,6 +1072,110 @@ export const tripsRouter = router({
         trip_id: input.trip_id,
         removed_order_id: input.order_id,
         message: 'Order removed from trip',
+      };
+    }),
+
+  // GET /trips/available-orders - Get confirmed orders available for assignment
+  getAvailableOrdersForAssignment: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trips/available-orders',
+        tags: ['trips'],
+        summary: 'Get confirmed orders available for trip assignment',
+        description: 'Retrieve all confirmed orders that can be assigned to trips',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      search: z.string().optional(),
+      limit: z.number().min(1).max(100).default(50),
+      offset: z.number().min(0).default(0),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Fetching available orders for assignment:', input);
+      
+      let query = ctx.supabase
+        .from('orders')
+        .select(`
+          id,
+          customer_id,
+          total_amount,
+          order_date,
+          scheduled_date,
+          delivery_date,
+          notes,
+          created_at,
+          customers!inner(
+            id,
+            name,
+            phone,
+            email
+          ),
+          addresses(
+            id,
+            label,
+            line1,
+            line2,
+            city,
+            state,
+            country
+          ),
+          order_lines(
+            id,
+            quantity,
+            unit_price,
+            subtotal,
+            products(
+              id,
+              name,
+              sku
+            )
+          )
+        `)
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: false });
+
+      // Add search filter if provided
+      if (input.search) {
+        query = query.or(`customers.name.ilike.%${input.search}%,customers.phone.ilike.%${input.search}%,customers.email.ilike.%${input.search}%`);
+      }
+      
+      // Add pagination
+      query = query.range(input.offset, input.offset + input.limit - 1);
+      
+      const { data: orders, error, count } = await query;
+      
+      if (error) {
+        ctx.logger.error('Error fetching available orders:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to fetch orders: ${formatErrorMessage(error)}`,
+        });
+      }
+
+      // Get count of total confirmed orders for pagination
+      const { count: totalCount, error: countError } = await ctx.supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'confirmed');
+
+      if (countError) {
+        ctx.logger.error('Error counting available orders:', countError);
+        // Don't throw, just log and use length of returned data
+      }
+
+      return {
+        orders: orders || [],
+        pagination: {
+          total: totalCount || 0,
+          limit: input.limit,
+          offset: input.offset,
+          hasMore: (totalCount || 0) > input.offset + input.limit,
+        },
       };
     }),
 

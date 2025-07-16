@@ -332,7 +332,7 @@ export const PricingPage: React.FC = () => {
         onClose={() => setDeletingDepositRate(null)}
         onConfirm={handleConfirmDeleteDepositRate}
         title="Delete Deposit Rate"
-        message={`Are you sure you want to delete the deposit rate for ${deletingDepositRate?.capacity_l}L cylinders? This action cannot be undone.`}
+        message={`Are you sure you want to delete the deposit rate for ${deletingDepositRate?.capacity_l}kg cylinders? This action cannot be undone.`}
         confirmText="Delete"
         type="danger"
         loading={deleteDepositRate.isPending}

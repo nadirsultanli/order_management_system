@@ -132,7 +132,7 @@ export const DepositRateForm: React.FC<DepositRateFormProps> = ({
           {/* Capacity */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Cylinder Capacity (Liters) *
+              Cylinder Capacity (kg) *
             </label>
             <div className="space-y-2">
               <input
@@ -144,7 +144,7 @@ export const DepositRateForm: React.FC<DepositRateFormProps> = ({
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
                   errors.capacity_l ? 'border-red-300' : 'border-gray-300'
                 }`}
-                placeholder="Enter capacity in liters"
+                placeholder="Enter capacity in kg"
               />
               {errors.capacity_l && (
                 <p className="text-red-600 text-sm flex items-center">
@@ -166,7 +166,7 @@ export const DepositRateForm: React.FC<DepositRateFormProps> = ({
                         : 'bg-gray-50 border-gray-300 text-gray-600 hover:bg-gray-100'
                     }`}
                   >
-                    {capacity}L
+                    {capacity}kg
                   </button>
                 ))}
               </div>

@@ -161,11 +161,15 @@ export const CapacityDepositManager: React.FC<CapacityDepositManagerProps> = ({
             >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                    <span className="text-lg font-semibold text-gray-900">
-                      {rate.capacity_l}L
-                    </span>
+                  {/* Capacity */}
+                  <div className="flex items-center space-x-3">
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-gray-900 flex items-center">
+                        {rate.capacity_l}
+                        <span className="text-lg ml-1 font-medium text-gray-600">kg</span>
+                      </div>
+                      <p className="text-sm text-gray-500">Cylinder Capacity</p>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-1">
                     <button

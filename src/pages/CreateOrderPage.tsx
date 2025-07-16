@@ -17,9 +17,11 @@ import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
 import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
+import { OrderFlowTypeSelector } from '../components/orders/OrderFlowTypeSelector';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useWarehouses } from '../hooks/useWarehouses';
+import { Warehouse } from '../types/warehouse';
 
 interface OrderLineItem {
   product_id: string;
@@ -57,6 +59,8 @@ export const CreateOrderPage: React.FC = () => {
   
   // Order type selection state
   const [selectedVariant, setSelectedVariant] = useState<'delivery' | 'visit'>('delivery');
+  // Order flow type for cylinder management
+  const [orderFlowType, setOrderFlowType] = useState<'outright' | 'exchange' | null>(null);
   // Remove exchangeEmptyQty and requiresPickup states
 
   const { data: customersData } = useCustomers({ limit: 1000 });
@@ -75,7 +79,7 @@ export const CreateOrderPage: React.FC = () => {
   const warehouses = warehousesData?.warehouses || [];
   
   // Get product prices from backend
-  const productIds = products.map(p => p.id);
+  const productIds = products.map((p: Product) => p.id);
   const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(productIds, selectedCustomerId || undefined);
   
   // Get inventory data for real stock checking
@@ -230,7 +234,7 @@ export const CreateOrderPage: React.FC = () => {
     const product = products.find((p: Product) => p.id === productId);
     if (!product) {
       console.error('Product not found in products list:', productId);
-      console.log('Available products:', products.map(p => ({ id: p.id, name: p.name })));
+      console.log('Available products:', products.map((p: Product) => ({ id: p.id, name: p.name })));
       return;
     }
 
@@ -301,7 +305,7 @@ export const CreateOrderPage: React.FC = () => {
 
   const handleCreateOrder = async () => {
     if (!selectedCustomerId || !selectedAddressId || !selectedWarehouseId || 
-        (selectedOrderType === 'delivery' && orderLines.length === 0)) {
+        (selectedVariant === 'delivery' && orderLines.length === 0)) {
       return;
     }
     
@@ -333,9 +337,9 @@ export const CreateOrderPage: React.FC = () => {
         order_date: orderDate,
         scheduled_date: scheduledDateTime,
         notes,
-        order_type: selectedOrderType,
+        order_type: selectedVariant,
         // Include order lines for proper backend processing with tax information (only for delivery orders)
-        order_lines: selectedOrderType === 'delivery' ? orderLines.map(line => ({
+        order_lines: selectedVariant === 'delivery' ? orderLines.map(line => ({
           product_id: line.product_id,
           quantity: line.quantity,
           unit_price: line.unit_price,
@@ -349,8 +353,8 @@ export const CreateOrderPage: React.FC = () => {
 
       console.log('Creating order with data:', orderData);
       console.log('Selected warehouse ID:', selectedWarehouseId);
-      console.log('Order lines product IDs:', orderLines.map(l => l.product_id));
-      console.log('Products available:', products.map(p => ({ id: p.id, name: p.name, status: p.status })));
+      console.log('Order lines product IDs:', orderLines.map((l: OrderLineItem) => l.product_id));
+      console.log('Products available:', products.map((p: Product) => ({ id: p.id, name: p.name, status: p.status })));
 
       // Check if products are still loading
       if (isProductsLoading) {
@@ -359,13 +363,13 @@ export const CreateOrderPage: React.FC = () => {
       }
 
       // Validate all products exist before creating order
-      const invalidProducts = orderLines.filter(line => 
-        !products.find(p => p.id === line.product_id)
+      const invalidProducts = orderLines.filter((line: OrderLineItem) => 
+        !products.find((p: Product) => p.id === line.product_id)
       );
       
       if (invalidProducts.length > 0) {
         console.error('Invalid products found in order lines:', invalidProducts);
-        console.error('Available products:', products.map(p => ({ id: p.id, name: p.name })));
+        console.error('Available products:', products.map((p: Product) => ({ id: p.id, name: p.name })));
         alert('Some products in your order are no longer available. Please refresh the page and try again.');
         return;
       }
@@ -384,7 +388,7 @@ export const CreateOrderPage: React.FC = () => {
   const canProceedToStep2 = selectedCustomerId && selectedAddressId && selectedWarehouseId &&
     (!selectedCustomer || selectedCustomer.account_status !== 'closed');
   const canCreateOrder = canProceedToStep2 && 
-    (selectedOrderType === 'visit' || orderLines.length > 0) && 
+    (selectedVariant === 'visit' || orderLines.length > 0) && 
     !isProductsLoading && !createOrder.isPending;
 
   const getStockInfo = (productId: string) => {
@@ -519,18 +523,18 @@ export const CreateOrderPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div 
                   className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    selectedOrderType === 'delivery' 
+                    selectedVariant === 'delivery' 
                       ? 'border-blue-500 bg-blue-50' 
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
-                  onClick={() => setSelectedOrderType('delivery')}
+                  onClick={() => setSelectedVariant('delivery')}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        selectedOrderType === 'delivery' ? 'border-blue-500' : 'border-gray-300'
+                        selectedVariant === 'delivery' ? 'border-blue-500' : 'border-gray-300'
                       }`}>
-                        {selectedOrderType === 'delivery' && (
+                        {selectedVariant === 'delivery' && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                         )}
                       </div>
@@ -545,18 +549,18 @@ export const CreateOrderPage: React.FC = () => {
                 
                 <div 
                   className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    selectedOrderType === 'visit' 
+                    selectedVariant === 'visit' 
                       ? 'border-blue-500 bg-blue-50' 
                       : 'border-gray-300 hover:border-gray-400'
                   }`}
-                  onClick={() => setSelectedOrderType('visit')}
+                  onClick={() => setSelectedVariant('visit')}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        selectedOrderType === 'visit' ? 'border-blue-500' : 'border-gray-300'
+                        selectedVariant === 'visit' ? 'border-blue-500' : 'border-gray-300'
                       }`}>
-                        {selectedOrderType === 'visit' && (
+                        {selectedVariant === 'visit' && (
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                         )}
                       </div>
@@ -692,7 +696,7 @@ export const CreateOrderPage: React.FC = () => {
                         className="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
                         <option value="">Choose a delivery address...</option>
-                        {addresses.map((address) => (
+                        {addresses.map((address: Address) => (
                           <option key={address.id} value={address.id}>
                             {formatAddressForSelect(address)}
                           </option>
@@ -781,6 +785,16 @@ export const CreateOrderPage: React.FC = () => {
               />
             </div>
             
+            {/* Order Flow Type Selection (for delivery orders) */}
+            {selectedVariant === 'delivery' && (
+              <div className="bg-white border border-gray-200 rounded-lg p-4">
+                <OrderFlowTypeSelector
+                  orderFlowType={orderFlowType}
+                  onOrderFlowTypeChange={setOrderFlowType}
+                />
+              </div>
+            )}
+            
             {/* Warehouse Stock Indicator */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-center space-x-2">
@@ -865,7 +879,7 @@ export const CreateOrderPage: React.FC = () => {
                       );
                     }
                     
-                    return availableProducts.map((product) => {
+                    return availableProducts.map((product: Product) => {
                     const stockAvailable = getStockInfo(product.id);
                     const unitPrice = getProductPriceSync(product.id); // Use sync version for display
                     const orderLine = orderLines.find(line => line.product_id === product.id);
@@ -1148,7 +1162,7 @@ export const CreateOrderPage: React.FC = () => {
                   <div>
                     <label className="text-sm font-medium text-gray-600">Source Warehouse:</label>
                     <div className="text-gray-900">
-                      {warehouses.find(w => w.id === selectedWarehouseId)?.name || 'Unknown Warehouse'}
+                      {warehouses.find((w: Warehouse) => w.id === selectedWarehouseId)?.name || 'Unknown Warehouse'}
                     </div>
                   </div>
                   {notes && (

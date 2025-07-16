@@ -254,7 +254,7 @@ export const DepositWorkflowDemo: React.FC = () => {
                 1. Deposit Rates Configuration
               </h2>
               <p className="text-gray-600 mb-4">
-                Deposit rates are set by cylinder capacity in liters. Each capacity has a fixed deposit amount that customers pay upfront.
+                Deposit rates are set by cylinder capacity in kg. Each capacity has a fixed deposit amount that customers pay upfront.
               </p>
             </div>
 
@@ -264,7 +264,7 @@ export const DepositWorkflowDemo: React.FC = () => {
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <Package className="h-5 w-5 text-green-600" />
-                      <span className="font-semibold text-gray-900">{rate.capacity_l}L</span>
+                      <span className="font-semibold text-gray-900">{rate.capacity_l}kg</span>
                     </div>
                     <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                       Active
@@ -322,7 +322,7 @@ export const DepositWorkflowDemo: React.FC = () => {
                           <div className="font-medium text-gray-900">{product.name}</div>
                           <div className="text-sm text-gray-500">SKU: {product.sku}</div>
                           <div className="text-sm text-gray-500">
-                            Capacity: {product.capacity_l}L ({product.capacity_kg}kg)
+                            Capacity: {product.capacity_kg}kg
                           </div>
                         </div>
                         <button
@@ -558,9 +558,9 @@ export const DepositWorkflowDemo: React.FC = () => {
                     {DEMO_DATA.customer.cylinder_breakdown.map((breakdown) => (
                       <div key={breakdown.capacity_l} className="flex items-center justify-between bg-gray-50 p-3 rounded">
                         <div className="flex items-center space-x-3">
-                          <Package className="h-4 w-4 text-gray-500" />
-                          <span className="text-sm font-medium">{breakdown.capacity_l}L</span>
-                          <span className="text-sm text-gray-600">× {breakdown.quantity}</span>
+                          <Package className="h-4 w-4 text-yellow-600" />
+                          <span className="text-sm font-medium">{breakdown.capacity_l}kg</span>
+                          <span className="text-sm text-gray-500">× {breakdown.quantity}</span>
                         </div>
                         <div className="text-sm font-medium">
                           {formatCurrencySync(breakdown.total_deposit)}
