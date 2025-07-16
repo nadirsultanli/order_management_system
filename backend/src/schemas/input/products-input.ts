@@ -103,6 +103,7 @@ export const UpdateProductSchema = z.object({
 
 export const DeleteProductSchema = z.object({
   id: z.string().uuid(),
+  is_parent_product: z.boolean().default(false),
 });
 
 // ============ Product Variants ============
@@ -129,6 +130,7 @@ export const BulkStatusUpdateSchema = z.object({
 
 export const ReactivateProductSchema = z.object({
   id: z.string().uuid(),
+  is_parent_product: z.boolean().default(false),
 });
 
 // ============ Product Validation ============
