@@ -338,6 +338,7 @@ export const useGroupedProducts = (filters: ProductFilters & { search?: string }
     limit: filters.limit || 10,
     sort_by: filters.sort_by || 'name',
     sort_order: filters.sort_order || 'asc',
+    show_obsolete: filters.show_obsolete || false,
   }, {
     retry: 1,
     staleTime: 30000,

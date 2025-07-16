@@ -10,6 +10,8 @@ import { CustomersPage } from './pages/CustomersPage';
 import { CustomerDetailPage } from './pages/CustomerDetailPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
+import { AccessoriesPage } from './pages/AccessoriesPage';
+import { AccessoryDetailPage } from './pages/AccessoryDetailPage';
 import { WarehousesPage } from './pages/WarehousesPage';
 import { WarehouseDetailPage } from './pages/WarehouseDetailPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -57,6 +59,8 @@ function App() {
             <Route path="customers/:id" element={<CustomerDetailPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="products/:id" element={<ProductDetailPage />} />
+            <Route path="accessories" element={<AccessoriesPage />} />
+            <Route path="accessories/:id" element={<AccessoryDetailPage />} />
             <Route path="warehouses" element={<WarehousesPage />} />
             <Route path="warehouses/:id" element={<WarehouseDetailPage />} />
             <Route path="inventory" element={<InventoryPage />} />

@@ -55,7 +55,7 @@ export const ProductDetailPage: React.FC = () => {
           
           // Force refetch to ensure immediate UI update
           setIsRefreshing(true);
-          setUpdateMessage('Updating parent product and child variants...');
+          setUpdateMessage('Updating product and variants...');
         } else {
           // This is a variant product - use the regular update endpoint
           await updateProduct.mutateAsync({ id: product.id, ...data });
@@ -357,11 +357,11 @@ export const ProductDetailPage: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <Package className="h-4 w-4 text-blue-600" />
                           <span className="text-sm font-medium text-blue-800">
-                            Parent Product
+                            Product
                           </span>
                         </div>
                         <p className="text-xs text-blue-700 mt-1">
-                          Changes to this product will automatically update all child variants (EMPTY, FULL-XCH, FULL-OUT, DAMAGED)
+                          Changes to this product will automatically update all variants (EMPTY, FULL-XCH, FULL-OUT, DAMAGED)
                         </p>
                       </div>
                     </div>
@@ -374,11 +374,11 @@ export const ProductDetailPage: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <Package className="h-4 w-4 text-gray-600" />
                           <span className="text-sm font-medium text-gray-800">
-                            Variant Product
+                            Variant
                           </span>
                         </div>
                         <p className="text-xs text-gray-700 mt-1">
-                          This is a variant of a parent product. Some properties are inherited from the parent and cannot be changed here.
+                          This is a variant of a product. Some properties are inherited from the product and cannot be changed here.
                         </p>
                       </div>
                     </div>
@@ -399,7 +399,7 @@ export const ProductDetailPage: React.FC = () => {
                 {/* Child Variants Section - Only show for parent products */}
                 {!product.parent_products_id && childVariants.length > 0 && (
                   <div className="mt-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Child Variants</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4"> Variants</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {childVariants.map((variant: Product) => (
                         <div key={variant.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
@@ -468,11 +468,11 @@ export const ProductDetailPage: React.FC = () => {
                         <div className="flex items-center space-x-2">
                           <Package className="h-4 w-4 text-green-500" />
                           <span className="text-sm text-gray-900 font-medium">
-                            Parent Product
+                            Product
                           </span>
                         </div>
                         <p className="text-xs text-gray-500 mt-1">
-                          Updates to this product will automatically update all child variants
+                          Updates to this product will automatically update all  variants
                         </p>
                         {childVariants.length > 0 && (
                           <p className="text-xs text-blue-600 mt-1">

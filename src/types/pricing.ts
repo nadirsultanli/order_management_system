@@ -18,6 +18,7 @@ export interface PriceListItem {
   unit_price: number;
   min_qty: number;
   surcharge_pct?: number;
+  deposit_amount?: number;
   // Tax-related fields (pre-calculated, not dynamic)
   price_excluding_tax?: number;
   tax_amount?: number;
@@ -53,6 +54,7 @@ export interface CreatePriceListItemData {
   price_per_kg?: number;
   min_qty: number;
   surcharge_pct?: number;
+  deposit_amount?: number;
   pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
   // Tax-related fields (optional, calculated if not provided)
   price_excluding_tax?: number;

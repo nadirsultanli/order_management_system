@@ -15,7 +15,8 @@ import {
   ArrowLeftRight,
   X,
   BarChart3,
-  Route
+  Route,
+  Wrench
 } from 'lucide-react';
 import { Logo } from '../ui/Logo';
 import { UserAvatar } from '../ui/UserAvatar';
@@ -50,7 +51,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
     { path: '/users', label: 'Users', icon: UserPlus },
-    { path: '/products', label: 'Products', icon: Package },
+    { path: '/products', label: 'Items', icon: Package },
     { path: '/warehouses', label: 'Warehouses', icon: Warehouse },
     { path: '/inventory', label: 'Inventory', icon: BarChart3 },
     { path: '/trucks', label: 'Trucks', icon: Truck },

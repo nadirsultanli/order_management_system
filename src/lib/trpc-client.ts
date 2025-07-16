@@ -3,6 +3,7 @@ import { httpLink, TRPCClientError } from '@trpc/client';
 import type { AppRouter } from '../../backend/src/routes';
 import { TokenManager, TokenData } from '../utils/tokenManager';
 
+// Create the tRPC React hooks
 export const trpc = createTRPCReact<AppRouter>();
 
 // Token refresh function

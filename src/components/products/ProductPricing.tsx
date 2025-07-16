@@ -22,6 +22,9 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
   // Get price list items for this specific product
   const { data: productPriceListItems = [], isLoading, error } = useProductPriceListItemsNew(productId);
   
+  // Debug: Log the pricing data
+  console.log('Product pricing data:', productPriceListItems);
+  
   // Create a map to store price list items by price list ID for easier lookup
   const productPricesMap: { [key: string]: PriceListItem[] } = {};
   productPriceListItems.forEach((item: any) => {

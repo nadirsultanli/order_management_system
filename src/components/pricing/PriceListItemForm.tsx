@@ -352,6 +352,19 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                   </div>
                 </div>
 
+                {/* Deposit Information */}
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-800">
+                    <strong>Deposit Information:</strong>
+                    <div className="mt-1 text-xs">
+                      • Deposit amount will be automatically calculated based on cylinder capacity<br/>
+                      • Deposit rates are managed in the cylinder_deposit_rates table<br/>
+                      • For variants, deposit is calculated from parent product capacity<br/>
+                      • Deposit will be added to the final price calculation
+                    </div>
+                  </div>
+                </div>
+
                 {/* Tax Information Display */}
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <div className="text-sm text-blue-800">
@@ -360,13 +373,15 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                       {pricingMethod === 'per_kg' ? (
                         <>
                           • Tax will be calculated from the product's tax rate<br/>
-                          • Final price = (Price per kg × KG from SKU) + Surcharge + Tax<br/>
-                          • KG is automatically extracted from product SKU (e.g., "PROPAN 12KG" = 12kg)
+                          • Final price = (Price per kg × KG from SKU) + Surcharge + Tax + Deposit<br/>
+                          • KG is automatically extracted from product SKU (e.g., "PROPAN 12KG" = 12kg)<br/>
+                          • Deposit is automatically calculated from cylinder capacity
                         </>
                       ) : (
                         <>
                           • Tax will be calculated from the product's tax rate<br/>
-                          • Final price = Unit Price + Surcharge + Tax
+                          • Final price = Unit Price + Surcharge + Tax + Deposit<br/>
+                          • Deposit is automatically calculated from cylinder capacity
                         </>
                       )}
                     </div>
@@ -387,13 +402,14 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                                 currencyCode
                               )}<br/></>
                             )}
+                            Deposit: Will be calculated automatically from cylinder capacity<br/>
                             Final Price: {formatCurrencySync(
                               calculateFinalPrice(
                                 useBulkPrice ? bulkPrice : watchedPrice, 
                                 watchedSurcharge
                               ),
                               currencyCode
-                            )}
+                            )} + deposit
                           </>
                         ) : (
                           <>
@@ -402,6 +418,7 @@ export const PriceListItemForm: React.FC<PriceListItemFormProps> = ({
                             {watchedSurcharge > 0 && (
                               <>Surcharge ({watchedSurcharge}%): Will be calculated<br/></>
                             )}
+                            Deposit: Will be calculated automatically from cylinder capacity<br/>
                             Tax: Will be calculated from product tax rate<br/>
                             Final Price: Will be calculated per cylinder
                           </>
