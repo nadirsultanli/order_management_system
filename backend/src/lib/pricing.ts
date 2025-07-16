@@ -208,6 +208,7 @@ export class PricingService {
           id,
           name,
           sku,
+          sku_variant,
           capacity_l,
           gross_weight_kg,
           net_gas_weight_kg,
@@ -220,6 +221,12 @@ export class PricingService {
 
       if (productError || !product) {
         this.logger.error('Product not found:', productError);
+        return null;
+      }
+
+      // Gas fill pricing should only apply to FULL-OUT and FULL-XCH variants
+      if (product.sku_variant && !['FULL-OUT', 'FULL-XCH'].includes(product.sku_variant)) {
+        this.logger.warn(`Gas fill pricing not applicable for variant: ${product.sku_variant}`, productId);
         return null;
       }
 

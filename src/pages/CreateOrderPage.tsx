@@ -859,6 +859,15 @@ export const CreateOrderPage: React.FC = () => {
                     const availableProducts = products.filter((p: Product) => {
                       // Only show active products that have stock in the selected warehouse
                       if (p.status !== 'active') return false;
+                      // Prevent EMPTY variants from being sold
+                      if (p.sku_variant === 'EMPTY') return false;
+                      
+                      // Filter by order flow type for cylinder variants
+                      if (orderFlowType && p.sku_variant) {
+                        if (orderFlowType === 'outright' && p.sku_variant !== 'FULL-OUT') return false;
+                        if (orderFlowType === 'exchange' && p.sku_variant !== 'FULL-XCH') return false;
+                      }
+                      
                       const stockAvailable = getStockInfo(p.id);
                       // Filter by selected variant
                       if (p.variant && p.variant !== selectedVariant) return false;
