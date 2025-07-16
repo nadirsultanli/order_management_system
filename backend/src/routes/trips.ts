@@ -923,6 +923,103 @@ export const tripsRouter = router({
           message: `Only confirmed orders can be assigned to trips. Non-confirmed orders: ${nonConfirmedIds}`,
         });
       }
+
+      // Validate FULL cylinder stock availability before allocation
+      ctx.logger.info('Validating FULL cylinder stock availability for orders:', input.order_ids);
+      
+      try {
+        // Get order lines with FULL cylinder products
+        const { data: orderLines, error: orderLinesError } = await ctx.supabase
+          .from('order_lines')
+          .select(`
+            id,
+            order_id,
+            product_id,
+            quantity,
+            products!inner (
+              id,
+              sku,
+              sku_variant,
+              name
+            ),
+            orders!inner (
+              id,
+              source_warehouse_id
+            )
+          `)
+          .in('order_id', input.order_ids)
+          .in('products.sku_variant', ['FULL-OUT', 'FULL-XCH']);
+
+        if (orderLinesError) {
+          ctx.logger.error('Error fetching order lines for stock validation:', orderLinesError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to validate stock availability: ${formatErrorMessage(orderLinesError)}`,
+          });
+        }
+
+        if (orderLines && orderLines.length > 0) {
+          ctx.logger.info(`Validating stock for ${orderLines.length} FULL cylinder order lines`);
+          
+          // Check stock availability for each order line
+          const stockValidationErrors = [];
+          
+          for (const line of orderLines) {
+            const warehouseId = line.orders.source_warehouse_id;
+            if (!warehouseId) {
+              stockValidationErrors.push(`Order ${line.order_id} has no source warehouse specified`);
+              continue;
+            }
+
+            // Use the database function to check available stock
+            const { data: stockCheck, error: stockCheckError } = await ctx.supabase
+              .rpc('check_available_full_stock', {
+                p_product_id: line.product_id,
+                p_warehouse_id: warehouseId,
+                p_required_quantity: line.quantity
+              });
+
+            if (stockCheckError) {
+              ctx.logger.error('Error checking stock availability:', stockCheckError);
+              stockValidationErrors.push(`Failed to check stock for product ${line.products.sku}: ${stockCheckError.message}`);
+              continue;
+            }
+
+            if (!stockCheck) {
+              // Get current stock levels for error message
+              const { data: inventory } = await ctx.supabase
+                .from('inventory_balance')
+                .select('qty_full, qty_reserved')
+                .eq('product_id', line.product_id)
+                .eq('warehouse_id', warehouseId)
+                .single();
+
+              const available = inventory ? inventory.qty_full - inventory.qty_reserved : 0;
+              stockValidationErrors.push(
+                `Insufficient stock for ${line.products.sku}: Required ${line.quantity}, Available ${available}`
+              );
+            }
+          }
+
+          if (stockValidationErrors.length > 0) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Cannot allocate orders due to insufficient stock:\n${stockValidationErrors.join('\n')}`,
+            });
+          }
+
+          ctx.logger.info('Stock validation passed for all FULL cylinder products');
+        }
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error; // Re-throw TRPC errors as-is
+        }
+        ctx.logger.error('Unexpected error during stock validation:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Unexpected error during stock validation',
+        });
+      }
       
       const allocations = input.order_ids.map((orderId, index) => ({
         trip_id: input.trip_id,
@@ -999,6 +1096,88 @@ export const tripsRouter = router({
           // Note: We don't throw here as the allocation succeeded, but we should log the issue
           ctx.logger.warn('Orders were allocated but status update failed. Manual intervention may be required.');
         }
+
+        // Create automatic empty expectations for FULL-XCH orders (fallback path)
+        try {
+          ctx.logger.info('Creating empty expectations for FULL-XCH orders in trip (fallback):', input.trip_id);
+          
+          // Query order lines for FULL-XCH products in the dispatched orders
+          const { data: orderLines, error: orderLinesError } = await ctx.supabase
+            .from('order_lines')
+            .select(`
+              id,
+              order_id,
+              product_id,
+              quantity,
+              products!inner (
+                id,
+                sku,
+                sku_variant,
+                name
+              )
+            `)
+            .in('order_id', input.order_ids)
+            .eq('products.sku_variant', 'FULL-XCH');
+
+          if (orderLinesError) {
+            ctx.logger.error('Error fetching FULL-XCH order lines (fallback):', orderLinesError);
+          } else if (orderLines && orderLines.length > 0) {
+            ctx.logger.info(`Found ${orderLines.length} FULL-XCH order lines for empty expectation (fallback)`);
+            
+            // Create empty expectations for each FULL-XCH line
+            const emptyExpectations = [];
+            
+            for (const line of orderLines) {
+              const fullProduct = line.products;
+              if (!fullProduct) continue;
+              
+              // Get the base SKU by removing the variant suffix
+              const baseSku = fullProduct.sku.replace('-FULL-XCH', '');
+              const emptySku = `${baseSku}-EMPTY`;
+              
+              // Find the EMPTY variant product
+              const { data: emptyProduct, error: emptyProductError } = await ctx.supabase
+                .from('products')
+                .select('id')
+                .eq('sku', emptySku)
+                .eq('sku_variant', 'EMPTY')
+                .single();
+              
+              if (emptyProductError || !emptyProduct) {
+                ctx.logger.warn(`Empty variant not found for SKU: ${emptySku} (fallback)`);
+                continue;
+              }
+              
+              emptyExpectations.push({
+                order_id: line.order_id,
+                trip_id: input.trip_id,
+                full_product_id: line.product_id,
+                empty_product_id: emptyProduct.id,
+                expected_quantity: line.quantity,
+                status: 'pending',
+                expected_return_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                created_by_user_id: user.id,
+                created_at: new Date().toISOString(),
+                notes: `Automatic empty expectation for FULL-XCH delivery in trip ${input.trip_id} (fallback)`
+              });
+            }
+            
+            if (emptyExpectations.length > 0) {
+              // Insert empty expectations
+              const { error: insertError } = await ctx.supabase
+                .from('empty_return_credits')
+                .insert(emptyExpectations);
+              
+              if (insertError) {
+                ctx.logger.error('Error creating empty expectations (fallback):', insertError);
+              } else {
+                ctx.logger.info(`Created ${emptyExpectations.length} empty expectations for trip ${input.trip_id} (fallback)`);
+              }
+            }
+          }
+        } catch (error) {
+          ctx.logger.error('Unexpected error creating empty expectations (fallback):', error);
+        }
         
         return upsertData;
       }
@@ -1023,6 +1202,92 @@ export const tripsRouter = router({
       if (statusUpdateError) {
         ctx.logger.error('Error updating order status to dispatched:', statusUpdateError);
         ctx.logger.warn('Orders were allocated but status update failed. Manual intervention may be required.');
+      }
+
+      // Create automatic empty expectations for FULL-XCH orders
+      try {
+        ctx.logger.info('Creating empty expectations for FULL-XCH orders in trip:', input.trip_id);
+        
+        // Query order lines for FULL-XCH products in the dispatched orders
+        const { data: orderLines, error: orderLinesError } = await ctx.supabase
+          .from('order_lines')
+          .select(`
+            id,
+            order_id,
+            product_id,
+            quantity,
+            products!inner (
+              id,
+              sku,
+              sku_variant,
+              name
+            )
+          `)
+          .in('order_id', input.order_ids)
+          .eq('products.sku_variant', 'FULL-XCH');
+
+        if (orderLinesError) {
+          ctx.logger.error('Error fetching FULL-XCH order lines:', orderLinesError);
+          // Don't fail the allocation for this, just log the error
+        } else if (orderLines && orderLines.length > 0) {
+          ctx.logger.info(`Found ${orderLines.length} FULL-XCH order lines for empty expectation`);
+          
+          // Create empty expectations for each FULL-XCH line
+          const emptyExpectations = [];
+          
+          for (const line of orderLines) {
+            // Find corresponding EMPTY variant product
+            const fullProduct = line.products;
+            if (!fullProduct) continue;
+            
+            // Get the base SKU by removing the variant suffix
+            const baseSku = fullProduct.sku.replace('-FULL-XCH', '');
+            const emptySku = `${baseSku}-EMPTY`;
+            
+            // Find the EMPTY variant product
+            const { data: emptyProduct, error: emptyProductError } = await ctx.supabase
+              .from('products')
+              .select('id')
+              .eq('sku', emptySku)
+              .eq('sku_variant', 'EMPTY')
+              .single();
+            
+            if (emptyProductError || !emptyProduct) {
+              ctx.logger.warn(`Empty variant not found for SKU: ${emptySku}`);
+              continue;
+            }
+            
+            emptyExpectations.push({
+              order_id: line.order_id,
+              trip_id: input.trip_id,
+              full_product_id: line.product_id,
+              empty_product_id: emptyProduct.id,
+              expected_quantity: line.quantity,
+              status: 'pending',
+              expected_return_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+              created_by_user_id: user.id,
+              created_at: new Date().toISOString(),
+              notes: `Automatic empty expectation for FULL-XCH delivery in trip ${input.trip_id}`
+            });
+          }
+          
+          if (emptyExpectations.length > 0) {
+            // Insert empty expectations
+            const { error: insertError } = await ctx.supabase
+              .from('empty_return_credits')
+              .insert(emptyExpectations);
+            
+            if (insertError) {
+              ctx.logger.error('Error creating empty expectations:', insertError);
+              // Don't fail the allocation, just log the error
+            } else {
+              ctx.logger.info(`Created ${emptyExpectations.length} empty expectations for trip ${input.trip_id}`);
+            }
+          }
+        }
+      } catch (error) {
+        ctx.logger.error('Unexpected error creating empty expectations:', error);
+        // Don't fail the allocation for empty expectation errors
       }
 
       return {

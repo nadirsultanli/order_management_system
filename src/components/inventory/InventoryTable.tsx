@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Edit, ArrowRightLeft, Loader2, AlertTriangle, Eye, Truck, AlertCircle } from 'lucide-react';
+import { Package, Edit, ArrowRightLeft, Loader2, AlertTriangle, Eye, Truck, AlertCircle, Wrench, XCircle } from 'lucide-react';
 import { InventoryBalance } from '../../types/inventory';
 import { formatDateSync } from '../../utils/order';
 
@@ -134,8 +134,15 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="text-sm">
                       <div className="font-medium text-gray-900">{onHandQty}</div>
-                      <div className="text-xs text-gray-500">
-                        {item.qty_full}F / {item.qty_empty}E
+                      <div className="text-xs space-y-1">
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            {item.qty_full} FULL
+                          </span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                            {item.qty_empty} EMPTY
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -158,6 +165,18 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({
                         count={item.qty_quarantine || 0} 
                         icon={<AlertCircle className="h-3 w-3" />}
                         colorClass="text-yellow-700 bg-yellow-50"
+                      />
+                      <StockStatusBadge 
+                        label="Damaged" 
+                        count={item.qty_damaged || 0} 
+                        icon={<XCircle className="h-3 w-3" />}
+                        colorClass="text-red-700 bg-red-50"
+                      />
+                      <StockStatusBadge 
+                        label="Maintenance" 
+                        count={item.qty_under_maintenance || 0} 
+                        icon={<Wrench className="h-3 w-3" />}
+                        colorClass="text-orange-700 bg-orange-50"
                       />
                       <StockStatusBadge 
                         label="In Transit" 
