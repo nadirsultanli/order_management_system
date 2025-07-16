@@ -9,7 +9,6 @@ import { analyticsRouter } from './analytics';
 import { adminRouter } from './admin';
 import { trucksRouter } from './trucks';
 import { tripsRouter } from './trips';
-import { dashboardRouter } from './dashboard';
 import { emptyReturnsRouter } from './emptyReturns';
 import { warehousesRouter } from './warehouses';
 import { productsRouter } from './products';
@@ -31,7 +30,6 @@ export const appRouter = router({
   admin: adminRouter as any,
   trucks: trucksRouter as any,
   trips: tripsRouter as any,
-  dashboard: dashboardRouter as any,
   emptyReturns: emptyReturnsRouter as any,
   warehouses: warehousesRouter as any,
   products: productsRouter as any,
