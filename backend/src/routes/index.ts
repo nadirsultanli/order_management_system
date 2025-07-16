@@ -19,6 +19,7 @@ import { depositsRouter } from './deposits';
 import { usersRouter } from './users';
 // import { driverRouter } from './driver'; // Temporarily disabled
 import { paymentsRouter } from './payments';
+import { reportsRouter } from './reports';
 
 export const appRouter = router({
   auth: authRouter as any,
@@ -41,6 +42,7 @@ export const appRouter = router({
   users: usersRouter as any,
   // driver: driverRouter as any, // Temporarily disabled
   payments: paymentsRouter as any,
+  reports: reportsRouter as any,
 });
 
 export type AppRouter = typeof appRouter;

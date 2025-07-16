@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, ShoppingCart, User, MapPin, Calendar, Package, AlertTriangle, X, Check, Info, DollarSign } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ShoppingCart, User, MapPin, Calendar, Package, AlertTriangle, X, Check, Info, DollarSign, RotateCcw } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useAddresses, useCreateAddress } from '../hooks/useAddresses';
 import { useProducts } from '../hooks/useProducts';
@@ -329,6 +329,35 @@ export const CreateOrderPage: React.FC = () => {
         ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
         : undefined;
       
+      // Determine order flow type for automatic empty return credit generation
+      const determineOrderFlowType = () => {
+        // If explicitly selected, use that
+        if (orderFlowType) {
+          return orderFlowType === 'exchange' ? 'exchange' : 'outright';
+        }
+        
+        // Auto-determine based on products in order
+        if (selectedVariant === 'delivery' && orderLines.length > 0) {
+          const hasFullXchProducts = orderLines.some((line: OrderLineItem) => {
+            const product = products.find((p: Product) => p.id === line.product_id);
+            return product?.sku_variant === 'FULL-XCH';
+          });
+          
+          const hasFullOutProducts = orderLines.some((line: OrderLineItem) => {
+            const product = products.find((p: Product) => p.id === line.product_id);
+            return product?.sku_variant === 'FULL-OUT';
+          });
+          
+          // If has FULL-XCH products, it's an exchange order
+          if (hasFullXchProducts) return 'exchange';
+          // If has FULL-OUT products, it's an outright purchase
+          if (hasFullOutProducts) return 'outright';
+        }
+        
+        // Default for non-delivery orders or unclear cases
+        return null;
+      };
+
       // Create the order with order lines
       const orderData = {
         customer_id: selectedCustomerId,
@@ -338,6 +367,7 @@ export const CreateOrderPage: React.FC = () => {
         scheduled_date: scheduledDateTime,
         notes,
         order_type: selectedVariant,
+        order_flow_type: determineOrderFlowType(),
         // Include order lines for proper backend processing with tax information (only for delivery orders)
         order_lines: selectedVariant === 'delivery' ? orderLines.map(line => ({
           product_id: line.product_id,
@@ -1227,6 +1257,76 @@ export const CreateOrderPage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Empty Return Credits Preview */}
+            {(() => {
+              // Calculate expected empty return credits for FULL-XCH products
+              const exchangeProducts = orderLines.filter((line: OrderLineItem) => {
+                const product = products.find((p: Product) => p.id === line.product_id);
+                return product?.sku_variant === 'FULL-XCH';
+              });
+
+              if (exchangeProducts.length === 0) return null;
+
+              return (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-blue-900 mb-3 flex items-center">
+                    <RotateCcw className="h-5 w-5 mr-2" />
+                    Empty Return Credits (Auto-Generated)
+                  </h3>
+                  <p className="text-sm text-blue-800 mb-3">
+                    The following empty return credits will be automatically created for exchange products:
+                  </p>
+                  <div className="space-y-2">
+                    {exchangeProducts.map((line: OrderLineItem) => {
+                      const product = products.find((p: Product) => p.id === line.product_id);
+                      if (!product) return null;
+                      
+                      // Estimate deposit amount (this would ideally come from deposit rates)
+                      const estimatedDeposit = product.capacity_kg ? product.capacity_kg * 50 : 0; // Rough estimate
+                      
+                      return (
+                        <div key={line.product_id} className="flex justify-between items-center py-2 bg-white rounded px-3">
+                          <div>
+                            <div className="font-medium text-gray-900">{product.name}</div>
+                            <div className="text-sm text-gray-600">
+                              {line.quantity} empty cylinder{line.quantity > 1 ? 's' : ''} expected to return
+                            </div>
+                            <div className="text-xs text-blue-600">
+                              Return by: {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()} 
+                              (Expires: {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()})
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium text-green-600">
+                              +{formatCurrencySync(estimatedDeposit * line.quantity)}
+                            </div>
+                            <div className="text-xs text-gray-500">credit value</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-blue-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-blue-900">Total Empty Return Credit:</span>
+                      <span className="font-bold text-green-600">
+                        +{formatCurrencySync(
+                          exchangeProducts.reduce((total: number, line: OrderLineItem) => {
+                            const product = products.find((p: Product) => p.id === line.product_id);
+                            const estimatedDeposit = product?.capacity_kg ? product.capacity_kg * 50 : 0;
+                            return total + (estimatedDeposit * line.quantity);
+                          }, 0)
+                        )}
+                      </span>
+                    </div>
+                    <p className="text-xs text-blue-700 mt-1">
+                      * Credit amounts are estimates. Actual amounts will be based on current deposit rates.
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="flex justify-between">
               <button

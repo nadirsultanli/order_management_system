@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock } from 'lucide-react';
+import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
 import { formatDateSync } from '../utils/order';
 import { formatCurrencySync } from '../utils/pricing';
 import { Order, OrderStatusChange } from '../types/order';
+import { ReturnStatusBadge } from '../components/returns/ReturnStatusBadge';
+import { ReturnProcessingModal } from '../components/returns/ReturnProcessingModal';
 
 export const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +18,8 @@ export const OrderDetailPage: React.FC = () => {
   const [statusInfo, setStatusInfo] = useState<any>(null);
   const [nextStatuses, setNextStatuses] = useState<string[]>([]);
   const [formattedOrderId, setFormattedOrderId] = useState<string>('');
+  const [returnProcessingCredit, setReturnProcessingCredit] = useState<any>(null);
+  const [emptyReturnCredits, setEmptyReturnCredits] = useState<any[]>([]);
 
   const { data: order, isLoading, error } = useOrderNew(id!);
   const changeOrderStatus = useUpdateOrderStatusNew();
@@ -32,6 +36,33 @@ export const OrderDetailPage: React.FC = () => {
     setStatusInfo(statusData);
     setNextStatuses(nextStatusData);
     setFormattedOrderId(formattedId);
+
+    // Mock empty return credits data for demonstration
+    // TODO: Replace with actual API call to fetch empty return credits
+    if (order.order_lines && order.order_flow_type === 'exchange') {
+      const mockCredits = order.order_lines
+        .filter((line: any) => line.product?.sku_variant === 'FULL-XCH')
+        .map((line: any) => ({
+          id: `credit_${line.id}`,
+          order_id: order.id,
+          parent_line_id: line.id,
+          customer_id: order.customer_id,
+          product_id: line.product_id,
+          product_name: line.product?.name || 'Unknown Product',
+          product_sku: line.product?.sku || 'N/A',
+          quantity: line.quantity,
+          quantity_returned: Math.floor(Math.random() * line.quantity), // Mock some returned
+          quantity_remaining: line.quantity - Math.floor(Math.random() * line.quantity),
+          unit_credit_amount: (line.product?.capacity_kg || 13) * 50, // Estimate
+          total_credit_amount: ((line.product?.capacity_kg || 13) * 50) * line.quantity,
+          expected_return_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          return_deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          status: Math.random() > 0.5 ? 'pending' : 'partial_returned',
+          remaining_credit_amount: ((line.product?.capacity_kg || 13) * 50) * (line.quantity - Math.floor(Math.random() * line.quantity)),
+        }));
+      
+      setEmptyReturnCredits(mockCredits);
+    }
   }, [order]);
 
   const handleChangeStatus = (newStatus: string) => {
@@ -80,6 +111,48 @@ export const OrderDetailPage: React.FC = () => {
   const formatOrderIdSync = (id: string) => {
     // Simple formatting - take first 8 characters and add prefix
     return `ORD-${id.substring(0, 8).toUpperCase()}`;
+  };
+
+  // Helper function to get return status for order line
+  const getReturnStatusForLine = (lineId: string) => {
+    const credits = emptyReturnCredits.filter((credit: any) => credit.parent_line_id === lineId);
+    if (credits.length === 0) return { status: 'no_returns', credits: [] };
+    
+    const pendingCredits = credits.filter((c: any) => c.status === 'pending');
+    const partialCredits = credits.filter((c: any) => c.status === 'partial_returned');
+    const fullyReturned = credits.filter((c: any) => c.status === 'fully_returned');
+    
+    if (fullyReturned.length === credits.length) return { status: 'fully_returned', credits };
+    if (partialCredits.length > 0 || pendingCredits.length < credits.length) return { status: 'partial_returned', credits };
+    return { status: 'pending', credits };
+  };
+
+  // Handle return processing
+  const handleProcessReturn = (credit: any) => {
+    setReturnProcessingCredit(credit);
+  };
+
+  const handleReturnSubmit = async (data: any) => {
+    try {
+      // TODO: Implement actual API call to process return
+      console.log('Processing return:', data);
+      
+      // Mock update local state
+      setEmptyReturnCredits(prev => prev.map(credit => 
+        credit.id === data.credit_id 
+          ? {
+              ...credit,
+              quantity_returned: credit.quantity_returned + data.quantity_returned,
+              status: credit.quantity_returned + data.quantity_returned >= credit.quantity ? 'fully_returned' : 'partial_returned',
+              processing_notes: `Processed ${data.quantity_returned} units: ${data.return_reason}`
+            }
+          : credit
+      ));
+      
+      setReturnProcessingCredit(null);
+    } catch (error) {
+      console.error('Error processing return:', error);
+    }
   };
 
   if (isLoading) {
@@ -438,38 +511,87 @@ export const OrderDetailPage: React.FC = () => {
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Subtotal
                       </th>
+                      {order.order_flow_type === 'exchange' && (
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Return Status
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {order.order_lines.map((line) => (
-                      <tr key={line.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {line.product?.name || 'Unknown Product'}
+                    {order.order_lines.map((line) => {
+                      const returnInfo = getReturnStatusForLine(line.id);
+                      const hasExchangeProducts = line.product?.sku_variant === 'FULL-XCH';
+                      
+                      return (
+                        <tr key={line.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {line.product?.name || 'Unknown Product'}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                SKU: {line.product?.sku || 'N/A'}
+                                {line.product?.sku_variant && (
+                                  <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    line.product.sku_variant === 'FULL-XCH' 
+                                      ? 'bg-blue-100 text-blue-800' 
+                                      : 'bg-green-100 text-green-800'
+                                  }`}>
+                                    {line.product.sku_variant}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-500">
-                              SKU: {line.product?.sku || 'N/A'}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="text-sm font-medium text-gray-900">
-                            {line.quantity}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <span className="text-sm text-gray-900">
-                            {formatCurrencySync(line.unit_price)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <span className="text-sm font-medium text-gray-900">
-                            {formatCurrencySync(line.subtotal || (line.quantity * line.unit_price))}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-center">
+                            <span className="text-sm font-medium text-gray-900">
+                              {line.quantity}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="text-sm text-gray-900">
+                              {formatCurrencySync(line.unit_price)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <span className="text-sm font-medium text-gray-900">
+                              {formatCurrencySync(line.subtotal || (line.quantity * line.unit_price))}
+                            </span>
+                          </td>
+                          {order.order_flow_type === 'exchange' && (
+                            <td className="px-6 py-4 whitespace-nowrap text-center">
+                              {hasExchangeProducts ? (
+                                <div className="space-y-1">
+                                  {returnInfo.credits.length > 0 ? (
+                                    returnInfo.credits.map((credit: any) => (
+                                      <div key={credit.id} className="flex flex-col items-center space-y-1">
+                                        <ReturnStatusBadge
+                                          status={credit.status}
+                                          daysUntilDeadline={Math.ceil((new Date(credit.return_deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}
+                                          size="sm"
+                                          interactive={credit.status === 'pending' || credit.status === 'partial_returned'}
+                                          onClick={() => credit.status !== 'fully_returned' && handleProcessReturn(credit)}
+                                        />
+                                        {credit.quantity_remaining > 0 && (
+                                          <div className="text-xs text-gray-500">
+                                            {credit.quantity_remaining} pending
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <ReturnStatusBadge status="pending" size="sm" />
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-400">No returns expected</span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                   <tfoot className="bg-gray-50">
                     <tr>
@@ -578,6 +700,125 @@ export const OrderDetailPage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Empty Returns Summary */}
+          {order.order_flow_type === 'exchange' && emptyReturnCredits.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Empty Returns</h3>
+                <div className="flex items-center space-x-2">
+                  <RotateCcw className="h-5 w-5 text-blue-400" />
+                  <span className="text-gray-600">
+                    {emptyReturnCredits.length} credit{emptyReturnCredits.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Credit Summary Cards */}
+                <div className="grid grid-cols-1 gap-3">
+                  {emptyReturnCredits.map((credit) => {
+                    const daysUntilDeadline = Math.ceil((new Date(credit.return_deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    const isOverdue = daysUntilDeadline < 0;
+                    const isExpiringSoon = daysUntilDeadline <= 7 && daysUntilDeadline >= 0;
+                    
+                    return (
+                      <div 
+                        key={credit.id} 
+                        className={`p-3 rounded-lg border-l-4 ${
+                          isOverdue 
+                            ? 'border-red-400 bg-red-50' 
+                            : isExpiringSoon 
+                            ? 'border-yellow-400 bg-yellow-50' 
+                            : 'border-blue-400 bg-blue-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-900">
+                              {credit.product_name}
+                            </span>
+                            <ReturnStatusBadge 
+                              status={credit.status}
+                              daysUntilDeadline={daysUntilDeadline}
+                              size="sm"
+                            />
+                          </div>
+                          <span className="text-sm font-bold text-green-600">
+                            {formatCurrencySync(credit.remaining_credit_amount)}
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between text-xs text-gray-600 mb-2">
+                          <span>Returned: {credit.quantity_returned}/{credit.quantity}</span>
+                          <span>Remaining: {credit.quantity_remaining}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className={`text-xs ${
+                            isOverdue 
+                              ? 'text-red-600 font-medium' 
+                              : isExpiringSoon 
+                              ? 'text-yellow-600 font-medium' 
+                              : 'text-gray-500'
+                          }`}>
+                            {isOverdue 
+                              ? `${Math.abs(daysUntilDeadline)} days overdue`
+                              : isExpiringSoon
+                              ? `${daysUntilDeadline} days remaining`
+                              : `${daysUntilDeadline} days until deadline`
+                            }
+                          </span>
+                          
+                          {credit.quantity_remaining > 0 && credit.status !== 'fully_returned' && (
+                            <button
+                              onClick={() => handleProcessReturn(credit)}
+                              className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                            >
+                              Process Return
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Total Credit Summary */}
+                <div className="border-t border-gray-200 pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Total Pending:</span>
+                      <div className="font-medium text-gray-900">
+                        {formatCurrencySync(emptyReturnCredits.reduce((sum, credit) => sum + credit.remaining_credit_amount, 0))}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Items Pending:</span>
+                      <div className="font-medium text-gray-900">
+                        {emptyReturnCredits.reduce((sum, credit) => sum + credit.quantity_remaining, 0)} cylinders
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Expiration Warning */}
+                  {emptyReturnCredits.some(credit => {
+                    const days = Math.ceil((new Date(credit.return_deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                    return days <= 7;
+                  }) && (
+                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                        <span className="text-xs text-yellow-800 font-medium">
+                          Some credits expire within 7 days
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
