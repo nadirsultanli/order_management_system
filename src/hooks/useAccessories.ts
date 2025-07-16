@@ -4,6 +4,14 @@ import { Accessory, CreateAccessoryData, UpdateAccessoryData, AccessoryFilters, 
 const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || 
   (import.meta.env.PROD ? 'https://ordermanagementsystem-production-3ed7.up.railway.app/api/v1' : 'http://localhost:3001/api/v1');
 
+// Ensure the base URL doesn't end with /trpc to avoid duplication
+const getBaseUrl = () => {
+  const baseUrl = API_BASE_URL.endsWith('/trpc') 
+    ? API_BASE_URL.slice(0, -5) // Remove /trpc if it exists
+    : API_BASE_URL;
+  return baseUrl;
+};
+
 const getAuthHeaders = () => {
   const token = localStorage.getItem('auth_token');
   return {
@@ -16,8 +24,14 @@ export const useAccessories = (filters?: AccessoryFilters, options?: { enabled?:
   return useQuery({
     queryKey: ['accessories', filters],
     queryFn: async () => {
+      const baseUrl = getBaseUrl();
       const queryParams = filters ? `?input=${encodeURIComponent(JSON.stringify(filters))}` : '';
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.list${queryParams}`, {
+      const url = `${baseUrl}/trpc/accessories.list${queryParams}`;
+      
+      // Debug logging
+      console.log('Accessories API URL:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -38,7 +52,13 @@ export const useAccessory = (id: string) => {
   return useQuery({
     queryKey: ['accessory', id],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.getById?input=${encodeURIComponent(JSON.stringify({ id }))}`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.getById?input=${encodeURIComponent(JSON.stringify({ id }))}`;
+      
+      // Debug logging
+      console.log('Accessory API URL:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -59,7 +79,10 @@ export const useAccessoryStats = () => {
   return useQuery({
     queryKey: ['accessory-stats'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.getStats`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.getStats`;
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -79,7 +102,10 @@ export const useAccessoryOptions = (filters?: { status?: string; category_id?: s
   return useQuery({
     queryKey: ['accessory-options', filters],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.getOptions?input=${encodeURIComponent(JSON.stringify(filters || {}))}`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.getOptions?input=${encodeURIComponent(JSON.stringify(filters || {}))}`;
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -99,7 +125,10 @@ export const useAccessoryCategories = () => {
   return useQuery({
     queryKey: ['accessory-categories'],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.getCategories`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.getCategories`;
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -120,7 +149,10 @@ export const useCreateAccessory = () => {
   
   return useMutation({
     mutationFn: async (data: CreateAccessoryData) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.create`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.create`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -146,7 +178,10 @@ export const useUpdateAccessory = () => {
   
   return useMutation({
     mutationFn: async (data: UpdateAccessoryData) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.update`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.update`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -173,7 +208,10 @@ export const useDeleteAccessory = () => {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.delete`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.delete`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ id }),
@@ -199,7 +237,10 @@ export const useCreateAccessoryCategory = () => {
   
   return useMutation({
     mutationFn: async (data: { name: string; slug: string; description?: string }) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.createCategory`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.createCategory`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -224,7 +265,10 @@ export const useUpdateAccessoryCategory = () => {
   
   return useMutation({
     mutationFn: async (data: { id: string; name?: string; slug?: string; description?: string }) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.updateCategory`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.updateCategory`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -248,7 +292,10 @@ export const useDeleteAccessoryCategory = () => {
   
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.deleteCategory`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.deleteCategory`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ id }),
@@ -273,7 +320,10 @@ export const useBulkAccessoryStatusUpdate = () => {
   
   return useMutation({
     mutationFn: async (data: { accessory_ids: string[]; active: boolean }) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.bulkStatusUpdate`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.bulkStatusUpdate`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -297,7 +347,10 @@ export const useBulkAccessoryStatusUpdate = () => {
 export const useValidateAccessory = () => {
   return useMutation({
     mutationFn: async (data: { sku: string; name: string; exclude_id?: string }) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.validate`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.validate`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
@@ -316,7 +369,10 @@ export const useValidateAccessory = () => {
 export const useValidateAccessorySku = () => {
   return useMutation({
     mutationFn: async (data: { sku: string; exclude_id?: string }) => {
-      const response = await fetch(`${API_BASE_URL}/trpc/accessories.validateSku`, {
+      const baseUrl = getBaseUrl();
+      const url = `${baseUrl}/trpc/accessories.validateSku`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(data),

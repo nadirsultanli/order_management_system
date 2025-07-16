@@ -54,7 +54,7 @@ export const ProductsPage: React.FC = () => {
     if (viewParam === 'accessories') {
       setViewMode('accessories');
       
-      // Handle edit parameter for accessories
+      // Handle edit parameter for accessories - only if we have accessories data
       if (editParam && accessoriesData?.accessories) {
         const accessoryToEdit = accessoriesData.accessories.find((acc: Accessory) => acc.id === editParam);
         if (accessoryToEdit) {
@@ -64,7 +64,20 @@ export const ProductsPage: React.FC = () => {
     } else {
       setViewMode('products');
     }
-  }, [searchParams, accessoriesData]);
+  }, [searchParams]); // Remove accessoriesData dependency
+
+  // Separate effect to handle accessory editing when data becomes available
+  useEffect(() => {
+    if (viewMode === 'accessories' && accessoriesData?.accessories) {
+      const editParam = searchParams.get('edit');
+      if (editParam) {
+        const accessoryToEdit = accessoriesData.accessories.find((acc: Accessory) => acc.id === editParam);
+        if (accessoryToEdit) {
+          handleEditAccessory(accessoryToEdit);
+        }
+      }
+    }
+  }, [accessoriesData, viewMode, searchParams]);
 
   // Update URL when view mode changes
   const handleViewModeChange = (mode: 'products' | 'accessories') => {
@@ -98,6 +111,16 @@ export const ProductsPage: React.FC = () => {
       editingProduct,
       selectedProducts,
     });
+    
+    // Additional debugging for groupedData
+    if (groupedData) {
+      console.log('groupedData details:', {
+        products: groupedData.products,
+        productsLength: groupedData.products?.length,
+        totalCount: groupedData.totalCount,
+        summary: groupedData.summary,
+      });
+    }
   }, [filters, groupedData, groupedLoading, groupedError, isFormOpen, editingProduct, selectedProducts]);
 
   const handleAddProduct = () => {
@@ -307,14 +330,14 @@ export const ProductsPage: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            Items & Accessories
+            Products
             {filters.show_obsolete && (
               <span className="ml-2 text-sm font-normal text-orange-600 bg-orange-100 px-2 py-1 rounded">
                 Showing Obsolete
               </span>
             )}
           </h1>
-          <p className="text-gray-600">Manage your LPG items and equipment catalog</p>
+          <p className="text-gray-600">Manage your LPG products and equipment catalog</p>
           
           {/* View Mode Switcher */}
           <div className="mt-4">
@@ -367,7 +390,7 @@ export const ProductsPage: React.FC = () => {
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Item</span>
+            <span>Add Product</span>
           </button>
           {viewMode === 'products' && (
             <button
@@ -391,9 +414,21 @@ export const ProductsPage: React.FC = () => {
             selectedProducts={selectedProducts}
             onClearSelection={handleClearSelection}
           />
+          
+          {/* Debug logging for GroupedProductTable props */}
+          {(() => {
+            console.log('GroupedProductTable props:', {
+              products: groupedData?.products || [],
+              productsLength: (groupedData?.products || []).length,
+              loading: groupedLoading,
+              groupedData: groupedData,
+            });
+            return null;
+          })()}
+          
           <GroupedProductTable
             products={groupedData?.products || []}
-            loading={groupedLoading || accessoriesLoading}
+            loading={groupedLoading}
             onView={handleViewProduct}
             onEdit={handleEditProduct}
             onDelete={handleDeleteProduct}

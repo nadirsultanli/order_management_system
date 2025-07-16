@@ -51,7 +51,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({ onExpand
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/customers', label: 'Customers', icon: Users },
     { path: '/users', label: 'Users', icon: UserPlus },
-    { path: '/products', label: 'Items', icon: Package },
+    { path: '/products', label: 'Products', icon: Package },
     { path: '/warehouses', label: 'Warehouses', icon: Warehouse },
     { path: '/inventory', label: 'Inventory', icon: BarChart3 },
     { path: '/trucks', label: 'Trucks', icon: Truck },

@@ -1,6 +1,7 @@
 import { CreateProductData, UpdateProductData, ProductFilters, CreateVariantData, CreateParentProductData, SkuVariant } from '../types/product';
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
+import { useState, useEffect } from 'react';
 
 export const useProducts = (filters: ProductFilters = {}) => {
   return trpc.products.list.useQuery({
@@ -331,7 +332,10 @@ export const useValidateProduct = () => {
 
 // New hooks for hierarchical product structure
 export const useGroupedProducts = (filters: ProductFilters & { search?: string } = {}) => {
-  return trpc.products.getGroupedProducts.useQuery({
+  console.log('useGroupedProducts called with filters:', filters);
+  
+  // Use tRPC directly without fallback
+  const trpcQuery = trpc.products.getGroupedProducts.useQuery({
     search: filters.search,
     status: filters.status as any,
     page: filters.page || 1,
@@ -342,7 +346,22 @@ export const useGroupedProducts = (filters: ProductFilters & { search?: string }
   }, {
     retry: 1,
     staleTime: 30000,
+    onError: (error) => {
+      console.error('useGroupedProducts tRPC error:', error);
+    },
+    onSuccess: (data) => {
+      console.log('useGroupedProducts tRPC success:', data);
+    },
   });
+  
+  console.log('useGroupedProducts results:', {
+    data: trpcQuery.data,
+    isLoading: trpcQuery.isLoading,
+    error: trpcQuery.error,
+    isError: trpcQuery.isError
+  });
+  
+  return trpcQuery;
 };
 
 export const useCreateParentProduct = () => {
