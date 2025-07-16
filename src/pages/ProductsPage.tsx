@@ -8,7 +8,8 @@ import { UnifiedItemsTable } from '../components/products/UnifiedItemsTable';
 import { ProductFilters } from '../components/products/ProductFilters';
 import { ProductForm } from '../components/products/ProductForm';
 import { AddVariantForm } from '../components/products/AddVariantForm';
-import { UnifiedItemForm } from '../components/products/UnifiedItemForm';
+import { SimpleProductForm } from '../components/products/SimpleProductForm';
+import { AccessoryForm } from '../components/products/AccessoryForm';
 import { ProductStats } from '../components/products/ProductStats';
 import { UnifiedStats } from '../components/products/UnifiedStats';
 import { BulkActions } from '../components/products/BulkActions';
@@ -126,12 +127,18 @@ export const ProductsPage: React.FC = () => {
   const handleAddProduct = () => {
     console.log('Adding new product');
     setEditingProduct(null);
-    setIsUnifiedFormOpen(true);
+    setIsFormOpen(true);
   };
 
   const handleAddVariant = () => {
     console.log('Adding new variant');
     setIsVariantFormOpen(true);
+  };
+
+  const handleAddAccessory = () => {
+    console.log('Adding new accessory');
+    setEditingAccessory(null);
+    setIsUnifiedFormOpen(true);
   };
 
 
@@ -166,18 +173,15 @@ export const ProductsPage: React.FC = () => {
     setDeletingAccessory(accessory);
   };
 
-  const handleUnifiedFormSubmit = async (data: { item_type: 'product' | 'accessory'; product_data?: CreateProductData; accessory_data?: CreateAccessoryData }) => {
-    console.log('Unified form submit:', data);
+  const handleAccessoryFormSubmit = async (data: CreateAccessoryData) => {
+    console.log('Accessory form submit:', data);
     try {
-      if (data.item_type === 'product' && data.product_data) {
-        await createProduct.mutateAsync(data.product_data);
-      } else if (data.item_type === 'accessory' && data.accessory_data) {
-        await createAccessory.mutateAsync(data.accessory_data);
-      }
+      await createAccessory.mutateAsync(data);
       setIsUnifiedFormOpen(false);
+      setEditingAccessory(null);
     } catch (error) {
-      console.error('Unified form submit error:', error);
-      // Error handling is done in the hook
+      console.error('Accessory form submit error:', error);
+      // Error handling is done in the mutations - they will show toast notifications
     }
   };
 
@@ -385,20 +389,30 @@ export const ProductsPage: React.FC = () => {
           )}
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={handleAddProduct}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Product</span>
-          </button>
-          {viewMode === 'products' && (
+          {viewMode === 'products' ? (
+            <>
+              <button
+                onClick={handleAddProduct}
+                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Product</span>
+              </button>
+              <button
+                onClick={handleAddVariant}
+                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Package className="h-4 w-4" />
+                <span>Add Variant</span>
+              </button>
+            </>
+          ) : (
             <button
-              onClick={handleAddVariant}
-              className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              onClick={handleAddAccessory}
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <Package className="h-4 w-4" />
-              <span>Add Variant</span>
+              <Plus className="h-4 w-4" />
+              <span>Add Accessory</span>
             </button>
           )}
         </div>
@@ -506,18 +520,6 @@ export const ProductsPage: React.FC = () => {
         />
       )}
 
-      <ProductForm
-        isOpen={isFormOpen}
-        onClose={() => {
-          setIsFormOpen(false);
-          setEditingProduct(null);
-        }}
-        onSubmit={handleFormSubmit}
-        product={editingProduct || undefined}
-        loading={editingProduct && !editingProduct.parent_products_id ? updateParentProduct.isPending : editingProduct && editingProduct.parent_products_id ? updateVariant.isPending : updateProduct.isPending || createProduct.isPending}
-        title={editingProduct ? (editingProduct.parent_products_id ? 'Edit Variant' : 'Edit Parent Product') : 'Add Product'}
-      />
-
       <AddVariantForm
         isOpen={isVariantFormOpen}
         onClose={() => {
@@ -528,14 +530,27 @@ export const ProductsPage: React.FC = () => {
         loading={createVariant.isPending}
       />
 
-      <UnifiedItemForm
-        isOpen={isUnifiedFormOpen}
+      <SimpleProductForm
+        isOpen={isFormOpen && viewMode === 'products'}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingProduct(null);
+        }}
+        onSubmit={handleFormSubmit}
+        product={editingProduct || undefined}
+        loading={editingProduct && !editingProduct.parent_products_id ? updateParentProduct.isPending : editingProduct && editingProduct.parent_products_id ? updateVariant.isPending : updateProduct.isPending || createProduct.isPending}
+        title={editingProduct ? (editingProduct.parent_products_id ? 'Edit Variant' : 'Edit Parent Product') : 'Create New Product'}
+      />
+
+      <AccessoryForm
+        isOpen={isUnifiedFormOpen && viewMode === 'accessories'}
         onClose={() => {
           setIsUnifiedFormOpen(false);
+          setEditingAccessory(null);
         }}
-        onSubmit={handleUnifiedFormSubmit}
-        loading={createProduct.isPending || createAccessory.isPending}
-        title="Create New Item"
+        onSubmit={handleAccessoryFormSubmit}
+        loading={createAccessory.isPending}
+        title="Create New Accessory"
       />
 
       {/* Accessory Edit Modal */}
