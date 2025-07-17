@@ -19,7 +19,7 @@ import { SearchableWarehouseSelector } from '../components/warehouses/Searchable
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 import { OrderFlowTypeSelector } from '../components/orders/OrderFlowTypeSelector';
 import { CrossSellSuggestions } from '../components/orders/CrossSellSuggestions';
-import { useProductPricesWithInheritance, useActivePriceLists } from '../hooks/useProductPricing';
+import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { Warehouse } from '../types/warehouse';
@@ -101,7 +101,7 @@ export const CreateOrderPage: React.FC = () => {
   
   // Get product prices from backend with inheritance support
   const productIds = products.map((p: Product) => p.id);
-  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPricesWithInheritance(productIds, selectedCustomerId || undefined);
+  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(productIds, selectedCustomerId || undefined);
   
   // Debug: Log pricing data
   useEffect(() => {
