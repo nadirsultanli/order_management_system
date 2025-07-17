@@ -742,42 +742,43 @@ export const pricingRouter = router({
       
       const results: { [key: string]: any } = {};
       
-      // Process all products in parallel for faster response
-      const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      
-      // First, get all product details in parallel
-      const productPromises = input.productIds.map(async (productId) => {
-        const { data: product, error: productError } = await ctx.supabase
-          .from('products')
-          .select('id, sku, name, is_variant, parent_products_id, tax_category, tax_rate')
-          .eq('id', productId)
-          .single();
-        
-        return { productId, product, error: productError };
-      });
-      
-      const productResults = await Promise.all(productPromises);
-      
-      // Then process pricing for all products in parallel
-      const pricingPromises = productResults.map(async ({ productId, product, error }) => {
-        if (error || !product) {
-          ctx.logger.error('Product not found:', error);
-          return { productId, result: null };
-        }
-
+      // Process each product individually to ensure inheritance works correctly
+      for (const productId of input.productIds) {
         try {
+          // Get the product details to check if it's a variant
+          const { data: product, error: productError } = await ctx.supabase
+            .from('products')
+            .select('id, sku, name, is_variant, parent_products_id, tax_category, tax_rate')
+            .eq('id', productId)
+            .single();
+
+          if (productError || !product) {
+            ctx.logger.error('Product not found:', productError);
+            results[productId] = null;
+            continue;
+          }
+
           // Try to get direct pricing for this product first
+          const pricingService = new PricingService(ctx.supabase, ctx.logger);
           let priceResult = await pricingService.getDirectProductPrice(productId, input.date || new Date().toISOString().split('T')[0]);
           
           // If no direct pricing found and this is a variant, try parent product pricing
           if (!priceResult && product.is_variant && product.parent_products_id) {
+            ctx.logger.info(`No direct pricing found for variant ${product.sku}, trying parent product ${product.parent_products_id}`);
             priceResult = await pricingService.getDirectProductPrice(product.parent_products_id, input.date || new Date().toISOString().split('T')[0]);
             
             if (priceResult) {
               // Mark that this price was inherited from parent
               priceResult.inheritedFromParent = true;
               priceResult.parentProductId = product.parent_products_id;
+              ctx.logger.info(`Using inherited pricing from parent product for variant ${product.sku}: ${priceResult.finalPrice}`);
+            } else {
+              ctx.logger.warn(`No pricing found for parent product ${product.parent_products_id} either`);
             }
+          } else if (priceResult) {
+            ctx.logger.info(`Found direct pricing for ${product.sku}: ${priceResult.finalPrice}`);
+          } else {
+            ctx.logger.warn(`No pricing found for ${product.sku} (is_variant: ${product.is_variant}, parent_id: ${product.parent_products_id})`);
           }
 
           if (priceResult) {
@@ -799,30 +800,19 @@ export const pricingRouter = router({
               }
             }
 
-            return {
-              productId,
-              result: {
-                ...priceResult,
-                taxRate,
-                taxCategory,
-              }
+            results[productId] = {
+              ...priceResult,
+              taxRate,
+              taxCategory,
             };
           } else {
-            return { productId, result: null };
+            results[productId] = null;
           }
         } catch (error) {
           ctx.logger.error(`Error fetching price for product ${productId}:`, error);
-          return { productId, result: null };
+          results[productId] = null;
         }
-      });
-      
-      // Wait for all pricing calculations to complete
-      const pricingResults = await Promise.all(pricingPromises);
-      
-      // Combine results into the final response format
-      pricingResults.forEach(({ productId, result }) => {
-        results[productId] = result;
-      });
+      }
       
       // Debug: Log pricing results
       ctx.logger.info('getProductPrices results:', {

@@ -1,5 +1,4 @@
 import { trpc } from '../lib/trpc-client';
-import { useState, useEffect } from 'react';
 
 export const useProductPrice = (productId: string, customerId?: string, enabled: boolean = true) => {
   return trpc.pricing.getProductPrice.useQuery(
@@ -11,7 +10,6 @@ export const useProductPrice = (productId: string, customerId?: string, enabled:
   );
 };
 
-// Optimized batch loading with progressive results
 export const useProductPrices = (productIds: string[], customerId?: string, enabled: boolean = true) => {
   return trpc.pricing.getProductPrices.useQuery(
     { 
@@ -21,17 +19,14 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
     },
     {
       enabled: !!(enabled && productIds.length > 0),
-      staleTime: 30 * 1000, // Reduce cache time to 30 seconds for faster updates
-      cacheTime: 2 * 60 * 1000, // Keep in cache for 2 minutes
-      retry: 1, // Reduce retries for faster response
-      retryDelay: (attemptIndex: number) => Math.min(200 * 2 ** attemptIndex, 1000), // Much faster retries
-      refetchOnWindowFocus: false, // Don't refetch on window focus
-      refetchOnMount: true, // Always fetch fresh data
+      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+      retry: 3, // Retry failed requests
+      retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
       onError: (error: any) => {
         console.error('useProductPrices: Query failed:', error);
       },
       onSuccess: (data: any) => {
-        console.log('🚀 useProductPrices: All pricing loaded instantly!', {
+        console.log('useProductPrices: Query succeeded with data:', {
           dataKeys: Object.keys(data || {}),
           sampleData: data ? Object.entries(data).slice(0, 2) : [],
           totalProductsRequested: productIds.length,
@@ -44,11 +39,11 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
           Object.entries(data).forEach(([productId, pricing]) => {
             console.log(`🔍 Product ${productId} pricing:`, {
               hasPrice: !!pricing,
-              finalPrice: (pricing as any)?.finalPrice,
-              unitPrice: (pricing as any)?.unitPrice,
-              inheritedFromParent: (pricing as any)?.inheritedFromParent,
-              parentProductId: (pricing as any)?.parentProductId,
-              priceListName: (pricing as any)?.priceListName,
+              finalPrice: pricing?.finalPrice,
+              unitPrice: pricing?.unitPrice,
+              inheritedFromParent: pricing?.inheritedFromParent,
+              parentProductId: pricing?.parentProductId,
+              priceListName: pricing?.priceListName,
               fullData: pricing
             });
           });
@@ -68,7 +63,7 @@ export const useProductPricesWithInheritance = (productIds: string[], customerId
         enabled: !!(enabled && !!productId),
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes
         retry: 3,
-        retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000),
+        retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
       }
     )
   );

@@ -101,11 +101,7 @@ export const CreateOrderPage: React.FC = () => {
   
   // Get product prices from backend with inheritance support
   const productIds = products.map((p: Product) => p.id);
-  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(
-    productIds, 
-    selectedCustomerId || undefined,
-    productIds.length > 0 // Only enable when we have product IDs
-  );
+  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(productIds, selectedCustomerId || undefined);
 
   // Get inventory data for the selected warehouse to show availability
   const { data: warehouseInventory, isLoading: isInventoryLoading, error: inventoryError } = useInventoryNew({
