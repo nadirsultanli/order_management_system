@@ -104,6 +104,9 @@ export interface ProductFilters {
   pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
   product_type?: 'cylinder' | 'accessory'; // NEW filter for product type
   category_id?: string; // NEW filter for accessory categories
+  is_variant?: boolean; // Filter for variants vs parent products
+  parent_products_id?: string; // Filter variants by parent product ID
+  sku_variant?: SkuVariant; // Filter by specific SKU variant
   page?: number;
   limit?: number;
   sort_by?: string;

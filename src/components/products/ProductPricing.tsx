@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Edit, Plus, DollarSign } from 'lucide-react';
-import { usePriceListsNew, useCreatePriceListItemNew, useUpdatePriceListItemNew, useProductPriceListItemsNew } from '../../hooks/usePricing';
+import { Edit, Plus, DollarSign, Trash2 } from 'lucide-react';
+import { usePriceListsNew, useCreatePriceListItemNew, useUpdatePriceListItemNew, useDeletePriceListItemNew, useProductPriceListItemsNew } from '../../hooks/usePricing';
 import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
 import { formatCurrencySync, calculateFinalPriceSync, getPriceListStatusSync } from '../../utils/pricing';
 import { PriceListItemForm } from '../pricing/PriceListItemForm';
@@ -37,6 +37,7 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
   // Mutation hooks
   const createPriceListItem = useCreatePriceListItemNew();
   const updatePriceListItem = useUpdatePriceListItemNew();
+  const deletePriceListItem = useDeletePriceListItemNew();
 
   // After all hooks are called, we can use conditional logic
   const handleAddPrice = (priceListId: string) => {
@@ -49,6 +50,16 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
     setSelectedPriceList(item.price_list_id);
     setEditingItem(item);
     setShowAddPriceModal(true);
+  };
+
+  const handleDeletePrice = async (item: PriceListItem) => {
+    if (window.confirm('Are you sure you want to remove this product from the price list?')) {
+      try {
+        await deletePriceListItem.mutateAsync({ id: item.id });
+      } catch (error) {
+        // Error handling is done in the hook
+      }
+    }
   };
 
   const handlePriceSubmit = async (data: CreatePriceListItemData) => {
@@ -209,6 +220,14 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                               Default
                             </span>
                           )}
+                          {item.inherited_from_parent && (
+                            <span 
+                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 cursor-help"
+                              title={`Inherited from parent product: ${item.parent_product_sku || 'Unknown'}`}
+                            >
+                              Inherited
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -297,13 +316,22 @@ export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => 
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          onClick={() => handleEditPrice(item)}
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                          title="Edit price"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center justify-end space-x-2">
+                          <button
+                            onClick={() => handleEditPrice(item)}
+                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
+                            title="Edit price"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeletePrice(item)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
+                            title="Remove from price list"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

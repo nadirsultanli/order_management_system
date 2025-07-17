@@ -123,6 +123,9 @@ export interface ProductPricing {
   priceIncludingTax?: number;
   taxRate?: number;
   taxCategory?: string;
+  // Inheritance tracking
+  inheritedFromParent?: boolean;
+  parentProductId?: string | null;
 }
 
 export interface TaxCategory {

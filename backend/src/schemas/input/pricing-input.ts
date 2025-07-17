@@ -68,7 +68,6 @@ export const CreatePriceListItemSchema = z.object({
   price_per_kg: z.number().positive().optional(),
   min_qty: z.number().int().min(1).optional(),
   surcharge_pct: z.number().min(0).max(100).optional(),
-  deposit_amount: z.number().min(0).optional(),
   pricing_method: PricingMethodEnum.default('per_unit'),
   // Tax-related fields (optional, calculated if not provided)
   price_excluding_tax: z.number().positive().optional(),
@@ -98,7 +97,6 @@ export const UpdatePriceListItemSchema = z.object({
   price_per_kg: z.number().positive().optional(),
   min_qty: z.number().int().min(1).optional(),
   surcharge_pct: z.number().min(0).max(100).optional(),
-  deposit_amount: z.number().min(0).optional(),
   pricing_method: PricingMethodEnum.optional(),
   // Tax-related fields (optional, calculated if not provided)
   price_excluding_tax: z.number().positive().optional(),

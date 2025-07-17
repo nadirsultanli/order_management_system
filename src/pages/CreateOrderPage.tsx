@@ -19,10 +19,11 @@ import { SearchableWarehouseSelector } from '../components/warehouses/Searchable
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 import { OrderFlowTypeSelector } from '../components/orders/OrderFlowTypeSelector';
 import { CrossSellSuggestions } from '../components/orders/CrossSellSuggestions';
-import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
+import { useProductPricesWithInheritance, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { Warehouse } from '../types/warehouse';
+import { trpc } from '../lib/trpc-client';
 
 interface OrderLineItem {
   product_id: string;
@@ -36,6 +37,16 @@ interface OrderLineItem {
   tax_amount?: number;
   price_including_tax?: number;
   tax_rate?: number;
+  // Partial fill fields
+  fill_percentage?: number;
+  is_partial_fill?: boolean;
+  partial_fill_notes?: string;
+  // Pricing breakdown
+  gas_charge?: number;
+  deposit_amount?: number;
+  adjusted_weight?: number;
+  original_weight?: number;
+  pricing_method?: string;
 }
 
 export const CreateOrderPage: React.FC = () => {
@@ -47,6 +58,8 @@ export const CreateOrderPage: React.FC = () => {
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
   const [orderLines, setOrderLines] = useState<OrderLineItem[]>([]);
+  const [fillPercentages, setFillPercentages] = useState<Record<string, number>>({});
+  const [fillNotes, setFillNotes] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState('');
   // Tax is now calculated automatically from product pricing
   // const [taxPercent, setTaxPercent] = useState(0);
@@ -70,7 +83,10 @@ export const CreateOrderPage: React.FC = () => {
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
-  const { data: productsData, isLoading: isProductsLoading } = useProducts({ limit: 1000 });
+  const { data: productsData, isLoading: isProductsLoading } = useProducts({ 
+    limit: 1000,
+    is_variant: true // Only show variants, not parent products
+  });
   const { data: priceListsData } = usePriceListsNew({ limit: 1000 });
   const { data: warehousesData } = useWarehouses({ limit: 1000 });
   const createOrder = useCreateOrderNew();
@@ -83,9 +99,22 @@ export const CreateOrderPage: React.FC = () => {
   const priceLists = priceListsData?.priceLists || [];
   const warehouses = warehousesData?.warehouses || [];
   
-  // Get product prices from backend
+  // Get product prices from backend with inheritance support
   const productIds = products.map((p: Product) => p.id);
-  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(productIds, selectedCustomerId || undefined);
+  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPricesWithInheritance(productIds, selectedCustomerId || undefined);
+  
+  // Debug: Log pricing data
+  useEffect(() => {
+    if (productPrices) {
+      console.log('Product prices loaded:', {
+        totalProducts: productIds.length,
+        productsWithPricing: Object.keys(productPrices).length,
+        samplePricing: Object.entries(productPrices).slice(0, 3),
+        allProductIds: productIds,
+        pricingKeys: Object.keys(productPrices)
+      });
+    }
+  }, [productPrices, productIds]);
   
   // Get inventory data for real stock checking
   const { data: inventoryData } = useInventoryNew({});
@@ -114,6 +143,12 @@ export const CreateOrderPage: React.FC = () => {
 
   const selectedCustomer = customers.find((c: Customer) => c.id === selectedCustomerId);
   const selectedAddress = addresses.find((a: Address) => a.id === selectedAddressId);
+
+  // Utility function to check if a product supports partial fills (gas cylinders)
+  const isGasProduct = (product: Product) => {
+    return product.variant_type === 'cylinder' || product.variant_type === 'refillable' || 
+           (product.sku_variant && ['FULL-OUT', 'FULL-XCH'].includes(product.sku_variant));
+  };
 
   // Use backend API for ALL calculations - NO frontend business logic
   const [orderCalculations, setOrderCalculations] = useState({
@@ -224,15 +259,19 @@ export const CreateOrderPage: React.FC = () => {
   const getProductPriceSync = (productId: string): number => {
     // Use cached price data from the hook
     if (productPrices && productPrices[productId]) {
-      return productPrices[productId].finalPrice;
+      const price = productPrices[productId].finalPrice;
+      console.log(`Price for ${productId}:`, price, productPrices[productId]);
+      // Handle null/undefined values from backend
+      return price || 0;
     }
     // Return 0 if no pricing data available
+    console.log(`No pricing found for ${productId}`, { productPrices: !!productPrices, keys: productPrices ? Object.keys(productPrices) : [] });
     return 0;
   };
 
   // Check if we have pricing data for a product
   const hasProductPricing = (productId: string): boolean => {
-    return !!(productPrices && productPrices[productId] && productPrices[productId].finalPrice > 0);
+    return !!(productPrices && productPrices[productId] && productPrices[productId].finalPrice && productPrices[productId].finalPrice > 0);
   };
 
   // Cross-sell suggestion logic
@@ -294,9 +333,23 @@ export const CreateOrderPage: React.FC = () => {
     const existingLine = orderLines.find((line: OrderLineItem) => line.product_id === productId);
     const stockAvailable = getStockInfo(productId);
     
-    // Get pricing information with tax breakdown
-    const pricingInfo = productPrices && productPrices[productId];
-    const unitPrice = pricingInfo?.finalPrice || 0;
+    // Get fill percentage for this product
+    const fillPercentage = fillPercentages[productId] || 100;
+    const isPartialFill = fillPercentage < 100;
+    
+    // Use the new order line pricing calculation
+    const pricingResult = await trpc.pricing.calculateOrderLinePricing.query({
+      product_id: productId,
+      quantity: 1,
+      fill_percentage: fillPercentage,
+      customer_id: selectedCustomerId,
+      date: new Date().toISOString().split('T')[0]
+    });
+    
+    if (!pricingResult) {
+      alert('Unable to calculate pricing for this product. Please check pricing configuration.');
+      return;
+    }
     
     if (existingLine) {
       // Check if we can increase quantity
@@ -308,24 +361,39 @@ export const CreateOrderPage: React.FC = () => {
       setOrderLines((lines: OrderLineItem[]) => 
         lines.map((line: OrderLineItem) => 
           line.product_id === productId 
-            ? { ...line, quantity: line.quantity + 1, subtotal: (line.quantity + 1) * line.unit_price }
+            ? { 
+                ...line, 
+                quantity: line.quantity + 1, 
+                subtotal: (line.quantity + 1) * pricingResult.unit_price,
+                gas_charge: pricingResult.gas_charge * (line.quantity + 1),
+                deposit_amount: pricingResult.deposit_amount * (line.quantity + 1),
+                tax_amount: pricingResult.tax_amount * (line.quantity + 1)
+              }
             : line
         )
       );
     } else {
-      // Add new line with tax information from pricing
+      // Add new line with enhanced pricing information
       const newLine: OrderLineItem = {
         product_id: productId,
         product_name: product.name,
         product_sku: product.sku,
         quantity: 1,
-        unit_price: unitPrice,
-        subtotal: unitPrice,
-        // Include tax information from product/pricing
-        price_excluding_tax: pricingInfo?.priceExcludingTax,
-        tax_amount: pricingInfo?.taxAmount,
-        price_including_tax: pricingInfo?.priceIncludingTax,
-        tax_rate: pricingInfo?.taxRate,
+        unit_price: pricingResult.unit_price,
+        subtotal: pricingResult.subtotal,
+        // Tax information
+        tax_amount: pricingResult.tax_amount,
+        tax_rate: product.tax_rate || 16,
+        // Partial fill information
+        fill_percentage: fillPercentage,
+        is_partial_fill: isPartialFill,
+        partial_fill_notes: fillNotes[productId] || '',
+        // Pricing breakdown
+        gas_charge: pricingResult.gas_charge,
+        deposit_amount: pricingResult.deposit_amount,
+        adjusted_weight: pricingResult.adjusted_weight,
+        original_weight: pricingResult.original_weight,
+        pricing_method: pricingResult.pricing_method,
       };
       setOrderLines((lines: OrderLineItem[]) => [...lines, newLine]);
     }
@@ -347,6 +415,47 @@ export const CreateOrderPage: React.FC = () => {
       lines.map((line: OrderLineItem) => 
         line.product_id === productId 
           ? { ...line, quantity, subtotal: quantity * line.unit_price }
+          : line
+      )
+    );
+  };
+
+  const handleUpdateFillPercentage = async (productId: string, fillPercentage: number) => {
+    const product = products.find((p: Product) => p.id === productId);
+    if (!product) return;
+
+    const isPartialFill = fillPercentage < 100;
+    
+    // Recalculate pricing with new fill percentage
+    const pricingResult = await trpc.pricing.calculateOrderLinePricing.query({
+      product_id: productId,
+      quantity: 1,
+      fill_percentage: fillPercentage,
+      customer_id: selectedCustomerId,
+      date: new Date().toISOString().split('T')[0]
+    });
+    
+    if (!pricingResult) {
+      alert('Unable to recalculate pricing. Please try again.');
+      return;
+    }
+
+    setOrderLines((lines: OrderLineItem[]) => 
+      lines.map((line: OrderLineItem) => 
+        line.product_id === productId 
+          ? { 
+              ...line, 
+              unit_price: pricingResult.unit_price,
+              subtotal: pricingResult.subtotal * line.quantity,
+              gas_charge: pricingResult.gas_charge * line.quantity,
+              deposit_amount: pricingResult.deposit_amount * line.quantity,
+              tax_amount: pricingResult.tax_amount * line.quantity,
+              fill_percentage: fillPercentage,
+              is_partial_fill: isPartialFill,
+              adjusted_weight: pricingResult.adjusted_weight,
+              original_weight: pricingResult.original_weight,
+              pricing_method: pricingResult.pricing_method,
+            }
           : line
       )
     );
@@ -1093,9 +1202,74 @@ export const CreateOrderPage: React.FC = () => {
                                   {selectedPriceList && (
                                     <span className="text-xs text-gray-500">({selectedPriceList.name})</span>
                                   )}
+                                  {/* Show inheritance indicator */}
+                                  {productPrices && productPrices[product.id] && (productPrices[product.id] as any).inheritedFromParent && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      Inherited
+                                    </span>
+                                  )}
                                 </div>
                               )}
                             </div>
+
+                            {/* Partial Fill Percentage Controls for Gas Products */}
+                            {isGasProduct(product) && (
+                              <div className="mb-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="text-sm font-medium text-gray-700">Fill Percentage:</label>
+                                  <span className="text-sm text-gray-500">
+                                    {fillPercentages[product.id] || 100}%
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                  {[25, 33, 50, 67, 75, 90, 100].map((percentage) => (
+                                    <button
+                                      key={percentage}
+                                      onClick={() => {
+                                        setFillPercentages({
+                                          ...fillPercentages,
+                                          [product.id]: percentage
+                                        });
+                                        // Update existing order line if present
+                                        const existingLine = orderLines.find(line => line.product_id === product.id);
+                                        if (existingLine) {
+                                          handleUpdateFillPercentage(product.id, percentage);
+                                        }
+                                      }}
+                                      className={`px-2 py-1 text-xs rounded border ${
+                                        (fillPercentages[product.id] || 100) === percentage
+                                          ? 'bg-blue-600 text-white border-blue-600'
+                                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      {percentage}%
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    value={fillPercentages[product.id] || 100}
+                                    onChange={(e) => {
+                                      const value = Math.min(100, Math.max(1, parseInt(e.target.value) || 100));
+                                      setFillPercentages({
+                                        ...fillPercentages,
+                                        [product.id]: value
+                                      });
+                                      // Update existing order line if present
+                                      const existingLine = orderLines.find(line => line.product_id === product.id);
+                                      if (existingLine) {
+                                        handleUpdateFillPercentage(product.id, value);
+                                      }
+                                    }}
+                                    className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
+                                  />
+                                  <span className="text-sm text-gray-500">%</span>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Warning Messages for Unavailable Products */}
                             {(cannotAddProduct || isPricingLoading) && (

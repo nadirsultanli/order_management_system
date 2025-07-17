@@ -42,8 +42,7 @@ export const GroupedProductSelector: React.FC<GroupedProductSelectorProps> = ({
     isLoading: isLoadingParents, 
     error: parentError 
   } = useProducts({ 
-    show_variants: false, // Only show parent products
-    include_variant_count: true,
+    is_variant: false, // Only show parent products
     status: 'active',
     limit: 1000 
   });
@@ -53,7 +52,7 @@ export const GroupedProductSelector: React.FC<GroupedProductSelectorProps> = ({
   // Load variants when parent is selected
   useEffect(() => {
     if (selectedParentId && selectedParentId !== selectedParent?.id) {
-      const parent = parentProducts.find(p => p.id === selectedParentId);
+      const parent = parentProducts.find((p: Product) => p.id === selectedParentId);
       if (parent) {
         setSelectedParent(parent as ParentProduct);
         loadVariants(selectedParentId);
@@ -78,6 +77,7 @@ export const GroupedProductSelector: React.FC<GroupedProductSelectorProps> = ({
       // For now, we'll use the existing products hook with variant filters
       const variantQuery = useProducts({ 
         parent_products_id: parentId, 
+        is_variant: true, // Only show variants
         status: 'active',
         limit: 1000 
       });
@@ -175,7 +175,7 @@ export const GroupedProductSelector: React.FC<GroupedProductSelectorProps> = ({
                   <p>No parent products found</p>
                 </div>
               ) : (
-                parentProducts.map((parent) => (
+                parentProducts.map((parent: Product) => (
                   <button
                     key={parent.id}
                     onClick={() => handleParentSelect(parent as ParentProduct)}

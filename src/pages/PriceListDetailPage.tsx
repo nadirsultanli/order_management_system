@@ -1,8 +1,7 @@
 import * as React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Plus, DollarSign, Calendar, Package, Trash2 } from 'lucide-react';
-import { usePriceListNew, useUpdatePriceListNew } from '../hooks/usePricing';
-import { usePriceListItemsNew, useCreatePriceListItemNew } from '../hooks/usePricing';
+import { usePriceListNew, useUpdatePriceListNew, usePriceListItemsNew, useCreatePriceListItemNew, useUpdatePriceListItemNew, useDeletePriceListItemNew } from '../hooks/usePricing';
 import { PriceListForm } from '../components/pricing/PriceListForm';
 import { AddProductsToPriceListModal } from '../components/pricing/AddProductsToPriceListModal';
 import { EditPriceListItemModal } from '../components/pricing/EditPriceListItemModal';
@@ -24,9 +23,8 @@ export const PriceListDetailPage: React.FC = () => {
   const priceListItems = priceListItemsData?.items || [];
   const updatePriceList = useUpdatePriceListNew();
   const createPriceListItem = useCreatePriceListItemNew();
-  // Note: useUpdatePriceListItem and useDeletePriceListItem not available - functionality disabled
-  // const updatePriceListItem = useUpdatePriceListItem();
-  // const deletePriceListItem = useDeletePriceListItem();
+  const updatePriceListItem = useUpdatePriceListItemNew();
+  const deletePriceListItem = useDeletePriceListItemNew();
 
   const handleEditSubmit = async (data: CreatePriceListData) => {
     if (priceList) {
@@ -65,9 +63,15 @@ export const PriceListDetailPage: React.FC = () => {
 
   const handleEditItemSubmit = async (data: any) => {
     if (editingItem) {
-      // Note: updatePriceListItem functionality disabled
-      alert('Update price list item functionality is temporarily disabled');
-      setEditingItem(null);
+      try {
+        await updatePriceListItem.mutateAsync({ 
+          id: editingItem.id, 
+          ...data 
+        });
+        setEditingItem(null);
+      } catch (error) {
+        // Error handling is done in the hook
+      }
     }
   };
 
@@ -77,9 +81,12 @@ export const PriceListDetailPage: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (deletingItem) {
-      // Note: deletePriceListItem functionality disabled
-      alert('Delete price list item functionality is temporarily disabled');
-      setDeletingItem(null);
+      try {
+        await deletePriceListItem.mutateAsync({ id: deletingItem.id });
+        setDeletingItem(null);
+      } catch (error) {
+        // Error handling is done in the hook
+      }
     }
   };
 
