@@ -18,8 +18,18 @@ export const FillPercentageSelector: React.FC<FillPercentageSelectorProps> = ({
   onNotesChange,
   notes = ''
 }) => {
-  const [showNotesInput, setShowNotesInput] = useState(false);
+  const [showNotesInput, setShowNotesInput] = useState(value < 100);
   const [localNotes, setLocalNotes] = useState(notes);
+
+  // Sync localNotes with external notes prop
+  React.useEffect(() => {
+    setLocalNotes(notes);
+  }, [notes]);
+
+  // Sync showNotesInput with value
+  React.useEffect(() => {
+    setShowNotesInput(value < 100);
+  }, [value]);
 
   const presetPercentages = [25, 33, 50, 67, 75, 90, 100];
   const isPartialFill = value < 100;
@@ -30,15 +40,14 @@ export const FillPercentageSelector: React.FC<FillPercentageSelectorProps> = ({
     
     // Ensure minimum 25% fill
     const validatedPercentage = Math.max(25, Math.min(100, percentage));
-    onChange(validatedPercentage, localNotes);
     
-    // Show notes input for partial fills
-    if (validatedPercentage < 100 && !showNotesInput) {
-      setShowNotesInput(true);
-    } else if (validatedPercentage === 100) {
-      setShowNotesInput(false);
+    // Clear notes when setting to 100%
+    if (validatedPercentage === 100) {
       setLocalNotes('');
       onNotesChange?.('');
+      onChange(validatedPercentage, '');
+    } else {
+      onChange(validatedPercentage, localNotes);
     }
   };
 

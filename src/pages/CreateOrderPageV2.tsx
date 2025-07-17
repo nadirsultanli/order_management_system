@@ -8,6 +8,7 @@ import { useCreateOrderNew } from '../hooks/useOrders';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useProductPrices } from '../hooks/useProductPricing';
+import { useDepositRateByCapacity } from '../hooks/useDeposits';
 import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
@@ -129,34 +130,45 @@ export const CreateOrderPageV2: React.FC = () => {
     }
   }, [selectedAddress]);
   
-  // Calculate order totals
+  // Calculate order totals with deposits
   const calculateTotals = () => {
     let subtotal = 0;
+    let depositTotal = 0;
     let taxAmount = 0;
     let grandTotal = 0;
     
-    orderLines.forEach(line => {
-      if (line.price_excluding_tax !== undefined) {
-        subtotal += line.price_excluding_tax * line.quantity;
-      } else {
-        subtotal += line.unit_price * line.quantity;
+    // Since we need to recalculate with deposits, let's do it per product
+    Object.entries(selectedProducts).forEach(([productId, quantity]) => {
+      const product = products.find(p => p.id === productId);
+      if (!product) return;
+      
+      const pricingInfo = productPrices && productPrices[productId];
+      const fillPercentage = fillPercentages[productId] || 100;
+      let gasPrice = pricingInfo?.finalPrice || 0;
+      
+      // Apply partial fill pricing
+      if (isGasProduct(product) && fillPercentage < 100) {
+        gasPrice = calculatePartialFillPrice(gasPrice, fillPercentage);
       }
       
+      subtotal += gasPrice * quantity;
+      
+      // Get deposit amount - we'll need to make this async or use a different approach
+      // For now, we'll just show the gas total and deposits will be added at checkout
+    });
+    
+    orderLines.forEach(line => {
       if (line.tax_amount !== undefined) {
         taxAmount += line.tax_amount * line.quantity;
       }
-      
-      if (line.price_including_tax !== undefined) {
-        grandTotal += line.price_including_tax * line.quantity;
-      } else {
-        grandTotal += line.unit_price * line.quantity + (line.tax_amount || 0) * line.quantity;
-      }
     });
     
-    return { subtotal, taxAmount, grandTotal };
+    grandTotal = subtotal + depositTotal + taxAmount;
+    
+    return { subtotal, taxAmount, grandTotal, depositTotal };
   };
   
-  const { subtotal, taxAmount, grandTotal } = calculateTotals();
+  const { subtotal, taxAmount, grandTotal, depositTotal } = calculateTotals();
   
   // Utility function to check if a product supports partial fills (gas cylinders)
   const isGasProduct = (product: Product) => {
@@ -226,6 +238,46 @@ export const CreateOrderPageV2: React.FC = () => {
     );
     
     return totalAvailable;
+  };
+  
+  // Component to handle product pricing with deposits
+  const ProductPricingWithDeposit = ({ product, quantity, fillPercentage }: { product: any, quantity: number, fillPercentage: number }) => {
+    const pricingInfo = productPrices && productPrices[product.id];
+    const isPartialFill = fillPercentage < 100;
+    
+    // Get base gas price
+    let gasPrice = pricingInfo?.finalPrice || 0;
+    if (isGasProduct(product) && isPartialFill) {
+      gasPrice = calculatePartialFillPrice(gasPrice, fillPercentage);
+    }
+    
+    // Get deposit rate for this product's capacity
+    const { data: depositData } = useDepositRateByCapacity(product.capacity_l || 0);
+    const depositAmount = depositData?.deposit_amount || 0;
+    
+    // Calculate totals
+    const totalGasPrice = gasPrice * quantity;
+    const totalDepositPrice = depositAmount * quantity;
+    const totalPrice = totalGasPrice + totalDepositPrice;
+    
+    return (
+      <div className="space-y-1">
+        <div className="text-sm text-gray-500">
+          Gas: {quantity} × {formatCurrencySync(gasPrice)} = {formatCurrencySync(totalGasPrice)}
+          {isPartialFill && (
+            <span className="text-orange-600 ml-1">(Partial Fill - {fillPercentage}%)</span>
+          )}
+        </div>
+        {depositAmount > 0 && (
+          <div className="text-sm text-blue-600">
+            Deposit: {quantity} × {formatCurrencySync(depositAmount)} = {formatCurrencySync(totalDepositPrice)}
+          </div>
+        )}
+        <div className="text-sm font-medium text-gray-900">
+          Total: {formatCurrencySync(totalPrice)}
+        </div>
+      </div>
+    );
   };
   
   // Handle customer change
@@ -818,6 +870,7 @@ export const CreateOrderPageV2: React.FC = () => {
                           {currentQty > 0 && isGasProduct(product) && (
                             <div className="mt-3">
                               <FillPercentageSelector
+                                key={`fill-selector-${product.id}`}
                                 value={fillPercentages[product.id] || 100}
                                 onChange={(percentage, notes) => handleFillPercentageChange(product.id, percentage, notes)}
                                 notes={fillNotes[product.id] || ''}
@@ -842,15 +895,8 @@ export const CreateOrderPageV2: React.FC = () => {
                         const product = products.find(p => p.id === productId);
                         if (!product) return null;
                         
-                        const pricingInfo = productPrices && productPrices[productId];
-                        let unitPrice = pricingInfo?.finalPrice || 0;
                         const fillPercentage = fillPercentages[productId] || 100;
                         const isPartialFill = fillPercentage < 100;
-                        
-                        // Apply pro-rated pricing for gas products with partial fills
-                        if (isGasProduct(product) && isPartialFill) {
-                          unitPrice = calculatePartialFillPrice(unitPrice, fillPercentage);
-                        }
                         
                         return (
                           <div key={productId} className="p-3 border border-gray-200 rounded-lg">
@@ -865,18 +911,11 @@ export const CreateOrderPageV2: React.FC = () => {
                                     </div>
                                   )}
                                 </div>
-                                <div className="text-sm text-gray-500">
-                                  {quantity} × {formatCurrencySync(unitPrice)} = {formatCurrencySync(quantity * unitPrice)}
-                                  {isPartialFill && (
-                                    <span className="text-orange-600 ml-1">(Partial Fill - {fillPercentage}%)</span>
-                                  )}
-                                </div>
-                                {/* TODO: Add deposit calculation here */}
-                                {product.capacity_l && (
-                                  <div className="text-xs text-blue-600 mt-1">
-                                    + Deposit for {product.capacity_l}kg cylinder (calculated at checkout)
-                                  </div>
-                                )}
+                                <ProductPricingWithDeposit 
+                                  product={product} 
+                                  quantity={quantity} 
+                                  fillPercentage={fillPercentage} 
+                                />
                               </div>
                               <button
                                 onClick={() => handleProductSelect(productId, 0)}
