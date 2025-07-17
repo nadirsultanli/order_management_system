@@ -19,9 +19,11 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
     },
     {
       enabled: !!(enabled && productIds.length > 0),
-      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-      retry: 3, // Retry failed requests
-      retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      staleTime: 10 * 60 * 1000, // Cache for 10 minutes (longer cache)
+      cacheTime: 20 * 60 * 1000, // Keep in cache for 20 minutes
+      retry: 2, // Fewer retries for faster response
+      retryDelay: 1000, // Faster retry delay
+      refetchOnWindowFocus: false, // Don't refetch when user switches tabs
       onError: (error: any) => {
         console.error('useProductPrices: Query failed:', error);
       },

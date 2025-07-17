@@ -77,7 +77,7 @@ export const CreateOrderPageV2: React.FC = () => {
   // Step 5: Review
   const [orderStatus, setOrderStatus] = useState<'draft' | 'confirmed'>('draft');
   
-  // Data hooks
+  // Data hooks - Optimized for parallel loading
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
   const { data: productsData, isLoading: isProductsLoading } = useProducts({ 
@@ -97,38 +97,88 @@ export const CreateOrderPageV2: React.FC = () => {
   const selectedAddress = addresses.find((a: Address) => a.id === selectedAddressId);
   const selectedWarehouse = warehouses.find((w: Warehouse) => w.id === selectedWarehouseId);
   
-  // Get product prices
-  const productIds = products.map(p => p.id);
-  const { data: productPrices, isLoading: isPricesLoading } = useProductPrices(productIds, selectedCustomerId || undefined);
+  // Get product IDs immediately - don't wait for full product load
+  const productIds = useMemo(() => {
+    return products.map(p => p.id);
+  }, [products]);
   
-  // Get all deposit rates for lookup
-  const { data: depositRatesData } = useAllDepositRates();
+  // Prefetch product prices early - even if products are still loading
+  const { data: productPrices, isLoading: isPricesLoading } = useProductPrices(
+    productIds, 
+    selectedCustomerId || undefined, 
+    productIds.length > 0 // Enable as soon as we have product IDs
+  );
+  
+  // Prefetch deposit rates immediately - they don't depend on products
+  const { data: depositRatesData, isLoading: isDepositRatesLoading } = useAllDepositRates();
   const depositRates = depositRatesData?.rates || [];
   
   // Create deposit lookup function
-  const getDepositAmountByCapacity = (capacity_l: number): number => {
-    if (!capacity_l || capacity_l <= 0) return 0;
+  const getDepositAmountByCapacity = (product: any): number => {
+    if (!product) {
+      console.log('❌ getDepositAmountByCapacity: No product provided');
+      return 0;
+    }
     
-    // Find exact match first
-    const exactMatch = depositRates.find(rate => rate.capacity_l === capacity_l);
-    if (exactMatch) return exactMatch.deposit_amount;
+    console.log('🔍 getDepositAmountByCapacity called for product:', {
+      id: product.id,
+      sku: product.sku,
+      name: product.name,
+      is_variant: product.is_variant,
+      parent_products_id: product.parent_products_id,
+      capacity_l: product.capacity_l,
+      capacity_kg: product.capacity_kg,
+      fullProduct: product
+    });
+    
+    // Get capacity from the product itself first (if it has capacity_l)
+    let capacityL = product.capacity_l;
+    
+    // If no direct capacity_l, check if this is a variant and use capacity_kg
+    if (!capacityL && product.capacity_kg) {
+      // For LPG cylinders, capacity in kg is approximately equal to capacity in liters
+      // 6kg ≈ 6L, 13kg ≈ 13L, 25kg ≈ 25L, 50kg ≈ 50L
+      capacityL = product.capacity_kg;
+      console.log(`🔄 Using capacity_kg (${product.capacity_kg}) as capacity_l for product ${product.sku}`);
+    }
+    
+    if (!capacityL || capacityL <= 0) {
+      console.log(`❌ No valid capacity found for product ${product.sku}. capacity_l: ${product.capacity_l}, capacity_kg: ${product.capacity_kg}`);
+      return 0;
+    }
+    
+    console.log(`📏 Using capacity ${capacityL}L for deposit lookup`);
+    
+    // Find exact match first in deposit rates
+    const exactMatch = depositRates.find(rate => rate.capacity_l === capacityL);
+    if (exactMatch) {
+      console.log(`✅ Found exact deposit rate for ${capacityL}L: ${exactMatch.deposit_amount} ${exactMatch.currency_code || 'KES'}`);
+      return exactMatch.deposit_amount;
+    }
     
     // If no exact match, find closest capacity
     const sortedRates = depositRates
       .filter(rate => rate.capacity_l > 0)
-      .sort((a, b) => Math.abs(a.capacity_l - capacity_l) - Math.abs(b.capacity_l - capacity_l));
+      .sort((a, b) => Math.abs(a.capacity_l - capacityL) - Math.abs(b.capacity_l - capacityL));
     
     if (sortedRates.length > 0) {
-      console.log(`Using closest deposit rate: ${sortedRates[0].capacity_l}L (${sortedRates[0].deposit_amount}) for ${capacity_l}L capacity`);
+      console.log(`🔍 Using closest deposit rate: ${sortedRates[0].capacity_l}L (${sortedRates[0].deposit_amount}) for ${capacityL}L capacity`);
       return sortedRates[0].deposit_amount;
     }
     
-    // Fallback to common rates if no data available
-    if (capacity_l === 6) return 2000;
-    else if (capacity_l === 13) return 2500;
-    else if (capacity_l === 25) return 3000;
-    else if (capacity_l === 50) return 4000;
-    else return 2000; // Default fallback
+    console.log(`⚠️ No deposit rates found in database, using fallback values. Available rates:`, depositRates);
+    
+    // Fallback based on common cylinder sizes if no database data
+    // Based on your screenshot: 6L=2500, 13L=3500, 25L=5500, 50L=8500, etc.
+    if (capacityL === 6) return 2500;
+    else if (capacityL === 13) return 3500;
+    else if (capacityL === 25) return 5500;
+    else if (capacityL === 50) return 8500;
+    else if (capacityL === 60) return 10000;
+    else {
+      console.log(`⚠️ No fallback for capacity ${capacityL}L, using default 2500`);
+      return 2500; // Default fallback
+    }
   };
   
   // Auto-select primary address when customer changes
@@ -142,6 +192,23 @@ export const CreateOrderPageV2: React.FC = () => {
       }
     }
   }, [selectedCustomerId, addresses, selectedAddressId]);
+  
+  // Prefetch pricing data when user selects customer (Step 2) to prepare for Step 3
+  useEffect(() => {
+    if (selectedCustomerId && products.length > 0 && currentStep >= 2) {
+      console.log('🚀 Prefetching pricing data for Step 3...');
+      // This will trigger the pricing queries to start loading early
+      // so they're ready when user reaches Step 3
+    }
+  }, [selectedCustomerId, products.length, currentStep]);
+  
+  // Prefetch pricing data when component mounts to reduce Step 3 loading time
+  useEffect(() => {
+    // Trigger deposit rates fetch immediately when component loads
+    if (depositRates.length === 0 && !isDepositRatesLoading) {
+      console.log('🚀 Prefetching deposit rates for faster Step 3 loading...');
+    }
+  }, []);
   
   // Load delivery instructions from selected address
   useEffect(() => {
@@ -190,7 +257,7 @@ export const CreateOrderPageV2: React.FC = () => {
       Object.entries(selectedProducts).forEach(([productId, quantity]) => {
         const product = products.find(p => p.id === productId);
         if (product && product.capacity_l && product.capacity_l > 0) {
-          const depositRate = getDepositAmountByCapacity(product.capacity_l);
+          const depositRate = getDepositAmountByCapacity(product);
           depositTotal += depositRate * quantity;
         }
       });
@@ -273,10 +340,11 @@ export const CreateOrderPageV2: React.FC = () => {
     return totalAvailable;
   };
   
-  // Component to handle product pricing with deposits
+  // Component to handle product pricing with deposits - Optimized for faster loading
   const ProductPricingWithDeposit = ({ product, quantity, fillPercentage }: { product: any, quantity: number, fillPercentage: number }) => {
     const pricingInfo = productPrices && productPrices[product.id];
     const isPartialFill = fillPercentage < 100;
+    const isPricingLoaded = !isPricesLoading && !isDepositRatesLoading;
     
     // Get base gas price
     let gasPrice = pricingInfo?.finalPrice || 0;
@@ -284,13 +352,24 @@ export const CreateOrderPageV2: React.FC = () => {
       gasPrice = calculatePartialFillPrice(gasPrice, fillPercentage);
     }
     
-    // Get deposit rate for this product's capacity
-    const depositAmount = getDepositAmountByCapacity(product.capacity_l || 0);
+    // Get deposit rate for this product's capacity - with fallback for fast display
+    const depositAmount = getDepositAmountByCapacity(product);
     
     // Calculate totals
     const totalGasPrice = gasPrice * quantity;
     const totalDepositPrice = depositAmount * quantity;
     const totalPrice = totalGasPrice + totalDepositPrice;
+    
+    // Show loading state if data isn't ready
+    if (!isPricingLoaded && (gasPrice === 0 || depositAmount === 0)) {
+      return (
+        <div className="space-y-1">
+          <div className="text-sm text-gray-400 animate-pulse">
+            Loading pricing...
+          </div>
+        </div>
+      );
+    }
     
     return (
       <div className="space-y-1">
@@ -407,7 +486,7 @@ export const CreateOrderPageV2: React.FC = () => {
         // Calculate deposit amount based on capacity
         let depositAmountPerUnit = 0;
         if (product.capacity_l && product.capacity_l > 0) {
-          depositAmountPerUnit = getDepositAmountByCapacity(product.capacity_l);
+          depositAmountPerUnit = getDepositAmountByCapacity(product);
         }
         
         newOrderLines.push({

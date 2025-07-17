@@ -527,8 +527,11 @@ export const useAllDepositRates = () => {
     is_active: true,
   }, {
     enabled: true,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 15 * 60 * 1000, // Cache for 15 minutes (longer for rarely changing data)
+    cacheTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
     retry: 1,
+    refetchOnWindowFocus: false, // Don't refetch when user switches tabs
+    refetchOnMount: false, // Don't refetch if data is in cache
     onError: (error: any) => {
       console.error('All deposit rates fetch error:', error);
       // Don't show error toast as this is used for lookups
