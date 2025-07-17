@@ -1,11 +1,29 @@
 import React from 'react';
-import { CheckCircle, Clock, RotateCcw, XCircle, AlertTriangle, Calendar } from 'lucide-react';
+import { CheckCircle, Clock, RotateCcw, XCircle, AlertTriangle, Calendar, Camera, Package2 } from 'lucide-react';
 
 interface ReturnStatusBadgeProps {
   status: 'pending' | 'partial_returned' | 'fully_returned' | 'expired' | 'cancelled' | 'grace_period' | 'overdue' | 'expiring_soon';
   daysUntilDeadline?: number;
+  cylinderStatus?: 'good' | 'damaged' | 'lost';
+  damageAssessment?: {
+    severity: 'minor' | 'moderate' | 'severe';
+    damage_type: string;
+    repair_cost_estimate?: number;
+    description?: string;
+  };
+  lostCylinderFee?: {
+    total_fee: number;
+    currency_code: string;
+  };
+  quantityInfo?: {
+    returned: number;
+    remaining: number;
+    total: number;
+  };
   size?: 'sm' | 'md' | 'lg';
   showIcon?: boolean;
+  showDamageIndicator?: boolean;
+  showQuantityInfo?: boolean;
   interactive?: boolean;
   onClick?: () => void;
 }
@@ -13,8 +31,14 @@ interface ReturnStatusBadgeProps {
 export const ReturnStatusBadge: React.FC<ReturnStatusBadgeProps> = ({
   status,
   daysUntilDeadline,
+  cylinderStatus,
+  damageAssessment,
+  lostCylinderFee,
+  quantityInfo,
   size = 'md',
   showIcon = true,
+  showDamageIndicator = true,
+  showQuantityInfo = false,
   interactive = false,
   onClick,
 }) => {
@@ -104,6 +128,84 @@ export const ReturnStatusBadge: React.FC<ReturnStatusBadgeProps> = ({
   const sizeClasses = getSizeClasses();
   const iconSizeClasses = getIconSize();
 
+  const getDamageIndicator = () => {
+    if (!showDamageIndicator || !cylinderStatus || cylinderStatus === 'good') return null;
+    
+    if (cylinderStatus === 'lost') {
+      return (
+        <span className="ml-1.5 inline-flex items-center space-x-1">
+          <XCircle className="h-3 w-3 text-red-500" />
+          <span className="text-xs text-red-600 font-medium">LOST</span>
+          {lostCylinderFee && size !== 'sm' && (
+            <span className="text-xs text-red-500 bg-red-100 px-1 rounded">
+              Fee: {new Intl.NumberFormat('en-KE', {
+                style: 'currency',
+                currency: lostCylinderFee.currency_code,
+                minimumFractionDigits: 0
+              }).format(lostCylinderFee.total_fee)}
+            </span>
+          )}
+        </span>
+      );
+    }
+    
+    if (cylinderStatus === 'damaged') {
+      const severityColors = {
+        minor: 'text-yellow-500',
+        moderate: 'text-orange-500',
+        severe: 'text-red-500'
+      };
+      const severityBgColors = {
+        minor: 'bg-yellow-100',
+        moderate: 'bg-orange-100',
+        severe: 'bg-red-100'
+      };
+      const severity = damageAssessment?.severity || 'minor';
+      
+      return (
+        <span className="ml-1.5 inline-flex items-center space-x-1">
+          <AlertTriangle className={`h-3 w-3 ${severityColors[severity]}`} />
+          <span className={`text-xs font-medium ${severityColors[severity]}`}>
+            {severity.toUpperCase()}
+          </span>
+          {damageAssessment?.damage_type && size !== 'sm' && (
+            <span className={`text-xs ${severityColors[severity]} ${severityBgColors[severity]} px-1 rounded`}>
+              {damageAssessment.damage_type.replace('_', ' ').substring(0, 8)}
+            </span>
+          )}
+          {damageAssessment?.repair_cost_estimate && size === 'lg' && (
+            <span className={`text-xs ${severityColors[severity]} ${severityBgColors[severity]} px-1 rounded`}>
+              Est: {new Intl.NumberFormat('en-KE', {
+                style: 'currency',
+                currency: 'KES',
+                minimumFractionDigits: 0
+              }).format(damageAssessment.repair_cost_estimate)}
+            </span>
+          )}
+        </span>
+      );
+    }
+    
+    return null;
+  };
+
+  const getQuantityIndicator = () => {
+    if (!showQuantityInfo || !quantityInfo) return null;
+    
+    if (quantityInfo.returned > 0 && quantityInfo.remaining > 0) {
+      return (
+        <span className="ml-1.5 inline-flex items-center space-x-1">
+          <Package2 className="h-3 w-3 text-blue-500" />
+          <span className="text-xs text-blue-600 font-medium">
+            {quantityInfo.returned}/{quantityInfo.total}
+          </span>
+        </span>
+      );
+    }
+    
+    return null;
+  };
+
   const badgeContent = (
     <>
       {showIcon && <IconComponent className={`${iconSizeClasses} mr-1.5`} />}
@@ -113,6 +215,8 @@ export const ReturnStatusBadge: React.FC<ReturnStatusBadgeProps> = ({
           ({daysUntilDeadline > 0 ? `${daysUntilDeadline}d` : `${Math.abs(daysUntilDeadline)}d overdue`})
         </span>
       )}
+      {getQuantityIndicator()}
+      {getDamageIndicator()}
     </>
   );
 

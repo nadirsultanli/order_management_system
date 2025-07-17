@@ -311,6 +311,51 @@ export interface CylinderCondition {
   description?: string;
 }
 
+// ============ ENHANCED RETURN PROCESSING TYPES ============
+
+export interface DamageAssessment {
+  damage_type: string;
+  severity: 'minor' | 'moderate' | 'severe';
+  repair_cost_estimate?: number;
+  photos?: File[];
+  description: string;
+}
+
+export interface LostCylinderFee {
+  base_fee: number;
+  replacement_cost: number;
+  administrative_fee: number;
+  total_fee: number;
+  currency_code: string;
+}
+
+export interface EnhancedReturnProcessingData {
+  credit_id: string;
+  quantity_returned: number;
+  return_reason: string;
+  notes?: string;
+  cylinder_status: 'good' | 'damaged' | 'lost';
+  original_brand?: string;
+  accepted_brand?: string;
+  brand_reconciliation_status?: 'pending' | 'matched' | 'generic_accepted';
+  brand_exchange_fee?: number;
+  damage_assessment?: DamageAssessment;
+  lost_cylinder_fee?: LostCylinderFee;
+  photo_urls?: string[];
+}
+
+export interface CylinderConditionHistory {
+  id: string;
+  cylinder_id: string;
+  condition_date: string;
+  condition_status: 'good' | 'damaged' | 'lost' | 'scrap';
+  damage_assessment?: DamageAssessment;
+  location: string;
+  recorded_by: string;
+  notes?: string;
+  photos?: string[];
+}
+
 export const CYLINDER_CONDITIONS: CylinderCondition[] = [
   { value: 'excellent', label: 'Excellent', refund_percentage: 100, description: 'Like new condition' },
   { value: 'good', label: 'Good', refund_percentage: 90, description: 'Minor wear, fully functional' },
@@ -318,6 +363,29 @@ export const CYLINDER_CONDITIONS: CylinderCondition[] = [
   { value: 'poor', label: 'Poor', refund_percentage: 50, description: 'Significant wear, needs repair' },
   { value: 'damaged', label: 'Damaged', refund_percentage: 25, description: 'Requires major repair' },
   { value: 'scrap', label: 'Scrap', refund_percentage: 0, description: 'Beyond repair, scrap value only' },
+];
+
+export const DAMAGE_TYPES = [
+  { value: 'valve_damage', label: 'Valve Damage' },
+  { value: 'cylinder_dent', label: 'Cylinder Dent' },
+  { value: 'rust_corrosion', label: 'Rust/Corrosion' },
+  { value: 'crack_damage', label: 'Crack Damage' },
+  { value: 'handle_damage', label: 'Handle Damage' },
+  { value: 'thread_damage', label: 'Thread Damage' },
+  { value: 'label_damage', label: 'Label/Marking Damage' },
+  { value: 'other', label: 'Other' },
+];
+
+export const DAMAGE_SEVERITY_OPTIONS = [
+  { value: 'minor', label: 'Minor', refund_percentage: 85, description: 'Cosmetic damage, fully functional' },
+  { value: 'moderate', label: 'Moderate', refund_percentage: 60, description: 'Functional with minor repair needed' },
+  { value: 'severe', label: 'Severe', refund_percentage: 25, description: 'Major repair required' },
+];
+
+export const RETURN_STATUS_OPTIONS = [
+  { value: 'good', label: 'Good Condition', color: 'text-green-600', description: 'No damage, ready for reuse' },
+  { value: 'damaged', label: 'Damaged', color: 'text-yellow-600', description: 'Has damage but repairable' },
+  { value: 'lost', label: 'Lost/Missing', color: 'text-red-600', description: 'Cylinder not returned, charge applicable' },
 ];
 
 export const REFUND_METHODS = [

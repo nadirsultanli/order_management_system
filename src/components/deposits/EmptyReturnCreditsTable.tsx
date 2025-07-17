@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Clock, CheckCircle, XCircle, AlertTriangle, Package, Calendar, DollarSign } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertTriangle, Package, Calendar, DollarSign, Camera, Package2 } from 'lucide-react';
 import { formatCurrencySync } from '../../utils/pricing';
+import { ReturnStatusBadge } from '../returns/ReturnStatusBadge';
 
 interface EmptyReturnCredit {
   id: string;
@@ -8,15 +9,36 @@ interface EmptyReturnCredit {
   customer_id: string;
   product_id: string;
   quantity: number;
+  quantity_returned: number;
+  quantity_remaining: number;
   capacity_l: number;
   unit_credit_amount: number;
   total_credit_amount: number;
+  remaining_credit_amount: number;
   currency_code: string;
   expected_return_date: string;
   actual_return_date?: string;
   return_deadline: string;
-  status: 'pending' | 'returned' | 'cancelled' | 'expired';
+  status: 'pending' | 'partial_returned' | 'fully_returned' | 'cancelled' | 'expired' | 'grace_period';
   cancelled_reason?: string;
+  cylinder_status?: 'good' | 'damaged' | 'lost';
+  condition_at_return?: 'good' | 'damaged' | 'unusable';
+  return_reason?: string;
+  damage_assessment?: {
+    damage_type: string;
+    severity: 'minor' | 'moderate' | 'severe';
+    repair_cost_estimate?: number;
+    description: string;
+    photos?: string[];
+  };
+  lost_cylinder_fee?: {
+    base_fee: number;
+    replacement_cost: number;
+    administrative_fee: number;
+    total_fee: number;
+    currency_code: string;
+  };
+  photo_urls?: string[];
   created_at: string;
   order?: {
     id: string;
@@ -160,6 +182,9 @@ export const EmptyReturnCreditsTable: React.FC<EmptyReturnCreditsTableProps> = (
                 Return Dates
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Cylinder Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -202,13 +227,28 @@ export const EmptyReturnCreditsTable: React.FC<EmptyReturnCreditsTableProps> = (
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      {credit.quantity} cylinder{credit.quantity > 1 ? 's' : ''}
+                      {credit.quantity} cylinder{credit.quantity > 1 ? 's' : ''} 
+                      {credit.quantity_returned > 0 && (
+                        <span className="text-green-600">
+                          ({credit.quantity_returned} returned)
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-gray-500">
-                      {formatCurrencySync(credit.total_credit_amount, credit.currency_code)} credit
+                      {formatCurrencySync(credit.remaining_credit_amount || credit.total_credit_amount, credit.currency_code)} credit
+                      {credit.quantity_remaining !== credit.quantity && (
+                        <span className="text-gray-400">
+                          / {formatCurrencySync(credit.total_credit_amount, credit.currency_code)} total
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-gray-400">
                       {formatCurrencySync(credit.unit_credit_amount, credit.currency_code)} each
+                      {credit.quantity_remaining > 0 && credit.quantity_remaining !== credit.quantity && (
+                        <span className="ml-1 text-blue-600">
+                          ({credit.quantity_remaining} remaining)
+                        </span>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -238,6 +278,100 @@ export const EmptyReturnCreditsTable: React.FC<EmptyReturnCreditsTableProps> = (
                   </div>
                 </td>
                 
+                {/* Cylinder Status Column */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {credit.cylinder_status ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        {credit.cylinder_status === 'good' && (
+                          <>
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-800">Good</span>
+                          </>
+                        )}
+                        {credit.cylinder_status === 'damaged' && (
+                          <>
+                            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                            <span className="text-sm font-medium text-yellow-800">Damaged</span>
+                          </>
+                        )}
+                        {credit.cylinder_status === 'lost' && (
+                          <>
+                            <XCircle className="h-4 w-4 text-red-600" />
+                            <span className="text-sm font-medium text-red-800">Lost</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Return Reason */}
+                      {credit.return_reason && (
+                        <div className="text-xs text-gray-600">
+                          <span className="font-medium">Reason:</span> {credit.return_reason.replace('_', ' ')}
+                        </div>
+                      )}
+                      
+                      {/* Damage Details */}
+                      {credit.cylinder_status === 'damaged' && credit.damage_assessment && (
+                        <div className="text-xs text-gray-600 bg-yellow-50 p-2 rounded">
+                          <div className="font-medium text-yellow-800">{credit.damage_assessment.severity.toUpperCase()} damage</div>
+                          <div className="capitalize">{credit.damage_assessment.damage_type.replace('_', ' ')}</div>
+                          {credit.damage_assessment.repair_cost_estimate && (
+                            <div className="text-yellow-700 font-medium">
+                              Est. repair: {formatCurrencySync(credit.damage_assessment.repair_cost_estimate, credit.currency_code)}
+                            </div>
+                          )}
+                          {credit.damage_assessment.description && (
+                            <div className="mt-1 text-gray-600 italic">
+                              "{credit.damage_assessment.description.substring(0, 50)}..."
+                            </div>
+                          )}
+                          {credit.damage_assessment.photos && credit.damage_assessment.photos.length > 0 && (
+                            <div className="flex items-center mt-1 text-gray-500">
+                              <Camera className="h-3 w-3 mr-1" />
+                              <span>{credit.damage_assessment.photos.length} photo{credit.damage_assessment.photos.length > 1 ? 's' : ''}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Lost Cylinder Fee */}
+                      {credit.cylinder_status === 'lost' && credit.lost_cylinder_fee && (
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                          <div className="font-medium text-red-800">Lost Cylinder Fee</div>
+                          <div className="space-y-1">
+                            <div>Base: {formatCurrencySync(credit.lost_cylinder_fee.base_fee, credit.currency_code)}</div>
+                            <div>Replacement: {formatCurrencySync(credit.lost_cylinder_fee.replacement_cost, credit.currency_code)}</div>
+                            <div>Admin fee: {formatCurrencySync(credit.lost_cylinder_fee.administrative_fee, credit.currency_code)}</div>
+                            <div className="font-bold border-t border-red-200 pt-1">
+                              Total: {formatCurrencySync(credit.lost_cylinder_fee.total_fee, credit.currency_code)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Condition at Return */}
+                      {credit.condition_at_return && credit.condition_at_return !== 'good' && (
+                        <div className="text-xs text-gray-600">
+                          <span className="font-medium">Physical condition:</span> 
+                          <span className={credit.condition_at_return === 'unusable' ? 'text-red-600' : 'text-yellow-600'}>
+                            {credit.condition_at_return}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Photos */}
+                      {credit.photo_urls && credit.photo_urls.length > 0 && (
+                        <div className="flex items-center text-xs text-blue-600">
+                          <Camera className="h-3 w-3 mr-1" />
+                          <span>{credit.photo_urls.length} photo{credit.photo_urls.length > 1 ? 's' : ''} available</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">Not specified</span>
+                  )}
+                </td>
+                
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(credit.status)}
@@ -253,22 +387,37 @@ export const EmptyReturnCreditsTable: React.FC<EmptyReturnCreditsTableProps> = (
                 </td>
                 
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  {credit.status === 'pending' && (
+                  {(credit.status === 'pending' || credit.status === 'partial_returned') && credit.quantity_remaining > 0 && (
                     <div className="flex items-center justify-end space-x-2">
                       <button
                         onClick={() => handleProcessReturn(credit.id)}
                         disabled={processingId === credit.id}
-                        className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 disabled:opacity-50"
+                        className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 disabled:opacity-50 flex items-center space-x-1"
                       >
-                        {processingId === credit.id ? 'Processing...' : 'Process Return'}
+                        <Package2 className="h-3 w-3" />
+                        <span>
+                          {processingId === credit.id ? 'Processing...' : 
+                           credit.status === 'partial_returned' ? 'Process More' : 'Process Return'}
+                        </span>
                       </button>
-                      <button
-                        onClick={() => setShowCancelDialog(credit.id)}
-                        className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700"
-                      >
-                        Cancel
-                      </button>
+                      {credit.status === 'pending' && (
+                        <button
+                          onClick={() => setShowCancelDialog(credit.id)}
+                          className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700"
+                        >
+                          Cancel
+                        </button>
+                      )}
                     </div>
+                  )}
+                  {credit.status === 'fully_returned' && (
+                    <span className="text-xs text-green-600 font-medium">Completed</span>
+                  )}
+                  {credit.status === 'cancelled' && (
+                    <span className="text-xs text-red-600 font-medium">Cancelled</span>
+                  )}
+                  {credit.status === 'expired' && (
+                    <span className="text-xs text-gray-600 font-medium">Expired</span>
                   )}
                 </td>
               </tr>

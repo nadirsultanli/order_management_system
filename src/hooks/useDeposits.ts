@@ -354,6 +354,167 @@ export const useValidateDepositRefund = () => {
   });
 };
 
+// ============ EMPTY RETURNS HOOKS ============
+
+export const useEmptyReturnCredits = (filters: {
+  customer_id?: string;
+  order_id?: string;
+  status?: 'pending' | 'partial_returned' | 'fully_returned' | 'cancelled' | 'expired';
+  page?: number;
+  limit?: number;
+} = {}) => {
+  return trpc.emptyReturns.list.useQuery({
+    ...filters,
+    page: filters.page || 1,
+    limit: filters.limit || 20,
+  }, {
+    enabled: true,
+    staleTime: 30000,
+    retry: 1,
+    onError: (error: any) => {
+      console.error('Empty return credits fetch error:', error);
+      toast.error('Failed to load empty return credits');
+    }
+  });
+};
+
+export const useEmptyReturnsSummary = (customerId?: string) => {
+  return trpc.emptyReturns.summary.useQuery({
+    customer_id: customerId,
+  }, {
+    enabled: true,
+    staleTime: 60000, // 1 minute for summary
+    retry: 1,
+    onError: (error: any) => {
+      console.error('Empty returns summary fetch error:', error);
+      toast.error('Failed to load empty returns summary');
+    }
+  });
+};
+
+export const useProcessEmptyReturn = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.emptyReturns.processReturn.useMutation({
+    onSuccess: (result, variables) => {
+      console.log('Empty return processed successfully:', result);
+      
+      // Invalidate related data
+      utils.emptyReturns.list.invalidate();
+      utils.emptyReturns.summary.invalidate();
+      
+      // Invalidate customer deposit data if available
+      const credit = result;
+      if (credit) {
+        utils.deposits.getCustomerDepositBalance.invalidate();
+        utils.deposits.getCustomerDepositHistory.invalidate();
+        utils.deposits.listDepositTransactions.invalidate();
+      }
+      
+      const statusMessage = result.status === 'fully_returned' ? 'Return completed' : 'Partial return processed';
+      const amountMessage = result.refund_amount > 0 
+        ? `Refunded: KES ${result.refund_amount.toFixed(2)}`
+        : result.charge_amount > 0 
+        ? `Charged: KES ${result.charge_amount.toFixed(2)}`
+        : '';
+      
+      toast.success(`${statusMessage}. ${amountMessage}`);
+    },
+    onError: (error) => {
+      console.error('Process empty return error:', error);
+      toast.error(error.message || 'Failed to process empty return');
+    },
+  });
+};
+
+export const useCancelEmptyReturn = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.emptyReturns.cancel.useMutation({
+    onSuccess: (result, variables) => {
+      console.log('Empty return cancelled successfully:', result);
+      
+      // Invalidate related data
+      utils.emptyReturns.list.invalidate();
+      utils.emptyReturns.summary.invalidate();
+      utils.deposits.getCustomerDepositBalance.invalidate();
+      utils.deposits.getCustomerDepositHistory.invalidate();
+      utils.deposits.listDepositTransactions.invalidate();
+      
+      toast.success(`Empty return cancelled. Charged: KES ${result.charged_amount.toFixed(2)}`);
+    },
+    onError: (error) => {
+      console.error('Cancel empty return error:', error);
+      toast.error(error.message || 'Failed to cancel empty return');
+    },
+  });
+};
+
+export const useExpireOverdueReturns = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.emptyReturns.expireOverdue.useMutation({
+    onSuccess: (result) => {
+      console.log('Overdue returns expired successfully:', result);
+      
+      // Invalidate related data
+      utils.emptyReturns.list.invalidate();
+      utils.emptyReturns.summary.invalidate();
+      utils.deposits.listDepositTransactions.invalidate();
+      
+      toast.success(`${result.expired_count} overdue credit(s) expired and charged`);
+    },
+    onError: (error) => {
+      console.error('Expire overdue returns error:', error);
+      toast.error(error.message || 'Failed to expire overdue returns');
+    },
+  });
+};
+
+// ============ BRAND RECONCILIATION HOOKS ============
+
+export const useBrandReconciliationReport = (filters: {
+  from_date?: string;
+  to_date?: string;
+  brand_code?: string;
+  capacity_l?: number;
+} = {}) => {
+  return trpc.emptyReturns.brandReconciliation.useQuery({
+    from_date: filters.from_date,
+    to_date: filters.to_date,
+    brand_code: filters.brand_code,
+    capacity_l: filters.capacity_l,
+  }, {
+    enabled: true,
+    staleTime: 60000, // 1 minute
+    retry: 1,
+    onError: (error: any) => {
+      console.error('Brand reconciliation report fetch error:', error);
+      toast.error('Failed to load brand reconciliation report');
+    }
+  });
+};
+
+export const useUpdateBrandReconciliation = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.emptyReturns.updateBrandReconciliation.useMutation({
+    onSuccess: (result, variables) => {
+      console.log('Brand reconciliation status updated successfully:', result);
+      
+      // Invalidate related data
+      utils.emptyReturns.list.invalidate();
+      utils.emptyReturns.brandReconciliation.invalidate();
+      
+      toast.success(`Updated ${result.updated_count} record(s) to ${variables.new_status}`);
+    },
+    onError: (error) => {
+      console.error('Update brand reconciliation error:', error);
+      toast.error(error.message || 'Failed to update brand reconciliation status');
+    },
+  });
+};
+
 // Utility hook to get deposits context
 export const useDepositsContext = () => {
   return trpc.useContext().deposits;

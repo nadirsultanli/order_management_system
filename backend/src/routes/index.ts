@@ -10,6 +10,7 @@ import { adminRouter } from './admin';
 import { trucksRouter } from './trucks';
 import { tripsRouter } from './trips';
 import { emptyReturnsRouter } from './emptyReturns';
+import { complianceRouter } from './compliance';
 import { warehousesRouter } from './warehouses';
 import { productsRouter } from './products';
 import { accessoriesRouter } from './accessories';
@@ -33,6 +34,7 @@ export const appRouter = router({
   trucks: trucksRouter as any,
   trips: tripsRouter as any,
   emptyReturns: emptyReturnsRouter as any,
+  compliance: complianceRouter as any,
   warehouses: warehousesRouter as any,
   products: productsRouter as any,
   accessories: accessoriesRouter as any,

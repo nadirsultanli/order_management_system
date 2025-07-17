@@ -1,136 +1,200 @@
 import React, { useState } from 'react';
 import { RefreshCw, Download, AlertTriangle, CheckCircle, Clock, Package } from 'lucide-react';
 import { EmptyReturnCreditsTable } from '../components/deposits/EmptyReturnCreditsTable';
+import { ReturnProcessingModal } from '../components/returns/ReturnProcessingModal';
 import { Card } from '../components/ui/Card';
+import { 
+  useEmptyReturnCredits, 
+  useEmptyReturnsSummary, 
+  useProcessEmptyReturn, 
+  useCancelEmptyReturn, 
+  useExpireOverdueReturns 
+} from '../hooks/useDeposits';
+import { formatCurrencySync } from '../utils/pricing';
 
-// Mock data for now - replace with actual API calls
-const mockCredits = [
-  {
-    id: '1',
-    order_id: 'order-123',
-    customer_id: 'customer-456',
-    product_id: 'product-789',
-    quantity: 2,
-    capacity_l: 13,
-    unit_credit_amount: 1500,
-    total_credit_amount: 3000,
-    currency_code: 'KES',
-    expected_return_date: '2024-01-20',
-    return_deadline: '2024-02-05',
-    status: 'pending' as const,
-    created_at: '2024-01-15T10:00:00Z',
-    order: {
-      id: 'order-123',
-      order_number: 'ORD-2024-001',
-      order_date: '2024-01-15',
-      delivery_date: '2024-01-16',
-    },
-    customer: {
-      id: 'customer-456',
-      name: 'John Doe',
-      phone: '+254700123456',
-    },
-    product: {
-      id: 'product-789',
-      name: '13kg LPG Cylinder',
-      sku: 'LPG-13KG-001',
-      capacity_l: 13,
-    },
-  },
-  {
-    id: '2',
-    order_id: 'order-124',
-    customer_id: 'customer-457',
-    product_id: 'product-790',
-    quantity: 1,
-    capacity_l: 19,
-    unit_credit_amount: 2000,
-    total_credit_amount: 2000,
-    currency_code: 'KES',
-    expected_return_date: '2024-01-10',
-    return_deadline: '2024-01-25',
-    status: 'pending' as const,
-    created_at: '2024-01-08T14:30:00Z',
-    order: {
-      id: 'order-124',
-      order_number: 'ORD-2024-002',
-      order_date: '2024-01-08',
-      delivery_date: '2024-01-09',
-    },
-    customer: {
-      id: 'customer-457',
-      name: 'Jane Smith',
-      phone: '+254700654321',
-    },
-    product: {
-      id: 'product-790',
-      name: '19kg LPG Cylinder',
-      sku: 'LPG-19KG-001',
-      capacity_l: 19,
-    },
-  },
-];
-
-const mockSummary = {
-  total_pending_credits: 5000,
-  total_pending_quantity: 3,
-  credits_expiring_soon: 2000,
-  credits_overdue: 0,
-};
+interface ReturnProcessingData {
+  credit_id: string;
+  quantity_returned: number;
+  return_reason: string;
+  notes?: string;
+  condition_at_return: 'good' | 'damaged' | 'unusable';
+  cylinder_status: 'good' | 'damaged' | 'lost';
+  damage_assessment?: {
+    damage_type: string;
+    severity: 'minor' | 'moderate' | 'severe';
+    repair_cost_estimate?: number;
+    photos?: File[];
+    description: string;
+  };
+  lost_cylinder_fee?: {
+    base_fee: number;
+    replacement_cost: number;
+    administrative_fee: number;
+    total_fee: number;
+    currency_code: string;
+  };
+  photo_urls?: string[];
+}
 
 export const EmptyReturnsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [loading, setLoading] = useState(false);
-  const [credits, setCredits] = useState(mockCredits);
+  const [selectedCredit, setSelectedCredit] = useState<any>(null);
+  const [showProcessingModal, setShowProcessingModal] = useState(false);
+  
+  // API Hooks
+  const { 
+    data: creditsData, 
+    isLoading: creditsLoading, 
+    refetch: refetchCredits 
+  } = useEmptyReturnCredits({
+    status: statusFilter === 'all' ? undefined : statusFilter as any,
+  });
+  
+  const { 
+    data: summaryData, 
+    isLoading: summaryLoading 
+  } = useEmptyReturnsSummary();
+  
+  const processReturnMutation = useProcessEmptyReturn();
+  const cancelReturnMutation = useCancelEmptyReturn();
+  const expireOverdueMutation = useExpireOverdueReturns();
 
-  const handleProcessReturn = async (creditId: string) => {
-    console.log('Processing return for credit:', creditId);
-    // TODO: Implement actual API call
-    // For now, just update the status locally
-    setCredits(prev => prev.map(credit => 
-      credit.id === creditId 
-        ? { ...credit, status: 'returned' as any, actual_return_date: new Date().toISOString().split('T')[0] }
-        : credit
-    ));
-  };
-
-  const handleCancelCredit = async (creditId: string, reason: string) => {
-    console.log('Cancelling credit:', creditId, 'Reason:', reason);
-    // TODO: Implement actual API call
-    // For now, just update the status locally
-    setCredits(prev => prev.map(credit => 
-      credit.id === creditId 
-        ? { ...credit, status: 'cancelled' as any, cancelled_reason: reason }
-        : credit
-    ));
-  };
-
-  const handleExpireOverdue = async () => {
-    setLoading(true);
-    try {
-      console.log('Expiring overdue credits...');
-      // TODO: Implement actual API call
-      setTimeout(() => {
-        setLoading(false);
-        // Show success message
-      }, 1000);
-    } catch (error) {
-      console.error('Error expiring credits:', error);
-      setLoading(false);
+  const handleProcessReturn = (creditId: string) => {
+    const credit = creditsData?.credits?.find(c => c.id === creditId);
+    if (credit) {
+      setSelectedCredit(credit);
+      setShowProcessingModal(true);
     }
   };
 
-  const filteredCredits = credits.filter(credit => {
-    if (statusFilter === 'all') return true;
-    return credit.status === statusFilter;
-  });
-
-  const formatCurrency = (amount: number, currency: string = 'KES') => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency,
-    }).format(amount);
+  const handleSubmitProcessing = async (data: ReturnProcessingData) => {
+    try {
+      await processReturnMutation.mutateAsync(data);
+      setShowProcessingModal(false);
+      setSelectedCredit(null);
+    } catch (error) {
+      console.error('Error processing return:', error);
+    }
   };
+
+  const handleCancelCredit = async (creditId: string, reason: string) => {
+    try {
+      await cancelReturnMutation.mutateAsync({
+        credit_id: creditId,
+        reason: reason,
+      });
+    } catch (error) {
+      console.error('Error cancelling credit:', error);
+    }
+  };
+
+  const handleExpireOverdue = async () => {
+    try {
+      await expireOverdueMutation.mutateAsync({});
+    } catch (error) {
+      console.error('Error expiring credits:', error);
+    }
+  };
+
+  const handleRefresh = () => {
+    refetchCredits();
+  };
+
+  const handleExport = () => {
+    if (credits.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    // Create CSV headers
+    const headers = [
+      'Order Number',
+      'Customer Name',
+      'Customer Phone',
+      'Product Name',
+      'Product SKU',
+      'Capacity (kg)',
+      'Total Quantity',
+      'Quantity Returned',
+      'Quantity Remaining',
+      'Unit Credit Amount',
+      'Total Credit Amount',
+      'Remaining Credit Amount',
+      'Expected Return Date',
+      'Return Deadline',
+      'Actual Return Date',
+      'Status',
+      'Cylinder Status',
+      'Condition at Return',
+      'Return Reason',
+      'Damage Type',
+      'Damage Severity',
+      'Repair Cost Estimate',
+      'Lost Cylinder Fee',
+      'Cancelled Reason',
+      'Created At',
+    ];
+
+    // Convert data to CSV rows
+    const rows = credits.map(credit => [
+      credit.order?.order_number || '',
+      credit.customer?.name || '',
+      credit.customer?.phone || '',
+      credit.product?.name || '',
+      credit.product?.sku || '',
+      credit.capacity_l || credit.product?.capacity_l || '',
+      credit.quantity || '',
+      credit.quantity_returned || 0,
+      credit.quantity_remaining || credit.quantity || '',
+      credit.unit_credit_amount || '',
+      credit.total_credit_amount || '',
+      credit.remaining_credit_amount || credit.total_credit_amount || '',
+      credit.expected_return_date || '',
+      credit.return_deadline || '',
+      credit.actual_return_date || '',
+      credit.status || '',
+      credit.cylinder_status || '',
+      credit.condition_at_return || '',
+      credit.return_reason || '',
+      credit.damage_assessment?.damage_type || '',
+      credit.damage_assessment?.severity || '',
+      credit.damage_assessment?.repair_cost_estimate || '',
+      credit.lost_cylinder_fee?.total_fee || '',
+      credit.cancelled_reason || '',
+      credit.created_at || '',
+    ]);
+
+    // Create CSV content
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+
+    // Download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `empty_returns_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const credits = creditsData?.credits || [];
+  const summary = summaryData || {
+    total_pending_credits: 0,
+    total_pending_quantity: 0,
+    credits_expiring_soon: 0,
+    credits_overdue: 0,
+  };
+
+  const loading = creditsLoading || summaryLoading || 
+                 processReturnMutation.isLoading || 
+                 cancelReturnMutation.isLoading || 
+                 expireOverdueMutation.isLoading;
 
   return (
     <div className="space-y-6">
@@ -143,18 +207,26 @@ export const EmptyReturnsPage: React.FC = () => {
         <div className="flex items-center space-x-3">
           <button
             onClick={handleExpireOverdue}
-            disabled={loading}
+            disabled={expireOverdueMutation.isLoading}
             className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
           >
             <AlertTriangle className="h-4 w-4" />
-            <span>{loading ? 'Processing...' : 'Expire Overdue'}</span>
+            <span>{expireOverdueMutation.isLoading ? 'Processing...' : 'Expire Overdue'}</span>
           </button>
-          <button className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+          <button 
+            onClick={handleExport}
+            disabled={credits.length === 0}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
             <Download className="h-4 w-4" />
             <span>Export</span>
           </button>
-          <button className="flex items-center space-x-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-            <RefreshCw className="h-4 w-4" />
+          <button 
+            onClick={handleRefresh}
+            disabled={loading}
+            className="flex items-center space-x-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
         </div>
@@ -170,9 +242,9 @@ export const EmptyReturnsPage: React.FC = () => {
             <div className="ml-4">
               <h3 className="text-sm font-medium text-gray-500">Total Pending</h3>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(mockSummary.total_pending_credits)}
+                {formatCurrencySync(summary.total_pending_credits)}
               </p>
-              <p className="text-sm text-gray-500">{mockSummary.total_pending_quantity} cylinders</p>
+              <p className="text-sm text-gray-500">{summary.total_pending_quantity} cylinders</p>
             </div>
           </div>
         </Card>
@@ -185,7 +257,7 @@ export const EmptyReturnsPage: React.FC = () => {
             <div className="ml-4">
               <h3 className="text-sm font-medium text-gray-500">Expiring Soon</h3>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(mockSummary.credits_expiring_soon)}
+                {formatCurrencySync(summary.credits_expiring_soon)}
               </p>
               <p className="text-sm text-gray-500">Within 7 days</p>
             </div>
@@ -200,7 +272,7 @@ export const EmptyReturnsPage: React.FC = () => {
             <div className="ml-4">
               <h3 className="text-sm font-medium text-gray-500">Overdue</h3>
               <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(mockSummary.credits_overdue)}
+                {formatCurrencySync(summary.credits_overdue)}
               </p>
               <p className="text-sm text-gray-500">Past deadline</p>
             </div>
@@ -226,7 +298,7 @@ export const EmptyReturnsPage: React.FC = () => {
         <div className="flex items-center space-x-4">
           <h3 className="text-sm font-medium text-gray-700">Filter by Status:</h3>
           <div className="flex items-center space-x-2">
-            {['all', 'pending', 'returned', 'cancelled', 'expired'].map((status) => (
+            {['all', 'pending', 'partial_returned', 'fully_returned', 'cancelled', 'expired'].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -236,7 +308,10 @@ export const EmptyReturnsPage: React.FC = () => {
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+                {status === 'all' ? 'All' : 
+                 status === 'partial_returned' ? 'Partial' :
+                 status === 'fully_returned' ? 'Completed' :
+                 status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
             ))}
           </div>
@@ -248,14 +323,26 @@ export const EmptyReturnsPage: React.FC = () => {
         <div className="p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Empty Return Credits</h2>
           <EmptyReturnCreditsTable
-            credits={filteredCredits}
-            loading={loading}
+            credits={credits}
+            loading={creditsLoading}
             onProcessReturn={handleProcessReturn}
             onCancelCredit={handleCancelCredit}
             showCustomerInfo={true}
           />
         </div>
       </Card>
+
+      {/* Return Processing Modal */}
+      <ReturnProcessingModal
+        isOpen={showProcessingModal}
+        onClose={() => {
+          setShowProcessingModal(false);
+          setSelectedCredit(null);
+        }}
+        onSubmit={handleSubmitProcessing}
+        emptyReturnCredit={selectedCredit}
+        loading={processReturnMutation.isLoading}
+      />
     </div>
   );
 }; 

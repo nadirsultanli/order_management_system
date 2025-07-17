@@ -15,6 +15,7 @@ import mpesaRouter from './helpers/mpesa';
 import { trucksRouter } from './routes/trucks';
 import { tripsRouter } from './routes/trips';
 import { emptyReturnsRouter } from './routes/emptyReturns';
+import { complianceRouter } from './routes/compliance';
 import { expireCreditsHandler } from './jobs/expireCredits';
 
 dotenv.config();

@@ -61,11 +61,16 @@ export interface OrderLine {
   tax_amount?: number;
   price_including_tax?: number;
   tax_rate?: number;
+  // Partial fill fields
+  fill_percentage?: number;
+  is_partial_fill?: boolean;
+  partial_fill_notes?: string;
   product?: {
     id: string;
     sku: string;
     name: string;
     unit_of_measure: string;
+    variant_type?: 'cylinder' | 'refillable' | 'disposable';
     tax_category?: string;
     tax_rate?: number;
   };
@@ -119,6 +124,10 @@ export interface CreateOrderLineData {
   tax_amount?: number;
   price_including_tax?: number;
   tax_rate?: number;
+  // Partial fill fields
+  fill_percentage?: number;
+  is_partial_fill?: boolean;
+  partial_fill_notes?: string;
 }
 
 export interface UpdateOrderLineData extends Partial<CreateOrderLineData> {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock, RotateCcw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Edit, User, MapPin, Calendar, Package, DollarSign, Clock, RotateCcw, AlertTriangle, Gauge } from 'lucide-react';
 import { useOrderNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { OrderTimeline } from '../components/orders/OrderTimeline';
@@ -527,8 +527,16 @@ export const OrderDetailPage: React.FC = () => {
                         <tr key={line.id}>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {line.product?.name || 'Unknown Product'}
+                              <div className="flex items-center space-x-2">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {line.product?.name || 'Unknown Product'}
+                                </div>
+                                {line.is_partial_fill && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                    <Gauge className="h-3 w-3 mr-1" />
+                                    {line.fill_percentage}% Fill
+                                  </span>
+                                )}
                               </div>
                               <div className="text-sm text-gray-500">
                                 SKU: {line.product?.sku || 'N/A'}
@@ -542,6 +550,11 @@ export const OrderDetailPage: React.FC = () => {
                                   </span>
                                 )}
                               </div>
+                              {line.partial_fill_notes && (
+                                <div className="text-xs text-gray-600 mt-1">
+                                  <span className="font-medium">Fill notes:</span> {line.partial_fill_notes}
+                                </div>
+                              )}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center">

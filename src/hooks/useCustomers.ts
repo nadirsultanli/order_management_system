@@ -214,6 +214,52 @@ export const useValidateAddressNew = () => {
   });
 };
 
+// ============ CUSTOMER DEPOSIT LIMIT HOOKS ============
+
+export const useValidateCustomerDepositLimit = () => {
+  return trpc.customers.validateDepositLimit.useMutation({
+    onError: (error: any) => {
+      console.error('Deposit limit validation error:', error);
+      toast.error('Failed to validate deposit limit');
+    }
+  });
+};
+
+export const useUpdateCustomerDepositLimit = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.customers.updateDepositLimit.useMutation({
+    onSuccess: (result, variables) => {
+      console.log('Customer deposit limit updated successfully:', result);
+      
+      // Invalidate customer queries
+      utils.customers.list.invalidate();
+      utils.customers.getById.invalidate({ customer_id: variables.customer_id });
+      utils.customers.getDepositAnalysis.invalidate({ customer_id: variables.customer_id });
+      
+      toast.success('Customer deposit limit updated successfully');
+    },
+    onError: (error: any) => {
+      console.error('Update customer deposit limit error:', error);
+      toast.error('Failed to update customer deposit limit');
+    },
+  });
+};
+
+export const useCustomerDepositAnalysis = (customerId: string) => {
+  return trpc.customers.getDepositAnalysis.useQuery({
+    customer_id: customerId,
+  }, {
+    enabled: !!customerId && customerId !== 'null' && customerId !== 'undefined',
+    staleTime: 30000, // 30 seconds
+    retry: 1,
+    onError: (error: any) => {
+      console.error('Customer deposit analysis fetch error:', error);
+      toast.error('Failed to load customer deposit analysis');
+    }
+  });
+};
+
 // Utility hook to get customers context
 export const useCustomersContext = () => {
   return trpc.useContext().customers;

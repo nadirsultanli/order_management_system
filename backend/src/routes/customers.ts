@@ -902,6 +902,191 @@ export const customersRouter = router({
   //     };
   //   }),
 
+  // POST /customers/validate-deposit-limit - Validate customer deposit limit
+  validateDepositLimit: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/customers/validate-deposit-limit',
+        tags: ['customers'],
+        summary: 'Validate customer deposit limit',
+        description: 'Check if additional deposit would exceed customer limit',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      customer_id: z.string().uuid(),
+      additional_deposit: z.number().min(0),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Validating customer deposit limit:', input);
+
+      const { data, error } = await ctx.supabase
+        .rpc('check_customer_deposit_limit', {
+          p_customer_id: input.customer_id,
+          p_additional_deposit: input.additional_deposit,
+        });
+
+      if (error) {
+        ctx.logger.error('Error checking deposit limit:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      const result = data[0]; // RPC returns array
+      return {
+        customer_id: input.customer_id,
+        within_limit: result.within_limit,
+        current_exposure: result.current_exposure,
+        deposit_limit: result.deposit_limit,
+        available_limit: result.available_limit,
+        limit_exceeded_by: result.limit_exceeded_by,
+        additional_deposit: input.additional_deposit,
+        new_total_exposure: result.current_exposure + input.additional_deposit,
+      };
+    }),
+
+  // PUT /customers/{id}/deposit-limit - Update customer deposit limit
+  updateDepositLimit: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/customers/{id}/deposit-limit',
+        tags: ['customers'],
+        summary: 'Update customer deposit limit',
+        description: 'Set or update customer deposit limit and alert preferences',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      customer_id: z.string().uuid(),
+      deposit_limit: z.number().min(0).nullable(),
+      deposit_limit_alerts_enabled: z.boolean().optional(),
+      notes: z.string().optional(),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Updating customer deposit limit:', input);
+
+      // Update customer deposit limit
+      const { data, error } = await ctx.supabase
+        .from('customers')
+        .update({
+          deposit_limit: input.deposit_limit,
+          deposit_limit_alerts_enabled: input.deposit_limit_alerts_enabled,
+          updated_at: new Date().toISOString(),
+          updated_by: user.id,
+        })
+        .eq('id', input.customer_id)
+        .select('id, name, deposit_limit, current_deposit_exposure, deposit_limit_alerts_enabled')
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error updating customer deposit limit:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      // Update current deposit exposure
+      await ctx.supabase.rpc('update_customer_deposit_exposure', {
+        p_customer_id: input.customer_id
+      });
+
+      return {
+        customer: data,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+        notes: input.notes,
+      };
+    }),
+
+  // GET /customers/{id}/deposit-analysis - Get customer deposit analysis
+  getDepositAnalysis: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/customers/{id}/deposit-analysis',
+        tags: ['customers'],
+        summary: 'Get customer deposit analysis',
+        description: 'Get comprehensive deposit exposure analysis for customer',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      customer_id: z.string().uuid(),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Getting customer deposit analysis:', input.customer_id);
+
+      // Get deposit analysis view
+      const { data: analysis, error } = await ctx.supabase
+        .from('v_customer_deposit_analysis')
+        .select('*')
+        .eq('customer_id', input.customer_id)
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error fetching customer deposit analysis:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message
+        });
+      }
+
+      // Get recent deposit transactions
+      const { data: recentTransactions } = await ctx.supabase
+        .from('deposit_transactions')
+        .select(`
+          id,
+          transaction_type,
+          amount,
+          transaction_date,
+          notes,
+          order:orders(order_number)
+        `)
+        .eq('customer_id', input.customer_id)
+        .eq('is_voided', false)
+        .order('transaction_date', { ascending: false })
+        .limit(10);
+
+      // Get active empty return credits
+      const { data: activeCredits } = await ctx.supabase
+        .from('empty_return_credits')
+        .select(`
+          id,
+          quantity,
+          quantity_remaining,
+          total_credit_amount,
+          expected_return_date,
+          return_deadline,
+          damage_status,
+          product:products(name, sku, capacity_l)
+        `)
+        .eq('customer_id', input.customer_id)
+        .in('status', ['pending', 'partial_returned', 'grace_period'])
+        .order('return_deadline', { ascending: true });
+
+      return {
+        analysis,
+        recent_transactions: recentTransactions || [],
+        active_credits: activeCredits || [],
+        currency_code: 'KES',
+        analysis_date: new Date().toISOString(),
+      };
+    }),
+
   // Address management endpoints
   
   // GET /customers/{id}/addresses - Get all addresses for a customer

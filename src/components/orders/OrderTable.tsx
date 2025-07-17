@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Eye, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar, ChevronUp, ChevronDown, Edit } from 'lucide-react';
+import { Eye, Truck, Package, Receipt, XCircle, Loader2, ShoppingCart, Calendar, ChevronUp, ChevronDown, Edit, Gauge } from 'lucide-react';
 import { Order } from '../../types/order';
 import { formatCurrencySync } from '../../utils/pricing';
 import { formatDateSync } from '../../utils/order';
@@ -317,8 +317,16 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                       >
                         {formatOrderIdSync(order.id)}
                       </button>
-                      <div className="text-sm text-gray-500">
-                        {order.order_lines?.length || 0} item{(order.order_lines?.length || 0) !== 1 ? 's' : ''}
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-500">
+                          {order.order_lines?.length || 0} item{(order.order_lines?.length || 0) !== 1 ? 's' : ''}
+                        </span>
+                        {order.order_lines?.some(line => line.is_partial_fill) && (
+                          <div className="flex items-center space-x-1 text-orange-600" title="Contains partial fills">
+                            <Gauge className="h-3 w-3" />
+                            <span className="text-xs font-medium">Partial</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>

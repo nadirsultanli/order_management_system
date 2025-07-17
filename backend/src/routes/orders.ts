@@ -849,6 +849,10 @@ export const ordersRouter = router({
             }
           }
           
+          // Check for partial fill and calculate pro-rated pricing
+          const fillPercentage = line.fill_percentage || 100;
+          const isPartialFill = fillPercentage < 100;
+          
           // Calculate deposit and gas charges based on pricing method
           let gasCharge = 0;
           let depositAmount = 0;
@@ -867,18 +871,36 @@ export const ordersRouter = router({
               if (line.include_deposit) {
                 depositAmount = weightBasedPrice.depositAmount;
               }
+              
+              // Apply pro-rated pricing for partial fills (gas only, not deposits)
+              if (isPartialFill) {
+                gasCharge = gasCharge * (fillPercentage / 100);
+              }
+              
               subtotal = gasCharge + depositAmount;
             } else {
               // Fallback to traditional pricing if weight-based fails
               gasCharge = finalUnitPrice * line.quantity;
+              
+              // Apply pro-rated pricing for partial fills
+              if (isPartialFill) {
+                gasCharge = gasCharge * (fillPercentage / 100);
+              }
+              
               subtotal = gasCharge;
             }
           } else {
             // Traditional pricing method
             gasCharge = finalUnitPrice * line.quantity;
+            
+            // Apply pro-rated pricing for partial fills (gas only)
+            if (isPartialFill) {
+              gasCharge = gasCharge * (fillPercentage / 100);
+            }
+            
             subtotal = gasCharge;
             
-            // Add deposit if requested
+            // Add deposit if requested (always full price)
             if (line.include_deposit) {
               const { data: productWithCapacity } = await ctx.supabase
                 .from('products')
@@ -907,6 +929,10 @@ export const ordersRouter = router({
             pricing_method: line.pricing_method || 'per_unit',
             product_sku: product.sku,
             product_name: product.name,
+            // Partial fill fields
+            fill_percentage: line.fill_percentage || 100,
+            is_partial_fill: line.is_partial_fill || false,
+            partial_fill_notes: line.partial_fill_notes || null,
           });
           }
         } else if (input.order_type === 'delivery' && (!input.order_lines || input.order_lines.length === 0)) {
@@ -940,6 +966,49 @@ export const ordersRouter = router({
               code: 'BAD_REQUEST',
               message: `Order total (${totalAmount}) is below minimum order amount (${minimumOrderAmount})`
             });
+          }
+        }
+
+        // Validate customer deposit limit if deposits are included
+        const totalDepositAmount = validatedOrderLines.reduce((sum, line) => sum + (line.deposit_amount || 0), 0);
+        if (totalDepositAmount > 0) {
+          const { data: depositLimitCheck, error: limitCheckError } = await ctx.supabase
+            .rpc('check_customer_deposit_limit', {
+              p_customer_id: input.customer_id,
+              p_additional_deposit: totalDepositAmount,
+            });
+
+          if (limitCheckError) {
+            ctx.logger.warn('Deposit limit check failed:', limitCheckError);
+            // Continue without limit check rather than failing the order
+          } else if (depositLimitCheck && depositLimitCheck.length > 0) {
+            const limitResult = depositLimitCheck[0];
+            
+            if (!limitResult.within_limit) {
+              // Check if customer has alerts enabled
+              const { data: customerSettings } = await ctx.supabase
+                .from('customers')
+                .select('deposit_limit_alerts_enabled, deposit_limit')
+                .eq('id', input.customer_id)
+                .single();
+
+              if (customerSettings?.deposit_limit_alerts_enabled && customerSettings?.deposit_limit) {
+                throw new TRPCError({
+                  code: 'BAD_REQUEST',
+                  message: `Deposit limit exceeded. Customer limit: KES ${limitResult.deposit_limit.toFixed(2)}, Current exposure: KES ${limitResult.current_exposure.toFixed(2)}, Additional deposit: KES ${totalDepositAmount.toFixed(2)}, Exceeded by: KES ${limitResult.limit_exceeded_by.toFixed(2)}`
+                });
+              } else {
+                // Log warning but allow order to proceed
+                ctx.logger.warn('Customer deposit limit exceeded but alerts disabled:', {
+                  customer_id: input.customer_id,
+                  limit_exceeded_by: limitResult.limit_exceeded_by
+                });
+                validationWarnings.push(`Customer deposit limit exceeded by KES ${limitResult.limit_exceeded_by.toFixed(2)}`);
+              }
+            } else if (limitResult.available_limit && limitResult.available_limit < (totalDepositAmount * 2)) {
+              // Warn when approaching limit (less than double current deposit remaining)
+              validationWarnings.push(`Customer approaching deposit limit. Available: KES ${limitResult.available_limit.toFixed(2)}`);
+            }
           }
         }
 
@@ -990,6 +1059,10 @@ export const ordersRouter = router({
             pricing_method: line.pricing_method || 'per_unit',
             qty_tagged: 0, // Default to 0, will be updated during fulfillment
             qty_untagged: line.quantity, // Start with all quantity untagged
+            // Partial fill fields
+            fill_percentage: line.fill_percentage || 100,
+            is_partial_fill: line.is_partial_fill || false,
+            partial_fill_notes: line.partial_fill_notes || null,
           }));
           
           ctx.logger.info('Creating order lines:', {
@@ -2157,9 +2230,19 @@ export const ordersRouter = router({
         continue;
       }
       
+      // Handle partial fill for visit conversion
+      const fillPercentage = line.fill_percentage || 100;
+      const isPartialFill = fillPercentage < 100;
+      
       // Calculate deposit and gas charges for visit conversion
       // Note: Visit conversions use traditional pricing (per_unit) by default
-      const gasCharge = finalUnitPrice * line.quantity;
+      let gasCharge = finalUnitPrice * line.quantity;
+      
+      // Apply pro-rated pricing for partial fills (gas only)
+      if (isPartialFill) {
+        gasCharge = gasCharge * (fillPercentage / 100);
+      }
+      
       let depositAmount = 0;
       let subtotal = gasCharge;
       
@@ -2179,6 +2262,10 @@ export const ordersRouter = router({
         pricing_method: 'per_unit',  // Default to per_unit for visit conversions
         product_sku: product.sku,
         product_name: product.name,
+        // Partial fill fields
+        fill_percentage: fillPercentage,
+        is_partial_fill: isPartialFill,
+        partial_fill_notes: line.partial_fill_notes || null,
       });
     }
 
@@ -2219,6 +2306,10 @@ export const ordersRouter = router({
       pricing_method: line.pricing_method || 'per_unit',
       qty_tagged: 0,
       qty_untagged: line.quantity,
+      // Partial fill fields
+      fill_percentage: line.fill_percentage || 100,
+      is_partial_fill: line.is_partial_fill || false,
+      partial_fill_notes: line.partial_fill_notes || null,
     }));
 
     const { error: linesError } = await ctx.supabase

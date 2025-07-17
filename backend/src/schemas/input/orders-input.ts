@@ -74,12 +74,19 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
     price_list_id: z.string().uuid().optional(),
     include_deposit: z.boolean().default(false),
     pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).default('per_unit'),
+    // Partial fill fields
+    fill_percentage: z.number().min(25).max(100).optional().default(100),
+    is_partial_fill: z.boolean().optional().default(false),
+    partial_fill_notes: z.string().optional(),
   });
 
   export const OrderLineConvertSchema = z.object({
     product_id: z.string().uuid(),
     quantity: z.number().positive(),
-
+    // Partial fill fields for visit conversions
+    fill_percentage: z.number().min(25).max(100).optional().default(100),
+    is_partial_fill: z.boolean().optional().default(false),
+    partial_fill_notes: z.string().optional(),
   });
 
   export const CreateOrderSchema = z.object({

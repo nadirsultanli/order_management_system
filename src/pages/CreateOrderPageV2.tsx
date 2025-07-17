@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Package, User, MapPin, Calendar, ShoppingCart, AlertTriangle, Plus, X, Info, DollarSign, Trash2, Clock, FileText, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Check, Package, User, MapPin, Calendar, ShoppingCart, AlertTriangle, Plus, X, Info, DollarSign, Trash2, Clock, FileText, ChevronRight, Gauge } from 'lucide-react';
 import { useCustomers } from '../hooks/useCustomers';
 import { useAddresses, useCreateAddress } from '../hooks/useAddresses';
 import { useProducts } from '../hooks/useProducts';
@@ -12,6 +12,7 @@ import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
+import { FillPercentageSelector } from '../components/orders/FillPercentageSelector';
 import { CreateOrderData } from '../types/order';
 import { CreateAddressData, Address } from '../types/address';
 import { Customer } from '../types/customer';
@@ -29,6 +30,13 @@ interface OrderLineItem {
   tax_amount?: number;
   price_including_tax?: number;
   tax_rate?: number;
+  // Partial fill fields
+  fill_percentage?: number;
+  is_partial_fill?: boolean;
+  partial_fill_notes?: string;
+  // Product info for fill logic
+  variant_type?: 'cylinder' | 'refillable' | 'disposable';
+  unit_of_measure?: string;
 }
 
 export const CreateOrderPageV2: React.FC = () => {
@@ -47,6 +55,9 @@ export const CreateOrderPageV2: React.FC = () => {
   const [orderLines, setOrderLines] = useState<OrderLineItem[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<{[key: string]: number}>({});
   const [selectedWarehouseId, setSelectedWarehouseId] = useState('');
+  // Fill percentages for gas products
+  const [fillPercentages, setFillPercentages] = useState<{[key: string]: number}>({});
+  const [fillNotes, setFillNotes] = useState<{[key: string]: string}>({});
   
   // Step 4: Delivery Notes
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split('T')[0]);
@@ -137,6 +148,21 @@ export const CreateOrderPageV2: React.FC = () => {
   
   const { subtotal, taxAmount, grandTotal } = calculateTotals();
   
+  // Utility function to check if a product supports partial fills (gas cylinders)
+  const isGasProduct = (product: Product) => {
+    return product.variant_type === 'cylinder' || product.variant_type === 'refillable';
+  };
+  
+  // Utility function to calculate pro-rated pricing for partial fills
+  const calculatePartialFillPrice = (basePrice: number, fillPercentage: number) => {
+    if (fillPercentage >= 100) return basePrice;
+    // Pro-rate the gas portion, keep cylinder costs at full price
+    // For now, assume 70% of price is gas, 30% is cylinder/handling
+    const gasPortion = basePrice * 0.7;
+    const cylinderPortion = basePrice * 0.3;
+    return cylinderPortion + (gasPortion * (fillPercentage / 100));
+  };
+  
   // Get available warehouses based on selected products
   const getAvailableWarehouses = () => {
     if (!inventoryData?.inventory || Object.keys(selectedProducts).length === 0) {
@@ -200,6 +226,8 @@ export const CreateOrderPageV2: React.FC = () => {
     setSelectedAddressId('');
     setSelectedProducts({});
     setOrderLines([]);
+    setFillPercentages({});
+    setFillNotes({});
   };
   
   // Handle order type change
@@ -212,18 +240,50 @@ export const CreateOrderPageV2: React.FC = () => {
     // Clear products and order lines when switching order type
     setSelectedProducts({});
     setOrderLines([]);
+    setFillPercentages({});
+    setFillNotes({});
   };
   
   // Handle product selection
   const handleProductSelect = (productId: string, quantity: number) => {
     if (quantity <= 0) {
       const newProducts = { ...selectedProducts };
+      const newFillPercentages = { ...fillPercentages };
+      const newFillNotes = { ...fillNotes };
       delete newProducts[productId];
+      delete newFillPercentages[productId];
+      delete newFillNotes[productId];
       setSelectedProducts(newProducts);
+      setFillPercentages(newFillPercentages);
+      setFillNotes(newFillNotes);
     } else {
       setSelectedProducts({
         ...selectedProducts,
         [productId]: quantity
+      });
+      
+      // Initialize fill percentage to 100% for new gas products
+      const product = products.find(p => p.id === productId);
+      if (product && isGasProduct(product) && !fillPercentages[productId]) {
+        setFillPercentages({
+          ...fillPercentages,
+          [productId]: 100
+        });
+      }
+    }
+  };
+  
+  // Handle fill percentage changes
+  const handleFillPercentageChange = (productId: string, percentage: number, notes?: string) => {
+    setFillPercentages({
+      ...fillPercentages,
+      [productId]: percentage
+    });
+    
+    if (notes !== undefined) {
+      setFillNotes({
+        ...fillNotes,
+        [productId]: notes
       });
     }
   };
@@ -238,7 +298,17 @@ export const CreateOrderPageV2: React.FC = () => {
         if (!product) return;
         
         const pricingInfo = productPrices && productPrices[productId];
-        const unitPrice = pricingInfo?.finalPrice || 0;
+        let unitPrice = pricingInfo?.finalPrice || 0;
+        
+        // Get fill percentage for this product
+        const fillPercentage = fillPercentages[productId] || 100;
+        const isPartialFill = fillPercentage < 100;
+        const fillNotesForProduct = fillNotes[productId] || '';
+        
+        // Apply pro-rated pricing for gas products with partial fills
+        if (isGasProduct(product) && isPartialFill) {
+          unitPrice = calculatePartialFillPrice(unitPrice, fillPercentage);
+        }
         
         newOrderLines.push({
           product_id: productId,
@@ -247,16 +317,23 @@ export const CreateOrderPageV2: React.FC = () => {
           quantity,
           unit_price: unitPrice,
           subtotal: unitPrice * quantity,
-          price_excluding_tax: pricingInfo?.priceExcludingTax,
-          tax_amount: pricingInfo?.taxAmount,
-          price_including_tax: pricingInfo?.priceIncludingTax,
+          price_excluding_tax: isPartialFill ? undefined : pricingInfo?.priceExcludingTax,
+          tax_amount: isPartialFill ? undefined : pricingInfo?.taxAmount,
+          price_including_tax: isPartialFill ? undefined : pricingInfo?.priceIncludingTax,
           tax_rate: pricingInfo?.taxRate,
+          // Fill percentage data
+          fill_percentage: fillPercentage,
+          is_partial_fill: isPartialFill,
+          partial_fill_notes: fillNotesForProduct,
+          // Product info for display
+          variant_type: product.variant_type,
+          unit_of_measure: product.unit_of_measure,
         });
       });
       
       setOrderLines(newOrderLines);
     }
-  }, [selectedWarehouseId, selectedProducts, products, productPrices]);
+  }, [selectedWarehouseId, selectedProducts, products, productPrices, fillPercentages, fillNotes]);
   
   // Handle address creation
   const handleAddressSubmit = async (addressData: CreateAddressData) => {
@@ -297,6 +374,10 @@ export const CreateOrderPageV2: React.FC = () => {
           tax_amount: line.tax_amount,
           price_including_tax: line.price_including_tax,
           tax_rate: line.tax_rate,
+          // Include fill percentage data
+          fill_percentage: line.fill_percentage,
+          is_partial_fill: line.is_partial_fill,
+          partial_fill_notes: line.partial_fill_notes,
         })) : undefined,
       };
       
@@ -719,8 +800,26 @@ export const CreateOrderPageV2: React.FC = () => {
                               >
                                 +
                               </button>
+                              {isGasProduct(product) && (
+                                <div className="flex items-center space-x-1 text-xs text-gray-500">
+                                  <Gauge className="h-3 w-3" />
+                                  <span>{fillPercentages[product.id] || 100}%</span>
+                                </div>
+                              )}
                             </div>
                           </div>
+                          
+                          {/* Fill Percentage Selector for Gas Products */}
+                          {currentQty > 0 && isGasProduct(product) && (
+                            <div className="mt-3">
+                              <FillPercentageSelector
+                                value={fillPercentages[product.id] || 100}
+                                onChange={(percentage, notes) => handleFillPercentageChange(product.id, percentage, notes)}
+                                notes={fillNotes[product.id] || ''}
+                                onNotesChange={(notes) => handleFillPercentageChange(product.id, fillPercentages[product.id] || 100, notes)}
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -739,15 +838,33 @@ export const CreateOrderPageV2: React.FC = () => {
                         if (!product) return null;
                         
                         const pricingInfo = productPrices && productPrices[productId];
-                        const unitPrice = pricingInfo?.finalPrice || 0;
+                        let unitPrice = pricingInfo?.finalPrice || 0;
+                        const fillPercentage = fillPercentages[productId] || 100;
+                        const isPartialFill = fillPercentage < 100;
+                        
+                        // Apply pro-rated pricing for gas products with partial fills
+                        if (isGasProduct(product) && isPartialFill) {
+                          unitPrice = calculatePartialFillPrice(unitPrice, fillPercentage);
+                        }
                         
                         return (
                           <div key={productId} className="p-3 border border-gray-200 rounded-lg">
                             <div className="flex items-center justify-between">
-                              <div>
-                                <div className="font-medium">{product.name}</div>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2">
+                                  <div className="font-medium">{product.name}</div>
+                                  {isGasProduct(product) && isPartialFill && (
+                                    <div className="flex items-center space-x-1">
+                                      <Gauge className="h-3 w-3 text-orange-500" />
+                                      <span className="text-xs text-orange-600 font-medium">{fillPercentage}%</span>
+                                    </div>
+                                  )}
+                                </div>
                                 <div className="text-sm text-gray-500">
                                   {quantity} × {formatCurrencySync(unitPrice)} = {formatCurrencySync(quantity * unitPrice)}
+                                  {isPartialFill && (
+                                    <span className="text-orange-600 ml-1">(Partial Fill)</span>
+                                  )}
                                 </div>
                               </div>
                               <button
@@ -1007,10 +1124,26 @@ export const CreateOrderPageV2: React.FC = () => {
                       {orderLines.map((line) => (
                         <div key={line.product_id} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
                           <div>
-                            <div className="font-medium text-sm">{line.product_name}</div>
+                            <div className="flex items-center space-x-2">
+                              <div className="font-medium text-sm">{line.product_name}</div>
+                              {line.is_partial_fill && (
+                                <div className="flex items-center space-x-1">
+                                  <Gauge className="h-3 w-3 text-orange-500" />
+                                  <span className="text-xs text-orange-600 font-medium">{line.fill_percentage}%</span>
+                                </div>
+                              )}
+                            </div>
                             <div className="text-xs text-gray-500">
                               {line.quantity} × {formatCurrencySync(line.unit_price)}
+                              {line.is_partial_fill && (
+                                <span className="text-orange-600 ml-1">(Partial Fill)</span>
+                              )}
                             </div>
+                            {line.partial_fill_notes && (
+                              <div className="text-xs text-gray-400 mt-1">
+                                Note: {line.partial_fill_notes}
+                              </div>
+                            )}
                           </div>
                           <div className="font-medium text-sm">
                             {formatCurrencySync(line.subtotal)}

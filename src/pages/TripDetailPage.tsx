@@ -14,7 +14,8 @@ import {
   X,
   AlertTriangle,
   MoreVertical,
-  Plus
+  Plus,
+  Gauge
 } from 'lucide-react';
 import { 
   useTrip, 
@@ -507,7 +508,7 @@ export const TripDetailPage: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-gray-600 space-y-1">
                         <div className="flex justify-between">
                           <span>Estimated Weight:</span>
                           <span>{tripOrder.estimated_weight_kg.toFixed(1)} kg</span>
@@ -516,6 +517,30 @@ export const TripDetailPage: React.FC = () => {
                           <div className="flex justify-between">
                             <span>Actual Weight:</span>
                             <span>{tripOrder.actual_weight_kg.toFixed(1)} kg</span>
+                          </div>
+                        )}
+                        
+                        {/* Show partial fill information */}
+                        {tripOrder.order?.order_lines && (
+                          <div>
+                            {tripOrder.order.order_lines.some((line: any) => line.is_partial_fill) && (
+                              <div className="flex items-center space-x-1 text-orange-600 mt-2">
+                                <Gauge className="h-3 w-3" />
+                                <span className="text-xs font-medium">Contains partial fills</span>
+                              </div>
+                            )}
+                            
+                            {/* Show fill details for each partial fill */}
+                            {tripOrder.order.order_lines.filter((line: any) => line.is_partial_fill).map((line: any) => (
+                              <div key={line.id} className="text-xs text-orange-700 mt-1">
+                                • {line.product?.name}: {line.fill_percentage}% fill
+                                {line.partial_fill_notes && (
+                                  <div className="text-gray-600 ml-2">
+                                    Note: {line.partial_fill_notes}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
