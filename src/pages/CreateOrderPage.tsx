@@ -106,6 +106,23 @@ export const CreateOrderPage: React.FC = () => {
     selectedCustomerId || undefined,
     productIds.length > 0 // Only enable when we have product IDs
   );
+
+  // Get inventory data for the selected warehouse to show availability
+  const { data: warehouseInventory } = useInventoryNew({
+    warehouse_id: selectedWarehouseId || undefined,
+    limit: 1000 // Get all inventory items
+  });
+
+  // Helper function to get available quantity for a product
+  const getAvailableQuantity = (productId: string): number => {
+    if (!warehouseInventory?.inventory) return 0;
+    
+    const inventoryItem = warehouseInventory.inventory.find(
+      (item: any) => item.product_id === productId
+    );
+    
+    return inventoryItem?.available_qty || 0;
+  };
   
   // Debug: Log pricing data
   useEffect(() => {
@@ -626,38 +643,27 @@ export const CreateOrderPage: React.FC = () => {
     !isProductsLoading && !createOrder.isPending;
 
   const getStockInfo = (productId: string) => {
-    // Get real stock availability from inventory data
-    if (!inventoryData?.inventory) {
+    // Get real stock availability from warehouse inventory data
+    if (!warehouseInventory?.inventory) {
       return 0;
     }
     
-    // If a warehouse is selected, only check stock from that warehouse
-    let productInventory = inventoryData.inventory.filter(
+    // Find inventory for this specific product in the selected warehouse
+    const productInventoryItem = warehouseInventory.inventory.find(
       (inv: any) => inv.product_id === productId
     );
     
-    // Filter by selected warehouse if one is chosen
-    if (selectedWarehouseId) {
-      productInventory = productInventory.filter(
-        (inv: any) => inv.warehouse_id === selectedWarehouseId
-      );
+    if (!productInventoryItem) {
+      return 0;
     }
     
-    if (productInventory.length === 0) return 0;
-    
-    // Sum available stock from the selected warehouse(s)
+    // Calculate available stock from this inventory item
     // Available stock = qty_full - qty_reserved (never negative)
-    const totalAvailable = productInventory.reduce(
-      (sum: number, inv: any) => {
-        const qtyFull = Number(inv.qty_full) || 0;
-        const qtyReserved = Number(inv.qty_reserved) || 0;
-        const available = Math.max(0, qtyFull - qtyReserved);
-        return sum + available;
-      }, 
-      0
-    );
+    const qtyFull = Number(productInventoryItem.qty_full) || 0;
+    const qtyReserved = Number(productInventoryItem.qty_reserved) || 0;
+    const available = Math.max(0, qtyFull - qtyReserved);
     
-    return totalAvailable;
+    return available;
   };
 
   const getStockStatusClass = (available: number) => {
@@ -1264,29 +1270,46 @@ export const CreateOrderPage: React.FC = () => {
                                   </span>
                                 </div>
                                 <div className="flex flex-wrap gap-1 mb-2">
-                                  {[25, 33, 50, 67, 75, 90, 100].map((percentage) => (
-                                    <button
-                                      key={percentage}
-                                      onClick={() => {
-                                        setFillPercentages({
-                                          ...fillPercentages,
-                                          [product.id]: percentage
-                                        });
-                                        // Update existing order line if present
-                                        const existingLine = orderLines.find(line => line.product_id === product.id);
-                                        if (existingLine) {
-                                          handleUpdateFillPercentage(product.id, percentage);
-                                        }
-                                      }}
-                                      className={`px-2 py-1 text-xs rounded border ${
-                                        (fillPercentages[product.id] || 100) === percentage
-                                          ? 'bg-blue-600 text-white border-blue-600'
-                                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                                      }`}
-                                    >
-                                      {percentage}%
-                                    </button>
-                                  ))}
+                                  {[25, 33, 50, 67, 75, 90, 100].map((percentage) => {
+                                    const isSelected = (fillPercentages[product.id] || 100) === percentage;
+                                    const isFullFill = percentage === 100;
+                                    
+                                    return (
+                                      <button
+                                        key={percentage}
+                                        onClick={() => {
+                                          console.log(`🔄 Setting fill percentage to ${percentage}% for product ${product.id}`);
+                                          setFillPercentages({
+                                            ...fillPercentages,
+                                            [product.id]: percentage
+                                          });
+                                          
+                                          // Clear partial fill notes if setting to 100%
+                                          if (percentage === 100) {
+                                            setFillNotes({
+                                              ...fillNotes,
+                                              [product.id]: ''
+                                            });
+                                          }
+                                          
+                                          // Update existing order line if present
+                                          const existingLine = orderLines.find(line => line.product_id === product.id);
+                                          if (existingLine) {
+                                            handleUpdateFillPercentage(product.id, percentage);
+                                          }
+                                        }}
+                                        className={`px-2 py-1 text-xs rounded border transition-colors ${
+                                          isSelected
+                                            ? isFullFill 
+                                              ? 'bg-green-600 text-white border-green-600' 
+                                              : 'bg-orange-600 text-white border-orange-600'
+                                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        {percentage}%
+                                      </button>
+                                    );
+                                  })}
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   <input
@@ -1296,20 +1319,57 @@ export const CreateOrderPage: React.FC = () => {
                                     value={fillPercentages[product.id] || 100}
                                     onChange={(e) => {
                                       const value = Math.min(100, Math.max(1, parseInt(e.target.value) || 100));
+                                      console.log(`🔄 Custom fill percentage set to ${value}% for product ${product.id}`);
+                                      
                                       setFillPercentages({
                                         ...fillPercentages,
                                         [product.id]: value
                                       });
+                                      
+                                      // Clear partial fill notes if setting to 100%
+                                      if (value === 100) {
+                                        setFillNotes({
+                                          ...fillNotes,
+                                          [product.id]: ''
+                                        });
+                                      }
+                                      
                                       // Update existing order line if present
                                       const existingLine = orderLines.find(line => line.product_id === product.id);
                                       if (existingLine) {
                                         handleUpdateFillPercentage(product.id, value);
                                       }
                                     }}
-                                    className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
+                                    className={`w-16 px-2 py-1 text-sm border rounded transition-colors ${
+                                      (fillPercentages[product.id] || 100) === 100
+                                        ? 'border-green-300 bg-green-50' 
+                                        : 'border-orange-300 bg-orange-50'
+                                    }`}
                                   />
                                   <span className="text-sm text-gray-500">%</span>
                                 </div>
+                                
+                                {/* Partial Fill Notes - Only show when less than 100% */}
+                                {(fillPercentages[product.id] || 100) < 100 && (
+                                  <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                                    <label className="block text-sm font-medium text-orange-800 mb-2">
+                                      Partial Fill Notes (Optional):
+                                    </label>
+                                    <textarea
+                                      value={fillNotes[product.id] || ''}
+                                      onChange={(e) => setFillNotes({
+                                        ...fillNotes,
+                                        [product.id]: e.target.value
+                                      })}
+                                      placeholder="Add notes about this partial fill..."
+                                      className="w-full px-3 py-2 border border-orange-300 rounded-md text-sm bg-white"
+                                      rows={2}
+                                    />
+                                    <div className="mt-2 text-xs text-orange-700">
+                                      💡 Gas pricing will be prorated to {fillPercentages[product.id] || 100}%
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
 
@@ -1350,21 +1410,21 @@ export const CreateOrderPage: React.FC = () => {
                           <div className="ml-4 flex-shrink-0">
                             <button
                               onClick={() => handleAddProduct(product.id)}
-                              disabled={cannotAddProduct || isPricingLoading}
+                              disabled={cannotAddProduct || isPricingLoading || isOutOfStock}
                               title={
                                 isPricingLoading
                                   ? "Loading pricing..."
+                                  : isOutOfStock
+                                    ? `Out of stock (0 available)`
                                   : cannotAddProduct 
-                                    ? isOutOfStock 
-                                      ? "Out of stock" 
-                                      : hasNoPricing 
-                                        ? "No price set" 
-                                        : "Maximum quantity reached"
-                                    : "Add to order"
+                                    ? hasNoPricing 
+                                      ? "No price set" 
+                                      : `Maximum quantity (${stockAvailable}) already in order`
+                                    : `Add to order (${stockAvailable} available)`
                               }
                               className={`
                                 flex items-center justify-center w-10 h-10 rounded-lg text-sm font-medium transition-all
-                                ${cannotAddProduct || isPricingLoading
+                                ${cannotAddProduct || isPricingLoading || isOutOfStock
                                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                   : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm hover:shadow'
                                 }
