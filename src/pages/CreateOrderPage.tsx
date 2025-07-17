@@ -108,10 +108,21 @@ export const CreateOrderPage: React.FC = () => {
   );
 
   // Get inventory data for the selected warehouse to show availability
-  const { data: warehouseInventory } = useInventoryNew({
+  const { data: warehouseInventory, isLoading: isInventoryLoading, error: inventoryError } = useInventoryNew({
     warehouse_id: selectedWarehouseId || undefined,
     limit: 1000 // Get all inventory items
   });
+
+  // Debug inventory data
+  useEffect(() => {
+    console.log('🏪 Warehouse Inventory Debug:', {
+      selectedWarehouseId,
+      warehouseInventory,
+      isInventoryLoading,
+      inventoryError,
+      inventoryItems: warehouseInventory?.inventory?.length || 0
+    });
+  }, [warehouseInventory, selectedWarehouseId, isInventoryLoading]);
 
   // Helper function to get available quantity for a product
   const getAvailableQuantity = (productId: string): number => {
@@ -658,10 +669,19 @@ export const CreateOrderPage: React.FC = () => {
     }
     
     // Calculate available stock from this inventory item
-    // Available stock = qty_full - qty_reserved (never negative)
-    const qtyFull = Number(productInventoryItem.qty_full) || 0;
-    const qtyReserved = Number(productInventoryItem.qty_reserved) || 0;
+    // Try different field names based on inventory API response
+    const qtyFull = Number(productInventoryItem.qty_full || productInventoryItem.available_qty || productInventoryItem.quantity_available || productInventoryItem.stock_qty) || 0;
+    const qtyReserved = Number(productInventoryItem.qty_reserved || productInventoryItem.reserved_qty || 0) || 0;
     const available = Math.max(0, qtyFull - qtyReserved);
+    
+    // Debug logging to see inventory data structure
+    console.log(`📦 Inventory for product ${productId}:`, {
+      productInventoryItem,
+      qtyFull,
+      qtyReserved,
+      calculated: available,
+      rawData: productInventoryItem
+    });
     
     return available;
   };
@@ -1279,17 +1299,22 @@ export const CreateOrderPage: React.FC = () => {
                                         key={percentage}
                                         onClick={() => {
                                           console.log(`🔄 Setting fill percentage to ${percentage}% for product ${product.id}`);
-                                          setFillPercentages({
-                                            ...fillPercentages,
-                                            [product.id]: percentage
+                                          console.log(`Previous percentage:`, fillPercentages[product.id]);
+                                          
+                                          // Use functional updates to ensure state consistency
+                                          setFillPercentages(prev => {
+                                            const updated = { ...prev, [product.id]: percentage };
+                                            console.log(`Updated fillPercentages:`, updated);
+                                            return updated;
                                           });
                                           
                                           // Clear partial fill notes if setting to 100%
                                           if (percentage === 100) {
-                                            setFillNotes({
-                                              ...fillNotes,
+                                            console.log(`Clearing notes for 100% fill`);
+                                            setFillNotes(prev => ({
+                                              ...prev,
                                               [product.id]: ''
-                                            });
+                                            }));
                                           }
                                           
                                           // Update existing order line if present
@@ -1321,17 +1346,19 @@ export const CreateOrderPage: React.FC = () => {
                                       const value = Math.min(100, Math.max(1, parseInt(e.target.value) || 100));
                                       console.log(`🔄 Custom fill percentage set to ${value}% for product ${product.id}`);
                                       
-                                      setFillPercentages({
-                                        ...fillPercentages,
+                                      // Use functional updates to ensure state consistency
+                                      setFillPercentages(prev => ({
+                                        ...prev,
                                         [product.id]: value
-                                      });
+                                      }));
                                       
                                       // Clear partial fill notes if setting to 100%
                                       if (value === 100) {
-                                        setFillNotes({
-                                          ...fillNotes,
+                                        console.log(`Clearing notes for 100% custom fill`);
+                                        setFillNotes(prev => ({
+                                          ...prev,
                                           [product.id]: ''
-                                        });
+                                        }));
                                       }
                                       
                                       // Update existing order line if present
