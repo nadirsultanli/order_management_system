@@ -143,28 +143,20 @@ export const CreateOrderPage: React.FC = () => {
     
     if (!inventoryItem) return 0;
     
-    // Try multiple possible field names for available quantity
-    const possibleQtyFields = [
-      'available_qty',
-      'qty_available', 
-      'quantity_available',
-      'stock_qty',
-      'qty_full',
-      'current_stock',
-      'quantity',
-      'qty'
-    ];
-    
-    let availableQty = 0;
-    for (const field of possibleQtyFields) {
-      if (inventoryItem[field] !== undefined && inventoryItem[field] !== null) {
-        availableQty = Number(inventoryItem[field]) || 0;
-        console.log(`📦 Found stock for ${productId} using field '${field}': ${availableQty}`);
-        break;
-      }
+    // The backend returns qty_available which is calculated as qty_full - qty_reserved
+    // If qty_available exists, use it. Otherwise calculate it ourselves
+    if (inventoryItem.qty_available !== undefined && inventoryItem.qty_available !== null) {
+      return Math.max(0, Number(inventoryItem.qty_available) || 0);
     }
     
-    return Math.max(0, availableQty);
+    // Fallback: calculate available quantity from full quantity minus reserved
+    const qtyFull = Number(inventoryItem.qty_full) || 0;
+    const qtyReserved = Number(inventoryItem.qty_reserved) || 0;
+    const availableQty = Math.max(0, qtyFull - qtyReserved);
+    
+    console.log(`📦 Stock for ${productId}: Full=${qtyFull}, Reserved=${qtyReserved}, Available=${availableQty}`);
+    
+    return availableQty;
   };
   
   // Debug: Log pricing data
@@ -1232,25 +1224,34 @@ export const CreateOrderPage: React.FC = () => {
                             )}
                             
                             {/* Stock Status with Enhanced Visual Indicators */}
-                            <div className="flex items-center space-x-2 mb-2">
-                              {isOutOfStock ? (
-                                <div className="flex items-center space-x-1 text-red-600">
-                                  <X className="h-4 w-4" />
-                                  <span className="text-sm font-medium">Out of Stock</span>
-                                </div>
-                              ) : isLowStock ? (
-                                <div className="flex items-center space-x-1 text-orange-600">
-                                  <AlertTriangle className="h-4 w-4" />
-                                  <span className="text-sm font-medium">Low Stock: {stockAvailable} left</span>
-                                </div>
-                              ) : (
-                                <div className="flex items-center space-x-1 text-green-600">
-                                  <Check className="h-4 w-4" />
-                                  <span className="text-sm">
-                                    {stockAvailable} available{isInOrder ? ` (${currentOrderQuantity} in order)` : ''}
+                            <div className="mb-2">
+                              <div className="flex items-center space-x-2 mb-1">
+                                {isOutOfStock ? (
+                                  <div className="flex items-center space-x-1 text-red-600">
+                                    <X className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Out of Stock</span>
+                                  </div>
+                                ) : isLowStock ? (
+                                  <div className="flex items-center space-x-1 text-orange-600">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Low Stock: {stockAvailable} left</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center space-x-1 text-green-600">
+                                    <Check className="h-4 w-4" />
+                                    <span className="text-sm">In Stock</span>
+                                  </div>
+                                )}
+                              </div>
+                              {/* Always show availability number */}
+                              <div className={`text-lg font-semibold ${stockStatusClass}`}>
+                                {stockAvailable} available
+                                {isInOrder && currentOrderQuantity > 0 && (
+                                  <span className="text-sm font-normal text-gray-600 ml-2">
+                                    ({currentOrderQuantity} already in order)
                                   </span>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
 
                             {/* Pricing Status with Enhanced Visual Indicators */}
@@ -1407,7 +1408,19 @@ export const CreateOrderPage: React.FC = () => {
                                       rows={2}
                                     />
                                     <div className="mt-2 text-xs text-orange-700">
-                                      💡 Gas pricing will be prorated to {fillPercentages[product.id] || 100}%
+                                      💡 Gas pricing will be prorated to {fillPercentages[product.id]}%
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* Full Fill Indicator - Show when 100% is selected */}
+                                {(fillPercentages[product.id] || 100) === 100 && (
+                                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <div className="flex items-center space-x-2">
+                                      <Check className="h-4 w-4 text-green-600" />
+                                      <span className="text-sm font-medium text-green-800">
+                                        Full cylinder fill - 100% capacity
+                                      </span>
                                     </div>
                                   </div>
                                 )}
@@ -1512,11 +1525,24 @@ export const CreateOrderPage: React.FC = () => {
                                 min="1"
                                 max={stockAvailable}
                                 value={line.quantity}
-                                onChange={(e) => handleUpdateQuantity(line.product_id, parseInt(e.target.value) || 0)}
+                                onChange={(e) => {
+                                  const newQty = parseInt(e.target.value) || 0;
+                                  // Enforce max quantity based on stock availability
+                                  const validQty = Math.min(newQty, stockAvailable);
+                                  handleUpdateQuantity(line.product_id, validQty);
+                                }}
+                                onBlur={(e) => {
+                                  // Ensure value is within bounds on blur
+                                  const newQty = parseInt(e.target.value) || 1;
+                                  const validQty = Math.max(1, Math.min(newQty, stockAvailable));
+                                  if (newQty !== validQty) {
+                                    handleUpdateQuantity(line.product_id, validQty);
+                                  }
+                                }}
                                 className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                               />
-                              <span className="text-xs text-gray-500">
-                                (max: {stockAvailable})
+                              <span className={`text-xs ${line.quantity >= stockAvailable ? 'text-orange-600 font-medium' : 'text-gray-500'}`}>
+                                (max: {stockAvailable} {line.quantity >= stockAvailable ? '- limit reached' : ''})
                               </span>
                             </div>
                             <div className="text-right">
