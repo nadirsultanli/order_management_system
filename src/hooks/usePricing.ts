@@ -283,6 +283,32 @@ export const useUpdatePriceListItemNew = () => {
   });
 };
 
+// Hook for deleting price list items
+export const useDeletePriceListItemNew = () => {
+  const utils = trpc.useContext();
+  
+  return trpc.pricing.deleteItem.useMutation({
+    onSuccess: (result) => {
+      console.log('Price list item deleted successfully:', result);
+      
+      // Invalidate price list items
+      utils.pricing.getPriceListItems.invalidate({ price_list_id: result.price_list_id });
+      utils.pricing.getPriceList.invalidate({ price_list_id: result.price_list_id });
+      
+      // Invalidate product pricing to refresh the product view
+      utils.pricing.getProductPriceListItems.invalidate();
+      utils.pricing.getProductPrices.invalidate();
+      utils.pricing.getProductPrice.invalidate();
+      
+      toast.success('Price list item deleted successfully');
+    },
+    onError: (error) => {
+      console.error('Delete price list item error:', error);
+      toast.error(error.message || 'Failed to delete price list item');
+    },
+  });
+};
+
 // Hook for deleting price lists
 export const useDeletePriceListNew = () => {
   const utils = trpc.useContext();

@@ -72,7 +72,10 @@ export const CreateOrderPageV2: React.FC = () => {
   // Data hooks
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
-  const { data: productsData, isLoading: isProductsLoading } = useProducts({ limit: 1000 });
+  const { data: productsData, isLoading: isProductsLoading } = useProducts({ 
+    limit: 1000,
+    is_variant: true // Only show variants, not parent products
+  });
   const { data: warehousesData } = useWarehouses({ limit: 1000 });
   const { data: inventoryData } = useInventoryNew({});
   const createOrder = useCreateOrderNew();

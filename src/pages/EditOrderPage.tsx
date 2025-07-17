@@ -63,7 +63,10 @@ export const EditOrderPage: React.FC = () => {
   const { data: order, isLoading: orderLoading } = useOrderNew(orderId || '');
   const { data: customersData, isLoading: customersLoading } = useCustomers({ limit: 1000 });
   const { data: addresses = [], isLoading: addressesLoading } = useAddresses(selectedCustomerId);
-  const { data: productsData, isLoading: productsLoading } = useProducts({ limit: 1000 });
+  const { data: productsData, isLoading: productsLoading } = useProducts({ 
+    limit: 1000,
+    is_variant: true // Only show variants, not parent products
+  });
   const { data: warehousesData, isLoading: warehousesLoading } = useWarehouses({ limit: 1000 });
   const { data: inventoryData, isLoading: inventoryLoading } = useInventoryNew(
     selectedWarehouseId ? { warehouse_id: selectedWarehouseId } : {}

@@ -14,7 +14,11 @@ export const ProductSelector: React.FC<ProductSelectorProps> = ({
   onSelect,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: productsData } = useProducts({ search: searchTerm, limit: 1000 });
+  const { data: productsData } = useProducts({ 
+    search: searchTerm, 
+    limit: 1000,
+    is_variant: true // Only show variants, not parent products
+  });
   const products = productsData?.products || [];
 
   if (!isOpen) return null;
