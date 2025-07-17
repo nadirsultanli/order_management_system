@@ -8,6 +8,7 @@ import { formatErrorMessage } from '../lib/logger';
 import {
   // Trip lifecycle schemas
   CreateTripSchema,
+  UpdateTripSchema,
   UpdateTripStatusSchema,
   GetTripByIdSchema,
   GetTripsSchema,
@@ -546,6 +547,106 @@ export const tripsRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to create trip: ${formatErrorMessage(error)}`,
+        });
+      }
+
+      return data;
+    }),
+
+  // PUT /trips/{id} - Update trip
+  update: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PUT',
+        path: '/trips/{id}',
+        tags: ['trips'],
+        summary: 'Update trip',
+        description: 'Update trip details including truck, route, driver, and timing information',
+        protect: true,
+      }
+    })
+    .input(UpdateTripSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      const { id, ...updateData } = input;
+      
+      ctx.logger.info('Updating trip:', id, updateData);
+      
+      // Validate driver_id exists if provided
+      if (updateData.driver_id) {
+        const { data: driver, error: driverError } = await ctx.supabase
+          .from('admin_users')
+          .select('id, role, active')
+          .eq('id', updateData.driver_id)
+          .eq('role', 'driver')
+          .eq('active', true)
+          .single();
+
+        if (driverError || !driver) {
+          ctx.logger.error('Driver validation failed:', { 
+            driver_id: updateData.driver_id, 
+            error: driverError,
+            driver_found: !!driver 
+          });
+          
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: `Invalid driver_id (${updateData.driver_id}). The specified driver does not exist, is not active, or is not a driver.`,
+          });
+        }
+      }
+      
+      // Prepare update data - only include provided fields
+      const cleanUpdateData: any = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (updateData.truck_id !== undefined) cleanUpdateData.truck_id = updateData.truck_id;
+      if (updateData.route_date !== undefined) cleanUpdateData.route_date = updateData.route_date;
+      if (updateData.warehouse_id !== undefined) cleanUpdateData.warehouse_id = updateData.warehouse_id;
+      if (updateData.driver_id !== undefined) cleanUpdateData.driver_id = updateData.driver_id;
+      if (updateData.planned_start_time !== undefined) cleanUpdateData.planned_start_time = updateData.planned_start_time;
+      if (updateData.planned_end_time !== undefined) cleanUpdateData.planned_end_time = updateData.planned_end_time;
+      if (updateData.trip_notes !== undefined) cleanUpdateData.trip_notes = updateData.trip_notes;
+      if (updateData.status !== undefined) cleanUpdateData.route_status = updateData.status;
+
+      const { data, error } = await ctx.supabase
+        .from('truck_routes')
+        .update(cleanUpdateData)
+        .eq('id', id)
+        .select('*')
+        .single();
+
+      if (error) {
+        ctx.logger.error('Error updating trip:', error);
+        
+        // Handle specific database constraint errors
+        if (error.code === '23503') {
+          if (error.message.includes('fk_truck_routes_driver')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid driver_id. The specified driver does not exist in the system.',
+            });
+          }
+          if (error.message.includes('truck_id')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid truck_id. The specified truck does not exist.',
+            });
+          }
+          if (error.message.includes('warehouse_id')) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid warehouse_id. The specified warehouse does not exist.',
+            });
+          }
+        }
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to update trip: ${formatErrorMessage(error)}`,
         });
       }
 

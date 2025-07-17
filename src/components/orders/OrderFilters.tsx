@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, Calendar, RotateCcw } from 'lucide-react';
+import { Search, Filter, Calendar } from 'lucide-react';
 import { OrderFilters as FilterType } from '../../types/order';
 
 interface OrderFiltersProps {
@@ -41,10 +41,6 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
       order_date_to: e.target.value || undefined,
       page: 1,
     });
-  };
-
-  const handleReset = () => {
-    onFiltersChange({ page: 1 });
   };
 
   return (
@@ -106,15 +102,6 @@ export const OrderFilters: React.FC<OrderFiltersProps> = ({
               placeholder="To date"
             />
           </div>
-
-          <button
-            onClick={handleReset}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md transition-colors"
-            title="Reset filters"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
         </div>
       </div>
     </div>

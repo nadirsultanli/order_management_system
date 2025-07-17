@@ -5,7 +5,6 @@ import { useWarehouses, useCreateWarehouse, useUpdateWarehouse, useDeleteWarehou
 import { WarehouseTable } from '../components/warehouses/WarehouseTable';
 import { WarehouseFilters } from '../components/warehouses/WarehouseFilters';
 import { WarehouseForm } from '../components/warehouses/WarehouseForm';
-import { WarehouseStats } from '../components/warehouses/WarehouseStats';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Warehouse, WarehouseFilters as FilterType, CreateWarehouseData } from '../types/warehouse';
@@ -90,8 +89,6 @@ export const WarehousesPage: React.FC = () => {
     setFilters(prev => ({ ...prev, page }));
   };
 
-
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -114,8 +111,6 @@ export const WarehousesPage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      <WarehouseStats />
 
       <WarehouseFilters filters={filters} onFiltersChange={setFilters} />
 
@@ -140,14 +135,12 @@ export const WarehousesPage: React.FC = () => {
       <WarehouseForm
         isOpen={isFormOpen}
         onClose={() => {
-          console.log('Closing form');
           setIsFormOpen(false);
           setEditingWarehouse(null);
         }}
         onSubmit={handleFormSubmit}
-        warehouse={editingWarehouse || undefined}
+        warehouse={editingWarehouse}
         loading={createWarehouse.isPending || updateWarehouse.isPending}
-        title={editingWarehouse ? 'Edit Warehouse' : 'Add New Warehouse'}
       />
 
       <ConfirmDialog

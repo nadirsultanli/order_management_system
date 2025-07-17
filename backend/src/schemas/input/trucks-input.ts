@@ -211,6 +211,18 @@ export const CreateTripSchema = z.object({
   trip_notes: z.string().optional(),
 });
 
+export const UpdateTripSchema = z.object({
+  id: z.string().uuid(),
+  truck_id: z.string().uuid().optional(),
+  route_date: z.string().optional(), // ISO date string
+  warehouse_id: z.string().uuid().optional(),
+  driver_id: z.string().uuid().optional(),
+  planned_start_time: z.string().optional(), // Time string HH:MM
+  planned_end_time: z.string().optional(),
+  trip_notes: z.string().optional(),
+  status: TripStatusEnum.optional(),
+});
+
 export const UpdateTripStatusSchema = z.object({
   trip_id: z.string().uuid(),
   status: TripStatusEnum,

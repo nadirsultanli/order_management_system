@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, RotateCcw } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { WarehouseFilters as FilterType } from '../../types/warehouse';
 
 interface WarehouseFiltersProps {
@@ -19,10 +19,6 @@ export const WarehouseFilters: React.FC<WarehouseFiltersProps> = ({
     });
   };
 
-  const handleReset = () => {
-    onFiltersChange({ page: 1 });
-  };
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
       <div className="flex flex-col sm:flex-row gap-4">
@@ -38,15 +34,6 @@ export const WarehouseFilters: React.FC<WarehouseFiltersProps> = ({
             />
           </div>
         </div>
-        
-        <button
-          onClick={handleReset}
-          className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md transition-colors"
-          title="Reset filters"
-        >
-          <RotateCcw className="h-4 w-4" />
-          <span>Reset</span>
-        </button>
       </div>
     </div>
   );

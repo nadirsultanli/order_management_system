@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, RotateCcw } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { InventoryFilters as FilterType } from '../../types/inventory';
 import { SearchableWarehouseSelector } from '../warehouses/SearchableWarehouseSelector';
 
@@ -28,12 +28,6 @@ export const InventoryFilters: React.FC<InventoryFiltersProps> = ({
     });
   };
 
-
-
-  const handleReset = () => {
-    onFiltersChange({ page: 1 });
-  };
-
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
       <div className="flex flex-col lg:flex-row gap-4">
@@ -58,15 +52,6 @@ export const InventoryFilters: React.FC<InventoryFiltersProps> = ({
               placeholder="All Warehouses"
             />
           </div>
-
-          <button
-            onClick={handleReset}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md transition-colors"
-            title="Reset filters"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { Search, Filter, Eye, EyeOff } from 'lucide-react';
 import { ProductFilters as FilterType } from '../../types/product';
 
 interface ProductFiltersProps {
@@ -77,10 +77,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
       show_obsolete: !filters.show_obsolete,
       page: 1,
     });
-  };
-
-  const handleReset = () => {
-    onFiltersChange({ page: 1 });
   };
 
   return (
@@ -184,15 +180,6 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
             <span className="hidden sm:inline">
               {filters.show_obsolete ? 'Hide Obsolete' : 'Show Obsolete'}
             </span>
-          </button>
-
-          <button
-            onClick={handleReset}
-            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-md transition-colors"
-            title="Reset filters"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span className="hidden sm:inline">Reset</span>
           </button>
         </div>
       </div>

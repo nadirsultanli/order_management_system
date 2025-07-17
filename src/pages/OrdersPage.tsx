@@ -4,7 +4,6 @@ import { Plus } from 'lucide-react';
 import { useOrdersNew, useUpdateOrderStatusNew } from '../hooks/useOrders';
 import { OrderTable } from '../components/orders/OrderTable';
 import { AdvancedOrderFilters } from '../components/orders/AdvancedOrderFilters';
-import { OrderStats } from '../components/orders/OrderStats';
 import { OrderStatusModal } from '../components/orders/OrderStatusModal';
 import { BulkOrderActions } from '../components/orders/BulkOrderActions';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
@@ -47,15 +46,16 @@ export const OrdersPage: React.FC = () => {
   };
 
   const handleChangeStatus = (order: Order, newStatus: string) => {
-    console.log('Changing order status:', order, newStatus);
+    console.log('Changing status:', { order, newStatus });
     setStatusChangeOrder({ order, newStatus });
   };
 
-  const handleStatusChangeSubmit = async (data: OrderStatusChange) => {
-    console.log('Status change submit:', data);
+  const handleConfirmStatusChange = async (data: OrderStatusChange) => {
+    console.log('Confirming status change:', data);
     try {
       await changeOrderStatus.mutateAsync(data);
       setStatusChangeOrder(null);
+      refetch(); // Refresh orders data
     } catch (error) {
       console.error('Status change error:', error);
       // Error handling is done in the hook
@@ -64,43 +64,20 @@ export const OrdersPage: React.FC = () => {
 
   const handleBulkOperation = async (operation: BulkOrderOperation) => {
     console.log('Bulk operation:', operation);
-    
-    switch (operation.operation) {
-      case 'status_change':
-        if (operation.new_status) {
-          for (const orderId of operation.order_ids) {
-            const order = data?.orders.find(o => o.id === orderId);
-            if (order) {
-              await changeOrderStatus.mutateAsync({
-                order_id: orderId,
-                new_status: operation.new_status,
-                notes: operation.notes,
-              });
-            }
-          }
-        }
-        break;
-      case 'schedule':
-        if (operation.scheduled_date) {
-          for (const orderId of operation.order_ids) {
-            await changeOrderStatus.mutateAsync({
-              order_id: orderId,
-              new_status: 'scheduled',
-              scheduled_date: operation.scheduled_date,
-              notes: operation.notes,
-            });
-          }
-        }
+    // TODO: Implement bulk operations
+    switch (operation.type) {
+      case 'update_status':
+        console.log(`Updating ${operation.orderIds.length} orders to status: ${operation.newStatus}`);
         break;
       case 'export':
-        handleExportOrders(operation.order_ids);
+        handleExportOrders(operation.orderIds);
         break;
-      case 'print':
-        handlePrintManifests(operation.order_ids);
+      case 'print_manifests':
+        handlePrintManifests(operation.orderIds);
         break;
+      default:
+        console.warn('Unknown bulk operation:', operation.type);
     }
-    
-    setSelectedOrders([]);
   };
 
   const handleExportOrders = (orderIds: string[]) => {
@@ -139,8 +116,6 @@ export const OrdersPage: React.FC = () => {
     setFilters(prev => ({ ...prev, page }));
   };
 
-
-
   const handleSelectionChange = (orderIds: string[]) => {
     setSelectedOrders(orderIds);
   };
@@ -171,8 +146,6 @@ export const OrdersPage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      <OrderStats />
 
       <AdvancedOrderFilters filters={filters} onFiltersChange={setFilters} />
 
@@ -207,7 +180,7 @@ export const OrdersPage: React.FC = () => {
         <OrderStatusModal
           isOpen={!!statusChangeOrder}
           onClose={() => setStatusChangeOrder(null)}
-          onSubmit={handleStatusChangeSubmit}
+          onConfirm={handleConfirmStatusChange}
           order={statusChangeOrder.order}
           newStatus={statusChangeOrder.newStatus}
           loading={changeOrderStatus.isPending}
