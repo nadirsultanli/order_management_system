@@ -106,7 +106,7 @@ export const CreateOrderPage: React.FC = () => {
   // Debug: Log pricing data
   useEffect(() => {
     if (productPrices) {
-      console.log('Product prices loaded:', {
+      console.log('🔍 PRICING DEBUG - Product prices loaded:', {
         totalProducts: productIds.length,
         productsWithPricing: Object.keys(productPrices).length,
         samplePricing: Object.entries(productPrices).slice(0, 3),
@@ -117,11 +117,13 @@ export const CreateOrderPage: React.FC = () => {
       // Enhanced debugging: Check each product's pricing
       products.forEach(product => {
         const pricing = productPrices[product.id];
-        console.log(`Product ${product.sku} (${product.id}):`, {
+        console.log(`🔍 PRICING DEBUG - Product ${product.sku} (${product.id}):`, {
           hasDirectPricing: !!pricing,
           finalPrice: pricing?.finalPrice,
           inheritedFromParent: pricing?.inheritedFromParent,
           parentProductId: pricing?.parentProductId,
+          isVariant: product.is_variant,
+          parentProductsId: product.parent_products_id,
           fullPricingData: pricing
         });
       });

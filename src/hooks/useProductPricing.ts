@@ -21,11 +21,11 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
       enabled: !!(enabled && productIds.length > 0),
       staleTime: 5 * 60 * 1000, // Cache for 5 minutes
       retry: 3, // Retry failed requests
-      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-      onError: (error) => {
+      retryDelay: (attemptIndex: number) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      onError: (error: any) => {
         console.error('useProductPrices: Query failed:', error);
       },
-      onSuccess: (data) => {
+      onSuccess: (data: any) => {
         console.log('useProductPrices: Query succeeded with data:', {
           dataKeys: Object.keys(data || {}),
           sampleData: data ? Object.entries(data).slice(0, 2) : [],
@@ -33,6 +33,21 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
           totalProductsWithPricing: data ? Object.keys(data).filter(key => data[key] !== null).length : 0,
           productsWithInheritance: data ? Object.keys(data).filter(key => data[key]?.inheritedFromParent).length : 0
         });
+        
+        // Enhanced debugging: Log each product's pricing details
+        if (data) {
+          Object.entries(data).forEach(([productId, pricing]) => {
+            console.log(`🔍 Product ${productId} pricing:`, {
+              hasPrice: !!pricing,
+              finalPrice: pricing?.finalPrice,
+              unitPrice: pricing?.unitPrice,
+              inheritedFromParent: pricing?.inheritedFromParent,
+              parentProductId: pricing?.parentProductId,
+              priceListName: pricing?.priceListName,
+              fullData: pricing
+            });
+          });
+        }
       }
     }
   );

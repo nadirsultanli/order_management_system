@@ -451,6 +451,8 @@ export class PricingService {
         is_default,
         price_list_item!inner(
           unit_price,
+          price_per_kg,
+          pricing_method,
           surcharge_pct,
           min_qty,
           product_id,
