@@ -407,7 +407,7 @@
                                   </div>
                                 )}
 
-                                {productPrice.pricingMethod === 'per_kg' && (
+                                {parentPrice.pricingMethod === 'per_kg' && (
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                       Price per KG ({priceList.currency_code}) *
@@ -416,8 +416,8 @@
                                       type="number"
                                       min="0"
                                       step="0.01"
-                                      value={productPrice.pricePerKg || ''}
-                                      onChange={(e) => handlePriceChange(productId, 'pricePerKg', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                                      value={parentPrice.pricePerKg || ''}
+                                      onChange={(e) => handlePriceChange(parentId, 'pricePerKg', e.target.value === '' ? undefined : parseFloat(e.target.value))}
                                       className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                       placeholder="0.00"
                                     />
@@ -426,8 +426,8 @@
 
                                 <div>
                                   <PricingMethodSelector
-                                    value={productPrice.pricingMethod}
-                                    onChange={(method) => handlePriceChange(productId, 'pricingMethod', method)}
+                                    value={parentPrice.pricingMethod}
+                                    onChange={(method) => handlePriceChange(parentId, 'pricingMethod', method)}
                                     className="mb-0"
                                     disabled={true}
                                   />
@@ -444,23 +444,23 @@
                                   min="0"
                                   max="100"
                                   step="0.1"
-                                  value={productPrice.surchargeRate || ''}
-                                  onChange={(e) => handlePriceChange(productId, 'surchargeRate', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                                  value={parentPrice.surchargeRate || ''}
+                                  onChange={(e) => handlePriceChange(parentId, 'surchargeRate', e.target.value === '' ? undefined : parseFloat(e.target.value))}
                                   className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                   placeholder="0.0"
                                 />
                               </div>
 
-                              {((productPrice.pricingMethod === 'per_unit' && productPrice.unitPrice && productPrice.unitPrice > 0) ||
-                                (productPrice.pricingMethod === 'per_kg' && productPrice.pricePerKg && productPrice.pricePerKg > 0)) && (
+                              {((parentPrice.pricingMethod === 'per_unit' && parentPrice.unitPrice && parentPrice.unitPrice > 0) ||
+                                (parentPrice.pricingMethod === 'per_kg' && parentPrice.pricePerKg && parentPrice.pricePerKg > 0)) && (
                                 <div className="mt-3 p-2 bg-blue-50 rounded">
                                   <span className="text-sm text-blue-800">
-                                    {productPrice.pricingMethod === 'per_unit' ? (
+                                    {parentPrice.pricingMethod === 'per_unit' ? (
                                       <>
                                         Final Price: {formatCurrencySync(
                                           calculateFinalPriceSync(
-                                            productPrice.unitPrice || 0,
-                                            productPrice.surchargeRate
+                                            parentPrice.unitPrice || 0,
+                                            parentPrice.surchargeRate
                                           ),
                                           priceList.currency_code
                                         )} (per unit)
@@ -469,8 +469,8 @@
                                       <>
                                         Estimated Price: {formatCurrencySync(
                                           calculateFinalPriceSync(
-                                            productPrice.pricePerKg || 0,
-                                            productPrice.surchargeRate
+                                            parentPrice.pricePerKg || 0,
+                                            parentPrice.surchargeRate
                                           ),
                                           priceList.currency_code
                                         )} (per kg)
