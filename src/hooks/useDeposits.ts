@@ -519,3 +519,19 @@ export const useUpdateBrandReconciliation = () => {
 export const useDepositsContext = () => {
   return trpc.useContext().deposits;
 };
+
+export const useAllDepositRates = () => {
+  return trpc.deposits.listDepositRates.useQuery({
+    page: 1,
+    limit: 100,
+    is_active: true,
+  }, {
+    enabled: true,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+    onError: (error: any) => {
+      console.error('All deposit rates fetch error:', error);
+      // Don't show error toast as this is used for lookups
+    }
+  });
+};

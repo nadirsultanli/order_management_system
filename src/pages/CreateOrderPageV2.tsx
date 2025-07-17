@@ -8,7 +8,7 @@ import { useCreateOrderNew } from '../hooks/useOrders';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useProductPrices } from '../hooks/useProductPricing';
-import { useDepositRateByCapacity } from '../hooks/useDeposits';
+import { useDepositRateByCapacity, useAllDepositRates } from '../hooks/useDeposits';
 import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
@@ -101,6 +101,36 @@ export const CreateOrderPageV2: React.FC = () => {
   const productIds = products.map(p => p.id);
   const { data: productPrices, isLoading: isPricesLoading } = useProductPrices(productIds, selectedCustomerId || undefined);
   
+  // Get all deposit rates for lookup
+  const { data: depositRatesData } = useAllDepositRates();
+  const depositRates = depositRatesData?.rates || [];
+  
+  // Create deposit lookup function
+  const getDepositAmountByCapacity = (capacity_l: number): number => {
+    if (!capacity_l || capacity_l <= 0) return 0;
+    
+    // Find exact match first
+    const exactMatch = depositRates.find(rate => rate.capacity_l === capacity_l);
+    if (exactMatch) return exactMatch.deposit_amount;
+    
+    // If no exact match, find closest capacity
+    const sortedRates = depositRates
+      .filter(rate => rate.capacity_l > 0)
+      .sort((a, b) => Math.abs(a.capacity_l - capacity_l) - Math.abs(b.capacity_l - capacity_l));
+    
+    if (sortedRates.length > 0) {
+      console.log(`Using closest deposit rate: ${sortedRates[0].capacity_l}L (${sortedRates[0].deposit_amount}) for ${capacity_l}L capacity`);
+      return sortedRates[0].deposit_amount;
+    }
+    
+    // Fallback to common rates if no data available
+    if (capacity_l === 6) return 2000;
+    else if (capacity_l === 13) return 2500;
+    else if (capacity_l === 25) return 3000;
+    else if (capacity_l === 50) return 4000;
+    else return 2000; // Default fallback
+  };
+  
   // Auto-select primary address when customer changes
   useEffect(() => {
     if (selectedCustomerId && addresses.length > 0 && !selectedAddressId) {
@@ -147,17 +177,24 @@ export const CreateOrderPageV2: React.FC = () => {
       if (line.tax_amount !== undefined) {
         taxAmount += line.tax_amount * line.quantity;
       }
-    });
-    
-    // Add deposits separately (deposits are typically not taxed)
-    Object.entries(selectedProducts).forEach(([productId, quantity]) => {
-      const product = products.find(p => p.id === productId);
-      if (product && product.capacity_l) {
-        // Use the ProductPricingWithDeposit component logic to get deposit
-        // For now, we'll approximate based on common deposit rates
-        // This should match the deposit shown in the UI
+      
+      // Add deposit amount from order line if available
+      if (line.deposit_amount !== undefined) {
+        depositTotal += line.deposit_amount * line.quantity;
       }
     });
+    
+    // If order lines don't have deposit amounts, calculate them separately
+    // This is a fallback in case the order lines aren't updated yet
+    if (depositTotal === 0) {
+      Object.entries(selectedProducts).forEach(([productId, quantity]) => {
+        const product = products.find(p => p.id === productId);
+        if (product && product.capacity_l && product.capacity_l > 0) {
+          const depositRate = getDepositAmountByCapacity(product.capacity_l);
+          depositTotal += depositRate * quantity;
+        }
+      });
+    }
     
     grandTotal = subtotal + depositTotal + taxAmount;
     
@@ -248,8 +285,7 @@ export const CreateOrderPageV2: React.FC = () => {
     }
     
     // Get deposit rate for this product's capacity
-    const { data: depositData } = useDepositRateByCapacity(product.capacity_l || 0);
-    const depositAmount = depositData?.deposit_amount || 0;
+    const depositAmount = getDepositAmountByCapacity(product.capacity_l || 0);
     
     // Calculate totals
     const totalGasPrice = gasPrice * quantity;
@@ -368,6 +404,12 @@ export const CreateOrderPageV2: React.FC = () => {
         const gasPrice = unitPrice; // This is the gas price after partial fill adjustment
         const taxAmountPerUnit = gasPrice * taxRate;
         
+        // Calculate deposit amount based on capacity
+        let depositAmountPerUnit = 0;
+        if (product.capacity_l && product.capacity_l > 0) {
+          depositAmountPerUnit = getDepositAmountByCapacity(product.capacity_l);
+        }
+        
         newOrderLines.push({
           product_id: productId,
           product_name: product.name,
@@ -379,6 +421,8 @@ export const CreateOrderPageV2: React.FC = () => {
           tax_amount: taxAmountPerUnit, // Tax on gas portion only
           price_including_tax: gasPrice + taxAmountPerUnit, // Gas price including tax
           tax_rate: taxRate,
+          // Add deposit amount to order line
+          deposit_amount: depositAmountPerUnit,
           // Fill percentage data
           fill_percentage: fillPercentage,
           is_partial_fill: isPartialFill,
@@ -1172,42 +1216,65 @@ export const CreateOrderPageV2: React.FC = () => {
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h3 className="font-medium text-gray-900 mb-3">Order Items</h3>
                     <div className="space-y-2">
-                      {orderLines.map((line) => (
-                        <div key={line.product_id} className="flex justify-between items-center py-2 border-b border-gray-200 last:border-0">
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <div className="font-medium text-sm">{line.product_name}</div>
-                              {line.is_partial_fill && (
-                                <div className="flex items-center space-x-1">
-                                  <Gauge className="h-3 w-3 text-orange-500" />
-                                  <span className="text-xs text-orange-600 font-medium">{line.fill_percentage}%</span>
+                      {orderLines.map((line) => {
+                        const product = products.find(p => p.id === line.product_id);
+                        const gasPrice = line.price_excluding_tax || line.unit_price;
+                        const depositAmount = line.deposit_amount || 0;
+                        const taxAmount = line.tax_amount || 0;
+                        
+                        return (
+                          <div key={line.product_id} className="flex justify-between items-start py-2 border-b border-gray-200 last:border-0">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <div className="font-medium text-sm">{line.product_name}</div>
+                                {line.is_partial_fill && (
+                                  <div className="flex items-center space-x-1">
+                                    <Gauge className="h-3 w-3 text-orange-500" />
+                                    <span className="text-xs text-orange-600 font-medium">{line.fill_percentage}%</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Enhanced pricing breakdown */}
+                              <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                <div>Gas: {line.quantity} × {formatCurrencySync(gasPrice)} = {formatCurrencySync(gasPrice * line.quantity)}</div>
+                                {depositAmount > 0 && (
+                                  <div className="text-blue-600">Deposit: {line.quantity} × {formatCurrencySync(depositAmount)} = {formatCurrencySync(depositAmount * line.quantity)}</div>
+                                )}
+                                {taxAmount > 0 && (
+                                  <div>Tax: {formatCurrencySync(taxAmount * line.quantity)}</div>
+                                )}
+                                {line.is_partial_fill && (
+                                  <div className="text-orange-600">Partial Fill ({line.fill_percentage}%)</div>
+                                )}
+                              </div>
+                              
+                              {line.partial_fill_notes && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  Note: {line.partial_fill_notes}
                                 </div>
                               )}
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {line.quantity} × {formatCurrencySync(line.unit_price)}
-                              {line.is_partial_fill && (
-                                <span className="text-orange-600 ml-1">(Partial Fill)</span>
-                              )}
+                            <div className="font-medium text-sm text-right">
+                              <div className="font-bold">{formatCurrencySync(line.subtotal + (depositAmount * line.quantity))}</div>
+                              <div className="text-xs text-gray-500">Total</div>
                             </div>
-                            {line.partial_fill_notes && (
-                              <div className="text-xs text-gray-400 mt-1">
-                                Note: {line.partial_fill_notes}
-                              </div>
-                            )}
                           </div>
-                          <div className="font-medium text-sm">
-                            {formatCurrencySync(line.subtotal)}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     
                     <div className="mt-4 pt-4 border-t border-gray-300 space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Subtotal:</span>
+                        <span className="text-sm text-gray-600">Gas Subtotal:</span>
                         <span className="font-medium">{formatCurrencySync(subtotal)}</span>
                       </div>
+                      {depositTotal > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-600">Deposits:</span>
+                          <span className="font-medium text-blue-600">{formatCurrencySync(depositTotal)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Tax:</span>
                         <span className="font-medium">{formatCurrencySync(taxAmount)}</span>
