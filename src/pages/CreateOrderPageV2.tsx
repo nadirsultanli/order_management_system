@@ -7,7 +7,7 @@ import { useProducts } from '../hooks/useProducts';
 import { useCreateOrderNew } from '../hooks/useOrders';
 import { useWarehouses } from '../hooks/useWarehouses';
 import { useInventoryNew } from '../hooks/useInventory';
-import { useProductPricesWithInheritance } from '../hooks/useProductPricing';
+import { useProductPrices } from '../hooks/useProductPricing';
 import { useDepositRateByCapacity } from '../hooks/useDeposits';
 import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
@@ -99,7 +99,7 @@ export const CreateOrderPageV2: React.FC = () => {
   
   // Get product prices
   const productIds = products.map(p => p.id);
-  const { data: productPrices, isLoading: isPricesLoading } = useProductPricesWithInheritance(productIds, selectedCustomerId || undefined);
+  const { data: productPrices, isLoading: isPricesLoading } = useProductPrices(productIds, selectedCustomerId || undefined);
   
   // Auto-select primary address when customer changes
   useEffect(() => {
