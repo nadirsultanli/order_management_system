@@ -38,6 +38,12 @@
       const [searchTerm, setSearchTerm] = useState('');
       const [includeVariants, setIncludeVariants] = useState(true);
 
+      // Only count parent products for UI display
+      const selectedParentProducts = selectedProducts.filter(productId => {
+        const productPrice = productPrices[productId];
+        return productPrice && !productPrice.isVariant;
+      });
+
       // Get parent products only (not variants)
       const { data: parentProductsData } = useProductOptions({ include_variants: false });
       // Get all products including variants for variant lookup
@@ -52,7 +58,7 @@
       // Create a map of parent products to their variants
       const parentVariantMap = React.useMemo(() => {
         const map: { [parentId: string]: any[] } = {};
-        allProducts.forEach(product => {
+        allProducts.forEach((product: any) => {
           if (product.is_variant && product.parent_products_id) {
             if (!map[product.parent_products_id]) {
               map[product.parent_products_id] = [];
@@ -100,48 +106,19 @@
               isVariant: false,
             };
 
-            // Add variants if includeVariants is true
-            if (includeVariants && parentVariantMap[parentProductId]) {
-              parentVariantMap[parentProductId].forEach(variant => {
-                // Only add if variant is not already in price list
-                if (!existingProductIds.includes(variant.id)) {
-                  newSelectedProducts.push(variant.id);
-                  newProductPrices[variant.id] = {
-                    productId: variant.id,
-                    productName: variant.name,
-                    productSku: variant.sku,
-                    unitPrice: priceList.pricing_method === 'per_unit' ? undefined : undefined,
-                    pricePerKg: priceList.pricing_method === 'per_kg' ? undefined : undefined,
-                    surchargeRate: undefined,
-                    pricingMethod: (priceList.pricing_method || 'per_unit') as PricingMethod,
-                    isVariant: true,
-                    parentProductId: parentProductId,
-                  };
-                }
-              });
-            }
+            // Note: variants will inherit pricing automatically from parent, no need to add them to selection
 
             setSelectedProducts(prev => [...prev, ...newSelectedProducts]);
             setProductPrices(prev => ({ ...prev, ...newProductPrices }));
           }
         } else {
-          // Remove parent product and all its variants
-          const parentProduct = availableProducts.find((p: any) => p.id === parentProductId);
-          if (parentProduct) {
-            const toRemove = [parentProductId];
-            
-            // Add variant IDs to remove
-            if (parentVariantMap[parentProductId]) {
-              toRemove.push(...parentVariantMap[parentProductId].map(v => v.id));
-            }
-
-            setSelectedProducts(prev => prev.filter(id => !toRemove.includes(id)));
-            setProductPrices(prev => {
-              const newPrices = { ...prev };
-              toRemove.forEach(id => delete newPrices[id]);
-              return newPrices;
-            });
-          }
+          // Remove parent product (variants will automatically lose pricing)
+          setSelectedProducts(prev => prev.filter(id => id !== parentProductId));
+          setProductPrices(prev => {
+            const newPrices = { ...prev };
+            delete newPrices[parentProductId];
+            return newPrices;
+          });
         }
       };
 
@@ -222,8 +199,8 @@
       return;
     }
 
-    onSubmit(validPrices);
-  };
+          onSubmit(validPrices);
+    };
 
       const canSubmit = selectedProducts.length > 0 && 
         selectedProducts.every(id => {
@@ -239,10 +216,6 @@
         });
 
       // Group selected products by parent
-      const selectedParentProducts = selectedProducts.filter(id => {
-        const price = productPrices[id];
-        return price && !price.isVariant;
-      });
 
       if (!isOpen) return null;
 
@@ -365,10 +338,7 @@
                           const parentPrice = productPrices[parentId];
                           if (!parentPrice) return null;
 
-                          const variants = selectedProducts.filter(id => {
-                            const price = productPrices[id];
-                            return price && price.isVariant && price.parentProductId === parentId;
-                          });
+                          const variants = parentVariantMap[parentId] || [];
 
                           return (
                             <div key={parentId} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
@@ -384,7 +354,7 @@
                                 <p className="text-sm text-gray-500">SKU: {parentPrice.productSku}</p>
                                 {variants.length > 0 && (
                                   <div className="mt-2 text-xs text-gray-600">
-                                    Variants: {variants.map(id => productPrices[id]?.productSku).join(', ')}
+                                    Variants: {variants.map(v => v.sku).join(', ')}
                                   </div>
                                 )}
                               </div>
@@ -504,7 +474,7 @@
                       <span>Adding...</span>
                     </div>
                   ) : (
-                    `Add ${selectedProducts.length} Product${selectedProducts.length !== 1 ? 's' : ''}`
+                    `Add ${selectedParentProducts.length} Product${selectedParentProducts.length !== 1 ? 's' : ''}`
                   )}
                 </button>
                 <button

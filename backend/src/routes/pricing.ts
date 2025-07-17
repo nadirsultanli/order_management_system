@@ -579,51 +579,20 @@ export const pricingRouter = router({
           created_at: new Date().toISOString(),
         });
 
-        // Get all variants of this parent product
-        const { data: variants } = await ctx.supabase
+        // Log variant count for information (variants will inherit pricing)
+        const { count: variantCount } = await ctx.supabase
           .from('products')
-          .select('id, name, sku')
+          .select('id', { count: 'exact' })
           .eq('parent_products_id', input.product_id)
           .eq('is_variant', true)
-          .eq('status', 'active'); // Only active variants
+          .eq('status', 'active');
 
-        if (variants && variants.length > 0) {
-          ctx.logger.info(`Found ${variants.length} variants for parent product ${parentProduct.sku}`);
-          
-          // Check which variants are not already in the price list
-          const { data: existingVariantItems } = await ctx.supabase
-            .from('price_list_item')
-            .select('product_id')
-            .eq('price_list_id', input.price_list_id)
-            .in('product_id', variants.map(v => v.id));
-
-          const existingVariantIds = existingVariantItems?.map(item => item.product_id) || [];
-          const newVariants = variants.filter(v => !existingVariantIds.includes(v.id));
-
-          // Add each new variant with the same pricing as the parent
-          newVariants.forEach(variant => {
-            itemsToCreate.push({
-              price_list_id: input.price_list_id,
-              product_id: variant.id,
-              unit_price: input.unit_price,
-              price_per_kg: input.price_per_kg,
-              min_qty: input.min_qty || 1,
-              surcharge_pct: input.surcharge_pct,
-              pricing_method: input.pricing_method || 'per_unit',
-              price_excluding_tax: input.price_excluding_tax,
-              tax_amount: input.tax_amount,
-              price_including_tax: input.price_including_tax,
-              created_at: new Date().toISOString(),
-            });
-          });
-
-          ctx.logger.info(`Will create pricing for ${newVariants.length} new variants`);
-        }
+        ctx.logger.info(`Found ${variantCount || 0} variants for parent product ${parentProduct.sku} - they will inherit pricing automatically`);
       } else {
-        // This might be a regular variant - just add it
-        itemsToCreate.push({
-          ...input,
-          created_at: new Date().toISOString(),
+        // This is not a parent product - we can only add pricing to parent products
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Only parent products can have pricing. Variants inherit pricing from their parent product.'
         });
       }
 
