@@ -230,7 +230,9 @@ export const CreateOrderPage: React.FC = () => {
   const [orderCalculations, setOrderCalculations] = useState({
     subtotal: 0,
     taxAmount: 0,
-    grandTotal: 0
+    grandTotal: 0,
+    gasCharges: 0,
+    depositCharges: 0
   });
   const [calculatingTotals, setCalculatingTotals] = useState(false);
 
@@ -238,16 +240,26 @@ export const CreateOrderPage: React.FC = () => {
   useEffect(() => {
     const calculateTotals = () => {
       if (orderLines.length === 0) {
-        setOrderCalculations({ subtotal: 0, taxAmount: 0, grandTotal: 0 });
+        setOrderCalculations({ subtotal: 0, taxAmount: 0, grandTotal: 0, gasCharges: 0, depositCharges: 0 });
         return;
       }
 
-      // Calculate subtotal and tax from order lines with product pricing
+      // Calculate subtotal and tax from order lines with enhanced pricing breakdown
       let subtotal = 0;  // Sum of ex-tax amounts
       let taxAmount = 0; // Sum of tax amounts
       let grandTotal = 0; // Sum of including-tax amounts
+      let gasCharges = 0; // Sum of gas charges
+      let depositCharges = 0; // Sum of deposit charges
       
       orderLines.forEach(line => {
+        // Track gas and deposit charges separately
+        if (line.gas_charge !== undefined) {
+          gasCharges += line.gas_charge * line.quantity;
+        }
+        if (line.deposit_amount !== undefined) {
+          depositCharges += line.deposit_amount * line.quantity;
+        }
+        
         // Use price_excluding_tax for subtotal
         if (line.price_excluding_tax !== undefined) {
           subtotal += line.price_excluding_tax * line.quantity;
@@ -273,7 +285,9 @@ export const CreateOrderPage: React.FC = () => {
       setOrderCalculations({
         subtotal,
         taxAmount,
-        grandTotal
+        grandTotal,
+        gasCharges,
+        depositCharges
       });
     };
 
@@ -1566,6 +1580,20 @@ export const CreateOrderPage: React.FC = () => {
                               <div className="font-medium text-gray-900">
                                 {formatCurrencySync(line.subtotal)}
                               </div>
+                              {/* Enhanced pricing breakdown */}
+                              {(line.gas_charge !== undefined || line.deposit_amount !== undefined) && (
+                                <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                  {line.gas_charge !== undefined && line.gas_charge > 0 && (
+                                    <div>Gas: {formatCurrencySync(line.gas_charge * line.quantity)}</div>
+                                  )}
+                                  {line.deposit_amount !== undefined && line.deposit_amount > 0 && (
+                                    <div>Deposit: {formatCurrencySync(line.deposit_amount * line.quantity)}</div>
+                                  )}
+                                  {line.tax_amount !== undefined && line.tax_amount > 0 && (
+                                    <div>Tax: {formatCurrencySync(line.tax_amount * line.quantity)}</div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

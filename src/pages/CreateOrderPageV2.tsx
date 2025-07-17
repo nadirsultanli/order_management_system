@@ -12,6 +12,7 @@ import { formatCurrencySync } from '../utils/pricing';
 import { formatAddressForSelect } from '../utils/address';
 import { CustomerSelector } from '../components/customers/CustomerSelector';
 import { AddressForm } from '../components/addresses/AddressForm';
+import { trpc } from '../lib/trpc-client';
 import { FillPercentageSelector } from '../components/orders/FillPercentageSelector';
 import { CreateOrderData } from '../types/order';
 import { CreateAddressData, Address } from '../types/address';
@@ -37,6 +38,12 @@ interface OrderLineItem {
   // Product info for fill logic
   variant_type?: 'cylinder' | 'refillable' | 'disposable';
   unit_of_measure?: string;
+  // Enhanced pricing breakdown
+  gas_charge?: number;
+  deposit_amount?: number;
+  adjusted_weight?: number;
+  original_weight?: number;
+  pricing_method?: string;
 }
 
 export const CreateOrderPageV2: React.FC = () => {
@@ -291,52 +298,103 @@ export const CreateOrderPageV2: React.FC = () => {
     }
   };
   
-  // Update order lines when warehouse is selected
+  // Update order lines when warehouse is selected - using enhanced pricing with deposits
   useEffect(() => {
-    if (selectedWarehouseId && Object.keys(selectedProducts).length > 0) {
-      const newOrderLines: OrderLineItem[] = [];
-      
-      Object.entries(selectedProducts).forEach(([productId, quantity]) => {
-        const product = products.find(p => p.id === productId);
-        if (!product) return;
+    const updateOrderLinesWithPricing = async () => {
+      if (selectedWarehouseId && Object.keys(selectedProducts).length > 0) {
+        const newOrderLines: OrderLineItem[] = [];
         
-        const pricingInfo = productPrices && productPrices[productId];
-        let unitPrice = pricingInfo?.finalPrice || 0;
-        
-        // Get fill percentage for this product
-        const fillPercentage = fillPercentages[productId] || 100;
-        const isPartialFill = fillPercentage < 100;
-        const fillNotesForProduct = fillNotes[productId] || '';
-        
-        // Apply pro-rated pricing for gas products with partial fills
-        if (isGasProduct(product) && isPartialFill) {
-          unitPrice = calculatePartialFillPrice(unitPrice, fillPercentage);
+        for (const [productId, quantity] of Object.entries(selectedProducts)) {
+          const product = products.find(p => p.id === productId);
+          if (!product) continue;
+          
+          const fillPercentage = fillPercentages[productId] || 100;
+          const isPartialFill = fillPercentage < 100;
+          const fillNotesForProduct = fillNotes[productId] || '';
+          
+          try {
+            // Use the enhanced pricing calculation that includes deposits and partial fills
+            const pricingResult = await trpc.pricing.calculateOrderLinePricing.query({
+              product_id: productId,
+              quantity: 1, // Get unit pricing
+              fill_percentage: fillPercentage,
+              customer_id: selectedCustomerId,
+              date: new Date().toISOString().split('T')[0]
+            });
+            
+            if (pricingResult) {
+              newOrderLines.push({
+                product_id: productId,
+                product_name: product.name,
+                product_sku: product.sku,
+                quantity,
+                unit_price: pricingResult.unit_price,
+                subtotal: pricingResult.unit_price * quantity,
+                price_excluding_tax: pricingResult.gas_charge,
+                tax_amount: pricingResult.tax_amount,
+                price_including_tax: pricingResult.unit_price,
+                tax_rate: pricingResult.tax_amount > 0 ? (pricingResult.tax_amount / pricingResult.gas_charge) * 100 : 0,
+                // Fill percentage data
+                fill_percentage: fillPercentage,
+                is_partial_fill: isPartialFill,
+                partial_fill_notes: fillNotesForProduct,
+                // Product info for display
+                variant_type: product.variant_type,
+                unit_of_measure: product.unit_of_measure,
+                // Enhanced pricing breakdown
+                gas_charge: pricingResult.gas_charge,
+                deposit_amount: pricingResult.deposit_amount,
+                adjusted_weight: pricingResult.adjusted_weight,
+                original_weight: pricingResult.original_weight,
+                pricing_method: pricingResult.pricing_method,
+              });
+            } else {
+              // Fallback to basic pricing if enhanced calculation fails
+              const pricingInfo = productPrices && productPrices[productId];
+              const unitPrice = pricingInfo?.finalPrice || 0;
+              
+              newOrderLines.push({
+                product_id: productId,
+                product_name: product.name,
+                product_sku: product.sku,
+                quantity,
+                unit_price: unitPrice,
+                subtotal: unitPrice * quantity,
+                fill_percentage: fillPercentage,
+                is_partial_fill: isPartialFill,
+                partial_fill_notes: fillNotesForProduct,
+                variant_type: product.variant_type,
+                unit_of_measure: product.unit_of_measure,
+              });
+            }
+          } catch (error) {
+            console.error('Enhanced pricing calculation failed for product:', productId, error);
+            // Fallback to basic pricing
+            const pricingInfo = productPrices && productPrices[productId];
+            const unitPrice = pricingInfo?.finalPrice || 0;
+            
+            newOrderLines.push({
+              product_id: productId,
+              product_name: product.name,
+              product_sku: product.sku,
+              quantity,
+              unit_price: unitPrice,
+              subtotal: unitPrice * quantity,
+              fill_percentage: fillPercentage,
+              is_partial_fill: isPartialFill,
+              partial_fill_notes: fillNotesForProduct,
+              variant_type: product.variant_type,
+              unit_of_measure: product.unit_of_measure,
+            });
+          }
         }
         
-        newOrderLines.push({
-          product_id: productId,
-          product_name: product.name,
-          product_sku: product.sku,
-          quantity,
-          unit_price: unitPrice,
-          subtotal: unitPrice * quantity,
-          price_excluding_tax: isPartialFill ? undefined : pricingInfo?.priceExcludingTax,
-          tax_amount: isPartialFill ? undefined : pricingInfo?.taxAmount,
-          price_including_tax: isPartialFill ? undefined : pricingInfo?.priceIncludingTax,
-          tax_rate: pricingInfo?.taxRate,
-          // Fill percentage data
-          fill_percentage: fillPercentage,
-          is_partial_fill: isPartialFill,
-          partial_fill_notes: fillNotesForProduct,
-          // Product info for display
-          variant_type: product.variant_type,
-          unit_of_measure: product.unit_of_measure,
-        });
-      });
-      
-      setOrderLines(newOrderLines);
-    }
-  }, [selectedWarehouseId, selectedProducts, products, productPrices, fillPercentages, fillNotes]);
+        setOrderLines(newOrderLines);
+      }
+    };
+    
+    updateOrderLinesWithPricing();
+  }, [selectedWarehouseId, selectedProducts, products, productPrices, fillPercentages, fillNotes, selectedCustomerId]);
   
   // Handle address creation
   const handleAddressSubmit = async (addressData: CreateAddressData) => {

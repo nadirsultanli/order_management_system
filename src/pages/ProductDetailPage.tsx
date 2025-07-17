@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit, Package, Cylinder, Weight, Barcode, Calendar, AlertTriangle, DollarSign } from 'lucide-react';
+import { ArrowLeft, Edit, Package, Cylinder, Weight, Barcode, Calendar, AlertTriangle } from 'lucide-react';
 import { useProduct, useUpdateProduct, useUpdateParentProduct, useUpdateVariant } from '../hooks/useProducts';
 import { ProductForm } from '../components/products/ProductForm';
 import { EditVariantForm } from '../components/products/EditVariantForm';
-import { ProductPricing } from '../components/products/ProductPricing';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { Product, CreateProductData } from '../types/product';
 import { formatDateSync } from '../utils/order';
@@ -16,7 +15,6 @@ export const ProductDetailPage: React.FC = () => {
   const [isEditFormOpen, setIsEditFormOpen] = useState(false);
   const [isVariantEditFormOpen, setIsVariantEditFormOpen] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState<Product | null>(null);
-  const [activeTab, setActiveTab] = useState<'details' | 'pricing'>('details');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [updateMessage, setUpdateMessage] = useState<string>('');
 
@@ -26,10 +24,8 @@ export const ProductDetailPage: React.FC = () => {
   const updateVariant = useUpdateVariant();
 
   // Fetch child variants if this is a parent product
-  const { data: childVariants = [] } = trpc.products.getVariants.useQuery(
-    { parent_products_id: product?.id || '' },
-    { enabled: Boolean(product?.id && !product.parent_products_id) }
-  );
+  // TODO: Fix trpc.products.getVariants call
+  const childVariants: any[] = [];
 
   const handleEditSubmit = async (data: CreateProductData) => {
     if (product) {
@@ -199,37 +195,18 @@ export const ProductDetailPage: React.FC = () => {
       {/* Tabs */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
-            <button
-              onClick={() => setActiveTab('details')}
-              className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'details'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Package className="h-4 w-4" />
-              <span>Product Details</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('pricing')}
-              className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'pricing'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <DollarSign className="h-4 w-4" />
-              <span>Pricing</span>
-            </button>
-          </nav>
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center space-x-2">
+              <Package className="h-4 w-4 text-blue-600" />
+              <h2 className="text-lg font-medium text-gray-900">Product Details</h2>
+            </div>
+          </div>
         </div>
 
         <div className="p-6">
-          {activeTab === 'details' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Info */}
-              <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Info */}
+            <div className="lg:col-span-2">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900">Product Information</h2>
                   {product.parent_products_id && (
@@ -502,11 +479,6 @@ export const ProductDetailPage: React.FC = () => {
                 </div>
               </div>
             </div>
-          )}
-
-          {activeTab === 'pricing' && (
-            <ProductPricing productId={product.id} />
-          )}
         </div>
       </div>
 

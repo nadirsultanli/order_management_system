@@ -1032,7 +1032,7 @@ export class PricingService {
 
   /**
    * Calculate pricing with partial fill support for order creation
-   * This method handles weight-based pricing with partial fill percentages
+   * This method handles weight-based pricing with partial fill percentages and automatic deposit calculation
    */
   async calculateOrderLinePricing(
     productId: string,
@@ -1063,6 +1063,7 @@ export class PricingService {
           sku,
           sku_variant,
           capacity_l,
+          capacity_kg,
           gross_weight_kg,
           net_gas_weight_kg,
           tare_weight_kg,
@@ -1086,71 +1087,80 @@ export class PricingService {
         return null;
       }
 
-      // For gas cylinders with per_kg pricing, calculate weight-based pricing
-      if (product.sku_variant && ['FULL-OUT', 'FULL-XCH'].includes(product.sku_variant) && 
-          product.net_gas_weight_kg && product.capacity_l) {
-        
-        // Get gas price per kg from pricing
-        const gasPricePerKg = pricingResult.finalPrice / product.net_gas_weight_kg;
-        
-        // Calculate adjusted weight based on fill percentage
-        const originalWeight = product.net_gas_weight_kg;
-        const adjustedWeight = originalWeight * (fillPercentage / 100);
-        
-        // Calculate gas charge (only gas portion is affected by fill percentage)
-        const gasCharge = this.calculateGasCharge(adjustedWeight, gasPricePerKg);
-        
-        // Get deposit amount (always full price, not affected by fill percentage)
-        const depositAmount = await this.getCurrentDepositRate(product.capacity_l);
-        
-        // Calculate subtotal (gas charge + deposit)
-        const subtotal = gasCharge + depositAmount;
-        
-        // Calculate tax (applied to subtotal)
-        const taxRate = product.tax_rate || 16; // Default 16% VAT
-        const taxAmount = subtotal * (taxRate / 100);
-        
-        // Calculate total price
-        const totalPrice = subtotal + taxAmount;
-        
-        // Calculate unit price (total price for one unit)
-        const unitPrice = totalPrice;
-        
-        return {
-          unitPrice,
-          subtotal: subtotal * quantity,
-          gasCharge: gasCharge * quantity,
-          depositAmount: depositAmount * quantity,
-          taxAmount: taxAmount * quantity,
-          totalPrice: totalPrice * quantity,
-          adjustedWeight,
-          originalWeight,
-          pricingMethod: 'per_kg',
-          inheritedFromParent: pricingResult.inheritedFromParent,
-          parentProductId: pricingResult.parentProductId
-        };
-      } else {
-        // For non-gas products or products without weight info, use standard pricing
-        const unitPrice = pricingResult.finalPrice;
-        const subtotal = unitPrice * quantity;
-        const taxRate = product.tax_rate || 16;
-        const taxAmount = subtotal * (taxRate / 100);
-        const totalPrice = subtotal + taxAmount;
-        
-        return {
-          unitPrice,
-          subtotal,
-          gasCharge: 0,
-          depositAmount: 0,
-          taxAmount,
-          totalPrice,
-          adjustedWeight: 0,
-          originalWeight: 0,
-          pricingMethod: 'per_unit',
-          inheritedFromParent: pricingResult.inheritedFromParent,
-          parentProductId: pricingResult.parentProductId
-        };
+      // Determine capacity for deposit lookup - use capacity_l, then capacity_kg as fallback
+      const capacityForDeposit = product.capacity_l || product.capacity_kg || 0;
+      
+      // Get deposit amount based on capacity (always check for deposits on cylinders)
+      let depositAmount = 0;
+      if (capacityForDeposit > 0) {
+        try {
+          depositAmount = await this.getCurrentDepositRate(capacityForDeposit);
+          this.logger.info(`Found deposit rate for capacity ${capacityForDeposit}L: ${depositAmount}`);
+        } catch (error) {
+          this.logger.warn(`No deposit rate found for capacity ${capacityForDeposit}L:`, error);
+          depositAmount = 0;
+        }
       }
+
+      // Calculate gas pricing based on fill percentage
+      let gasCharge = pricingResult.finalPrice;
+      let adjustedWeight = 0;
+      let originalWeight = 0;
+      let pricingMethod = 'per_unit';
+
+      // Check if this is a gas product that supports partial fills
+      const isGasProduct = product.sku_variant && ['FULL-OUT', 'FULL-XCH'].includes(product.sku_variant);
+      const hasWeightInfo = product.net_gas_weight_kg || (product.gross_weight_kg && product.tare_weight_kg) || product.capacity_kg;
+
+      if (isGasProduct && hasWeightInfo && fillPercentage < 100) {
+        // Calculate net weight
+        if (product.net_gas_weight_kg) {
+          originalWeight = product.net_gas_weight_kg;
+        } else if (product.gross_weight_kg && product.tare_weight_kg) {
+          originalWeight = product.gross_weight_kg - product.tare_weight_kg;
+        } else if (product.capacity_kg) {
+          originalWeight = product.capacity_kg;
+        }
+
+        if (originalWeight > 0) {
+          adjustedWeight = originalWeight * (fillPercentage / 100);
+          
+          // For partial fills, only adjust the gas portion of the price
+          // Assume gas represents the variable portion affected by fill percentage
+          gasCharge = pricingResult.finalPrice * (fillPercentage / 100);
+          pricingMethod = 'per_kg_partial';
+          
+          this.logger.info(`Partial fill calculation: ${fillPercentage}% of ${originalWeight}kg = ${adjustedWeight}kg, gas charge: ${gasCharge}`);
+        }
+      } else if (fillPercentage < 100) {
+        // For non-gas products or products without weight info, still apply partial fill logic
+        gasCharge = pricingResult.finalPrice * (fillPercentage / 100);
+        pricingMethod = 'per_unit_partial';
+      }
+
+      // Calculate subtotal (gas charge + deposit)
+      const subtotal = gasCharge + depositAmount;
+      
+      // Calculate tax (applied to gas charge only, deposits are typically not taxed)
+      const taxRate = product.tax_rate || 0.16; // Default 16% VAT
+      const taxAmount = gasCharge * taxRate;
+      
+      // Calculate total price
+      const totalPrice = gasCharge + depositAmount + taxAmount;
+      
+      return {
+        unitPrice: totalPrice,
+        subtotal: subtotal * quantity,
+        gasCharge: gasCharge * quantity,
+        depositAmount: depositAmount * quantity,
+        taxAmount: taxAmount * quantity,
+        totalPrice: totalPrice * quantity,
+        adjustedWeight,
+        originalWeight,
+        pricingMethod,
+        inheritedFromParent: pricingResult.inheritedFromParent,
+        parentProductId: pricingResult.parentProductId
+      };
     } catch (error) {
       this.logger.error('Error in calculateOrderLinePricing:', error);
       throw error;
