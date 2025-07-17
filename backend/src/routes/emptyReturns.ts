@@ -656,7 +656,7 @@ export const emptyReturnsRouter = router({
       (returns || []).forEach(returnRecord => {
         const originalBrand = returnRecord.original_brand;
         const acceptedBrand = returnRecord.accepted_brand;
-        const capacity = returnRecord.product?.capacity_l || 0;
+        const capacity = (returnRecord.product as any)?.capacity_l || 0;
         const quantity = returnRecord.quantity_returned || 0;
         const reconciliationStatus = returnRecord.brand_reconciliation_status;
 

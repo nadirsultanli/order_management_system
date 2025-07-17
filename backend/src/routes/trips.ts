@@ -965,7 +965,7 @@ export const tripsRouter = router({
           const stockValidationErrors = [];
           
           for (const line of orderLines) {
-            const warehouseId = line.orders.source_warehouse_id;
+            const warehouseId = (line.orders as any)?.source_warehouse_id;
             if (!warehouseId) {
               stockValidationErrors.push(`Order ${line.order_id} has no source warehouse specified`);
               continue;
@@ -981,7 +981,7 @@ export const tripsRouter = router({
 
             if (stockCheckError) {
               ctx.logger.error('Error checking stock availability:', stockCheckError);
-              stockValidationErrors.push(`Failed to check stock for product ${line.products.sku}: ${stockCheckError.message}`);
+              stockValidationErrors.push(`Failed to check stock for product ${(line.products as any)?.sku}: ${stockCheckError.message}`);
               continue;
             }
 
@@ -996,7 +996,7 @@ export const tripsRouter = router({
 
               const available = inventory ? inventory.qty_full - inventory.qty_reserved : 0;
               stockValidationErrors.push(
-                `Insufficient stock for ${line.products.sku}: Required ${line.quantity}, Available ${available}`
+                `Insufficient stock for ${(line.products as any)?.sku}: Required ${line.quantity}, Available ${available}`
               );
             }
           }
@@ -1132,7 +1132,7 @@ export const tripsRouter = router({
               if (!fullProduct) continue;
               
               // Get the base SKU by removing the variant suffix
-              const baseSku = fullProduct.sku.replace('-FULL-XCH', '');
+              const baseSku = (fullProduct as any)?.sku?.replace('-FULL-XCH', '') || '';
               const emptySku = `${baseSku}-EMPTY`;
               
               // Find the EMPTY variant product
@@ -1241,7 +1241,7 @@ export const tripsRouter = router({
             if (!fullProduct) continue;
             
             // Get the base SKU by removing the variant suffix
-            const baseSku = fullProduct.sku.replace('-FULL-XCH', '');
+            const baseSku = (fullProduct as any)?.sku?.replace('-FULL-XCH', '') || '';
             const emptySku = `${baseSku}-EMPTY`;
             
             // Find the EMPTY variant product
