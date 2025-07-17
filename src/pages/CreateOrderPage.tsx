@@ -113,8 +113,30 @@ export const CreateOrderPage: React.FC = () => {
         allProductIds: productIds,
         pricingKeys: Object.keys(productPrices)
       });
+
+      // Enhanced debugging: Check each product's pricing
+      products.forEach(product => {
+        const pricing = productPrices[product.id];
+        console.log(`Product ${product.sku} (${product.id}):`, {
+          hasDirectPricing: !!pricing,
+          finalPrice: pricing?.finalPrice,
+          inheritedFromParent: pricing?.inheritedFromParent,
+          parentProductId: pricing?.parentProductId,
+          fullPricingData: pricing
+        });
+      });
     }
-  }, [productPrices, productIds]);
+
+    // Debug: Log when pricing is loading
+    if (isPricesLoading) {
+      console.log('Pricing is still loading for products:', productIds);
+    }
+
+    // Debug: Log pricing errors
+    if (pricesError) {
+      console.error('Pricing error:', pricesError);
+    }
+  }, [productPrices, productIds, products, isPricesLoading, pricesError]);
   
   // Get inventory data for real stock checking
   const { data: inventoryData } = useInventoryNew({});
@@ -271,7 +293,21 @@ export const CreateOrderPage: React.FC = () => {
 
   // Check if we have pricing data for a product
   const hasProductPricing = (productId: string): boolean => {
-    return !!(productPrices && productPrices[productId] && productPrices[productId].finalPrice && productPrices[productId].finalPrice > 0);
+    const pricing = productPrices && productPrices[productId];
+    const hasPricing = !!(pricing && pricing.finalPrice && pricing.finalPrice > 0);
+    
+    // Debug logging for pricing checks
+    if (!hasPricing) {
+      console.log(`hasProductPricing FALSE for ${productId}:`, {
+        productPricesExists: !!productPrices,
+        pricingDataExists: !!pricing,
+        finalPrice: pricing?.finalPrice,
+        inheritedFromParent: pricing?.inheritedFromParent,
+        fullPricingObject: pricing
+      });
+    }
+    
+    return hasPricing;
   };
 
   // Cross-sell suggestion logic

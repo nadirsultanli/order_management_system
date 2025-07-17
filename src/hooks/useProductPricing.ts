@@ -12,7 +12,11 @@ export const useProductPrice = (productId: string, customerId?: string, enabled:
 
 export const useProductPrices = (productIds: string[], customerId?: string, enabled: boolean = true) => {
   return trpc.pricing.getProductPrices.useQuery(
-    { productIds, customerId },
+    { 
+      productIds, 
+      customerId,
+      date: new Date().toISOString().split('T')[0] // Add current date explicitly
+    },
     {
       enabled: !!(enabled && productIds.length > 0),
       staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -24,7 +28,10 @@ export const useProductPrices = (productIds: string[], customerId?: string, enab
       onSuccess: (data) => {
         console.log('useProductPrices: Query succeeded with data:', {
           dataKeys: Object.keys(data || {}),
-          sampleData: data ? Object.entries(data).slice(0, 2) : []
+          sampleData: data ? Object.entries(data).slice(0, 2) : [],
+          totalProductsRequested: productIds.length,
+          totalProductsWithPricing: data ? Object.keys(data).filter(key => data[key] !== null).length : 0,
+          productsWithInheritance: data ? Object.keys(data).filter(key => data[key]?.inheritedFromParent).length : 0
         });
       }
     }
