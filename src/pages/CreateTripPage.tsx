@@ -6,6 +6,9 @@ import { useCreateTrip } from '../hooks/useTrips';
 import { useTrucks } from '../hooks/useTrucks';
 import { useWarehouseOptions } from '../hooks/useWarehouses';
 import { useDrivers } from '../hooks/useUsers';
+import { SearchableTruckSelector } from '../components/trucks/SearchableTruckSelector';
+import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
+import { SearchableDriverSelector } from '../components/trucks/SearchableDriverSelector';
 
 export const CreateTripPage: React.FC = () => {
   const navigate = useNavigate();
@@ -129,20 +132,12 @@ export const CreateTripPage: React.FC = () => {
                   Truck
                 </div>
               </label>
-              <select
-                id="truck_id"
+              <SearchableTruckSelector
                 value={formData.truck_id}
-                onChange={(e) => setFormData({ ...formData, truck_id: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                onChange={(truckId) => setFormData({ ...formData, truck_id: truckId })}
+                placeholder="Select a truck..."
                 required
-              >
-                <option value="">Select a truck...</option>
-                {trucks.map((truck) => (
-                  <option key={truck.id} value={truck.id}>
-                    {truck.fleet_number} - {truck.license_plate} ({truck.capacity_cylinders} cylinders)
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Route Date */}
@@ -171,51 +166,29 @@ export const CreateTripPage: React.FC = () => {
                   Warehouse
                 </div>
               </label>
-              <select
-                id="warehouse_id"
+              <SearchableWarehouseSelector
                 value={formData.warehouse_id}
-                onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                onChange={(warehouseId) => setFormData({ ...formData, warehouse_id: warehouseId })}
+                placeholder="Select a warehouse..."
                 required
-              >
-                <option value="">Select a warehouse...</option>
-                {warehouses?.map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.id}>
-                    {warehouse.city && warehouse.state 
-                      ? `${warehouse.name} (${warehouse.city}, ${warehouse.state})`
-                      : warehouse.name
-                    }
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
-            {/* Driver Selection (Optional) - Uses admin_users.id for database foreign key */}
+            {/* Driver Selection - Uses admin_users.id for database foreign key */}
             <div>
               <label htmlFor="driver_id" className="block text-sm font-medium text-gray-700">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  Driver (Optional)
+                  Driver
                 </div>
               </label>
-              <select
-                id="driver_id"
+              <SearchableDriverSelector
+                drivers={drivers.filter((driver) => driver.role === 'driver')}
                 value={formData.driver_id}
-                onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                <option value="">Select a driver...</option>
-                {drivers
-                  .filter((driver) => driver.role === 'driver') // Only show users with driver role
-                  .map((driver) => (
-                    <option key={driver.id} value={driver.id}>
-                      {driver.name}
-                      {driver.employee_id && ` (${driver.employee_id})`}
-                      {driver.email && ` - ${driver.email}`}
-                      {driver.phone && ` - ${driver.phone}`}
-                    </option>
-                  ))}
-              </select>
+                onChange={(driverId) => setFormData({ ...formData, driver_id: driverId })}
+                placeholder="Select a driver..."
+                loading={driversLoading}
+              />
             </div>
           </div>
 
