@@ -166,11 +166,9 @@ export const CreateOrderPageV2: React.FC = () => {
   // Utility function to calculate pro-rated pricing for partial fills
   const calculatePartialFillPrice = (basePrice: number, fillPercentage: number) => {
     if (fillPercentage >= 100) return basePrice;
-    // Pro-rate the gas portion, keep cylinder costs at full price
-    // For now, assume 70% of price is gas, 30% is cylinder/handling
-    const gasPortion = basePrice * 0.7;
-    const cylinderPortion = basePrice * 0.3;
-    return cylinderPortion + (gasPortion * (fillPercentage / 100));
+    // For partial fills, reduce the entire price proportionally
+    // Note: Deposits will be added separately at checkout
+    return basePrice * (fillPercentage / 100);
   };
   
   // Get available warehouses based on selected products
@@ -298,103 +296,49 @@ export const CreateOrderPageV2: React.FC = () => {
     }
   };
   
-  // Update order lines when warehouse is selected - using enhanced pricing with deposits
+  // Update order lines when warehouse is selected
   useEffect(() => {
-    const updateOrderLinesWithPricing = async () => {
-      if (selectedWarehouseId && Object.keys(selectedProducts).length > 0) {
-        const newOrderLines: OrderLineItem[] = [];
+    if (selectedWarehouseId && Object.keys(selectedProducts).length > 0) {
+      const newOrderLines: OrderLineItem[] = [];
+      
+      Object.entries(selectedProducts).forEach(([productId, quantity]) => {
+        const product = products.find(p => p.id === productId);
+        if (!product) return;
         
-        for (const [productId, quantity] of Object.entries(selectedProducts)) {
-          const product = products.find(p => p.id === productId);
-          if (!product) continue;
-          
-          const fillPercentage = fillPercentages[productId] || 100;
-          const isPartialFill = fillPercentage < 100;
-          const fillNotesForProduct = fillNotes[productId] || '';
-          
-          try {
-            // Use the enhanced pricing calculation that includes deposits and partial fills
-            const pricingResult = await trpc.pricing.calculateOrderLinePricing.query({
-              product_id: productId,
-              quantity: 1, // Get unit pricing
-              fill_percentage: fillPercentage,
-              customer_id: selectedCustomerId,
-              date: new Date().toISOString().split('T')[0]
-            });
-            
-            if (pricingResult) {
-              newOrderLines.push({
-                product_id: productId,
-                product_name: product.name,
-                product_sku: product.sku,
-                quantity,
-                unit_price: pricingResult.unit_price,
-                subtotal: pricingResult.unit_price * quantity,
-                price_excluding_tax: pricingResult.gas_charge,
-                tax_amount: pricingResult.tax_amount,
-                price_including_tax: pricingResult.unit_price,
-                tax_rate: pricingResult.tax_amount > 0 ? (pricingResult.tax_amount / pricingResult.gas_charge) * 100 : 0,
-                // Fill percentage data
-                fill_percentage: fillPercentage,
-                is_partial_fill: isPartialFill,
-                partial_fill_notes: fillNotesForProduct,
-                // Product info for display
-                variant_type: product.variant_type,
-                unit_of_measure: product.unit_of_measure,
-                // Enhanced pricing breakdown
-                gas_charge: pricingResult.gas_charge,
-                deposit_amount: pricingResult.deposit_amount,
-                adjusted_weight: pricingResult.adjusted_weight,
-                original_weight: pricingResult.original_weight,
-                pricing_method: pricingResult.pricing_method,
-              });
-            } else {
-              // Fallback to basic pricing if enhanced calculation fails
-              const pricingInfo = productPrices && productPrices[productId];
-              const unitPrice = pricingInfo?.finalPrice || 0;
-              
-              newOrderLines.push({
-                product_id: productId,
-                product_name: product.name,
-                product_sku: product.sku,
-                quantity,
-                unit_price: unitPrice,
-                subtotal: unitPrice * quantity,
-                fill_percentage: fillPercentage,
-                is_partial_fill: isPartialFill,
-                partial_fill_notes: fillNotesForProduct,
-                variant_type: product.variant_type,
-                unit_of_measure: product.unit_of_measure,
-              });
-            }
-          } catch (error) {
-            console.error('Enhanced pricing calculation failed for product:', productId, error);
-            // Fallback to basic pricing
-            const pricingInfo = productPrices && productPrices[productId];
-            const unitPrice = pricingInfo?.finalPrice || 0;
-            
-            newOrderLines.push({
-              product_id: productId,
-              product_name: product.name,
-              product_sku: product.sku,
-              quantity,
-              unit_price: unitPrice,
-              subtotal: unitPrice * quantity,
-              fill_percentage: fillPercentage,
-              is_partial_fill: isPartialFill,
-              partial_fill_notes: fillNotesForProduct,
-              variant_type: product.variant_type,
-              unit_of_measure: product.unit_of_measure,
-            });
-          }
+        const pricingInfo = productPrices && productPrices[productId];
+        let unitPrice = pricingInfo?.finalPrice || 0;
+        const fillPercentage = fillPercentages[productId] || 100;
+        const isPartialFill = fillPercentage < 100;
+        
+        // Apply pro-rated pricing for gas products with partial fills
+        if (isGasProduct(product) && isPartialFill) {
+          unitPrice = calculatePartialFillPrice(unitPrice, fillPercentage);
         }
         
-        setOrderLines(newOrderLines);
-      }
-    };
-    
-    updateOrderLinesWithPricing();
-  }, [selectedWarehouseId, selectedProducts, products, productPrices, fillPercentages, fillNotes, selectedCustomerId]);
+        newOrderLines.push({
+          product_id: productId,
+          product_name: product.name,
+          product_sku: product.sku,
+          quantity,
+          unit_price: unitPrice,
+          subtotal: unitPrice * quantity,
+          price_excluding_tax: isPartialFill ? undefined : pricingInfo?.priceExcludingTax,
+          tax_amount: isPartialFill ? undefined : pricingInfo?.taxAmount,
+          price_including_tax: isPartialFill ? undefined : pricingInfo?.priceIncludingTax,
+          tax_rate: pricingInfo?.taxRate,
+          // Fill percentage data
+          fill_percentage: fillPercentage,
+          is_partial_fill: isPartialFill,
+          partial_fill_notes: fillNotes[productId] || '',
+          // Product info for display
+          variant_type: product.variant_type,
+          unit_of_measure: product.unit_of_measure,
+        });
+      });
+      
+      setOrderLines(newOrderLines);
+    }
+  }, [selectedWarehouseId, selectedProducts, products, productPrices, fillPercentages, fillNotes]);
   
   // Handle address creation
   const handleAddressSubmit = async (addressData: CreateAddressData) => {
@@ -435,10 +379,10 @@ export const CreateOrderPageV2: React.FC = () => {
           tax_amount: line.tax_amount,
           price_including_tax: line.price_including_tax,
           tax_rate: line.tax_rate,
-          // Include fill percentage data
-          fill_percentage: line.fill_percentage,
-          is_partial_fill: line.is_partial_fill,
-          partial_fill_notes: line.partial_fill_notes,
+          // Temporarily comment out fill percentage fields until DB migration is applied
+          // fill_percentage: line.fill_percentage,
+          // is_partial_fill: line.is_partial_fill,
+          // partial_fill_notes: line.partial_fill_notes,
         })) : undefined,
       };
       
@@ -924,9 +868,15 @@ export const CreateOrderPageV2: React.FC = () => {
                                 <div className="text-sm text-gray-500">
                                   {quantity} × {formatCurrencySync(unitPrice)} = {formatCurrencySync(quantity * unitPrice)}
                                   {isPartialFill && (
-                                    <span className="text-orange-600 ml-1">(Partial Fill)</span>
+                                    <span className="text-orange-600 ml-1">(Partial Fill - {fillPercentage}%)</span>
                                   )}
                                 </div>
+                                {/* TODO: Add deposit calculation here */}
+                                {product.capacity_l && (
+                                  <div className="text-xs text-blue-600 mt-1">
+                                    + Deposit for {product.capacity_l}kg cylinder (calculated at checkout)
+                                  </div>
+                                )}
                               </div>
                               <button
                                 onClick={() => handleProductSelect(productId, 0)}

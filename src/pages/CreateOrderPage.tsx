@@ -1297,7 +1297,7 @@ export const CreateOrderPage: React.FC = () => {
 
                             {/* Partial Fill Percentage Controls for Gas Products */}
                             {isGasProduct(product) && (
-                              <div className="mb-3" key={`fill-control-${product.id}-${fillPercentages[product.id] || 100}`}>
+                              <div className="mb-3" key={`fill-control-${product.id}`}>
                                 <div className="flex items-center justify-between mb-2">
                                   <label className="text-sm font-medium text-gray-700">Fill Percentage:</label>
                                   <span className="text-sm text-gray-500">
@@ -1367,7 +1367,6 @@ export const CreateOrderPage: React.FC = () => {
                                     min="1"
                                     max="100"
                                     value={fillPercentages[product.id] || 100}
-                                    key={`fill-input-${product.id}-${fillPercentages[product.id] || 100}`}
                                     onChange={(e) => {
                                       const value = Math.min(100, Math.max(1, parseInt(e.target.value) || 100));
                                       console.log(`🔄 Custom fill percentage set to ${value}% for product ${product.id}`);
