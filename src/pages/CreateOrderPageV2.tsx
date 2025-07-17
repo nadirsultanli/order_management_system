@@ -260,10 +260,12 @@ export const CreateOrderPageV2: React.FC = () => {
       console.log('⚠️ No deposits found in order lines, calculating from selectedProducts...');
       Object.entries(selectedProducts).forEach(([productId, quantity]) => {
         const product = products.find(p => p.id === productId);
-        if (product && product.capacity_l && product.capacity_l > 0) {
+        if (product) {
           const depositRate = getDepositAmountByCapacity(product);
-          depositTotal += depositRate * quantity;
-          console.log(`💰 Adding deposit from selectedProducts: ${product.name} - ${quantity} × ${depositRate} = ${depositRate * quantity}`);
+          if (depositRate > 0) {
+            depositTotal += depositRate * quantity;
+            console.log(`💰 Adding deposit from selectedProducts: ${product.name} - ${quantity} × ${depositRate} = ${depositRate * quantity}`);
+          }
         }
       });
     }
@@ -501,7 +503,17 @@ export const CreateOrderPageV2: React.FC = () => {
         let depositAmountPerUnit = 0;
         if (product.capacity_l && product.capacity_l > 0) {
           depositAmountPerUnit = getDepositAmountByCapacity(product);
+        } else {
+          // Fallback for products without capacity_l - use the full product
+          depositAmountPerUnit = getDepositAmountByCapacity(product);
         }
+        
+        console.log(`💰 Order line deposit calculation for ${product.name}:`, {
+          capacity_l: product.capacity_l,
+          capacity_kg: product.capacity_kg,
+          depositAmountPerUnit,
+          totalDepositForLine: depositAmountPerUnit * quantity
+        });
         
         newOrderLines.push({
           product_id: productId,
