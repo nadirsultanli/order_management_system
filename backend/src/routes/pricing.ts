@@ -520,7 +520,7 @@ export const pricingRouter = router({
         path: '/pricing/price-list-items',
         tags: ['pricing'],
         summary: 'Create price list item',
-        description: 'Add a new product to a price list with pricing information.',
+        description: 'Add a new product to a price list with pricing information. If adding a parent product, will automatically add all its variants with the same pricing.',
         protect: true,
       }
     })
@@ -536,7 +536,6 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id')
         .eq('id', input.price_list_id)
-        
         .single();
         
       if (!priceList) {
@@ -561,55 +560,81 @@ export const pricingRouter = router({
         });
       }
 
-      // Get product details to determine capacity for deposit calculation
-      const { data: product } = await ctx.supabase
-        .from('products')
-        .select(`
-          id,
-          capacity_kg,
-          parent_products_id
-        `)
+      // Check if this is a parent product (from parent_products table)
+      const { data: parentProduct } = await ctx.supabase
+        .from('parent_products')
+        .select('id, name, sku')
         .eq('id', input.product_id)
         .single();
 
-      // Determine capacity for deposit calculation
-      let capacityForDeposit = 0;
-      if (product) {
-        // If product has direct capacity, use it
-        if (product.capacity_kg) {
-          capacityForDeposit = product.capacity_kg;
-        }
-        // If product is a variant, get capacity from parent product
-        else if (product.parent_products_id) {
-          const { data: parentProduct } = await ctx.supabase
-            .from('parent_products')
-            .select('capacity_kg')
-            .eq('id', product.parent_products_id)
-            .single();
+      const itemsToCreate = [];
+      
+      if (parentProduct) {
+        // This is a parent product - add parent and all its variants
+        ctx.logger.info(`Adding parent product ${parentProduct.sku} and its variants to price list`);
+        
+        // Add the parent product first
+        itemsToCreate.push({
+          ...input,
+          created_at: new Date().toISOString(),
+        });
+
+        // Get all variants of this parent product
+        const { data: variants } = await ctx.supabase
+          .from('products')
+          .select('id, name, sku')
+          .eq('parent_products_id', input.product_id)
+          .eq('is_variant', true)
+          .eq('status', 'active'); // Only active variants
+
+        if (variants && variants.length > 0) {
+          ctx.logger.info(`Found ${variants.length} variants for parent product ${parentProduct.sku}`);
           
-          if (parentProduct) {
-            capacityForDeposit = parentProduct.capacity_kg || 0;
-          }
+          // Check which variants are not already in the price list
+          const { data: existingVariantItems } = await ctx.supabase
+            .from('price_list_item')
+            .select('product_id')
+            .eq('price_list_id', input.price_list_id)
+            .in('product_id', variants.map(v => v.id));
+
+          const existingVariantIds = existingVariantItems?.map(item => item.product_id) || [];
+          const newVariants = variants.filter(v => !existingVariantIds.includes(v.id));
+
+          // Add each new variant with the same pricing as the parent
+          newVariants.forEach(variant => {
+            itemsToCreate.push({
+              price_list_id: input.price_list_id,
+              product_id: variant.id,
+              unit_price: input.unit_price,
+              price_per_kg: input.price_per_kg,
+              min_qty: input.min_qty || 1,
+              surcharge_pct: input.surcharge_pct,
+              pricing_method: input.pricing_method || 'per_unit',
+              price_excluding_tax: input.price_excluding_tax,
+              tax_amount: input.tax_amount,
+              price_including_tax: input.price_including_tax,
+              created_at: new Date().toISOString(),
+            });
+          });
+
+          ctx.logger.info(`Will create pricing for ${newVariants.length} new variants`);
         }
+      } else {
+        // This might be a regular variant - just add it
+        itemsToCreate.push({
+          ...input,
+          created_at: new Date().toISOString(),
+        });
       }
 
-      // Get deposit amount from cylinder_deposit_rates table if capacity is available
-      // Note: deposit_amount is calculated dynamically from cylinder_deposit_rates table
-      // when needed, not stored in price_list_item table
-
-      // Prepare the data to insert (without deposit_amount as it's not in the table schema)
-      const insertData = {
-        ...input
-      };
-      
+      // Create all price list items
       const { data, error } = await ctx.supabase
         .from('price_list_item')
-        .insert([insertData])
+        .insert(itemsToCreate)
         .select(`
           *,
           product:parent_products(id, name, sku, description, capacity_kg)
-        `)
-        .single();
+        `);
 
       if (error) {
         ctx.logger.error('Create price list item error:', error);
@@ -619,8 +644,10 @@ export const pricingRouter = router({
         });
       }
 
-      ctx.logger.info('Price list item created successfully:', data.id);
-      return data;
+      ctx.logger.info(`Successfully created ${data?.length || 0} price list items`);
+      
+      // Return the parent product item (first one created)
+      return data?.[0] || null;
     }),
 
   // Business logic endpoints

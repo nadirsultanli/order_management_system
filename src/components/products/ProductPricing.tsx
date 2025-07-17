@@ -1,363 +1,128 @@
-import React, { useState } from 'react';
-import { Edit, Plus, DollarSign, Trash2 } from 'lucide-react';
-import { usePriceListsNew, useCreatePriceListItemNew, useUpdatePriceListItemNew, useDeletePriceListItemNew, useProductPriceListItemsNew } from '../../hooks/usePricing';
-import { PriceListItem, CreatePriceListItemData } from '../../types/pricing';
-import { formatCurrencySync, calculateFinalPriceSync, getPriceListStatusSync } from '../../utils/pricing';
-import { PriceListItemForm } from '../pricing/PriceListItemForm';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { DollarSign, ArrowRight, Info } from 'lucide-react';
+import { useProductPriceListItemsNew } from '../../hooks/usePricing';
 
 interface ProductPricingProps {
   productId: string;
 }
 
 export const ProductPricing: React.FC<ProductPricingProps> = ({ productId }) => {
-  // All hooks must be called at the top level, before any conditional logic
-  const [selectedPriceList, setSelectedPriceList] = useState<string | null>(null);
-  const [showAddPriceModal, setShowAddPriceModal] = useState(false);
-  const [editingItem, setEditingItem] = useState<PriceListItem | null>(null);
-
-  // Get all price lists
-  const { data: priceLists = { priceLists: [] } } = usePriceListsNew();
-  const allPriceLists = priceLists.priceLists || [];
+  const navigate = useNavigate();
   
-  // Get price list items for this specific product
-  const { data: productPriceListItems = [], isLoading, error } = useProductPriceListItemsNew(productId);
+  // Get price list items for this specific product (for display only)
+  const { data: productPriceListItems = [], isLoading } = useProductPriceListItemsNew(productId);
   
-  // Debug: Log the pricing data
-  console.log('Product pricing data:', productPriceListItems);
-  
-  // Create a map to store price list items by price list ID for easier lookup
-  const productPricesMap: { [key: string]: PriceListItem[] } = {};
-  productPriceListItems.forEach((item: any) => {
-    if (!productPricesMap[item.price_list_id]) {
-      productPricesMap[item.price_list_id] = [];
-    }
-    productPricesMap[item.price_list_id].push(item);
-  });
-  
-  // Mutation hooks
-  const createPriceListItem = useCreatePriceListItemNew();
-  const updatePriceListItem = useUpdatePriceListItemNew();
-  const deletePriceListItem = useDeletePriceListItemNew();
-
-  // After all hooks are called, we can use conditional logic
-  const handleAddPrice = (priceListId: string) => {
-    setSelectedPriceList(priceListId);
-    setEditingItem(null);
-    setShowAddPriceModal(true);
+  const handleGoToPricing = () => {
+    navigate('/pricing');
   };
-
-  const handleEditPrice = (item: PriceListItem) => {
-    setSelectedPriceList(item.price_list_id);
-    setEditingItem(item);
-    setShowAddPriceModal(true);
-  };
-
-  const handleDeletePrice = async (item: PriceListItem) => {
-    if (window.confirm('Are you sure you want to remove this product from the price list?')) {
-      try {
-        await deletePriceListItem.mutateAsync({ id: item.id });
-      } catch (error) {
-        // Error handling is done in the hook
-      }
-    }
-  };
-
-  const handlePriceSubmit = async (data: CreatePriceListItemData) => {
-    try {
-      if (editingItem) {
-        await updatePriceListItem.mutateAsync({ 
-          id: editingItem.id, 
-          ...data 
-        });
-      } else {
-        await createPriceListItem.mutateAsync({ ...data, product_id: productId });
-      }
-      setShowAddPriceModal(false);
-      setEditingItem(null);
-    } catch (error) {
-      // Error handling is done in the hooks
-    }
-  };
-
-  // Get price lists where this product doesn't have a price yet
-  const usedPriceListIds = productPriceListItems.map((item: any) => item.price_list_id);
-  const availablePriceLists = allPriceLists.filter(
-    list => !usedPriceListIds.includes(list.id)
-  );
-
-  const today = new Date().toISOString().split('T')[0];
-  const activePriceLists = allPriceLists.filter(list => {
-    const status = getPriceListStatusSync(list.start_date, list.end_date);
-    return status.status === 'active';
-  });
-
-  const hasNoPrices = productPriceListItems.length === 0;
-  const hasNoActivePrices = !productPriceListItems.some((item: any) => 
-    item.price_list.status === 'active'
-  );
 
   return (
-    <div className="space-y-6">
-      {/* Warning if no prices */}
-      {(hasNoPrices || hasNoActivePrices) && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2">
-            <DollarSign className="h-5 w-5 text-yellow-600" />
-            <div>
-              <h3 className="text-sm font-medium text-yellow-800">
-                {hasNoPrices ? 'No Pricing Defined' : 'No Active Pricing'}
-              </h3>
-              <p className="text-sm text-yellow-700">
-                {hasNoPrices 
-                  ? 'This product has no pricing defined in any price list.' 
-                  : 'This product has pricing defined, but not in any active price list.'}
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900">
+          Product Pricing
+        </h3>
+      </div>
+
+      <div className="p-6">
+        {/* Informational Message */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start space-x-3">
+            <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-blue-900 mb-1">
+                Pricing Management Centralized
+              </h4>
+              <p className="text-sm text-blue-700 mb-3">
+                All product pricing is now managed in the dedicated Pricing section. When you add a parent product to a price list, all its variants automatically inherit the same pricing.
               </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Current Prices */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-lg font-medium text-gray-900">
-            Current Pricing
-          </h3>
-          {availablePriceLists.length > 0 && (
-            <div className="relative">
-              <select
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) handleAddPrice(e.target.value);
-                }}
-                className="appearance-none bg-blue-600 text-white px-3 py-1 pr-8 rounded text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                <option value="">Add to Price List...</option>
-                {availablePriceLists.map(list => (
-                  <option key={list.id} value={list.id}>{list.name}</option>
-                ))}
-              </select>
-              <Plus className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white pointer-events-none" />
-            </div>
-          )}
-        </div>
-
-        {isLoading ? (
-          <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading pricing information...</p>
-          </div>
-        ) : productPriceListItems.length === 0 ? (
-          <div className="p-8 text-center">
-            <DollarSign className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">No pricing defined for this product</p>
-            {availablePriceLists.length > 0 && (
               <button
-                onClick={() => handleAddPrice(availablePriceLists[0].id)}
-                className="text-blue-600 hover:text-blue-800 font-medium"
+                onClick={handleGoToPricing}
+                className="inline-flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-700"
               >
-                Add pricing to a price list
+                <span>Go to Pricing Section</span>
+                <ArrowRight className="h-4 w-4" />
               </button>
-            )}
+            </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price List
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Unit Price
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    KG
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tax Info
-                  </th>
-                  {productPriceListItems.some((item: any) => item.pricing_method === 'per_unit') && (
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Min Qty
+        </div>
+
+        {/* Current Pricing Display (Read-only) */}
+        {isLoading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-2 text-sm text-gray-500">Loading pricing information...</p>
+          </div>
+        ) : productPriceListItems.length > 0 ? (
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 mb-3">
+              Current Pricing ({productPriceListItems.length} price list{productPriceListItems.length !== 1 ? 's' : ''})
+            </h4>
+            <div className="overflow-hidden border border-gray-200 rounded-lg">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price List
                     </th>
-                  )}
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Surcharge
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Deposit
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Final Price
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {productPriceListItems.map((item: any) => {
-                  const priceList = item.price_list;
-                  const finalPrice = item.pricing_method === 'per_unit' && item.unit_price 
-                    ? calculateFinalPriceSync(item.unit_price, item.surcharge_pct)
-                    : item.pricing_method === 'per_kg' && item.price_per_kg
-                    ? calculateFinalPriceSync(item.price_per_kg, item.surcharge_pct)
-                    : 0;
-                  
-                  return (
-                    <tr key={item.id} className="hover:bg-gray-50">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {productPriceListItems.map((item: any) => (
+                    <tr key={item.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            {priceList.name}
-                          </span>
-                          {priceList.is_default && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              Default
-                            </span>
-                          )}
-                          {item.inherited_from_parent && (
-                            <span 
-                              className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 cursor-help"
-                              title={`Inherited from parent product: ${item.parent_product_sku || 'Unknown'}`}
-                            >
-                              Inherited
-                            </span>
-                          )}
-                        </div>
+                        <div className="text-sm font-medium text-gray-900">{item.price_list?.name}</div>
+                        {item.inherited_from_parent && (
+                          <div className="text-xs text-blue-600">Inherited from parent product</div>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${priceList.statusInfo.color}`}>
-                          {priceList.statusInfo.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm font-medium text-gray-900">
-                          {item.pricing_method === 'per_unit' && item.unit_price ? (
-                            formatCurrencySync(item.unit_price, priceList.currency_code)
-                          ) : item.pricing_method === 'per_kg' && item.price_per_kg ? (
-                            <>
-                              {formatCurrencySync(item.price_per_kg, priceList.currency_code)}
-                              <span className="text-xs text-gray-500 ml-1">/kg</span>
-                            </>
-                          ) : (
-                            '-'
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm text-gray-900">
-                          {item.pricing_method === 'per_kg' ? item.net_weight || '-' : '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {item.tax_amount > 0 ? (
-                            <>
-                              <div className="text-xs text-gray-500">
-                                Tax Rate: {((item.tax_amount / item.effective_price) * 100).toFixed(1)}%
-                                {item.pricing_method === 'per_kg' && item.net_weight && (
-                                  <span className="text-blue-600"> (from {item.net_weight}kg net weight)</span>
-                                )}
-                              </div>
-                              {item.deposit_amount > 0 && (
-                                <div className="text-xs text-gray-500">
-                                  Deposit: {formatCurrencySync(item.deposit_amount, priceList.currency_code)}
-                                  <span className="text-blue-600"> (from cylinder capacity)</span>
-                                </div>
-                              )}
-                              <div className="text-xs text-gray-500">Tax: {formatCurrencySync(item.tax_amount, priceList.currency_code)}</div>
-                              <div className="font-medium">Total: {formatCurrencySync(item.total_with_tax, priceList.currency_code)}</div>
-                              {item.deposit_amount > 0 && (
-                                <div className="text-xs text-gray-500">+ Deposit: {formatCurrencySync(item.deposit_amount, priceList.currency_code)}</div>
-                              )}
-                            </>
-                          ) : (
-                            <div className="text-xs text-gray-500">No tax</div>
-                          )}
+                          {item.effective_price ? `KES ${item.effective_price}` : 'N/A'}
                         </div>
+                        {item.pricing_method === 'per_kg' && (
+                          <div className="text-xs text-gray-500">per kg</div>
+                        )}
                       </td>
-                      {productPriceListItems.some((priceItem: any) => priceItem.pricing_method === 'per_unit') && (
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className="text-sm text-gray-900">
-                            {item.pricing_method === 'per_unit' ? item.min_qty : '-'}
-                          </span>
-                        </td>
-                      )}
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="text-sm text-gray-900">
-                          {item.surcharge_pct ? `${item.surcharge_pct}%` : '-'}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          item.price_list?.status?.status === 'active' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {item.price_list?.status?.status || 'Unknown'}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <span className="text-sm font-medium text-gray-900">
-                          {item.deposit_amount ? formatCurrencySync(item.deposit_amount, priceList.currency_code) : '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm">
-                          <div className="font-medium text-green-600">
-                            {formatCurrencySync(item.total_with_deposit || finalPrice, priceList.currency_code)}
-                          </div>
-                          {item.pricing_method === 'per_kg' && item.net_weight && (
-                            <div className="text-xs text-gray-500">
-                              ({formatCurrencySync(item.price_per_kg, priceList.currency_code)} × {item.net_weight}kg)
-                            </div>
-                          )}
-                          {item.deposit_amount > 0 && (
-                            <div className="text-xs text-blue-600">
-                              + {formatCurrencySync(item.deposit_amount, priceList.currency_code)} deposit
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex items-center justify-end space-x-2">
-                          <button
-                            onClick={() => handleEditPrice(item)}
-                            className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                            title="Edit price"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeletePrice(item)}
-                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
-                            title="Remove from price list"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <DollarSign className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <h4 className="text-sm font-medium text-gray-900 mb-1">No Pricing Configured</h4>
+            <p className="text-sm text-gray-500 mb-4">
+              This product is not yet in any price list. Add it through the Pricing section.
+            </p>
+            <button
+              onClick={handleGoToPricing}
+              className="inline-flex items-center space-x-2 px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <DollarSign className="h-4 w-4" />
+              <span>Manage Pricing</span>
+            </button>
           </div>
         )}
       </div>
-
-      {/* Add/Edit Price Modal */}
-      {showAddPriceModal && selectedPriceList && (
-        <PriceListItemForm
-          isOpen={showAddPriceModal}
-          onClose={() => {
-            setShowAddPriceModal(false);
-            setEditingItem(null);
-          }}
-          onSubmit={handlePriceSubmit}
-          priceListId={selectedPriceList}
-          item={editingItem || undefined}
-          loading={createPriceListItem.isPending}
-          title={editingItem ? 'Edit Product Price' : 'Add Product to Price List'}
-          currencyCode={allPriceLists.find(list => list.id === selectedPriceList)?.currency_code || 'KES'}
-        />
-      )}
     </div>
   );
 };

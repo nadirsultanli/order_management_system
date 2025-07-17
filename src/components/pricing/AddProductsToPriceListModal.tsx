@@ -1,5 +1,5 @@
     import React, { useState, useEffect } from 'react';
-    import { X, Loader2, Package, Search } from 'lucide-react';
+    import { X, Loader2, Package, Search, Users } from 'lucide-react';
     import { useProducts, useProductOptions } from '../../hooks/useProducts';
     import { usePriceListItemsNew } from '../../hooks/usePricing';
     import { PriceList } from '../../types/pricing';
@@ -14,6 +14,8 @@
       pricePerKg?: number;
       surchargeRate?: number;
       pricingMethod: PricingMethod;
+      isVariant?: boolean;
+      parentProductId?: string;
     }
 
     interface AddProductsToPriceListModalProps {
@@ -34,16 +36,35 @@
       const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
       const [productPrices, setProductPrices] = useState<{ [key: string]: ProductPrice }>({});
       const [searchTerm, setSearchTerm] = useState('');
+      const [includeVariants, setIncludeVariants] = useState(true);
 
-      const { data: productsData } = useProductOptions({ include_variants: false });
+      // Get parent products only (not variants)
+      const { data: parentProductsData } = useProductOptions({ include_variants: false });
+      // Get all products including variants for variant lookup
+      const { data: allProductsData } = useProducts({ limit: 1000 });
       const { data: existingItemsData } = usePriceListItemsNew(priceList.id);
 
-      const allProducts = productsData || [];
+      const parentProducts = parentProductsData || [];
+      const allProducts = allProductsData?.products || [];
       const existingItems = existingItemsData?.items || [];
       const existingProductIds = existingItems.map((item: any) => item.product_id);
       
+      // Create a map of parent products to their variants
+      const parentVariantMap = React.useMemo(() => {
+        const map: { [parentId: string]: any[] } = {};
+        allProducts.forEach(product => {
+          if (product.is_variant && product.parent_products_id) {
+            if (!map[product.parent_products_id]) {
+              map[product.parent_products_id] = [];
+            }
+            map[product.parent_products_id].push(product);
+          }
+        });
+        return map;
+      }, [allProducts]);
+      
       // Filter out products already in the price list
-      const availableProducts = allProducts.filter(
+      const availableProducts = parentProducts.filter(
         (product: any) => 
           !existingProductIds.includes(product.id) &&
           (searchTerm === '' || 
@@ -59,45 +80,109 @@
         }
       }, [isOpen]);
 
-      const handleProductSelect = (productId: string, selected: boolean) => {
+      const handleProductSelect = (parentProductId: string, selected: boolean) => {
         if (selected) {
-          const product = availableProducts.find((p: any) => p.id === productId);
-          if (product) {
-            setSelectedProducts(prev => [...prev, productId]);
-            setProductPrices(prev => ({
-              ...prev,
-              [productId]: {
-                productId,
-                productName: product.name,
-                productSku: product.sku,
-                            unitPrice: priceList.pricing_method === 'per_unit' ? undefined : undefined,
-            pricePerKg: priceList.pricing_method === 'per_kg' ? undefined : undefined,
-                surchargeRate: undefined,
-                pricingMethod: (priceList.pricing_method || 'per_unit') as PricingMethod,
-              }
-            }));
+          const parentProduct = availableProducts.find((p: any) => p.id === parentProductId);
+          if (parentProduct) {
+            // Add parent product
+            const newSelectedProducts = [parentProductId];
+            const newProductPrices: { [key: string]: ProductPrice } = {};
+            
+            // Add parent product pricing
+            newProductPrices[parentProductId] = {
+              productId: parentProductId,
+              productName: parentProduct.name,
+              productSku: parentProduct.sku,
+              unitPrice: priceList.pricing_method === 'per_unit' ? undefined : undefined,
+              pricePerKg: priceList.pricing_method === 'per_kg' ? undefined : undefined,
+              surchargeRate: undefined,
+              pricingMethod: (priceList.pricing_method || 'per_unit') as PricingMethod,
+              isVariant: false,
+            };
+
+            // Add variants if includeVariants is true
+            if (includeVariants && parentVariantMap[parentProductId]) {
+              parentVariantMap[parentProductId].forEach(variant => {
+                // Only add if variant is not already in price list
+                if (!existingProductIds.includes(variant.id)) {
+                  newSelectedProducts.push(variant.id);
+                  newProductPrices[variant.id] = {
+                    productId: variant.id,
+                    productName: variant.name,
+                    productSku: variant.sku,
+                    unitPrice: priceList.pricing_method === 'per_unit' ? undefined : undefined,
+                    pricePerKg: priceList.pricing_method === 'per_kg' ? undefined : undefined,
+                    surchargeRate: undefined,
+                    pricingMethod: (priceList.pricing_method || 'per_unit') as PricingMethod,
+                    isVariant: true,
+                    parentProductId: parentProductId,
+                  };
+                }
+              });
+            }
+
+            setSelectedProducts(prev => [...prev, ...newSelectedProducts]);
+            setProductPrices(prev => ({ ...prev, ...newProductPrices }));
           }
         } else {
-          setSelectedProducts(prev => prev.filter(id => id !== productId));
-          setProductPrices(prev => {
-            const newPrices = { ...prev };
-            delete newPrices[productId];
-            return newPrices;
-          });
+          // Remove parent product and all its variants
+          const parentProduct = availableProducts.find((p: any) => p.id === parentProductId);
+          if (parentProduct) {
+            const toRemove = [parentProductId];
+            
+            // Add variant IDs to remove
+            if (parentVariantMap[parentProductId]) {
+              toRemove.push(...parentVariantMap[parentProductId].map(v => v.id));
+            }
+
+            setSelectedProducts(prev => prev.filter(id => !toRemove.includes(id)));
+            setProductPrices(prev => {
+              const newPrices = { ...prev };
+              toRemove.forEach(id => delete newPrices[id]);
+              return newPrices;
+            });
+          }
         }
       };
 
       const handlePriceChange = (productId: string, field: keyof ProductPrice, value: any) => {
-        setProductPrices(prev => ({
-          ...prev,
-          [productId]: {
-            ...prev[productId],
+        const product = productPrices[productId];
+        if (!product) return;
+
+        // If this is a parent product, also update all its variants
+        if (!product.isVariant && includeVariants && parentVariantMap[productId]) {
+          const updatedPrices: { [key: string]: ProductPrice } = {};
+          
+          // Update parent
+          updatedPrices[productId] = {
+            ...product,
             [field]: value,
-          }
-        }));
+          };
+          
+          // Update all variants with the same pricing
+          parentVariantMap[productId].forEach(variant => {
+            if (productPrices[variant.id]) {
+              updatedPrices[variant.id] = {
+                ...productPrices[variant.id],
+                [field]: value,
+              };
+            }
+          });
+          
+          setProductPrices(prev => ({ ...prev, ...updatedPrices }));
+        } else {
+          // Update single product
+          setProductPrices(prev => ({
+            ...prev,
+            [productId]: {
+              ...prev[productId],
+              [field]: value,
+            }
+          }));
+        }
       };
 
-        const handleSubmit = () => {
+      const handleSubmit = () => {
     const validPrices = Object.values(productPrices)
       .filter(price => {
         if (price.pricingMethod === 'per_unit') {
@@ -117,7 +202,6 @@
             unitPrice: price.unitPrice,
             surchargeRate: price.surchargeRate,
             pricingMethod: price.pricingMethod,
-            // Remove pricePerKg for per_unit method
             pricePerKg: undefined
           };
         } else if (price.pricingMethod === 'per_kg') {
@@ -128,7 +212,6 @@
             pricePerKg: price.pricePerKg,
             surchargeRate: price.surchargeRate,
             pricingMethod: price.pricingMethod,
-            // Remove unitPrice for per_kg method
             unitPrice: undefined
           };
         }
@@ -154,6 +237,12 @@
           }
           return false;
         });
+
+      // Group selected products by parent
+      const selectedParentProducts = selectedProducts.filter(id => {
+        const price = productPrices[id];
+        return price && !price.isVariant;
+      });
 
       if (!isOpen) return null;
 
@@ -192,10 +281,29 @@
                     </div>
                   </div>
 
+                  {/* Include Variants Toggle */}
+                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-5 w-5 text-blue-600" />
+                      <div>
+                        <div className="text-sm font-medium text-blue-900">Include Product Variants</div>
+                        <div className="text-xs text-blue-700">Automatically add all variants with the same pricing</div>
+                      </div>
+                    </div>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={includeVariants}
+                        onChange={(e) => setIncludeVariants(e.target.checked)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                    </label>
+                  </div>
+
                   {/* Product Selection */}
                   <div>
                     <h4 className="text-sm font-medium text-gray-900 mb-3">
-                      Select Products ({availableProducts.length} available)
+                      Select Parent Products ({availableProducts.length} available)
                     </h4>
                     <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg">
                       {availableProducts.length > 0 ? (
@@ -210,8 +318,15 @@
                                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                 />
                                 <div className="flex-1">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {product.name}
+                                  <div className="flex items-center space-x-2">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {product.name}
+                                    </div>
+                                    {includeVariants && parentVariantMap[product.id] && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        +{parentVariantMap[product.id].length} variants
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-sm text-gray-500">
                                     SKU: {product.sku} • {product.unit_of_measure}
@@ -240,20 +355,42 @@
                       <h4 className="text-sm font-medium text-gray-900 mb-3">
                         Set Prices for Selected Products ({priceList.pricing_method === 'per_unit' ? 'Per Unit' : 'Per KG'} Pricing)
                       </h4>
+                      <div className="text-sm text-blue-600 mb-3">
+                        {includeVariants && selectedParentProducts.length > 0 && (
+                          <>Setting price for parent products will automatically apply to all their variants</>
+                        )}
+                      </div>
                       <div className="space-y-4 max-h-80 overflow-y-auto">
-                        {selectedProducts.map((productId) => {
-                          const productPrice = productPrices[productId];
-                          if (!productPrice) return null;
+                        {selectedParentProducts.map((parentId) => {
+                          const parentPrice = productPrices[parentId];
+                          if (!parentPrice) return null;
+
+                          const variants = selectedProducts.filter(id => {
+                            const price = productPrices[id];
+                            return price && price.isVariant && price.parentProductId === parentId;
+                          });
 
                           return (
-                            <div key={productId} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                            <div key={parentId} className="p-4 border border-gray-200 rounded-lg bg-gray-50">
                               <div className="mb-3">
-                                <h5 className="font-medium text-gray-900">{productPrice.productName}</h5>
-                                <p className="text-sm text-gray-500">SKU: {productPrice.productSku}</p>
+                                <h5 className="font-medium text-gray-900 flex items-center space-x-2">
+                                  <span>{parentPrice.productName}</span>
+                                  {variants.length > 0 && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                      +{variants.length} variants
+                                    </span>
+                                  )}
+                                </h5>
+                                <p className="text-sm text-gray-500">SKU: {parentPrice.productSku}</p>
+                                {variants.length > 0 && (
+                                  <div className="mt-2 text-xs text-gray-600">
+                                    Variants: {variants.map(id => productPrices[id]?.productSku).join(', ')}
+                                  </div>
+                                )}
                               </div>
                               
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                {productPrice.pricingMethod === 'per_unit' && (
+                                {parentPrice.pricingMethod === 'per_unit' && (
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                       Unit Price ({priceList.currency_code}) *
@@ -262,8 +399,8 @@
                                       type="number"
                                       min="0"
                                       step="0.01"
-                                      value={productPrice.unitPrice || ''}
-                                      onChange={(e) => handlePriceChange(productId, 'unitPrice', e.target.value === '' ? undefined : parseFloat(e.target.value))}
+                                      value={parentPrice.unitPrice || ''}
+                                      onChange={(e) => handlePriceChange(parentId, 'unitPrice', e.target.value === '' ? undefined : parseFloat(e.target.value))}
                                       className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                                       placeholder="0.00"
                                     />
