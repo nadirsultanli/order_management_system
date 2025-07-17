@@ -180,7 +180,7 @@ export const OrdersPage: React.FC = () => {
         <OrderStatusModal
           isOpen={!!statusChangeOrder}
           onClose={() => setStatusChangeOrder(null)}
-          onConfirm={handleConfirmStatusChange}
+          onSubmit={handleConfirmStatusChange}
           order={statusChangeOrder.order}
           newStatus={statusChangeOrder.newStatus}
           loading={changeOrderStatus.isPending}

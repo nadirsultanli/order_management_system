@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Order, OrderStatusChange } from '../../types/order';
-import { getOrderStatusInfo, getNextPossibleStatuses, validateOrderForConfirmation, validateOrderForScheduling } from '../../utils/order';
+import { getOrderStatusInfo } from '../../utils/order';
 
 interface OrderStatusModalProps {
   isOpen: boolean;
@@ -46,8 +46,14 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
     const errors: string[] = [];
     
     // Basic validation rules - only require order lines for delivery orders, not visit orders
+    // For visit orders, allow cancellation even with no items
     if (order.order_type !== 'visit' && (!order.order_lines || order.order_lines.length === 0)) {
       errors.push('Order must have at least one item');
+    }
+    
+    // For visit orders being cancelled, skip all other validations
+    if (order.order_type === 'visit' && newStatus === 'cancelled') {
+      return { valid: true, errors: [] };
     }
     
     if (!order.customer) {
@@ -161,6 +167,8 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
     onSubmit(submissionData);
   };
 
+  const onFormSubmit = handleSubmit(handleFormSubmit);
+
   const requiresScheduledDate = newStatus === 'scheduled';
   const canProceed = validationErrors.length === 0 && !isValidating;
 
@@ -172,7 +180,7 @@ export const OrderStatusModal: React.FC<OrderStatusModalProps> = ({
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
         <div className="relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
-          <form onSubmit={handleSubmit(handleFormSubmit)}>
+          <form onSubmit={onFormSubmit}>
             <div className="bg-white px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-lg font-semibold leading-6 text-gray-900">
