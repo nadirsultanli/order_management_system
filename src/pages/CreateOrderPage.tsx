@@ -1287,7 +1287,7 @@ export const CreateOrderPage: React.FC = () => {
 
                             {/* Partial Fill Percentage Controls for Gas Products */}
                             {isGasProduct(product) && (
-                              <div className="mb-3">
+                              <div className="mb-3" key={`fill-control-${product.id}-${fillPercentages[product.id] || 100}`}>
                                 <div className="flex items-center justify-between mb-2">
                                   <label className="text-sm font-medium text-gray-700">Fill Percentage:</label>
                                   <span className="text-sm text-gray-500">
@@ -1296,8 +1296,18 @@ export const CreateOrderPage: React.FC = () => {
                                 </div>
                                 <div className="flex flex-wrap gap-1 mb-2">
                                   {[25, 33, 50, 67, 75, 90, 100].map((percentage) => {
-                                    const isSelected = (fillPercentages[product.id] || 100) === percentage;
+                                    const currentPercentage = fillPercentages[product.id] || 100;
+                                    const isSelected = currentPercentage === percentage;
                                     const isFullFill = percentage === 100;
+                                    
+                                    // Debug logging
+                                    if (percentage === 100) {
+                                      console.log(`Debug 100% button for ${product.id}:`, {
+                                        currentPercentage,
+                                        isSelected,
+                                        fillPercentages: fillPercentages[product.id]
+                                      });
+                                    }
                                     
                                     return (
                                       <button
@@ -1306,32 +1316,27 @@ export const CreateOrderPage: React.FC = () => {
                                           console.log(`🔄 Setting fill percentage to ${percentage}% for product ${product.id}`);
                                           console.log(`Previous percentage:`, fillPercentages[product.id]);
                                           
-                                          // Force React to update state immediately with functional updates
+                                          // Update fill percentage state immediately
                                           setFillPercentages(prev => {
                                             const updated = { ...prev, [product.id]: percentage };
                                             console.log(`Updated fillPercentages:`, updated);
-                                            
-                                            // Clear partial fill notes if setting to 100% - do it in the same state update
-                                            if (percentage === 100) {
-                                              console.log(`Clearing notes for 100% fill`);
-                                              setTimeout(() => {
-                                                setFillNotes(prev => ({
-                                                  ...prev,
-                                                  [product.id]: ''
-                                                }));
-                                              }, 0);
-                                            }
-                                            
                                             return updated;
                                           });
                                           
+                                          // Clear partial fill notes if setting to 100%
+                                          if (percentage === 100) {
+                                            console.log(`Clearing notes for 100% fill`);
+                                            setFillNotes(prev => ({
+                                              ...prev,
+                                              [product.id]: ''
+                                            }));
+                                          }
+                                          
                                           // Update existing order line if present
-                                          setTimeout(() => {
-                                            const existingLine = orderLines.find(line => line.product_id === product.id);
-                                            if (existingLine) {
-                                              handleUpdateFillPercentage(product.id, percentage);
-                                            }
-                                          }, 0);
+                                          const existingLine = orderLines.find(line => line.product_id === product.id);
+                                          if (existingLine) {
+                                            handleUpdateFillPercentage(product.id, percentage);
+                                          }
                                         }}
                                         className={`px-2 py-1 text-xs rounded border transition-colors ${
                                           isSelected
@@ -1352,47 +1357,53 @@ export const CreateOrderPage: React.FC = () => {
                                     min="1"
                                     max="100"
                                     value={fillPercentages[product.id] || 100}
+                                    key={`fill-input-${product.id}-${fillPercentages[product.id] || 100}`}
                                     onChange={(e) => {
                                       const value = Math.min(100, Math.max(1, parseInt(e.target.value) || 100));
                                       console.log(`🔄 Custom fill percentage set to ${value}% for product ${product.id}`);
                                       
-                                      // Force React to update state immediately with functional updates
+                                      // Update fill percentage state immediately
                                       setFillPercentages(prev => {
                                         const updated = { ...prev, [product.id]: value };
-                                        
-                                        // Clear partial fill notes if setting to 100% - do it in the same state update
-                                        if (value === 100) {
-                                          console.log(`Clearing notes for 100% custom fill`);
-                                          setTimeout(() => {
-                                            setFillNotes(prev => ({
-                                              ...prev,
-                                              [product.id]: ''
-                                            }));
-                                          }, 0);
-                                        }
-                                        
                                         return updated;
                                       });
                                       
+                                      // Clear partial fill notes if setting to 100%
+                                      if (value === 100) {
+                                        console.log(`Clearing notes for 100% custom fill`);
+                                        setFillNotes(prev => ({
+                                          ...prev,
+                                          [product.id]: ''
+                                        }));
+                                      }
+                                      
                                       // Update existing order line if present
-                                      setTimeout(() => {
-                                        const existingLine = orderLines.find(line => line.product_id === product.id);
-                                        if (existingLine) {
-                                          handleUpdateFillPercentage(product.id, value);
-                                        }
-                                      }, 0);
+                                      const existingLine = orderLines.find(line => line.product_id === product.id);
+                                      if (existingLine) {
+                                        handleUpdateFillPercentage(product.id, value);
+                                      }
                                     }}
                                     className={`w-16 px-2 py-1 text-sm border rounded transition-colors ${
-                                      (fillPercentages[product.id] || 100) === 100
-                                        ? 'border-green-300 bg-green-50' 
-                                        : 'border-orange-300 bg-orange-50'
+                                      (() => {
+                                        const currentPercentage = fillPercentages[product.id] || 100;
+                                        return currentPercentage === 100
+                                          ? 'border-green-300 bg-green-50' 
+                                          : 'border-orange-300 bg-orange-50';
+                                      })()
                                     }`}
                                   />
                                   <span className="text-sm text-gray-500">%</span>
                                 </div>
                                 
                                 {/* Partial Fill Notes - Only show when less than 100% */}
-                                {(fillPercentages[product.id] || 100) < 100 && (
+                                {(() => {
+                                  const currentPercentage = fillPercentages[product.id] || 100;
+                                  console.log(`Rendering partial fill notes for ${product.id}:`, {
+                                    currentPercentage,
+                                    shouldShow: currentPercentage < 100
+                                  });
+                                  return currentPercentage < 100;
+                                })() && (
                                   <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                                     <label className="block text-sm font-medium text-orange-800 mb-2">
                                       Partial Fill Notes (Optional):
@@ -1414,7 +1425,14 @@ export const CreateOrderPage: React.FC = () => {
                                 )}
                                 
                                 {/* Full Fill Indicator - Show when 100% is selected */}
-                                {(fillPercentages[product.id] || 100) === 100 && (
+                                {(() => {
+                                  const currentPercentage = fillPercentages[product.id] || 100;
+                                  console.log(`Rendering full fill indicator for ${product.id}:`, {
+                                    currentPercentage,
+                                    shouldShow: currentPercentage === 100
+                                  });
+                                  return currentPercentage === 100;
+                                })() && (
                                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                                     <div className="flex items-center space-x-2">
                                       <Check className="h-4 w-4 text-green-600" />
