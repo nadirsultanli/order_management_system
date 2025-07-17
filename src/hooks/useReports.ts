@@ -135,8 +135,8 @@ export const useWarehousesForReports = () => {
     queryKey: ['warehouses', 'for-reports'],
     queryFn: async () => {
       try {
-        const response = await trpc.warehouses.getAll.query();
-        return response.map(warehouse => ({
+        const response = await trpc.warehouses.list.query();
+        return response.warehouses.map((warehouse: any) => ({
           id: warehouse.id,
           name: warehouse.name,
           label: warehouse.name,
@@ -158,8 +158,8 @@ export const useProductsForReports = () => {
     queryKey: ['products', 'for-reports'],
     queryFn: async () => {
       try {
-        const response = await trpc.products.getAll.query();
-        return response.map(product => ({
+        const response = await trpc.products.list.query();
+        return response.products.map((product: any) => ({
           id: product.id,
           name: product.name,
           sku: product.sku,
@@ -183,8 +183,8 @@ export const useCustomersForReports = () => {
     queryKey: ['customers', 'for-reports'],
     queryFn: async () => {
       try {
-        const response = await trpc.customers.getAllCustomers.query();
-        return response.map(customer => ({
+        const response = await trpc.customers.list.query();
+        return response.customers.map((customer: any) => ({
           id: customer.id,
           name: customer.name,
           label: customer.name,
