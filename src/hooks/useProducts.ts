@@ -87,10 +87,8 @@ export const useCreateProduct = () => {
       console.log('Product created successfully:', data);
       toast.success('Product created successfully');
       
-      // Invalidate and refetch product queries using tRPC utils
-      utils.products.list.invalidate();
-      utils.products.getStats.invalidate();
-      utils.products.getOptions.invalidate();
+      // Invalidate all relevant queries
+      utils.products.invalidate();
     },
     onError: (error: Error) => {
       console.error('Create product mutation error:', error);
