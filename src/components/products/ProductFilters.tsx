@@ -51,6 +51,15 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
     });
   };
 
+  const handleProductTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedProductType = e.target.value || undefined;
+    onFiltersChange({
+      ...filters,
+      product_type: selectedProductType as 'cylinder' | 'accessory' | undefined,
+      page: 1,
+    });
+  };
+
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const [sort_by, sort_order] = e.target.value.split(':');
@@ -104,6 +113,18 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                 <option value="obsolete">Obsolete</option>
               </select>
             </div>
+          </div>
+
+          <div className="sm:w-40">
+            <select
+              value={filters.product_type || ''}
+              onChange={handleProductTypeChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+            >
+              <option value="">All Types</option>
+              <option value="cylinder">Cylinders</option>
+              <option value="accessory">Accessories</option>
+            </select>
           </div>
 
           <div className="sm:w-40">

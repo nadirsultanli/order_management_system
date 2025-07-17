@@ -18,6 +18,7 @@ import { AddressForm } from '../components/addresses/AddressForm';
 import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
 import { OrderTypeSelector } from '../components/orders/OrderTypeSelector';
 import { OrderFlowTypeSelector } from '../components/orders/OrderFlowTypeSelector';
+import { CrossSellSuggestions } from '../components/orders/CrossSellSuggestions';
 import { useProductPrices, useActivePriceLists } from '../hooks/useProductPricing';
 import { useInventoryNew } from '../hooks/useInventory';
 import { useWarehouses } from '../hooks/useWarehouses';
@@ -62,6 +63,10 @@ export const CreateOrderPage: React.FC = () => {
   // Order flow type for cylinder management
   const [orderFlowType, setOrderFlowType] = useState<'outright' | 'exchange' | null>(null);
   // Remove exchangeEmptyQty and requiresPickup states
+  
+  // Cross-sell suggestions state
+  const [showCrossSellSuggestions, setShowCrossSellSuggestions] = useState(false);
+  const [dismissedCrossSell, setDismissedCrossSell] = useState(false);
 
   const { data: customersData } = useCustomers({ limit: 1000 });
   const { data: addresses = [] } = useAddresses(selectedCustomerId);
@@ -228,6 +233,54 @@ export const CreateOrderPage: React.FC = () => {
   // Check if we have pricing data for a product
   const hasProductPricing = (productId: string): boolean => {
     return !!(productPrices && productPrices[productId] && productPrices[productId].finalPrice > 0);
+  };
+
+  // Cross-sell suggestion logic
+  const getCylinderProductsInOrder = (): Product[] => {
+    return orderLines
+      .map(line => products.find(p => p.id === line.product_id))
+      .filter((product): product is Product => 
+        product !== undefined && 
+        (product.product_type === 'cylinder' || !product.product_type)
+      );
+  };
+
+  const getSuggestedAccessories = (): Product[] => {
+    const cylinderProducts = getCylinderProductsInOrder();
+    if (cylinderProducts.length === 0) return [];
+
+    // Get common accessories that pair well with cylinders
+    const suggestedAccessories = products.filter((product: Product) => {
+      // Only show accessories that are active and have stock
+      if (product.product_type !== 'accessory' || product.status !== 'active') return false;
+      
+      // Check if already in order
+      const isAlreadyInOrder = orderLines.some(line => line.product_id === product.id);
+      if (isAlreadyInOrder) return false;
+
+      // Check if has pricing
+      if (!hasProductPricing(product.id)) return false;
+
+      // Check if has stock
+      const stockAvailable = getStockInfo(product.id);
+      if (stockAvailable <= 0) return false;
+
+      // Suggest regulators and hoses for cylinders
+      const isRegulator = product.sku.includes('REG') || product.name.toLowerCase().includes('regulator');
+      const isHose = product.sku.includes('HOSE') || product.name.toLowerCase().includes('hose');
+      
+      return isRegulator || isHose;
+    });
+
+    return suggestedAccessories.slice(0, 3); // Limit to 3 suggestions
+  };
+
+  // Check if we should show cross-sell suggestions
+  const shouldShowCrossSellSuggestions = (): boolean => {
+    if (dismissedCrossSell) return false;
+    const cylinderProducts = getCylinderProductsInOrder();
+    const suggestedAccessories = getSuggestedAccessories();
+    return cylinderProducts.length > 0 && suggestedAccessories.length > 0;
   };
 
   const handleAddProduct = async (productId: string) => {
@@ -815,15 +868,24 @@ export const CreateOrderPage: React.FC = () => {
               />
             </div>
             
-            {/* Order Flow Type Selection (for delivery orders) */}
-            {selectedVariant === 'delivery' && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4">
-                <OrderFlowTypeSelector
-                  orderFlowType={orderFlowType}
-                  onOrderFlowTypeChange={setOrderFlowType}
-                />
-              </div>
-            )}
+            {/* Order Flow Type Selection (for delivery orders with cylinders) */}
+            {selectedVariant === 'delivery' && (() => {
+              // Check if there are any cylinder products available
+              const hasCylinders = products.some((p: Product) => 
+                p.status === 'active' && 
+                (p.product_type === 'cylinder' || !p.product_type) && 
+                getStockInfo(p.id) > 0
+              );
+              
+              return hasCylinders && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <OrderFlowTypeSelector
+                    orderFlowType={orderFlowType}
+                    onOrderFlowTypeChange={setOrderFlowType}
+                  />
+                </div>
+              );
+            })()}
             
             {/* Warehouse Stock Indicator */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -889,14 +951,21 @@ export const CreateOrderPage: React.FC = () => {
                     const availableProducts = products.filter((p: Product) => {
                       // Only show active products that have stock in the selected warehouse
                       if (p.status !== 'active') return false;
-                      // Prevent EMPTY variants from being sold
-                      if (p.sku_variant === 'EMPTY') return false;
                       
-                      // Filter by order flow type for cylinder variants
-                      if (orderFlowType && p.sku_variant) {
-                        if (orderFlowType === 'outright' && p.sku_variant !== 'FULL-OUT') return false;
-                        if (orderFlowType === 'exchange' && p.sku_variant !== 'FULL-XCH') return false;
+                      // Handle cylinder-specific filtering
+                      if (p.product_type === 'cylinder' || !p.product_type) {
+                        // Prevent EMPTY variants from being sold
+                        if (p.sku_variant === 'EMPTY') return false;
+                        
+                        // Filter by order flow type for cylinder variants
+                        if (orderFlowType && p.sku_variant) {
+                          if (orderFlowType === 'outright' && p.sku_variant !== 'FULL-OUT') return false;
+                          if (orderFlowType === 'exchange' && p.sku_variant !== 'FULL-XCH') return false;
+                        }
                       }
+                      
+                      // Accessories don't have Full/Empty variants and are not affected by order flow type
+                      // They can be sold with any order flow type
                       
                       const stockAvailable = getStockInfo(p.id);
                       // Filter by selected variant
@@ -958,6 +1027,28 @@ export const CreateOrderPage: React.FC = () => {
                               )}
                             </div>
                             <div className="text-sm text-gray-500 mb-2">SKU: {product.sku}</div>
+                            
+                            {/* Product-specific Information */}
+                            {product.product_type === 'accessory' ? (
+                              <div className="text-sm text-gray-600 mb-2">
+                                <div className="flex flex-wrap gap-3">
+                                  {product.brand && <span>Brand: {product.brand}</span>}
+                                  {product.connection_type && <span>Connection: {product.connection_type}</span>}
+                                  {product.outlet_pressure && <span>Pressure: {product.outlet_pressure}</span>}
+                                  {product.length_m && <span>Length: {product.length_m}m</span>}
+                                  {product.wattage && <span>Power: {product.wattage}W</span>}
+                                  {product.fuel_type && <span>Fuel: {product.fuel_type}</span>}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-600 mb-2">
+                                <div className="flex flex-wrap gap-3">
+                                  {product.capacity_kg && <span>Capacity: {product.capacity_kg}kg</span>}
+                                  {product.valve_type && <span>Valve: {product.valve_type}</span>}
+                                  {product.sku_variant && <span>Type: {product.sku_variant}</span>}
+                                </div>
+                              </div>
+                            )}
                             
                             {/* Stock Status with Enhanced Visual Indicators */}
                             <div className="flex items-center space-x-2 mb-2">
@@ -1155,6 +1246,17 @@ export const CreateOrderPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Cross-sell Suggestions */}
+            {shouldShowCrossSellSuggestions() && (
+              <CrossSellSuggestions
+                cylinderProducts={getCylinderProductsInOrder()}
+                suggestedProducts={getSuggestedAccessories()}
+                onAddProduct={(product) => handleAddProduct(product.id)}
+                onDismiss={() => setDismissedCrossSell(true)}
+                getProductPrice={getProductPriceSync}
+              />
+            )}
+
             <div className="flex justify-between">
               <button
                 onClick={() => setStep(1)}
@@ -1260,10 +1362,11 @@ export const CreateOrderPage: React.FC = () => {
 
             {/* Empty Return Credits Preview */}
             {(() => {
-              // Calculate expected empty return credits for FULL-XCH products
+              // Calculate expected empty return credits for FULL-XCH cylinder products
               const exchangeProducts = orderLines.filter((line: OrderLineItem) => {
                 const product = products.find((p: Product) => p.id === line.product_id);
-                return product?.sku_variant === 'FULL-XCH';
+                return product?.sku_variant === 'FULL-XCH' && 
+                       (product?.product_type === 'cylinder' || !product?.product_type);
               });
 
               if (exchangeProducts.length === 0) return null;
