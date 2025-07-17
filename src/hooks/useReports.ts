@@ -15,20 +15,15 @@ import {
 // ============ Stock Valuation Report Hooks ============
 
 export const useStockValuationReport = (params: StockValuationParams) => {
-  return useQuery({
-    queryKey: ['reports', 'stock-valuation', params],
-    queryFn: async (): Promise<StockValuationReport> => {
-      const response = await trpc.reports.getStockValuation.query({
-        warehouse_id: params.warehouse_id,
-        product_id: params.product_id,
-        as_of_date: params.as_of_date,
-        include_summary: params.include_summary ?? true,
-        group_by: params.group_by ?? 'warehouse',
-        page: params.page ?? 1,
-        limit: params.limit ?? 100,
-      });
-      return response;
-    },
+  return trpc.reports.getStockValuation.useQuery({
+    warehouse_id: params.warehouse_id,
+    product_id: params.product_id,
+    as_of_date: params.as_of_date,
+    include_summary: params.include_summary ?? true,
+    group_by: params.group_by ?? 'warehouse',
+    page: params.page ?? 1,
+    limit: params.limit ?? 100,
+  }, {
     enabled: Boolean(params),
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
@@ -38,23 +33,18 @@ export const useStockValuationReport = (params: StockValuationParams) => {
 // ============ Deposit Analysis Report Hooks ============
 
 export const useDepositAnalysisReport = (params: DepositAnalysisParams) => {
-  return useQuery({
-    queryKey: ['reports', 'deposit-analysis', params],
-    queryFn: async (): Promise<DepositAnalysisReport> => {
-      const response = await trpc.reports.getDepositAnalysis.query({
-        customer_id: params.customer_id,
-        aging_buckets: params.aging_buckets ?? true,
-        include_zero_balances: params.include_zero_balances ?? false,
-        min_days_outstanding: params.min_days_outstanding,
-        threshold_amount: params.threshold_amount,
-        as_of_date: params.as_of_date,
-        start_date: params.start_date,
-        end_date: params.end_date,
-        page: params.page ?? 1,
-        limit: params.limit ?? 100,
-      });
-      return response;
-    },
+  return trpc.reports.getDepositAnalysis.useQuery({
+    customer_id: params.customer_id,
+    aging_buckets: params.aging_buckets ?? true,
+    include_zero_balances: params.include_zero_balances ?? false,
+    min_days_outstanding: params.min_days_outstanding,
+    threshold_amount: params.threshold_amount,
+    as_of_date: params.as_of_date,
+    start_date: params.start_date,
+    end_date: params.end_date,
+    page: params.page ?? 1,
+    limit: params.limit ?? 100,
+  }, {
     enabled: Boolean(params.start_date && params.end_date),
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
@@ -64,23 +54,18 @@ export const useDepositAnalysisReport = (params: DepositAnalysisParams) => {
 // ============ Margin Analysis Report Hooks ============
 
 export const useMarginAnalysisReport = (params: MarginAnalysisParams) => {
-  return useQuery({
-    queryKey: ['reports', 'margin-analysis', params],
-    queryFn: async (): Promise<MarginAnalysisReport> => {
-      const response = await trpc.reports.getMarginAnalysis.query({
-        order_type: params.order_type ?? 'all',
-        product_id: params.product_id,
-        customer_id: params.customer_id,
-        warehouse_id: params.warehouse_id,
-        group_by: params.group_by ?? 'order_type',
-        include_costs_breakdown: params.include_costs_breakdown ?? true,
-        start_date: params.start_date,
-        end_date: params.end_date,
-        page: params.page ?? 1,
-        limit: params.limit ?? 100,
-      });
-      return response;
-    },
+  return trpc.reports.getMarginAnalysis.useQuery({
+    order_type: params.order_type ?? 'all',
+    product_id: params.product_id,
+    customer_id: params.customer_id,
+    warehouse_id: params.warehouse_id,
+    group_by: params.group_by ?? 'order_type',
+    include_costs_breakdown: params.include_costs_breakdown ?? true,
+    start_date: params.start_date,
+    end_date: params.end_date,
+    page: params.page ?? 1,
+    limit: params.limit ?? 100,
+  }, {
     enabled: Boolean(params.start_date && params.end_date),
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
@@ -90,21 +75,16 @@ export const useMarginAnalysisReport = (params: MarginAnalysisParams) => {
 // ============ Operational KPIs Report Hooks ============
 
 export const useOperationalKPIReport = (params: OperationalKPIParams) => {
-  return useQuery({
-    queryKey: ['reports', 'operational-kpis', params],
-    queryFn: async (): Promise<OperationalKPIReport> => {
-      const response = await trpc.reports.getOperationalKPIs.query({
-        customer_id: params.customer_id,
-        product_capacity: params.product_capacity,
-        include_trends: params.include_trends ?? true,
-        kpi_types: params.kpi_types ?? ['return_rates', 'deposit_liability', 'lost_cylinders', 'aging'],
-        start_date: params.start_date,
-        end_date: params.end_date,
-        page: params.page ?? 1,
-        limit: params.limit ?? 100,
-      });
-      return response;
-    },
+  return trpc.reports.getOperationalKPIs.useQuery({
+    customer_id: params.customer_id,
+    product_capacity: params.product_capacity,
+    include_trends: params.include_trends ?? true,
+    kpi_types: Array.isArray(params.kpi_types) ? params.kpi_types.join(',') : (params.kpi_types ?? 'return_rates,deposit_liability,lost_cylinders,aging'),
+    start_date: params.start_date,
+    end_date: params.end_date,
+    page: params.page ?? 1,
+    limit: params.limit ?? 100,
+  }, {
     enabled: Boolean(params.start_date && params.end_date),
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
@@ -114,14 +94,9 @@ export const useOperationalKPIReport = (params: OperationalKPIParams) => {
 // ============ Dashboard Summary Hook ============
 
 export const useReportsDashboardSummary = (periodDays: number = 30) => {
-  return useQuery({
-    queryKey: ['reports', 'dashboard-summary', periodDays],
-    queryFn: async (): Promise<DashboardSummary> => {
-      const response = await trpc.reports.getDashboardSummary.query({
-        period_days: periodDays,
-      });
-      return response;
-    },
+  return trpc.reports.getDashboardSummary.useQuery({
+    period_days: periodDays,
+  }, {
     staleTime: 2 * 60 * 1000, // 2 minutes
     refetchOnWindowFocus: false,
   });
@@ -131,21 +106,17 @@ export const useReportsDashboardSummary = (periodDays: number = 30) => {
 
 // Hook to get unique warehouses for filtering
 export const useWarehousesForReports = () => {
-  return useQuery({
-    queryKey: ['warehouses', 'for-reports'],
-    queryFn: async () => {
-      try {
-        const response = await trpc.warehouses.list.query();
-        return response.warehouses.map((warehouse: any) => ({
-          id: warehouse.id,
-          name: warehouse.name,
-          label: warehouse.name,
-          value: warehouse.id,
-        }));
-      } catch (error) {
-        console.error('Failed to fetch warehouses for reports:', error);
-        return [];
-      }
+  return trpc.warehouses.list.useQuery({
+    page: 1,
+    limit: 1000, // Get all warehouses for filtering
+  }, {
+    select: (data) => {
+      return data.warehouses.map((warehouse: any) => ({
+        id: warehouse.id,
+        name: warehouse.name,
+        label: warehouse.name,
+        value: warehouse.id,
+      }));
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
@@ -154,23 +125,19 @@ export const useWarehousesForReports = () => {
 
 // Hook to get unique products for filtering
 export const useProductsForReports = () => {
-  return useQuery({
-    queryKey: ['products', 'for-reports'],
-    queryFn: async () => {
-      try {
-        const response = await trpc.products.list.query();
-        return response.products.map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          sku: product.sku,
-          capacity_kg: product.capacity_kg,
-          label: `${product.name} (${product.sku})`,
-          value: product.id,
-        }));
-      } catch (error) {
-        console.error('Failed to fetch products for reports:', error);
-        return [];
-      }
+  return trpc.products.list.useQuery({
+    page: 1,
+    limit: 1000, // Get all products for filtering
+  }, {
+    select: (data) => {
+      return data.products.map((product: any) => ({
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        capacity_kg: product.capacity_kg,
+        label: `${product.name} (${product.sku})`,
+        value: product.id,
+      }));
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
@@ -179,21 +146,17 @@ export const useProductsForReports = () => {
 
 // Hook to get unique customers for filtering
 export const useCustomersForReports = () => {
-  return useQuery({
-    queryKey: ['customers', 'for-reports'],
-    queryFn: async () => {
-      try {
-        const response = await trpc.customers.list.query();
-        return response.customers.map((customer: any) => ({
-          id: customer.id,
-          name: customer.name,
-          label: customer.name,
-          value: customer.id,
-        }));
-      } catch (error) {
-        console.error('Failed to fetch customers for reports:', error);
-        return [];
-      }
+  return trpc.customers.list.useQuery({
+    page: 1,
+    limit: 1000, // Get all customers for filtering
+  }, {
+    select: (data) => {
+      return data.customers.map((customer: any) => ({
+        id: customer.id,
+        name: customer.name,
+        label: customer.name,
+        value: customer.id,
+      }));
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,

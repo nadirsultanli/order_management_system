@@ -88,11 +88,11 @@ export const DataTable = <T extends Record<string, any>>({
       : <ChevronDown className="h-4 w-4 text-blue-600" />;
   };
 
-  const formatCellValue = (value: any, column: TableColumn) => {
+  const formatCellValue = (value: any, column: TableColumn, row: any) => {
     if (value === null || value === undefined) return '-';
     
     if (column.formatter) {
-      return column.formatter(value);
+      return column.formatter(value, row);
     }
     
     if (typeof value === 'number') {
@@ -149,7 +149,11 @@ export const DataTable = <T extends Record<string, any>>({
                     key={column.key}
                     className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-${column.align || 'left'}`}
                   >
-                    {formatCellValue(row[column.key], column)}
+                    <div 
+                      dangerouslySetInnerHTML={{ 
+                        __html: formatCellValue(row[column.key], column, row) 
+                      }} 
+                    />
                   </td>
                 ))}
               </tr>

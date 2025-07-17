@@ -26,7 +26,7 @@ const CreateComplianceAlertSchema = z.object({
 });
 
 const UpdateComplianceAlertSchema = z.object({
-  alert_id: z.string().uuid(),
+  id: z.string().uuid(),
   status: z.enum(['active', 'resolved', 'dismissed']).optional(),
   resolution_notes: z.string().optional(),
   resolved_by_user_id: z.string().uuid().optional(),
@@ -34,7 +34,7 @@ const UpdateComplianceAlertSchema = z.object({
 });
 
 const UpdateCylinderComplianceSchema = z.object({
-  cylinder_asset_id: z.string().uuid(),
+  id: z.string().uuid(),
   last_inspection_date: z.string().optional(),
   next_inspection_due: z.string().optional(),
   last_pressure_test_date: z.string().optional(),
@@ -295,7 +295,7 @@ export const complianceRouter = router({
       const { data, error } = await ctx.supabase
         .from('compliance_alerts')
         .update(updateData)
-        .eq('id', input.alert_id)
+        .eq('id', input.id)
         .select()
         .single();
 
@@ -329,7 +329,7 @@ export const complianceRouter = router({
       
       ctx.logger.info('Updating cylinder compliance:', input);
 
-      const { cylinder_asset_id, ...updateData } = input;
+      const { id, ...updateData } = input;
       
       const { data, error } = await ctx.supabase
         .from('cylinder_assets')
@@ -337,7 +337,7 @@ export const complianceRouter = router({
           ...updateData,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', cylinder_asset_id)
+        .eq('id', id)
         .select()
         .single();
 

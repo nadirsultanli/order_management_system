@@ -331,7 +331,7 @@ export interface TableColumn {
   key: string;
   label: string;
   sortable?: boolean;
-  formatter?: (value: any) => string;
+  formatter?: (value: any, row?: any) => string;
   align?: 'left' | 'center' | 'right';
 }
 

@@ -151,7 +151,7 @@ export const DepositAnalysisReport: React.FC<DepositAnalysisReportProps> = ({
       sortable: true,
       formatter: (value: boolean, row: any) => {
         if (value) return '🔴 High Risk';
-        if (row.days_outstanding > 60) return '🟡 Medium Risk';
+        if (row?.days_outstanding > 60) return '🟡 Medium Risk';
         return '🟢 Low Risk';
       }
     },

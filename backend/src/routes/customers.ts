@@ -964,7 +964,7 @@ export const customersRouter = router({
       }
     })
     .input(z.object({
-      customer_id: z.string().uuid(),
+      id: z.string().uuid(),
       deposit_limit: z.number().min(0).nullable(),
       deposit_limit_alerts_enabled: z.boolean().optional(),
       notes: z.string().optional(),
@@ -984,7 +984,7 @@ export const customersRouter = router({
           updated_at: new Date().toISOString(),
           updated_by: user.id,
         })
-        .eq('id', input.customer_id)
+        .eq('id', input.id)
         .select('id, name, deposit_limit, current_deposit_exposure, deposit_limit_alerts_enabled')
         .single();
 
@@ -998,7 +998,7 @@ export const customersRouter = router({
 
       // Update current deposit exposure
       await ctx.supabase.rpc('update_customer_deposit_exposure', {
-        p_customer_id: input.customer_id
+        p_customer_id: input.id
       });
 
       return {
@@ -1022,19 +1022,19 @@ export const customersRouter = router({
       }
     })
     .input(z.object({
-      customer_id: z.string().uuid(),
+      id: z.string().uuid(),
     }))
     .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
-      ctx.logger.info('Getting customer deposit analysis:', input.customer_id);
+      ctx.logger.info('Getting customer deposit analysis:', input.id);
 
       // Get deposit analysis view
       const { data: analysis, error } = await ctx.supabase
         .from('v_customer_deposit_analysis')
         .select('*')
-        .eq('customer_id', input.customer_id)
+        .eq('customer_id', input.id)
         .single();
 
       if (error) {
@@ -1056,7 +1056,7 @@ export const customersRouter = router({
           notes,
           order:orders(order_number)
         `)
-        .eq('customer_id', input.customer_id)
+        .eq('customer_id', input.id)
         .eq('is_voided', false)
         .order('transaction_date', { ascending: false })
         .limit(10);
@@ -1074,7 +1074,7 @@ export const customersRouter = router({
           damage_status,
           product:products(name, sku, capacity_l)
         `)
-        .eq('customer_id', input.customer_id)
+        .eq('customer_id', input.id)
         .in('status', ['pending', 'partial_returned', 'grace_period'])
         .order('return_deadline', { ascending: true });
 
