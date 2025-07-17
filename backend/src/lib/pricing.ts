@@ -675,12 +675,13 @@ export class PricingService {
         if (line.include_deposit) {
           const { data: product } = await this.supabase
             .from('products')
-            .select('capacity_l')
+            .select('capacity_kg')
             .eq('id', line.product_id)
             .single();
 
-          if (product?.capacity_l) {
-            const deposit = await this.getCurrentDepositRate(product.capacity_l);
+          if (product?.capacity_kg) {
+            const capacityL = product.capacity_kg * 2.2; // Convert kg to liters
+            const deposit = await this.getCurrentDepositRate(capacityL);
             const lineDeposit = deposit * line.quantity;
             depositAmount += lineDeposit;
             subtotal += lineDeposit;

@@ -757,6 +757,66 @@ export const ordersRouter = router({
         // Skip order line validation for non-delivery orders
         if (input.order_type !== 'delivery') {
           ctx.logger.info(`Creating ${input.order_type} order - skipping order line validation`);
+          // For visit orders, create with minimal validation and no order lines
+          const orderData = {
+            customer_id: input.customer_id,
+            delivery_address_id: input.delivery_address_id,
+            source_warehouse_id: input.source_warehouse_id,
+            scheduled_date: input.scheduled_date,
+            delivery_date: input.delivery_date,
+            delivery_time_window_start: input.delivery_time_window_start,
+            delivery_time_window_end: input.delivery_time_window_end,
+            delivery_instructions: input.delivery_instructions,
+            notes: input.notes,
+            status: 'draft' as const,
+            order_date: input.order_date || new Date().toISOString().split('T')[0],
+            total_amount: 0, // Visit orders start with 0 amount
+            created_by_user_id: user.id,
+            // Order type fields
+            order_type: input.order_type,
+            order_flow_type: input.order_flow_type || undefined,
+            service_type: input.service_type,
+            exchange_empty_qty: input.exchange_empty_qty,
+            requires_pickup: input.requires_pickup,
+          };
+
+          const { data: order, error: orderError } = await ctx.supabase
+            .from('orders')
+            .insert(orderData)
+            .select()
+            .single();
+
+          if (orderError) {
+            ctx.logger.error('Visit order creation error:', orderError);
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: orderError.message
+            });
+          }
+
+          // Get complete order with relations
+          const completeOrder = await getOrderById(ctx, order.id);
+          
+          // Complete idempotency if used
+          if (idempotencyKeyId) {
+            try {
+              await ctx.supabase.rpc('complete_idempotency_key', {
+                p_key_id: idempotencyKeyId,
+                p_response_data: completeOrder,
+                p_status: 'completed'
+              });
+            } catch (error) {
+              ctx.logger.warn('Failed to complete idempotency, but order was created successfully:', error);
+            }
+          }
+
+          ctx.logger.info('Visit order created successfully:', {
+            order_id: order.id,
+            customer_id: input.customer_id,
+            order_type: input.order_type
+          });
+
+          return completeOrder;
         } else if (input.order_lines && input.order_lines.length > 0) {
           for (let i = 0; i < input.order_lines.length; i++) {
           const line = input.order_lines[i];
@@ -904,12 +964,13 @@ export const ordersRouter = router({
             if (line.include_deposit) {
               const { data: productWithCapacity } = await ctx.supabase
                 .from('products')
-                .select('capacity_l')
+                .select('capacity_kg')
                 .eq('id', line.product_id)
                 .single();
                 
-              if (productWithCapacity?.capacity_l) {
-                const depositRate = await pricingService.getCurrentDepositRate(productWithCapacity.capacity_l);
+              if (productWithCapacity?.capacity_kg) {
+                const capacityL = productWithCapacity.capacity_kg * 2.2; // Convert kg to liters
+                const depositRate = await pricingService.getCurrentDepositRate(capacityL);
                 depositAmount = depositRate * line.quantity;
                 subtotal += depositAmount;
               }
@@ -1018,6 +1079,10 @@ export const ordersRouter = router({
           delivery_address_id: input.delivery_address_id,
           source_warehouse_id: input.source_warehouse_id,
           scheduled_date: input.scheduled_date,
+          delivery_date: input.delivery_date,
+          delivery_time_window_start: input.delivery_time_window_start,
+          delivery_time_window_end: input.delivery_time_window_end,
+          delivery_instructions: input.delivery_instructions,
           notes: input.notes,
           status: 'draft' as const,
           order_date: input.order_date || new Date().toISOString().split('T')[0],
