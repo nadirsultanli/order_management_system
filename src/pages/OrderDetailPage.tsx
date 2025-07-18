@@ -568,9 +568,20 @@ export const OrderDetailPage: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <span className="text-sm font-medium text-gray-900">
-                              {formatCurrencySync(line.subtotal || (line.quantity * line.unit_price))}
-                            </span>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {formatCurrencySync(line.subtotal || (line.quantity * line.unit_price))}
+                              </div>
+                              {line.price_excluding_tax !== undefined && line.tax_amount !== undefined && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  <div>Gas: {formatCurrencySync(line.price_excluding_tax * line.quantity)}</div>
+                                  {line.deposit_amount !== undefined && line.deposit_amount > 0 && (
+                                    <div>Deposit: {formatCurrencySync(line.deposit_amount * line.quantity)}</div>
+                                  )}
+                                  <div>Tax: {formatCurrencySync(line.tax_amount * line.quantity)}</div>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           {order.order_flow_type === 'exchange' && (
                             <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -608,14 +619,40 @@ export const OrderDetailPage: React.FC = () => {
                   </tbody>
                   <tfoot className="bg-gray-50">
                     <tr>
-                      <td colSpan={3} className="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                        Total:
+                      <td colSpan={3} className="px-6 py-4 text-right">
+                        <div className="space-y-2">
+                          <div className="flex justify-end items-center space-x-4 text-sm">
+                            <span className="text-gray-600">Subtotal:</span>
+                            <span className="font-medium text-gray-900">
+                              {formatCurrencySync(order.order_lines.reduce((sum, line) => {
+                                const gasPrice = line.price_excluding_tax !== undefined ? line.price_excluding_tax : line.unit_price;
+                                return sum + (gasPrice * line.quantity);
+                              }, 0))}
+                            </span>
+                          </div>
+                          {order.deposit_total !== undefined && order.deposit_total > 0 && (
+                            <div className="flex justify-end items-center space-x-4 text-sm">
+                              <span className="text-blue-600">Total Deposits:</span>
+                              <span className="font-medium text-blue-700">
+                                {formatCurrencySync(order.deposit_total)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-end items-center space-x-4 text-sm">
+                            <span className="text-gray-600">Tax:</span>
+                            <span className="font-medium text-gray-900">
+                              {formatCurrencySync(order.tax_amount || 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-end items-center space-x-4 pt-2 border-t border-gray-300">
+                            <span className="text-base font-semibold text-gray-900">Total:</span>
+                            <span className="text-lg font-bold text-green-700">
+                              {formatCurrencySync(order.total_amount || 0)}
+                            </span>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 text-right text-lg font-bold text-gray-900">
-                        {order.total_amount ? formatCurrencySync(order.total_amount) : formatCurrencySync(
-                          order.order_lines.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0)
-                        )}
-                      </td>
+                      <td className="px-6 py-4"></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -666,9 +703,20 @@ export const OrderDetailPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium text-gray-900">
-                    {formatCurrencySync(order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0)}
+                    {formatCurrencySync(order.order_lines?.reduce((sum, line) => {
+                      const gasPrice = line.price_excluding_tax !== undefined ? line.price_excluding_tax : line.unit_price;
+                      return sum + (gasPrice * line.quantity);
+                    }, 0) || 0)}
                   </span>
                 </div>
+                {order.deposit_total !== undefined && order.deposit_total > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-blue-600">Deposit:</span>
+                    <span className="font-medium text-blue-700">
+                      {formatCurrencySync(order.deposit_total)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Tax{order.tax_percent != null ? ` (${order.tax_percent}%)` : ''}:</span>
                   <span className="font-medium text-gray-900">
@@ -677,11 +725,16 @@ export const OrderDetailPage: React.FC = () => {
                 </div>
                 <div className="border-t border-gray-200 pt-4">
                   <div className="flex justify-between">
-                    <span className="text-lg font-semibold text-gray-900">Total:</span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {formatCurrencySync((order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0) + (order.tax_amount != null ? order.tax_amount : 0))}
+                    <span className="text-lg font-semibold text-gray-900">Total Amount:</span>
+                    <span className="text-lg font-bold text-green-700">
+                      {formatCurrencySync(order.total_amount != null ? order.total_amount : 0)}
                     </span>
                   </div>
+                  {order.total_amount && order.deposit_total !== undefined && order.tax_amount !== undefined && (
+                    <div className="text-xs text-gray-500 mt-2">
+                      Products + Deposits + Tax = Total
+                    </div>
+                  )}
                 </div>
               </div>
             )}

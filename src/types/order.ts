@@ -8,6 +8,7 @@ export interface Order {
   total_amount?: number;
   tax_percent?: number;
   tax_amount?: number;
+  deposit_total?: number;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -65,6 +66,8 @@ export interface OrderLine {
   fill_percentage?: number;
   is_partial_fill?: boolean;
   partial_fill_notes?: string;
+  // Deposit field
+  deposit_amount?: number;
   product?: {
     id: string;
     sku: string;
@@ -128,6 +131,8 @@ export interface CreateOrderLineData {
   fill_percentage?: number;
   is_partial_fill?: boolean;
   partial_fill_notes?: string;
+  // Deposit field
+  deposit_amount?: number;
 }
 
 export interface UpdateOrderLineData extends Partial<CreateOrderLineData> {

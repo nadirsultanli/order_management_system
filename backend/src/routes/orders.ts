@@ -2668,18 +2668,22 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
       return sum + lineSubtotal;
     }, 0);
     
+    // Calculate deposit total
+    const depositTotal = lines.reduce((sum: number, line: any) => sum + (line.deposit_amount || 0), 0);
     // Calculate tax based on current subtotal and tax percentage
     const taxPercent = order?.tax_percent || 0;
     const taxAmount = subtotal * (taxPercent / 100);
-    const grandTotal = subtotal + taxAmount;
+    // Grand total now includes deposit
+    const grandTotal = subtotal + taxAmount + depositTotal;
     
-    ctx.logger.info('Order total calculation:', { orderId, subtotal, taxPercent, taxAmount, grandTotal });
+    ctx.logger.info('Order total calculation:', { orderId, subtotal, taxPercent, taxAmount, depositTotal, grandTotal });
     
     const { error: updateError } = await ctx.supabase
       .from('orders')
       .update({ 
         total_amount: grandTotal,
         tax_amount: taxAmount, // Update the tax amount as well
+        deposit_total: depositTotal,
         updated_at: new Date().toISOString(),
       })
       .eq('id', orderId);
@@ -2697,7 +2701,7 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
       tax_amount: taxAmount,
       total_amount: grandTotal,
       gas_charges_total: lines.reduce((sum: number, line: any) => sum + (line.gas_charge || 0), 0),
-      deposit_total: lines.reduce((sum: number, line: any) => sum + (line.deposit_amount || 0), 0),
+      deposit_total: depositTotal,
       breakdown: lines.map((line: any) => ({
         quantity: line.quantity,
         unit_price: line.unit_price,
@@ -2771,7 +2775,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
     }, 0);
     
     const taxAmount = subtotal * (taxPercent / 100);
-    const grandTotal = subtotal + taxAmount;
+    const grandTotal = subtotal + taxAmount + depositTotal;
     
     ctx.logger.info('Order tax update:', { 
       orderId, taxPercent, subtotal, taxAmount, grandTotal, gasChargesTotal, depositTotal 
