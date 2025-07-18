@@ -31,19 +31,52 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
   const { data: truckDetails } = (trpc.trucks as any).get.useQuery({ id: truckId });
   const truckInventory = truckDetails?.inventory || [];
 
-  // Derive product options based on transfer type
-  const products = transferType === 'load'
-    ? (warehouseInventory as any[]).map(inv => inv.product).filter(Boolean)
-    : Array.from(new Map(
-        (truckInventory as any[]).map(inv => [inv.product_id, {
-          id: inv.product_id,
-          name: inv.product_name,
-          sku: inv.product_sku
-        }])
-      ).values());
+  // Get all products for the dropdown
+  const { data: allProducts = [] } = (trpc.products as any).getOptions.useQuery({ 
+    status: 'active', 
+    include_variants: true 
+  });
 
-  const loadTruckMutation = trpc.trucks.loadInventory.useMutation();
-  const unloadTruckMutation = trpc.trucks.unloadInventory.useMutation();
+  // Create a map of product inventory for quick lookup
+  const productInventoryMap = new Map();
+  
+  if (transferType === 'load') {
+    // For load: use warehouse inventory
+    (warehouseInventory as any[]).forEach(inv => {
+      if (inv.product) {
+        productInventoryMap.set(inv.product.id, {
+          qty_full: inv.qty_full || 0,
+          qty_empty: inv.qty_empty || 0,
+          qty_available: (inv.qty_full || 0) - (inv.qty_reserved || 0)
+        });
+      }
+    });
+  } else {
+    // For unload: use truck inventory
+    (truckInventory as any[]).forEach(inv => {
+      productInventoryMap.set(inv.product_id, {
+        qty_full: inv.qty_full || 0,
+        qty_empty: inv.qty_empty || 0,
+        qty_available: (inv.qty_full || 0) - (inv.qty_reserved || 0)
+      });
+    });
+  }
+
+  // Filter products to only show variants with parent_products_id that have inventory
+  const products = allProducts.filter((product: any) => {
+    // Check if product has parent_products_id (is a variant)
+    const isVariant = product.is_variant === true;
+    
+    // Check if product has inventory
+    const inventory = productInventoryMap.get(product.id);
+    const hasInventory = inventory && (inventory.qty_full > 0 || inventory.qty_empty > 0);
+    
+    // Only show variants with inventory
+    return isVariant && hasInventory;
+  });
+
+  const loadTruckMutation = (trpc.trucks as any).loadInventory.useMutation();
+  const unloadTruckMutation = (trpc.trucks as any).unloadInventory.useMutation();
   const utils = trpc.useContext();
 
   const handleTransfer = async () => {
@@ -84,9 +117,9 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
       setQtyEmpty(0);
 
       // Invalidate relevant queries
-      utils.trucks.get.invalidate();
-      utils.inventory.list.invalidate();
-      utils.inventory.getByWarehouse.invalidate();
+      (utils.trucks as any).get.invalidate();
+      (utils.inventory as any).list.invalidate();
+      (utils.inventory as any).getByWarehouse.invalidate();
 
       if (onSuccess) {
         onSuccess();
@@ -172,11 +205,19 @@ export const TruckInventoryTransfer: React.FC<TruckInventoryTransferProps> = ({
             <option value="">
               {transferType === 'load' && !selectedWarehouse ? 'Select a warehouse first' : 'Select product...'}
             </option>
-            {products.map((product: any) => (
-              <option key={product.id} value={product.id}>
-                {product.name} ({product.sku})
-              </option>
-            ))}
+            {products.map((product: any) => {
+              const inventory = productInventoryMap.get(product.id);
+              const availableQty = inventory ? inventory.qty_available : 0;
+              
+              return (
+                <option 
+                  key={product.id} 
+                  value={product.id}
+                >
+                  {product.display_name || product.name} ({availableQty} available)
+                </option>
+              );
+            })}
           </select>
         </div>
 
