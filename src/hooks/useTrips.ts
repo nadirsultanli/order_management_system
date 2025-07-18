@@ -56,7 +56,7 @@ export const useTrip = (id: string) => {
 // Trip capacity information hook
 export const useTripCapacity = (tripId: string) => {
   return trpc.trips.getCapacity.useQuery(
-    { trip_id: tripId },
+    { id: tripId },
     {
       enabled: Boolean(tripId),
       staleTime: 10000, // Refresh more frequently for real-time capacity updates
@@ -67,24 +67,22 @@ export const useTripCapacity = (tripId: string) => {
   );
 };
 
-// Trip loading progress hook
+// Trip loading progress hook - NOT AVAILABLE IN BACKEND
 export const useTripLoadingProgress = (tripId: string) => {
-  return trpc.trips.getLoadingProgress.useQuery(
-    { trip_id: tripId },
-    {
-      enabled: Boolean(tripId),
-      staleTime: 5000, // Very fresh data for loading operations
-      onError: (error: any) => {
-        console.error('useTripLoadingProgress query error:', error);
-      }
-    }
-  );
+  // This procedure doesn't exist in the backend yet
+  console.warn('useTripLoadingProgress: Procedure not implemented in backend');
+  return {
+    data: null,
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend'),
+    refetch: () => {}
+  };
 };
 
 // Trip timeline hook
 export const useTripTimeline = (tripId: string) => {
   return trpc.trips.getTimeline.useQuery(
-    { trip_id: tripId },
+    { id: tripId },
     {
       enabled: Boolean(tripId),
       staleTime: 15000,
@@ -95,19 +93,16 @@ export const useTripTimeline = (tripId: string) => {
   );
 };
 
-// Daily trip schedule hook
+// Daily trip schedule hook - NOT AVAILABLE IN BACKEND
 export const useDailyTripSchedule = (date?: string) => {
-  const targetDate = date || new Date().toISOString().split('T')[0];
-  
-  return trpc.trips.getDailySchedule.useQuery(
-    { date: targetDate },
-    {
-      staleTime: 30000,
-      onError: (error: any) => {
-        console.error('useDailyTripSchedule query error:', error);
-      }
-    }
-  );
+  // This procedure doesn't exist in the backend yet
+  console.warn('useDailyTripSchedule: Procedure not implemented in backend');
+  return {
+    data: null,
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend'),
+    refetch: () => {}
+  };
 };
 
 // Create trip mutation
@@ -115,13 +110,9 @@ export const useCreateTrip = () => {
   const utils = trpc.useContext();
   
   return trpc.trips.createTrip.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       console.log('Trip created successfully:', data);
-      toast.success('Trip created successfully');
-      
-      // Invalidate relevant queries
-      utils.trips.list.invalidate();
-      utils.trips.getDailySchedule.invalidate();
+      // Note: Cache invalidation is handled manually in components for live updates
     },
     onError: (error: Error) => {
       console.error('Create trip mutation error:', error);
@@ -135,14 +126,14 @@ export const useUpdateTrip = () => {
   const utils = trpc.useContext();
   
   return trpc.trips.update.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       console.log('Trip updated successfully:', data);
       toast.success('Trip updated successfully');
       
       // Invalidate relevant queries
       utils.trips.list.invalidate();
       utils.trips.get.invalidate();
-      utils.trips.getDailySchedule.invalidate();
+      // utils.trips.getDailySchedule.invalidate(); // Not available
       utils.trips.getTimeline.invalidate();
     },
     onError: (error: Error) => {
@@ -152,32 +143,46 @@ export const useUpdateTrip = () => {
   });
 };
 
-// Delete trip mutation
-export const useDeleteTrip = () => {
+// Update trip status mutation
+export const  useUpdateTripStatus = () => {
   const utils = trpc.useContext();
   
-  return trpc.trips.delete.useMutation({
-    onSuccess: (_, variables) => {
-      console.log('Trip deleted successfully:', variables.id);
-      toast.success('Trip deleted successfully');
+  return trpc.trips.updateTripStatus.useMutation({
+    onSuccess: (data: any) => {
+      console.log('Trip status updated successfully:', data);
+      toast.success('Trip status updated successfully');
       
       // Invalidate relevant queries
       utils.trips.list.invalidate();
-      utils.trips.getDailySchedule.invalidate();
+      utils.trips.get.invalidate();
+      utils.trips.getTimeline.invalidate();
     },
     onError: (error: Error) => {
-      console.error('Delete trip mutation error:', error);
-      toast.error(error.message || 'Failed to delete trip');
+      console.error('Update trip status mutation error:', error);
+      toast.error(error.message || 'Failed to update trip status');
     },
   });
 };
 
-// Allocate orders to trip mutation
+// Delete trip mutation - NOT AVAILABLE IN BACKEND
+export const useDeleteTrip = () => {
+  // This procedure doesn't exist in the backend yet
+  console.warn('useDeleteTrip: Procedure not implemented in backend');
+  return {
+    mutate: () => {
+      toast.error('Delete trip functionality not implemented');
+    },
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend')
+  };
+};
+
+// Allocate orders to trip mutation - FIXED NAME
 export const useAllocateOrdersToTrip = () => {
   const utils = trpc.useContext();
   
-  return trpc.trips.allocateOrders.useMutation({
-    onSuccess: (data) => {
+  return trpc.trips.allocateOrdersToTrip.useMutation({
+    onSuccess: (data: any) => {
       console.log('Orders allocated to trip successfully:', data);
       toast.success('Orders allocated to trip successfully');
       
@@ -185,7 +190,7 @@ export const useAllocateOrdersToTrip = () => {
       utils.trips.list.invalidate();
       utils.trips.get.invalidate();
       utils.trips.getCapacity.invalidate();
-      utils.trips.getLoadingProgress.invalidate();
+      // utils.trips.getLoadingProgress.invalidate(); // Not available
     },
     onError: (error: Error) => {
       console.error('Allocate orders mutation error:', error);
@@ -194,12 +199,12 @@ export const useAllocateOrdersToTrip = () => {
   });
 };
 
-// Remove orders from trip mutation
+// Remove orders from trip mutation - FIXED NAME
 export const useRemoveOrdersFromTrip = () => {
   const utils = trpc.useContext();
   
-  return trpc.trips.removeOrders.useMutation({
-    onSuccess: (data) => {
+  return trpc.trips.removeOrderFromTrip.useMutation({
+    onSuccess: (data: any) => {
       console.log('Orders removed from trip successfully:', data);
       toast.success('Orders removed from trip successfully');
       
@@ -207,7 +212,7 @@ export const useRemoveOrdersFromTrip = () => {
       utils.trips.list.invalidate();
       utils.trips.get.invalidate();
       utils.trips.getCapacity.invalidate();
-      utils.trips.getLoadingProgress.invalidate();
+      // utils.trips.getLoadingProgress.invalidate(); // Not available
     },
     onError: (error: Error) => {
       console.error('Remove orders mutation error:', error);
@@ -216,12 +221,12 @@ export const useRemoveOrdersFromTrip = () => {
   });
 };
 
-// Start trip loading mutation
+// Start trip loading mutation - FIXED NAME
 export const useStartTripLoading = () => {
   const utils = trpc.useContext();
   
-  return trpc.trips.startLoading.useMutation({
-    onSuccess: (data) => {
+  return trpc.trips.startTripLoading.useMutation({
+    onSuccess: (data: any) => {
       console.log('Trip loading started successfully:', data);
       toast.success('Trip loading started');
       
@@ -229,7 +234,7 @@ export const useStartTripLoading = () => {
       utils.trips.list.invalidate();
       utils.trips.get.invalidate();
       utils.trips.getTimeline.invalidate();
-      utils.trips.getLoadingProgress.invalidate();
+      // utils.trips.getLoadingProgress.invalidate(); // Not available
     },
     onError: (error: Error) => {
       console.error('Start loading mutation error:', error);
@@ -238,34 +243,25 @@ export const useStartTripLoading = () => {
   });
 };
 
-// Process trip loading mutation
+// Process trip loading mutation - NOT AVAILABLE IN BACKEND
 export const useProcessTripLoading = () => {
-  const utils = trpc.useContext();
-  
-  return trpc.trips.processLoading.useMutation({
-    onSuccess: (data) => {
-      console.log('Trip loading processed successfully:', data);
-      toast.success('Loading actions processed successfully');
-      
-      // Invalidate relevant queries
-      utils.trips.get.invalidate();
-      utils.trips.getCapacity.invalidate();
-      utils.trips.getLoadingProgress.invalidate();
-      utils.trips.getTimeline.invalidate();
+  // This procedure doesn't exist in the backend yet
+  console.warn('useProcessTripLoading: Procedure not implemented in backend');
+  return {
+    mutate: () => {
+      toast.error('Process loading functionality not implemented');
     },
-    onError: (error: Error) => {
-      console.error('Process loading mutation error:', error);
-      toast.error(error.message || 'Failed to process loading actions');
-    },
-  });
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend')
+  };
 };
 
-// Complete trip loading mutation
+// Complete trip loading mutation - FIXED NAME
 export const useCompleteTripLoading = () => {
   const utils = trpc.useContext();
   
-  return trpc.trips.completeLoading.useMutation({
-    onSuccess: (data) => {
+  return trpc.trips.completeTripLoading.useMutation({
+    onSuccess: (data: any) => {
       console.log('Trip loading completed successfully:', data);
       toast.success('Trip loading completed');
       
@@ -273,7 +269,7 @@ export const useCompleteTripLoading = () => {
       utils.trips.list.invalidate();
       utils.trips.get.invalidate();
       utils.trips.getTimeline.invalidate();
-      utils.trips.getLoadingProgress.invalidate();
+      // utils.trips.getLoadingProgress.invalidate(); // Not available
     },
     onError: (error: Error) => {
       console.error('Complete loading mutation error:', error);
@@ -282,116 +278,79 @@ export const useCompleteTripLoading = () => {
   });
 };
 
-// Start trip departure mutation
+// Start trip departure mutation - NOT AVAILABLE IN BACKEND
 export const useStartTripDeparture = () => {
-  const utils = trpc.useContext();
-  
-  return trpc.trips.startDeparture.useMutation({
-    onSuccess: (data) => {
-      console.log('Trip departure started successfully:', data);
-      toast.success('Trip departed successfully');
-      
-      // Invalidate relevant queries
-      utils.trips.list.invalidate();
-      utils.trips.get.invalidate();
-      utils.trips.getTimeline.invalidate();
-      utils.trips.getDailySchedule.invalidate();
+  // This procedure doesn't exist in the backend yet
+  console.warn('useStartTripDeparture: Procedure not implemented in backend');
+  return {
+    mutate: () => {
+      toast.error('Start departure functionality not implemented');
     },
-    onError: (error: Error) => {
-      console.error('Start departure mutation error:', error);
-      toast.error(error.message || 'Failed to start trip departure');
-    },
-  });
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend')
+  };
 };
 
-// Complete trip mutation
+// Complete trip mutation - NOT AVAILABLE IN BACKEND
 export const useCompleteTrip = () => {
-  const utils = trpc.useContext();
-  
-  return trpc.trips.complete.useMutation({
-    onSuccess: (data) => {
-      console.log('Trip completed successfully:', data);
-      toast.success('Trip completed successfully');
-      
-      // Invalidate relevant queries
-      utils.trips.list.invalidate();
-      utils.trips.get.invalidate();
-      utils.trips.getTimeline.invalidate();
-      utils.trips.getDailySchedule.invalidate();
+  // This procedure doesn't exist in the backend yet
+  console.warn('useCompleteTrip: Procedure not implemented in backend');
+  return {
+    mutate: () => {
+      toast.error('Complete trip functionality not implemented');
     },
-    onError: (error: Error) => {
-      console.error('Complete trip mutation error:', error);
-      toast.error(error.message || 'Failed to complete trip');
-    },
-  });
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend')
+  };
 };
 
-// Cancel trip mutation
+// Cancel trip mutation - NOT AVAILABLE IN BACKEND
 export const useCancelTrip = () => {
-  const utils = trpc.useContext();
-  
-  return trpc.trips.cancel.useMutation({
-    onSuccess: (data) => {
-      console.log('Trip cancelled successfully:', data);
-      toast.success('Trip cancelled successfully');
-      
-      // Invalidate relevant queries
-      utils.trips.list.invalidate();
-      utils.trips.get.invalidate();
-      utils.trips.getTimeline.invalidate();
-      utils.trips.getDailySchedule.invalidate();
+  // This procedure doesn't exist in the backend yet
+  console.warn('useCancelTrip: Procedure not implemented in backend');
+  return {
+    mutate: () => {
+      toast.error('Cancel trip functionality not implemented');
     },
-    onError: (error: Error) => {
-      console.error('Cancel trip mutation error:', error);
-      toast.error(error.message || 'Failed to cancel trip');
-    },
-  });
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend')
+  };
 };
 
-// Trip metrics hook
+// Trip metrics hook - NOT AVAILABLE IN BACKEND
 export const useTripMetrics = (tripId?: string, dateFrom?: string, dateTo?: string) => {
-  return trpc.trips.getMetrics.useQuery(
-    { 
-      trip_id: tripId,
-      date_from: dateFrom,
-      date_to: dateTo 
-    },
-    {
-      enabled: Boolean(tripId || (dateFrom && dateTo)),
-      staleTime: 60000, // Cache for 1 minute
-      onError: (error: any) => {
-        console.error('useTripMetrics query error:', error);
-      }
-    }
-  );
+  // This procedure doesn't exist in the backend yet
+  console.warn('useTripMetrics: Procedure not implemented in backend');
+  return {
+    data: null,
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend'),
+    refetch: () => {}
+  };
 };
 
-// Loading efficiency report hook
+// Loading efficiency report hook - NOT AVAILABLE IN BACKEND
 export const useLoadingEfficiencyReport = (dateFrom: string, dateTo: string) => {
-  return trpc.trips.getLoadingEfficiencyReport.useQuery(
-    { date_from: dateFrom, date_to: dateTo },
-    {
-      enabled: Boolean(dateFrom && dateTo),
-      staleTime: 300000, // Cache for 5 minutes
-      onError: (error: any) => {
-        console.error('useLoadingEfficiencyReport query error:', error);
-      }
-    }
-  );
+  // This procedure doesn't exist in the backend yet
+  console.warn('useLoadingEfficiencyReport: Procedure not implemented in backend');
+  return {
+    data: null,
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend'),
+    refetch: () => {}
+  };
 };
 
-// Delivery performance report hook
+// Delivery performance report hook - NOT AVAILABLE IN BACKEND
 export const useDeliveryPerformanceReport = (dateFrom: string, dateTo: string) => {
-  return trpc.trips.getDeliveryPerformanceReport.useQuery(
-    { date_from: dateFrom, date_to: dateTo },
-    {
-      enabled: Boolean(dateFrom && dateTo),
-      staleTime: 300000, // Cache for 5 minutes
-      onError: (error: any) => {
-        console.error('useDeliveryPerformanceReport query error:', error);
-      }
-    }
-  );
+  // This procedure doesn't exist in the backend yet
+  console.warn('useDeliveryPerformanceReport: Procedure not implemented in backend');
+  return {
+    data: null,
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend'),
+    refetch: () => {}
+  };
 };
 
 // Combined hook for trip management dashboard
@@ -413,23 +372,22 @@ export const useTripDashboard = (date?: string) => {
     refetch: () => {
       // This would trigger refetch of relevant queries
       const utils = trpc.useContext();
-      utils.trips.getDailySchedule.invalidate();
+      // utils.trips.getDailySchedule.invalidate(); // Not available
       utils.trips.list.invalidate();
     }
   };
 };
 
-// Utility hook for available orders (not assigned to any trip)
+// Utility hook for available orders (not assigned to any trip) - NOT AVAILABLE IN BACKEND
 export const useAvailableOrders = (filters: { date?: string; truck_id?: string } = {}) => {
-  return trpc.trips.getAvailableOrders.useQuery({
-    date: filters.date,
-    truck_id: filters.truck_id,
-  }, {
-    staleTime: 30000,
-    onError: (error: any) => {
-      console.error('useAvailableOrders query error:', error);
-    }
-  });
+  // This procedure doesn't exist in the backend yet
+  console.warn('useAvailableOrders: Procedure not implemented in backend');
+  return {
+    data: null,
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend'),
+    refetch: () => {}
+  };
 };
 
 // Hook for getting confirmed orders available for trip assignment
@@ -450,13 +408,14 @@ export const useAvailableOrdersForAssignment = (filters: {
   });
 };
 
-// Real-time trip tracking hook (for active trips)
+// Real-time trip tracking hook (for active trips) - NOT AVAILABLE IN BACKEND
 export const useActiveTripTracking = () => {
-  return trpc.trips.getActiveTrips.useQuery(undefined, {
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
-    staleTime: 10000,
-    onError: (error: any) => {
-      console.error('useActiveTripTracking query error:', error);
-    }
-  });
+  // This procedure doesn't exist in the backend yet
+  console.warn('useActiveTripTracking: Procedure not implemented in backend');
+  return {
+    data: null,
+    isLoading: false,
+    error: new Error('Procedure not implemented in backend'),
+    refetch: () => {}
+  };
 };

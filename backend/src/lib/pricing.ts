@@ -20,9 +20,6 @@ export interface PriceCalculationResult {
   priceIncludingTax?: number;
   taxRate?: number;
   taxCategory?: string;
-  // Inheritance tracking
-  inheritedFromParent?: boolean;
-  parentProductId?: string | null;
 }
 
 export interface OrderTotals {
@@ -59,10 +56,6 @@ export class PricingService {
    * Calculate final price with surcharge
    */
   calculateFinalPrice(unitPrice: number, surchargePercent?: number): number {
-    if (!unitPrice || unitPrice <= 0) {
-      this.logger.warn(`Invalid unit price: ${unitPrice}`);
-      return 0;
-    }
     if (!surchargePercent) return unitPrice;
     return unitPrice * (1 + surchargePercent / 100);
   }
@@ -351,245 +344,90 @@ export class PricingService {
   }
 
   /**
-   * Get product price from active price lists with parent inheritance
+   * Get product price from active price lists
    */
   async getProductPrice(productId: string, customerId?: string, date?: string): Promise<PriceCalculationResult | null> {
     const pricingDate = date || new Date().toISOString().split('T')[0];
     
     try {
-      // First, get the product details to check if it's a variant
-      const { data: product, error: productError } = await this.supabase
-        .from('products')
-        .select('id, sku, name, is_variant, parent_products_id, tax_category, tax_rate')
-        .eq('id', productId)
-        .single();
-
-      if (productError || !product) {
-        this.logger.error('Product not found:', productError);
-        return null;
-      }
-
-      // Try to get direct pricing for this product first
-      let priceResult = await this.getDirectProductPrice(productId, pricingDate);
+      // First, try to get customer-specific pricing if customerId is provided
+      // This is a placeholder for future customer-specific pricing implementation
       
-      // If no direct pricing found and this is a variant, try parent product pricing
-      if (!priceResult && product.is_variant && product.parent_products_id) {
-        this.logger.info(`No direct pricing found for variant ${product.sku}, trying parent product ${product.parent_products_id}`);
-        priceResult = await this.getDirectProductPrice(product.parent_products_id, pricingDate);
-        
-        if (priceResult) {
-          // Mark that this price was inherited from parent
-          priceResult.inheritedFromParent = true;
-          priceResult.parentProductId = product.parent_products_id;
-          this.logger.info(`Using inherited pricing from parent product for variant ${product.sku}: ${priceResult.finalPrice}`);
-        } else {
-          this.logger.warn(`No pricing found for parent product ${product.parent_products_id} either`);
-        }
-      } else if (priceResult) {
-        this.logger.info(`Found direct pricing for ${product.sku}: ${priceResult.finalPrice}`);
-      } else {
-        this.logger.warn(`No pricing found for ${product.sku} (is_variant: ${product.is_variant}, parent_id: ${product.parent_products_id})`);
-      }
-      
-      // Debug: Log the final result
-      if (priceResult) {
-        this.logger.info(`Final pricing result for ${product.sku}:`, {
-          finalPrice: priceResult.finalPrice,
-          unitPrice: priceResult.unitPrice,
-          inheritedFromParent: priceResult.inheritedFromParent,
-          priceListName: priceResult.priceListName
+      // Get active price lists containing this product
+      const { data: priceLists, error } = await this.supabase
+        .from('price_list')
+        .select(`
+          id,
+          name,
+          start_date,
+          end_date,
+          is_default,
+          price_list_item!inner(
+            unit_price,
+            surcharge_pct,
+            min_qty,
+            product_id,
+            price_excluding_tax,
+            tax_amount,
+            price_including_tax
+          )
+        `)
+        .eq('price_list_item.product_id', productId)
+        .lte('start_date', pricingDate)
+        .or(`end_date.is.null,end_date.gte.${pricingDate}`);
+
+      if (error) {
+        this.logger.error('Error fetching product price:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch product price'
         });
       }
 
-      if (!priceResult) {
+      if (!priceLists || priceLists.length === 0) {
         return null;
       }
 
-      // Get product tax information (use variant's tax info, fallback to parent's)
-      let taxRate = product.tax_rate || 0;
-      let taxCategory = product.tax_category || 'standard';
-
-      // If we inherited pricing and variant doesn't have tax info, get from parent
-      if (priceResult.inheritedFromParent && product.parent_products_id && (!taxRate || !taxCategory)) {
-        const { data: parentProduct } = await this.supabase
-          .from('products')
-          .select('tax_category, tax_rate')
-          .eq('id', product.parent_products_id)
-          .single();
-        
-        if (parentProduct) {
-          taxRate = taxRate || parentProduct.tax_rate || 0;
-          taxCategory = taxCategory || parentProduct.tax_category || 'standard';
+      // Find the best price list (prioritize default > newest)
+      let bestPriceList = priceLists[0];
+      if (priceLists.length > 1) {
+        const defaultList = priceLists.find(pl => pl.is_default);
+        if (defaultList) {
+          bestPriceList = defaultList;
+        } else {
+          // Sort by start_date desc to get newest
+          priceLists.sort((a, b) => b.start_date.localeCompare(a.start_date));
+          bestPriceList = priceLists[0];
         }
       }
 
+      const priceItem = (bestPriceList as any).price_list_item[0];
+      const finalPrice = this.calculateFinalPrice(priceItem.unit_price, priceItem.surcharge_pct);
+
+      // Get product tax information
+      const { data: productData } = await this.supabase
+        .from('products')
+        .select('tax_category, tax_rate')
+        .eq('id', productId)
+        .single();
+
       return {
-        ...priceResult,
-        taxRate,
-        taxCategory,
+        unitPrice: priceItem.unit_price,
+        surchargePercent: priceItem.surcharge_pct || 0,
+        finalPrice,
+        priceListId: bestPriceList.id,
+        priceListName: bestPriceList.name,
+        // Tax-related fields from price list item (pre-calculated)
+        priceExcludingTax: priceItem.price_excluding_tax || priceItem.unit_price,
+        taxAmount: priceItem.tax_amount || 0,
+        priceIncludingTax: priceItem.price_including_tax || priceItem.unit_price,
+        taxRate: productData?.tax_rate || 0,
+        taxCategory: productData?.tax_category || 'standard',
       };
     } catch (error) {
       this.logger.error('Error in getProductPrice:', error);
       throw error;
     }
-  }
-
-  /**
-   * Get direct product price from price lists (without inheritance)
-   */
-  async getDirectProductPrice(productId: string, pricingDate: string): Promise<PriceCalculationResult | null> {
-    this.logger.info(`Getting direct product price for product ${productId} on date ${pricingDate}`);
-    
-    // Get active price lists containing this product
-    const { data: priceLists, error } = await this.supabase
-      .from('price_list')
-      .select(`
-        id,
-        name,
-        start_date,
-        end_date,
-        is_default,
-        price_list_item!inner(
-          unit_price,
-          price_per_kg,
-          pricing_method,
-          surcharge_pct,
-          min_qty,
-          product_id,
-          price_excluding_tax,
-          tax_amount,
-          price_including_tax
-        )
-      `)
-      .eq('price_list_item.product_id', productId)
-      .lte('start_date', pricingDate)
-      .or(`end_date.is.null,end_date.gte.${pricingDate}`);
-
-    this.logger.info(`Found ${priceLists?.length || 0} price lists for product ${productId}`);
-    if (priceLists && priceLists.length > 0) {
-      this.logger.info(`Price lists found:`, priceLists.map(pl => ({
-        id: pl.id,
-        name: pl.name,
-        is_default: pl.is_default,
-        price_items: (pl as any).price_list_item?.length || 0
-      })));
-    }
-
-    if (error) {
-      this.logger.error('Error fetching product price:', error);
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Failed to fetch product price'
-      });
-    }
-
-    if (!priceLists || priceLists.length === 0) {
-      this.logger.warn(`No price lists found for product ${productId} on date ${pricingDate}`);
-      return null;
-    }
-
-    // Find the best price list (prioritize default > newest)
-    let bestPriceList = priceLists[0];
-    if (priceLists.length > 1) {
-      const defaultList = priceLists.find(pl => pl.is_default);
-      if (defaultList) {
-        bestPriceList = defaultList;
-      } else {
-        // Sort by start_date desc to get newest
-        priceLists.sort((a, b) => b.start_date.localeCompare(a.start_date));
-        bestPriceList = priceLists[0];
-      }
-    }
-
-    const priceItem = (bestPriceList as any).price_list_item[0];
-    this.logger.info(`Price item for product ${productId}:`, {
-      unit_price: priceItem.unit_price,
-      price_per_kg: priceItem.price_per_kg,
-      pricing_method: priceItem.pricing_method,
-      surcharge_pct: priceItem.surcharge_pct,
-      price_excluding_tax: priceItem.price_excluding_tax,
-      tax_amount: priceItem.tax_amount,
-      price_including_tax: priceItem.price_including_tax
-    });
-    
-    let unitPrice = 0;
-    let finalPrice = 0;
-    
-    // Handle different pricing methods
-    if (priceItem.pricing_method === 'per_unit') {
-      // Per unit pricing
-      if (!priceItem.unit_price || priceItem.unit_price <= 0) {
-        this.logger.warn(`Invalid unit price for product ${productId}: ${priceItem.unit_price}`);
-        return null;
-      }
-      unitPrice = priceItem.unit_price;
-      finalPrice = this.calculateFinalPrice(priceItem.unit_price, priceItem.surcharge_pct);
-    } else if (priceItem.pricing_method === 'per_kg') {
-      // Per kg pricing - need to get product weight information
-      if (!priceItem.price_per_kg || priceItem.price_per_kg <= 0) {
-        this.logger.warn(`Invalid price per kg for product ${productId}: ${priceItem.price_per_kg}`);
-        return null;
-      }
-      
-      // Get product weight information
-      const { data: product } = await this.supabase
-        .from('products')
-        .select('net_gas_weight_kg, gross_weight_kg, tare_weight_kg, capacity_kg, sku')
-        .eq('id', productId)
-        .single();
-      
-      if (!product) {
-        this.logger.warn(`Product not found for weight calculation: ${productId}`);
-        return null;
-      }
-      
-      // Calculate net weight
-      let netWeight = 0;
-      if (product.net_gas_weight_kg) {
-        netWeight = product.net_gas_weight_kg;
-      } else if (product.gross_weight_kg && product.tare_weight_kg) {
-        netWeight = product.gross_weight_kg - product.tare_weight_kg;
-      } else if (product.capacity_kg) {
-        netWeight = product.capacity_kg;
-      } else {
-        // Try to extract from SKU (e.g., "PROPAN 12KG" -> 12kg)
-        const kgMatch = product.sku?.match(/(\d+)KG/i);
-        if (kgMatch) {
-          netWeight = parseInt(kgMatch[1]);
-        }
-      }
-      
-      if (netWeight <= 0) {
-        this.logger.warn(`Could not determine net weight for product ${productId}`);
-        return null;
-      }
-      
-      unitPrice = priceItem.price_per_kg;
-      const basePrice = priceItem.price_per_kg * netWeight;
-      finalPrice = this.calculateFinalPrice(basePrice, priceItem.surcharge_pct);
-      
-      this.logger.info(`Per kg pricing for ${productId}: ${priceItem.price_per_kg}/kg × ${netWeight}kg = ${basePrice} base + surcharge = ${finalPrice} final`);
-    } else {
-      this.logger.warn(`Unsupported pricing method for product ${productId}: ${priceItem.pricing_method}`);
-      return null;
-    }
-    
-    this.logger.info(`Calculated final price for product ${productId}: ${finalPrice}`);
-
-    return {
-      unitPrice,
-      surchargePercent: priceItem.surcharge_pct || 0,
-      finalPrice,
-      priceListId: bestPriceList.id,
-      priceListName: bestPriceList.name,
-      // Tax-related fields from price list item (pre-calculated)
-      priceExcludingTax: priceItem.price_excluding_tax || unitPrice,
-      taxAmount: priceItem.tax_amount || 0,
-      priceIncludingTax: priceItem.price_including_tax || finalPrice,
-      // Inheritance tracking
-      inheritedFromParent: false,
-      parentProductId: null,
-    };
   }
 
   /**
@@ -1027,133 +865,6 @@ export class PricingService {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to get pricing statistics'
       });
-    }
-  }
-
-  /**
-   * Calculate pricing with partial fill support for order creation
-   * This method handles weight-based pricing with partial fill percentages
-   */
-  async calculateOrderLinePricing(
-    productId: string,
-    quantity: number = 1,
-    fillPercentage: number = 100,
-    customerId?: string,
-    date?: string
-  ): Promise<{
-    unitPrice: number;
-    subtotal: number;
-    gasCharge: number;
-    depositAmount: number;
-    taxAmount: number;
-    totalPrice: number;
-    adjustedWeight: number;
-    originalWeight: number;
-    pricingMethod: string;
-    inheritedFromParent?: boolean;
-    parentProductId?: string | null;
-  } | null> {
-    try {
-      // Get product details including weight information
-      const { data: product, error: productError } = await this.supabase
-        .from('products')
-        .select(`
-          id,
-          name,
-          sku,
-          sku_variant,
-          capacity_l,
-          gross_weight_kg,
-          net_gas_weight_kg,
-          tare_weight_kg,
-          tax_rate,
-          tax_category,
-          is_variant,
-          parent_products_id
-        `)
-        .eq('id', productId)
-        .single();
-
-      if (productError || !product) {
-        this.logger.error('Product not found:', productError);
-        return null;
-      }
-
-      // Get pricing information with inheritance support
-      const pricingResult = await this.getProductPrice(productId, customerId, date);
-      if (!pricingResult) {
-        this.logger.warn('No pricing found for product:', productId);
-        return null;
-      }
-
-      // For gas cylinders with per_kg pricing, calculate weight-based pricing
-      if (product.sku_variant && ['FULL-OUT', 'FULL-XCH'].includes(product.sku_variant) && 
-          product.net_gas_weight_kg && product.capacity_l) {
-        
-        // Get gas price per kg from pricing
-        const gasPricePerKg = pricingResult.finalPrice / product.net_gas_weight_kg;
-        
-        // Calculate adjusted weight based on fill percentage
-        const originalWeight = product.net_gas_weight_kg;
-        const adjustedWeight = originalWeight * (fillPercentage / 100);
-        
-        // Calculate gas charge (only gas portion is affected by fill percentage)
-        const gasCharge = this.calculateGasCharge(adjustedWeight, gasPricePerKg);
-        
-        // Get deposit amount (always full price, not affected by fill percentage)
-        const depositAmount = await this.getCurrentDepositRate(product.capacity_l);
-        
-        // Calculate subtotal (gas charge + deposit)
-        const subtotal = gasCharge + depositAmount;
-        
-        // Calculate tax (applied to subtotal)
-        const taxRate = product.tax_rate || 16; // Default 16% VAT
-        const taxAmount = subtotal * (taxRate / 100);
-        
-        // Calculate total price
-        const totalPrice = subtotal + taxAmount;
-        
-        // Calculate unit price (total price for one unit)
-        const unitPrice = totalPrice;
-        
-        return {
-          unitPrice,
-          subtotal: subtotal * quantity,
-          gasCharge: gasCharge * quantity,
-          depositAmount: depositAmount * quantity,
-          taxAmount: taxAmount * quantity,
-          totalPrice: totalPrice * quantity,
-          adjustedWeight,
-          originalWeight,
-          pricingMethod: 'per_kg',
-          inheritedFromParent: pricingResult.inheritedFromParent,
-          parentProductId: pricingResult.parentProductId
-        };
-      } else {
-        // For non-gas products or products without weight info, use standard pricing
-        const unitPrice = pricingResult.finalPrice;
-        const subtotal = unitPrice * quantity;
-        const taxRate = product.tax_rate || 16;
-        const taxAmount = subtotal * (taxRate / 100);
-        const totalPrice = subtotal + taxAmount;
-        
-        return {
-          unitPrice,
-          subtotal,
-          gasCharge: 0,
-          depositAmount: 0,
-          taxAmount,
-          totalPrice,
-          adjustedWeight: 0,
-          originalWeight: 0,
-          pricingMethod: 'per_unit',
-          inheritedFromParent: pricingResult.inheritedFromParent,
-          parentProductId: pricingResult.parentProductId
-        };
-      }
-    } catch (error) {
-      this.logger.error('Error in calculateOrderLinePricing:', error);
-      throw error;
     }
   }
 }

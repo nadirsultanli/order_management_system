@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Truck, Loader2, Calendar, MapPin, User } from 'lucide-react';
+import { ArrowLeft, Truck, Loader2, Calendar, MapPin, User, AlertTriangle } from 'lucide-react';
 import { Card } from '../components/ui/Card';
 import { useCreateTrip } from '../hooks/useTrips';
 import { useTrucks } from '../hooks/useTrucks';
 import { useWarehouseOptions } from '../hooks/useWarehouses';
 import { useDrivers } from '../hooks/useUsers';
+import { trpc } from '../lib/trpc-client';
+import toast from 'react-hot-toast';
 
 export const CreateTripPage: React.FC = () => {
   const navigate = useNavigate();
@@ -13,18 +15,66 @@ export const CreateTripPage: React.FC = () => {
   const { data: trucksData, isLoading: trucksLoading } = useTrucks();
   const { data: warehouses, isLoading: warehousesLoading } = useWarehouseOptions();
   const { data: driversData, isLoading: driversLoading } = useDrivers({ active: true });
+  const utils = trpc.useContext();
   
   const [error, setError] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     truck_id: '',
     route_date: '',
     warehouse_id: '',
-    driver_id: ''
+    driver_id: '',
+    planned_start_time: '',
+    planned_end_time: '',
+    trip_notes: ''
   });
 
   const loading = createTrip.isLoading;
   const trucks = trucksData?.trucks || [];
   const drivers = driversData?.drivers || [];
+
+  // Query to check for existing trips with same truck and driver on same date
+  const { data: existingTrips, refetch: refetchExistingTrips } = trpc.trips.list.useQuery({
+    truck_id: formData.truck_id,
+    date_from: formData.route_date,
+    date_to: formData.route_date,
+    limit: 100
+  }, {
+    enabled: Boolean(formData.truck_id && formData.route_date),
+    refetchOnWindowFocus: false
+  });
+
+  // Check for duplicate trips when form data changes
+  useEffect(() => {
+    if (formData.truck_id && formData.route_date && existingTrips?.trips) {
+      const duplicates = existingTrips.trips.filter(trip => {
+        // Check if truck matches
+        if (trip.truck_id !== formData.truck_id) return false;
+        
+        // Check if date matches
+        if (trip.route_date !== formData.route_date) return false;
+        
+        // Check if driver matches (including null cases)
+        if (formData.driver_id) {
+          return trip.driver_id === formData.driver_id;
+        } else {
+          return !trip.driver_id; // No driver assigned
+        }
+      });
+
+      if (duplicates.length > 0) {
+        const duplicate = duplicates[0];
+        const driverInfo = formData.driver_id ? 'the selected driver' : 'no driver assigned';
+        setDuplicateWarning(
+          `⚠️ A trip already exists for this truck with ${driverInfo} on ${formData.route_date}. Trip ID: ${duplicate.id.slice(-8)}, Status: ${duplicate.route_status}`
+        );
+      } else {
+        setDuplicateWarning(null);
+      }
+    } else {
+      setDuplicateWarning(null);
+    }
+  }, [formData.truck_id, formData.route_date, formData.driver_id, existingTrips?.trips]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,17 +93,62 @@ export const CreateTripPage: React.FC = () => {
         throw new Error('Please select a warehouse');
       }
 
+      // FRONTEND VALIDATION: Check for duplicate trips before submission
+      if (duplicateWarning) {
+        throw new Error('Cannot create trip: ' + duplicateWarning.replace('⚠️ ', ''));
+      }
+
       const data = {
         truck_id: formData.truck_id,
         route_date: formData.route_date,
         warehouse_id: formData.warehouse_id,
         driver_id: formData.driver_id || undefined,
+        planned_start_time: formData.planned_start_time || undefined,
+        planned_end_time: formData.planned_end_time || undefined,
+        trip_notes: formData.trip_notes || undefined,
       };
 
       const result = await createTrip.mutateAsync(data);
       
-      // Navigate to the trips list or the newly created trip
-      navigate('/trips');
+      // Optimistically update the trips list to show the new trip at the beginning
+      utils.trips.list.setData(undefined, (oldData) => {
+        if (!oldData) return oldData;
+        
+        // Create the new trip object with the response data
+        const newTrip = {
+          id: result.id,
+          truck_id: result.truck_id,
+          route_date: result.route_date,
+          route_status: result.route_status || 'planned',
+          warehouse_id: result.warehouse_id,
+          driver_id: result.driver_id,
+          created_at: result.created_at,
+          updated_at: result.updated_at,
+          trip_number: result.trip_number,
+          // Add truck and warehouse details for display
+          truck: trucks.find(t => t.id === result.truck_id),
+          warehouse: warehouses?.find(w => w.id === result.warehouse_id),
+          driver: drivers.find(d => d.id === result.driver_id),
+          // Add empty arrays for related data
+          truck_allocations: [],
+          trip_orders: [],
+          loading_progress: null,
+          capacity_info: null,
+          timeline: []
+        };
+        
+        return {
+          ...oldData,
+          trips: [newTrip, ...oldData.trips],
+          totalCount: oldData.totalCount + 1
+        };
+      });
+      
+      // Show success message
+      toast.success('Trip created successfully!');
+      
+      // Navigate back to trips list with the new trip ID in state
+      navigate('/trips', { state: { newTripId: result.id } });
     } catch (err: any) {
       console.error('Form submission error:', err);
       setError(err.message || 'Failed to create trip');
@@ -107,6 +202,22 @@ export const CreateTripPage: React.FC = () => {
             <div className="flex">
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">{error}</h3>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {duplicateWarning && !error && (
+          <div className="rounded-md bg-yellow-50 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-yellow-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">Duplicate Trip Warning</h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>{duplicateWarning}</p>
+                </div>
               </div>
             </div>
           </div>
@@ -217,6 +328,54 @@ export const CreateTripPage: React.FC = () => {
                   ))}
               </select>
             </div>
+
+            {/* Time Schedule */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Time Schedule
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="planned_start_time" className="block text-sm font-medium text-gray-600">
+                    Planned Start Time
+                  </label>
+                  <input
+                    type="time"
+                    id="planned_start_time"
+                    value={formData.planned_start_time}
+                    onChange={(e) => setFormData({ ...formData, planned_start_time: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="planned_end_time" className="block text-sm font-medium text-gray-600">
+                    Planned End Time
+                  </label>
+                  <input
+                    type="time"
+                    id="planned_end_time"
+                    value={formData.planned_end_time}
+                    onChange={(e) => setFormData({ ...formData, planned_end_time: e.target.value })}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Trip Notes */}
+            <div>
+              <label htmlFor="trip_notes" className="block text-sm font-medium text-gray-700">
+                Trip Notes
+              </label>
+              <textarea
+                id="trip_notes"
+                value={formData.trip_notes}
+                onChange={(e) => setFormData({ ...formData, trip_notes: e.target.value })}
+                rows={3}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm resize-none"
+                placeholder="Add any notes about this trip..."
+              />
+            </div>
           </div>
 
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
@@ -230,7 +389,7 @@ export const CreateTripPage: React.FC = () => {
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !!duplicateWarning}
                 className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {loading ? (

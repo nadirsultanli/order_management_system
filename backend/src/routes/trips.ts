@@ -87,6 +87,30 @@ export const tripsRouter = router({
             license_plate,
             capacity_cylinders,
             capacity_kg
+          ),
+          truck_allocations (
+            id,
+            order_id,
+            stop_sequence,
+            status,
+            estimated_weight_kg,
+            actual_weight_kg,
+            order:order_id (
+              id,
+              status,
+              total_amount,
+              customer:customer_id (
+                id,
+                name,
+                email
+              ),
+              delivery_address:delivery_address_id (
+                line1,
+                city,
+                state,
+                postal_code
+              )
+            )
           )
         `)
         .order(sortColumn, {
@@ -318,7 +342,7 @@ export const tripsRouter = router({
           id: '2',
           event: 'Loading Started',
           timestamp: trip.load_started_at,
-          status: 'loading',
+          status: 'unloaded',
           user_name: 'Driver',
           details: 'Truck loading process has begun'
         });
@@ -460,6 +484,109 @@ export const tripsRouter = router({
       
       ctx.logger.info('Creating new trip:', input);
       
+      // STRICT VALIDATION: Check for conflicts where truck OR driver is already busy on the same date
+      ctx.logger.info('Checking for truck and driver conflicts on the same date');
+      
+      // Check if truck is already assigned to another trip on the same date
+      const { data: truckConflicts, error: truckConflictError } = await ctx.supabase
+        .from('truck_routes')
+        .select(`
+          id, 
+          route_date, 
+          truck_id, 
+          driver_id, 
+          route_status,
+          truck:truck_id (fleet_number, license_plate),
+          driver:driver_id (name, email)
+        `)
+        .eq('truck_id', input.truck_id)
+        .eq('route_date', input.route_date);
+
+      if (truckConflictError) {
+        ctx.logger.error('Error checking for truck conflicts:', truckConflictError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to validate truck availability: ${formatErrorMessage(truckConflictError)}`,
+        });
+      }
+
+      if (truckConflicts && truckConflicts.length > 0) {
+        const conflict = truckConflicts[0];
+        const truckInfo = conflict.truck && Array.isArray(conflict.truck) && conflict.truck[0] 
+          ? `${conflict.truck[0].fleet_number} (${conflict.truck[0].license_plate})` 
+          : `Truck ${input.truck_id}`;
+        const driverInfo = conflict.driver && Array.isArray(conflict.driver) && conflict.driver[0] 
+          ? conflict.driver[0].name 
+          : (conflict.driver_id ? `Driver ${conflict.driver_id}` : 'No driver assigned');
+        
+        ctx.logger.error('Truck conflict found:', {
+          existing_trip_id: conflict.id,
+          truck_id: input.truck_id,
+          truck_info: truckInfo,
+          route_date: input.route_date,
+          existing_driver_id: conflict.driver_id,
+          existing_driver_info: driverInfo,
+          existing_status: conflict.route_status
+        });
+
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: `Cannot create trip. ${truckInfo} is already assigned to another trip on ${input.route_date}. Driver: ${driverInfo}, Status: ${conflict.route_status}`,
+        });
+      }
+
+      // Check if driver is already assigned to another trip on the same date (only if driver is specified)
+      if (input.driver_id) {
+        const { data: driverConflicts, error: driverConflictError } = await ctx.supabase
+          .from('truck_routes')
+          .select(`
+            id, 
+            route_date, 
+            truck_id, 
+            driver_id, 
+            route_status,
+            truck:truck_id (fleet_number, license_plate),
+            driver:driver_id (name, email)
+          `)
+          .eq('driver_id', input.driver_id)
+          .eq('route_date', input.route_date);
+
+        if (driverConflictError) {
+          ctx.logger.error('Error checking for driver conflicts:', driverConflictError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to validate driver availability: ${formatErrorMessage(driverConflictError)}`,
+          });
+        }
+
+        if (driverConflicts && driverConflicts.length > 0) {
+          const conflict = driverConflicts[0];
+          const driverInfo = conflict.driver && Array.isArray(conflict.driver) && conflict.driver[0] 
+            ? conflict.driver[0].name 
+            : `Driver ${input.driver_id}`;
+          const truckInfo = conflict.truck && Array.isArray(conflict.truck) && conflict.truck[0] 
+            ? `${conflict.truck[0].fleet_number} (${conflict.truck[0].license_plate})` 
+            : `Truck ${conflict.truck_id}`;
+          
+          ctx.logger.error('Driver conflict found:', {
+            existing_trip_id: conflict.id,
+            driver_id: input.driver_id,
+            driver_info: driverInfo,
+            route_date: input.route_date,
+            existing_truck_id: conflict.truck_id,
+            existing_truck_info: truckInfo,
+            existing_status: conflict.route_status
+          });
+
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `Cannot create trip. ${driverInfo} is already assigned to another trip on ${input.route_date}. Truck: ${truckInfo}, Status: ${conflict.route_status}`,
+          });
+        }
+      }
+
+      ctx.logger.info('No conflicts found, proceeding with trip creation');
+      
       // Validate driver_id exists if provided
       if (input.driver_id) {
         const { data: driver, error: driverError } = await ctx.supabase
@@ -573,6 +700,132 @@ export const tripsRouter = router({
       const { id, ...updateData } = input;
       
       ctx.logger.info('Updating trip:', id, updateData);
+      
+      // STRICT VALIDATION: Check for conflicts when updating truck, driver, or date
+      if (updateData.truck_id || updateData.driver_id !== undefined || updateData.route_date) {
+        ctx.logger.info('Checking for truck and driver conflicts during update');
+        
+        // Get current trip data to determine what we're updating
+        const { data: currentTrip, error: currentTripError } = await ctx.supabase
+          .from('truck_routes')
+          .select('truck_id, driver_id, route_date')
+          .eq('id', id)
+          .single();
+
+        if (currentTripError || !currentTrip) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Trip not found',
+          });
+        }
+
+        // Determine the values to check (use updated values if provided, otherwise current values)
+        const checkTruckId = updateData.truck_id || currentTrip.truck_id;
+        const checkDriverId = updateData.driver_id !== undefined ? updateData.driver_id : currentTrip.driver_id;
+        const checkRouteDate = updateData.route_date || currentTrip.route_date;
+
+        // Check if truck is already assigned to another trip on the same date (excluding current trip)
+        const { data: truckConflicts, error: truckConflictError } = await ctx.supabase
+          .from('truck_routes')
+          .select(`
+            id, 
+            route_date, 
+            truck_id, 
+            driver_id, 
+            route_status,
+            truck:truck_id (fleet_number, license_plate),
+            driver:driver_id (name, email)
+          `)
+          .eq('truck_id', checkTruckId)
+          .eq('route_date', checkRouteDate)
+          .neq('id', id); // Exclude current trip
+
+        if (truckConflictError) {
+          ctx.logger.error('Error checking for truck conflicts during update:', truckConflictError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to validate truck availability: ${formatErrorMessage(truckConflictError)}`,
+          });
+        }
+
+        if (truckConflicts && truckConflicts.length > 0) {
+          const conflict = truckConflicts[0];
+          const truckInfo = conflict.truck && Array.isArray(conflict.truck) && conflict.truck[0] 
+            ? `${conflict.truck[0].fleet_number} (${conflict.truck[0].license_plate})` 
+            : `Truck ${checkTruckId}`;
+          const driverInfo = conflict.driver && Array.isArray(conflict.driver) && conflict.driver[0] 
+            ? conflict.driver[0].name 
+            : (conflict.driver_id ? `Driver ${conflict.driver_id}` : 'No driver assigned');
+          
+          ctx.logger.error('Truck conflict found during update:', {
+            existing_trip_id: conflict.id,
+            truck_id: checkTruckId,
+            truck_info: truckInfo,
+            route_date: checkRouteDate,
+            existing_driver_id: conflict.driver_id,
+            existing_driver_info: driverInfo,
+            existing_status: conflict.route_status
+          });
+
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `Cannot update trip. ${truckInfo} is already assigned to another trip on ${checkRouteDate}. Driver: ${driverInfo}, Status: ${conflict.route_status}`,
+          });
+        }
+
+        // Check if driver is already assigned to another trip on the same date (only if driver is specified and excluding current trip)
+        if (checkDriverId) {
+          const { data: driverConflicts, error: driverConflictError } = await ctx.supabase
+            .from('truck_routes')
+            .select(`
+              id, 
+              route_date, 
+              truck_id, 
+              driver_id, 
+              route_status,
+              truck:truck_id (fleet_number, license_plate),
+              driver:driver_id (name, email)
+            `)
+            .eq('driver_id', checkDriverId)
+            .eq('route_date', checkRouteDate)
+            .neq('id', id); // Exclude current trip
+
+          if (driverConflictError) {
+            ctx.logger.error('Error checking for driver conflicts during update:', driverConflictError);
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: `Failed to validate driver availability: ${formatErrorMessage(driverConflictError)}`,
+            });
+          }
+
+          if (driverConflicts && driverConflicts.length > 0) {
+            const conflict = driverConflicts[0];
+            const driverInfo = conflict.driver && Array.isArray(conflict.driver) && conflict.driver[0] 
+              ? conflict.driver[0].name 
+              : `Driver ${checkDriverId}`;
+            const truckInfo = conflict.truck && Array.isArray(conflict.truck) && conflict.truck[0] 
+              ? `${conflict.truck[0].fleet_number} (${conflict.truck[0].license_plate})` 
+              : `Truck ${conflict.truck_id}`;
+            
+            ctx.logger.error('Driver conflict found during update:', {
+              existing_trip_id: conflict.id,
+              driver_id: checkDriverId,
+              driver_info: driverInfo,
+              route_date: checkRouteDate,
+              existing_truck_id: conflict.truck_id,
+              existing_truck_info: truckInfo,
+              existing_status: conflict.route_status
+            });
+
+            throw new TRPCError({
+              code: 'CONFLICT',
+              message: `Cannot update trip. ${driverInfo} is already assigned to another trip on ${checkRouteDate}. Truck: ${truckInfo}, Status: ${conflict.route_status}`,
+            });
+          }
+        }
+
+        ctx.logger.info('No conflicts found during update, proceeding');
+      }
       
       // Validate driver_id exists if provided
       if (updateData.driver_id) {
@@ -924,8 +1177,9 @@ export const tripsRouter = router({
 
       // Set appropriate timestamp based on status
       switch (input.status) {
-        case 'loading':
-          updateData.load_started_at = timestamp;
+        case 'offloaded':
+          updateData.unload_completed_at = timestamp;
+          updateData.actual_end_time = timestamp.split('T')[1];
           break;
         case 'loaded':
           updateData.load_completed_at = timestamp;
@@ -933,12 +1187,6 @@ export const tripsRouter = router({
         case 'in_transit':
           updateData.delivery_started_at = timestamp;
           updateData.actual_start_time = timestamp.split('T')[1];
-          break;
-        case 'delivering':
-          // Keep delivery_started_at from in_transit
-          break;
-        case 'unloading':
-          updateData.unload_started_at = timestamp;
           break;
         case 'completed':
           updateData.unload_completed_at = timestamp;
@@ -1072,30 +1320,23 @@ export const tripsRouter = router({
               continue;
             }
 
-            // Use the database function to check available stock
-            const { data: stockCheck, error: stockCheckError } = await ctx.supabase
-              .rpc('check_available_full_stock', {
-                p_product_id: line.product_id,
-                p_warehouse_id: warehouseId,
-                p_required_quantity: line.quantity
-              });
+            // Check available stock directly without RPC function
+            const { data: inventory, error: inventoryError } = await ctx.supabase
+              .from('inventory_balance')
+              .select('qty_full, qty_reserved')
+              .eq('product_id', line.product_id)
+              .eq('warehouse_id', warehouseId)
+              .single();
 
-            if (stockCheckError) {
-              ctx.logger.error('Error checking stock availability:', stockCheckError);
-              stockValidationErrors.push(`Failed to check stock for product ${(line.products as any)?.sku}: ${stockCheckError.message}`);
+            if (inventoryError) {
+              ctx.logger.error('Error checking inventory:', inventoryError);
+              stockValidationErrors.push(`Failed to check stock for product ${(line.products as any)?.sku}: ${inventoryError.message}`);
               continue;
             }
 
-            if (!stockCheck) {
-              // Get current stock levels for error message
-              const { data: inventory } = await ctx.supabase
-                .from('inventory_balance')
-                .select('qty_full, qty_reserved')
-                .eq('product_id', line.product_id)
-                .eq('warehouse_id', warehouseId)
-                .single();
-
-              const available = inventory ? inventory.qty_full - inventory.qty_reserved : 0;
+            const available = inventory ? inventory.qty_full - inventory.qty_reserved : 0;
+            
+            if (available < line.quantity) {
               stockValidationErrors.push(
                 `Insufficient stock for ${(line.products as any)?.sku}: Required ${line.quantity}, Available ${available}`
               );
@@ -1122,176 +1363,81 @@ export const tripsRouter = router({
         });
       }
       
+      // Get trip details to get truck_id
+      const { data: trip, error: tripError } = await ctx.supabase
+        .from('truck_routes')
+        .select('truck_id')
+        .eq('id', input.trip_id)
+        .single();
+
+      if (tripError || !trip) {
+        ctx.logger.error('Error fetching trip details:', tripError);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Trip not found',
+        });
+      }
+
+      if (!trip.truck_id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Trip must have a truck assigned before allocating orders',
+        });
+      }
+
       const allocations = input.order_ids.map((orderId, index) => ({
         trip_id: input.trip_id,
+        truck_id: trip.truck_id,
         order_id: orderId,
         stop_sequence: input.auto_sequence ? index + 1 : null,
         status: 'planned',
         allocated_by_user_id: user.id,
         allocated_at: new Date().toISOString(),
+        allocation_date: new Date().toISOString(),
+        estimated_weight_kg: 0, // Default weight, can be calculated later
         notes: input.notes,
       }));
 
-      // Use a transaction to ensure atomicity and prevent race conditions
-      const { data, error } = await ctx.supabase.rpc('allocate_orders_to_trip_safe', {
-        p_trip_id: input.trip_id,
-        p_order_ids: input.order_ids,
-        p_allocated_by_user_id: user.id
-      });
-
-      // Fallback to direct upsert if the RPC function is not available
-      // TODO: Remove this fallback once the RPC function is implemented
-      if (error && error.code === '42883') { // Function does not exist
-        ctx.logger.warn('allocate_orders_to_trip_safe RPC not available, using direct upsert with explicit validation');
-        
-        // First, check for existing allocations that would conflict
-        const { data: existingAllocations, error: checkError } = await ctx.supabase
-          .from('truck_allocations')
-          .select('order_id, trip_id')
-          .in('order_id', input.order_ids)
-          .neq('trip_id', input.trip_id);
-        
-        if (checkError) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to check existing allocations: ${formatErrorMessage(checkError)}`,
-          });
-        }
-        
-        if (existingAllocations && existingAllocations.length > 0) {
-          const conflictingOrders = existingAllocations.map(a => a.order_id).join(', ');
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: `Orders already allocated to other trips: ${conflictingOrders}`,
-          });
-        }
-        
-        // Perform the upsert with validation passed
-        const { data: upsertData, error: upsertError } = await ctx.supabase
-          .from('truck_allocations')
-          .upsert(allocations, { 
-            onConflict: 'trip_id,order_id',
-            ignoreDuplicates: false 
-          })
-          .select('*');
-          
-        if (upsertError) {
-          ctx.logger.error('Error allocating orders to trip:', upsertError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to allocate orders: ${formatErrorMessage(upsertError)}`,
-          });
-        }
-
-        // Update order status from 'confirmed' to 'dispatched'
-        const { error: statusUpdateError } = await ctx.supabase
-          .from('orders')
-          .update({ 
-            status: 'dispatched',
-            updated_at: new Date().toISOString()
-          })
-          .in('id', input.order_ids);
-
-        if (statusUpdateError) {
-          ctx.logger.error('Error updating order status to dispatched:', statusUpdateError);
-          // Note: We don't throw here as the allocation succeeded, but we should log the issue
-          ctx.logger.warn('Orders were allocated but status update failed. Manual intervention may be required.');
-        }
-
-        // Create automatic empty expectations for FULL-XCH orders (fallback path)
-        try {
-          ctx.logger.info('Creating empty expectations for FULL-XCH orders in trip (fallback):', input.trip_id);
-          
-          // Query order lines for FULL-XCH products in the dispatched orders
-          const { data: orderLines, error: orderLinesError } = await ctx.supabase
-            .from('order_lines')
-            .select(`
-              id,
-              order_id,
-              product_id,
-              quantity,
-              products!inner (
-                id,
-                sku,
-                sku_variant,
-                name
-              )
-            `)
-            .in('order_id', input.order_ids)
-            .eq('products.sku_variant', 'FULL-XCH');
-
-          if (orderLinesError) {
-            ctx.logger.error('Error fetching FULL-XCH order lines (fallback):', orderLinesError);
-          } else if (orderLines && orderLines.length > 0) {
-            ctx.logger.info(`Found ${orderLines.length} FULL-XCH order lines for empty expectation (fallback)`);
-            
-            // Create empty expectations for each FULL-XCH line
-            const emptyExpectations = [];
-            
-            for (const line of orderLines) {
-              const fullProduct = line.products;
-              if (!fullProduct) continue;
-              
-              // Get the base SKU by removing the variant suffix
-              const baseSku = (fullProduct as any)?.sku?.replace('-FULL-XCH', '') || '';
-              const emptySku = `${baseSku}-EMPTY`;
-              
-              // Find the EMPTY variant product
-              const { data: emptyProduct, error: emptyProductError } = await ctx.supabase
-                .from('products')
-                .select('id')
-                .eq('sku', emptySku)
-                .eq('sku_variant', 'EMPTY')
-                .single();
-              
-              if (emptyProductError || !emptyProduct) {
-                ctx.logger.warn(`Empty variant not found for SKU: ${emptySku} (fallback)`);
-                continue;
-              }
-              
-              emptyExpectations.push({
-                order_id: line.order_id,
-                trip_id: input.trip_id,
-                full_product_id: line.product_id,
-                empty_product_id: emptyProduct.id,
-                expected_quantity: line.quantity,
-                status: 'pending',
-                expected_return_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                created_by_user_id: user.id,
-                created_at: new Date().toISOString(),
-                notes: `Automatic empty expectation for FULL-XCH delivery in trip ${input.trip_id} (fallback)`
-              });
-            }
-            
-            if (emptyExpectations.length > 0) {
-              // Insert empty expectations
-              const { error: insertError } = await ctx.supabase
-                .from('empty_return_credits')
-                .insert(emptyExpectations);
-              
-              if (insertError) {
-                ctx.logger.error('Error creating empty expectations (fallback):', insertError);
-              } else {
-                ctx.logger.info(`Created ${emptyExpectations.length} empty expectations for trip ${input.trip_id} (fallback)`);
-              }
-            }
-          }
-        } catch (error) {
-          ctx.logger.error('Unexpected error creating empty expectations (fallback):', error);
-        }
-        
-        return upsertData;
-      }
-
-      if (error) {
-        ctx.logger.error('Error allocating orders to trip using RPC:', error);
+      // Use direct database operations instead of RPC function
+      ctx.logger.info('Using direct database operations for order allocation');
+      
+      // First, check for existing allocations that would conflict
+      const { data: existingAllocations, error: checkError } = await ctx.supabase
+        .from('truck_allocations')
+        .select('order_id, trip_id')
+        .in('order_id', input.order_ids)
+        .neq('trip_id', input.trip_id);
+      
+      if (checkError) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to allocate orders: ${formatErrorMessage(error)}`,
+          message: `Failed to check existing allocations: ${formatErrorMessage(checkError)}`,
+        });
+      }
+      
+      if (existingAllocations && existingAllocations.length > 0) {
+        const conflictingOrders = existingAllocations.map(a => a.order_id).join(', ');
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: `Orders already allocated to other trips: ${conflictingOrders}`,
+        });
+      }
+      
+      // Perform the insert with validation passed
+      const { data: insertData, error: insertError } = await ctx.supabase
+        .from('truck_allocations')
+        .insert(allocations)
+        .select('*');
+        
+      if (insertError) {
+        ctx.logger.error('Error allocating orders to trip:', insertError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to allocate orders: ${formatErrorMessage(insertError)}`,
         });
       }
 
-      // Update order status from 'confirmed' to 'dispatched' even when using RPC
+      // Update order status from 'confirmed' to 'dispatched'
       const { error: statusUpdateError } = await ctx.supabase
         .from('orders')
         .update({ 
@@ -1302,7 +1448,24 @@ export const tripsRouter = router({
 
       if (statusUpdateError) {
         ctx.logger.error('Error updating order status to dispatched:', statusUpdateError);
+        // Note: We don't throw here as the allocation succeeded, but we should log the issue
         ctx.logger.warn('Orders were allocated but status update failed. Manual intervention may be required.');
+      }
+
+      // Update trip status to 'loaded' when orders are allocated
+      const { error: tripStatusError } = await ctx.supabase
+        .from('truck_routes')
+        .update({ 
+          route_status: 'loaded',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', input.trip_id);
+
+      if (tripStatusError) {
+        ctx.logger.error('Error updating trip status to loaded:', tripStatusError);
+        ctx.logger.warn('Orders were allocated but trip status update failed. Manual intervention may be required.');
+      } else {
+        ctx.logger.info(`Trip ${input.trip_id} status updated to 'loaded' after order allocation`);
       }
 
       // Create automatic empty expectations for FULL-XCH orders
@@ -1329,7 +1492,6 @@ export const tripsRouter = router({
 
         if (orderLinesError) {
           ctx.logger.error('Error fetching FULL-XCH order lines:', orderLinesError);
-          // Don't fail the allocation for this, just log the error
         } else if (orderLines && orderLines.length > 0) {
           ctx.logger.info(`Found ${orderLines.length} FULL-XCH order lines for empty expectation`);
           
@@ -1337,7 +1499,6 @@ export const tripsRouter = router({
           const emptyExpectations = [];
           
           for (const line of orderLines) {
-            // Find corresponding EMPTY variant product
             const fullProduct = line.products;
             if (!fullProduct) continue;
             
@@ -1365,7 +1526,7 @@ export const tripsRouter = router({
               empty_product_id: emptyProduct.id,
               expected_quantity: line.quantity,
               status: 'pending',
-              expected_return_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days from now
+              expected_return_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
               created_by_user_id: user.id,
               created_at: new Date().toISOString(),
               notes: `Automatic empty expectation for FULL-XCH delivery in trip ${input.trip_id}`
@@ -1380,7 +1541,6 @@ export const tripsRouter = router({
             
             if (insertError) {
               ctx.logger.error('Error creating empty expectations:', insertError);
-              // Don't fail the allocation, just log the error
             } else {
               ctx.logger.info(`Created ${emptyExpectations.length} empty expectations for trip ${input.trip_id}`);
             }
@@ -1388,15 +1548,14 @@ export const tripsRouter = router({
         }
       } catch (error) {
         ctx.logger.error('Unexpected error creating empty expectations:', error);
-        // Don't fail the allocation for empty expectation errors
       }
-
+      
       return {
         success: true,
         trip_id: input.trip_id,
         allocated_orders: input.order_ids,
-        allocations: data,
-        message: `${input.order_ids.length} orders allocated to trip and status changed to dispatched`,
+        allocations: insertData,
+        message: `${input.order_ids.length} orders allocated to trip. Orders status: dispatched, Trip status: loaded`,
       };
     }),
 
@@ -1419,6 +1578,23 @@ export const tripsRouter = router({
       
       ctx.logger.info('Removing order from trip:', input);
       
+      // Get the order details before removal to check if we need to revert status
+      const { data: allocation, error: allocationError } = await ctx.supabase
+        .from('truck_allocations')
+        .select('order_id, status')
+        .eq('trip_id', input.trip_id)
+        .eq('order_id', input.order_id)
+        .single();
+
+      if (allocationError) {
+        ctx.logger.error('Error fetching allocation details:', allocationError);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order allocation not found',
+        });
+      }
+
+      // Remove the allocation
       const { error } = await ctx.supabase
         .from('truck_allocations')
         .delete()
@@ -1433,11 +1609,53 @@ export const tripsRouter = router({
         });
       }
 
+      // STRICT LOGIC: Revert order status from 'dispatched' back to 'confirmed' when removed from trip
+      const { error: orderStatusError } = await ctx.supabase
+        .from('orders')
+        .update({ 
+          status: 'confirmed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', input.order_id);
+
+      if (orderStatusError) {
+        ctx.logger.error('Error reverting order status to confirmed:', orderStatusError);
+        ctx.logger.warn('Order was removed from trip but status revert failed. Manual intervention may be required.');
+      } else {
+        ctx.logger.info(`Order ${input.order_id} status reverted to 'confirmed' after removal from trip`);
+      }
+
+      // Check if this was the last order in the trip
+      const { data: remainingAllocations, error: countError } = await ctx.supabase
+        .from('truck_allocations')
+        .select('id')
+        .eq('trip_id', input.trip_id);
+
+      if (countError) {
+        ctx.logger.error('Error checking remaining allocations:', countError);
+      } else if (!remainingAllocations || remainingAllocations.length === 0) {
+        // No more orders in trip, revert trip status to 'planned'
+        const { error: tripStatusError } = await ctx.supabase
+          .from('truck_routes')
+          .update({ 
+            route_status: 'planned',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', input.trip_id);
+
+        if (tripStatusError) {
+          ctx.logger.error('Error reverting trip status to planned:', tripStatusError);
+          ctx.logger.warn('Order was removed but trip status revert failed. Manual intervention may be required.');
+        } else {
+          ctx.logger.info(`Trip ${input.trip_id} status reverted to 'planned' after removing last order`);
+        }
+      }
+
       return {
         success: true,
         trip_id: input.trip_id,
         removed_order_id: input.order_id,
-        message: 'Order removed from trip',
+        message: 'Order removed from trip and status reverted to confirmed',
       };
     }),
 
@@ -1555,7 +1773,7 @@ export const tripsRouter = router({
         path: '/trips/{trip_id}/start-loading',
         tags: ['trips', 'loading'],
         summary: 'Start trip loading process',
-        description: 'Begin the loading process for a trip and transition status to loading',
+        description: 'Begin the loading process for a trip and transition status to unloaded',
         protect: true,
       }
     })
@@ -1595,11 +1813,11 @@ export const tripsRouter = router({
         });
       }
 
-      // Update trip status to loading
+      // Update trip status to unloaded
       const { data: updatedTrip, error: updateError } = await ctx.supabase
         .from('truck_routes')
         .update({
-          route_status: 'loading',
+          route_status: 'unloaded',
           load_started_at: new Date().toISOString(),
           ...(input.notes && { trip_notes: input.notes }),
           updated_at: new Date().toISOString(),
@@ -1609,17 +1827,77 @@ export const tripsRouter = router({
         .single();
 
       if (updateError) {
-        ctx.logger.error('Error updating trip status to loading:', updateError);
+        ctx.logger.error('Error updating trip status to unloaded:', updateError);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to start loading: ${formatErrorMessage(updateError)}`,
         });
       }
 
-      // Initialize loading details based on allocated orders
-      const { data: requiredQuantities } = await ctx.supabase.rpc('calculate_trip_required_quantities', {
-        p_trip_id: input.trip_id
-      });
+      // Initialize loading details based on allocated orders - using direct queries instead of RPC
+      const { data: allocatedOrders, error: ordersError } = await ctx.supabase
+        .from('truck_allocations')
+        .select(`
+          order_id,
+          order:order_id (
+            order_lines (
+              product_id,
+              quantity,
+              products (
+                id,
+                sku,
+                sku_variant
+              )
+            )
+          )
+        `)
+        .eq('trip_id', input.trip_id);
+
+      if (ordersError) {
+        ctx.logger.error('Error fetching allocated orders for loading details:', ordersError);
+        // Don't fail the operation, just log the error
+      }
+
+      // Calculate required quantities from order lines
+      const requiredQuantities: any[] = [];
+      if (allocatedOrders) {
+        const productQuantities = new Map<string, { full: number; empty: number }>();
+        
+        for (const allocation of allocatedOrders) {
+          const orderLines = (allocation.order as any)?.order_lines || [];
+          for (const line of orderLines) {
+            const product = line.products;
+            if (!product) continue;
+            
+            const productId = line.product_id;
+            const quantity = line.quantity;
+            
+            if (!productQuantities.has(productId)) {
+              productQuantities.set(productId, { full: 0, empty: 0 });
+            }
+            
+            const current = productQuantities.get(productId)!;
+            
+            // Determine if this is a FULL or EMPTY product
+            if (product.sku_variant === 'FULL-OUT' || product.sku_variant === 'FULL-XCH') {
+              current.full += quantity;
+            } else if (product.sku_variant === 'EMPTY') {
+              current.empty += quantity;
+            }
+          }
+        }
+        
+        // Convert to array format
+        let index = 0;
+        for (const [productId, quantities] of productQuantities) {
+          requiredQuantities.push({
+            product_id: productId,
+            required_qty_full: quantities.full,
+            required_qty_empty: quantities.empty,
+            loading_sequence: ++index
+          });
+        }
+      }
 
       if (requiredQuantities && requiredQuantities.length > 0) {
         const loadingDetails = requiredQuantities.map((item: any, index: number) => ({
@@ -1687,10 +1965,10 @@ export const tripsRouter = router({
         });
       }
 
-      if (trip.route_status !== 'loading') {
+      if (trip.route_status !== 'unloaded') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: `Trip must be in loading status. Current status: ${trip.route_status}`,
+          message: `Trip must be in unloaded status. Current status: ${trip.route_status}`,
         });
       }
 
@@ -1889,10 +2167,10 @@ export const tripsRouter = router({
         });
       }
 
-      if (trip.route_status !== 'loading') {
+      if (trip.route_status !== 'unloaded') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: `Trip must be in loading status. Current status: ${trip.route_status}`,
+          message: `Trip must be in unloaded status. Current status: ${trip.route_status}`,
         });
       }
 

@@ -174,9 +174,9 @@ export const TripDetailPage: React.FC = () => {
   };
 
   const canStartLoading = trip.status === 'planned';
-  const canStartDeparture = trip.status === 'loading' && trip.loading_progress?.loading_status === 'completed';
-  const canComplete = trip.status === 'in_transit';
-  const canCancel = ['draft', 'planned', 'loading'].includes(trip.status);
+  const canStartDeparture = trip.status === 'unloaded' && trip.loading_progress?.loading_status === 'completed';
+  const canCompleteTrip = trip.status === 'in_transit';
+  const canCancel = ['draft', 'planned', 'unloaded'].includes(trip.status);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -196,13 +196,13 @@ export const TripDetailPage: React.FC = () => {
               Trip #{trip.id.slice(-8)}
             </h1>
             <p className="mt-1 text-sm text-gray-600">
-              {trip.truck?.fleet_number} • {formatDate(trip.trip_date)}
+              {trip.truck?.fleet_number} • {formatDate(trip.route_date)}
             </p>
           </div>
           
           <div className="flex items-center space-x-3">
             <TripStatusBadge 
-              status={trip.status}
+              status={trip.route_status}
               size="lg"
               interactive={true}
               onStatusChange={handleStatusChange}
@@ -231,7 +231,7 @@ export const TripDetailPage: React.FC = () => {
                 </button>
               )}
               
-              {canComplete && (
+              {canCompleteTrip && (
                 <button
                   onClick={() => setShowCompleteDialog(true)}
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
@@ -305,7 +305,26 @@ export const TripDetailPage: React.FC = () => {
                     <Calendar className="h-5 w-5 text-gray-400" />
                     <div>
                       <p className="text-sm text-gray-500">Trip Date</p>
-                      <p className="font-medium">{formatDate(trip.trip_date)}</p>
+                      <p className="font-medium">{formatDate(trip.route_date)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <div className="h-5 w-5 flex items-center justify-center">
+                      <div className={`w-3 h-3 rounded-full ${
+                        trip.route_status === 'planned' ? 'bg-blue-500' :
+                        trip.route_status === 'unloaded' ? 'bg-purple-500' :
+                        trip.route_status === 'loaded' ? 'bg-green-500' :
+                        trip.route_status === 'in_transit' ? 'bg-pink-500' :
+                        trip.route_status === 'offloaded' ? 'bg-orange-500' :
+                        trip.route_status === 'completed' ? 'bg-green-600' :
+                        trip.route_status === 'cancelled' ? 'bg-red-500' :
+                        'bg-gray-500'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Status</p>
+                      <p className="font-medium capitalize">{trip.route_status?.replace('_', ' ')}</p>
                     </div>
                   </div>
                 </div>
@@ -461,7 +480,7 @@ export const TripDetailPage: React.FC = () => {
                 <h2 className="text-lg font-semibold">Assigned Orders</h2>
                 <div className="flex items-center space-x-3">
                   <span className="text-sm text-gray-500">
-                    {trip.trip_orders?.length || 0} orders
+                    {trip.truck_allocations?.length || 0} orders
                   </span>
                   {(trip.route_status === 'draft' || trip.route_status === 'planned') && (
                     <button
@@ -475,9 +494,9 @@ export const TripDetailPage: React.FC = () => {
                 </div>
               </div>
               
-              {trip.trip_orders && trip.trip_orders.length > 0 ? (
+              {trip.truck_allocations && trip.truck_allocations.length > 0 ? (
                 <div className="space-y-3">
-                  {trip.trip_orders.map((tripOrder) => (
+                  {trip.truck_allocations.map((tripOrder) => (
                     <div key={tripOrder.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div>

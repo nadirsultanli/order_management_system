@@ -27,6 +27,14 @@ export const AssignOrdersModal: React.FC<AssignOrdersModalProps> = ({
   const [search, setSearch] = useState('');
   const [selectedOrders, setSelectedOrders] = useState<SelectedOrder[]>([]);
 
+  // Reset selection when modal opens/closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setSelectedOrders([]);
+      setSearch('');
+    }
+  }, [isOpen]);
+
   // Fetch available confirmed orders
   const { data: ordersData, isLoading, error } = useAvailableOrdersForAssignment({
     search,
@@ -41,36 +49,57 @@ export const AssignOrdersModal: React.FC<AssignOrdersModalProps> = ({
   const availableOrders = useMemo(() => {
     if (!ordersData?.orders) return [];
     
-    return ordersData.orders.map((order: any) => ({
-      id: order.id,
-      customer_name: order.customers?.name || 'Unknown Customer',
-      customer_phone: order.customers?.phone,
-      customer_email: order.customers?.email,
-      total_amount: parseFloat(order.total_amount || '0'),
-      order_date: order.order_date,
-      scheduled_date: order.scheduled_date,
-      delivery_date: order.delivery_date,
-      notes: order.notes,
-      order_lines: order.order_lines || [],
-      address: order.addresses?.[0] || null,
-    }));
-  }, [ordersData]);
+    // Remove duplicates by ID and create unique orders
+    const uniqueOrders = ordersData.orders.reduce((acc: any[], order: any) => {
+      const existingOrder = acc.find(o => o.id === order.id);
+      if (!existingOrder) {
+        acc.push({
+          id: order.id,
+          customer_name: order.customers?.name || 'Unknown Customer',
+          customer_phone: order.customers?.phone,
+          customer_email: order.customers?.email,
+          total_amount: parseFloat(order.total_amount || '0'),
+          order_date: order.order_date,
+          scheduled_date: order.scheduled_date,
+          delivery_date: order.delivery_date,
+          notes: order.notes,
+          order_lines: order.order_lines || [],
+          address: order.addresses?.[0] || null,
+        });
+      }
+      return acc;
+    }, []);
+    
+    console.log('Available orders:', uniqueOrders.length, 'Selected orders:', selectedOrders.length);
+    return uniqueOrders;
+  }, [ordersData, selectedOrders.length]);
 
   const handleOrderToggle = (order: any) => {
     const isSelected = selectedOrders.some(selected => selected.id === order.id);
     
+    console.log('Toggling order:', order.id, 'Currently selected:', isSelected);
+    console.log('Current selected orders:', selectedOrders.map(o => o.id));
+    
     if (isSelected) {
-      setSelectedOrders(prev => prev.filter(selected => selected.id !== order.id));
+      setSelectedOrders(prev => {
+        const filtered = prev.filter(selected => selected.id !== order.id);
+        console.log('Removed order, new selection:', filtered.map(o => o.id));
+        return filtered;
+      });
     } else {
-      setSelectedOrders(prev => [
-        ...prev,
-        {
-          id: order.id,
-          customer_name: order.customer_name,
-          total_amount: order.total_amount,
-          order_date: order.order_date,
-        }
-      ]);
+      setSelectedOrders(prev => {
+        const newSelection = [
+          ...prev,
+          {
+            id: order.id,
+            customer_name: order.customer_name,
+            total_amount: order.total_amount,
+            order_date: order.order_date,
+          }
+        ];
+        console.log('Added order, new selection:', newSelection.map(o => o.id));
+        return newSelection;
+      });
     }
   };
 
@@ -88,7 +117,7 @@ export const AssignOrdersModal: React.FC<AssignOrdersModalProps> = ({
         notes: `Assigned ${selectedOrders.length} orders to trip`,
       });
 
-      toast.success(`Successfully assigned ${selectedOrders.length} orders to trip`);
+      // Don't show success toast here - it's already shown in the mutation's onSuccess
       onSuccess();
       onClose();
     } catch (error: any) {

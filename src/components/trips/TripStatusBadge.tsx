@@ -2,7 +2,7 @@ import React from 'react';
 import { StatusBadge } from '../ui/StatusBadge';
 
 interface TripStatusBadgeProps {
-  status: 'planned' | 'loading' | 'loaded' | 'in_transit' | 'delivering' | 'unloading' | 'completed' | 'cancelled';
+  status: 'planned' | 'loaded' | 'in_transit' | 'offloaded' | 'completed' | 'cancelled';
   size?: 'sm' | 'md' | 'lg';
   interactive?: boolean;
   onStatusChange?: (newStatus: string) => void;
@@ -10,11 +10,9 @@ interface TripStatusBadgeProps {
 
 const TRIP_STATUS_OPTIONS = [
   { value: 'planned', label: 'Planned' },
-  { value: 'loading', label: 'Loading' },
   { value: 'loaded', label: 'Loaded' },
   { value: 'in_transit', label: 'In Transit' },
-  { value: 'delivering', label: 'Delivering' },
-  { value: 'unloading', label: 'Unloading' },
+  { value: 'offloaded', label: 'Offloaded' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' }
 ];

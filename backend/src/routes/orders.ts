@@ -1330,6 +1330,114 @@ export const ordersRouter = router({
         });
       }
 
+      // STRICT LOGIC: When order status changes to 'en_route', automatically update trip status to 'in_transit'
+      if (input.new_status === 'en_route') {
+        ctx.logger.info('Order status changed to en_route, checking for trip allocation to update trip status');
+        
+        // Find the trip allocation for this order
+        const { data: allocation, error: allocationError } = await ctx.supabase
+          .from('truck_allocations')
+          .select('trip_id')
+          .eq('order_id', input.order_id)
+          .single();
+
+        if (allocationError) {
+          ctx.logger.warn('No trip allocation found for order:', input.order_id);
+        } else if (allocation && allocation.trip_id) {
+          // Check if all orders in this trip are now 'en_route' before updating trip status
+          const { data: tripOrders, error: tripOrdersError } = await ctx.supabase
+            .from('truck_allocations')
+            .select(`
+              order_id,
+              orders!inner(status)
+            `)
+            .eq('trip_id', allocation.trip_id);
+
+          if (tripOrdersError) {
+            ctx.logger.error('Error checking trip orders status:', tripOrdersError);
+          } else if (tripOrders && tripOrders.length > 0) {
+            // Check if all orders in the trip are 'en_route'
+            const allEnRoute = tripOrders.every((allocation: any) => 
+              (allocation.orders as any)?.status === 'en_route'
+            );
+
+            if (allEnRoute) {
+              // Update trip status to 'in_transit' only when all orders are en_route
+              const { error: tripStatusError } = await ctx.supabase
+                .from('truck_routes')
+                .update({ 
+                  route_status: 'in_transit',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', allocation.trip_id);
+
+              if (tripStatusError) {
+                ctx.logger.error('Error updating trip status to in_transit:', tripStatusError);
+                ctx.logger.warn('Order status was updated but trip status update failed. Manual intervention may be required.');
+              } else {
+                ctx.logger.info(`Trip ${allocation.trip_id} status automatically updated to 'in_transit' when all orders went en_route`);
+              }
+            } else {
+              ctx.logger.info(`Order ${input.order_id} went en_route, but not all orders in trip ${allocation.trip_id} are en_route yet. Trip status remains unchanged.`);
+            }
+          }
+        }
+      }
+
+      // STRICT LOGIC: When order status changes to 'delivered', check if all orders in trip are delivered
+      if (input.new_status === 'delivered') {
+        ctx.logger.info('Order status changed to delivered, checking for trip completion');
+        
+        // Find the trip allocation for this order
+        const { data: allocation, error: allocationError } = await ctx.supabase
+          .from('truck_allocations')
+          .select('trip_id')
+          .eq('order_id', input.order_id)
+          .single();
+
+        if (allocationError) {
+          ctx.logger.warn('No trip allocation found for order:', input.order_id);
+        } else if (allocation && allocation.trip_id) {
+          // Check if all orders in this trip are now 'delivered'
+          const { data: tripOrders, error: tripOrdersError } = await ctx.supabase
+            .from('truck_allocations')
+            .select(`
+              order_id,
+              orders!inner(status)
+            `)
+            .eq('trip_id', allocation.trip_id);
+
+          if (tripOrdersError) {
+            ctx.logger.error('Error checking trip orders status:', tripOrdersError);
+          } else if (tripOrders && tripOrders.length > 0) {
+            // Check if all orders in the trip are 'delivered'
+            const allDelivered = tripOrders.every((allocation: any) => 
+              (allocation.orders as any)?.status === 'delivered'
+            );
+
+            if (allDelivered) {
+              // Update trip status to 'completed' when all orders are delivered
+              const { error: tripStatusError } = await ctx.supabase
+                .from('truck_routes')
+                .update({ 
+                  route_status: 'completed',
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', allocation.trip_id);
+
+              if (tripStatusError) {
+                ctx.logger.error('Error updating trip status to completed:', tripStatusError);
+                ctx.logger.warn('Order status was updated but trip status update failed. Manual intervention may be required.');
+              } else {
+                ctx.logger.info(`Trip ${allocation.trip_id} status automatically updated to 'completed' when all orders were delivered`);
+              }
+            } else {
+              ctx.logger.info(`Order ${input.order_id} was delivered, but not all orders in trip ${allocation.trip_id} are delivered yet. Trip status remains unchanged.`);
+            }
+          }
+        }
+      }
+
       ctx.logger.info('Order status updated successfully:', input.order_id);
       // Return the full order object with all calculated fields
       const updatedOrder = await getOrderById(ctx, input.order_id);

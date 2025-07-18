@@ -520,7 +520,7 @@ export const pricingRouter = router({
         path: '/pricing/price-list-items',
         tags: ['pricing'],
         summary: 'Create price list item',
-        description: 'Add a new product to a price list with pricing information. If adding a parent product, will automatically add all its variants with the same pricing.',
+        description: 'Add a new product to a price list with pricing information.',
         protect: true,
       }
     })
@@ -536,6 +536,7 @@ export const pricingRouter = router({
         .from('price_list')
         .select('id')
         .eq('id', input.price_list_id)
+        
         .single();
         
       if (!priceList) {
@@ -560,50 +561,71 @@ export const pricingRouter = router({
         });
       }
 
-      // Check if this is a parent product (from parent_products table)
-      const { data: parentProduct } = await ctx.supabase
-        .from('parent_products')
-        .select('id, name, sku')
+      // Get product details to determine capacity for deposit calculation
+      const { data: product } = await ctx.supabase
+        .from('products')
+        .select(`
+          id,
+          capacity_kg,
+          parent_products_id
+        `)
         .eq('id', input.product_id)
         .single();
 
-      const itemsToCreate = [];
-      
-      if (parentProduct) {
-        // This is a parent product - add parent and all its variants
-        ctx.logger.info(`Adding parent product ${parentProduct.sku} and its variants to price list`);
-        
-        // Add the parent product first
-        itemsToCreate.push({
-          ...input,
-          created_at: new Date().toISOString(),
-        });
-
-        // Log variant count for information (variants will inherit pricing)
-        const { count: variantCount } = await ctx.supabase
-          .from('products')
-          .select('id', { count: 'exact' })
-          .eq('parent_products_id', input.product_id)
-          .eq('is_variant', true)
-          .eq('status', 'active');
-
-        ctx.logger.info(`Found ${variantCount || 0} variants for parent product ${parentProduct.sku} - they will inherit pricing automatically`);
-      } else {
-        // This is not a parent product - we can only add pricing to parent products
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Only parent products can have pricing. Variants inherit pricing from their parent product.'
-        });
+      // Determine capacity for deposit calculation
+      let capacityForDeposit = 0;
+      if (product) {
+        // If product has direct capacity, use it
+        if (product.capacity_kg) {
+          capacityForDeposit = product.capacity_kg;
+        }
+        // If product is a variant, get capacity from parent product
+        else if (product.parent_products_id) {
+          const { data: parentProduct } = await ctx.supabase
+            .from('parent_products')
+            .select('capacity_kg')
+            .eq('id', product.parent_products_id)
+            .single();
+          
+          if (parentProduct) {
+            capacityForDeposit = parentProduct.capacity_kg || 0;
+          }
+        }
       }
 
-      // Create all price list items
+      // Get deposit amount from cylinder_deposit_rates table if capacity is available
+      let depositAmount = input.deposit_amount || 0;
+      if (capacityForDeposit > 0 && !input.deposit_amount) {
+        const { data: depositRate } = await ctx.supabase
+          .from('cylinder_deposit_rates')
+          .select('deposit_amount')
+          .eq('capacity_l', capacityForDeposit)
+          .eq('is_active', true)
+          .lte('effective_date', new Date().toISOString().split('T')[0])
+          .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
+          .order('effective_date', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (depositRate) {
+          depositAmount = depositRate.deposit_amount;
+        }
+      }
+
+      // Prepare the data to insert with deposit amount
+      const insertData = {
+        ...input,
+        deposit_amount: depositAmount
+      };
+      
       const { data, error } = await ctx.supabase
         .from('price_list_item')
-        .insert(itemsToCreate)
+        .insert([insertData])
         .select(`
           *,
           product:parent_products(id, name, sku, description, capacity_kg)
-        `);
+        `)
+        .single();
 
       if (error) {
         ctx.logger.error('Create price list item error:', error);
@@ -613,10 +635,8 @@ export const pricingRouter = router({
         });
       }
 
-      ctx.logger.info(`Successfully created ${data?.length || 0} price list items`);
-      
-      // Return the parent product item (first one created)
-      return data?.[0] || null;
+      ctx.logger.info('Price list item created successfully:', data.id);
+      return data;
     }),
 
   // Business logic endpoints
@@ -737,110 +757,9 @@ export const pricingRouter = router({
     .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
-      
-      ctx.logger.info('Fetching prices for products:', input.productIds);
-      
-      const results: { [key: string]: any } = {};
-      
-      // Process all products in parallel for faster response
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      
-      // First, get all product details in parallel
-      const productPromises = input.productIds.map(async (productId) => {
-        const { data: product, error: productError } = await ctx.supabase
-          .from('products')
-          .select('id, sku, name, is_variant, parent_products_id, tax_category, tax_rate')
-          .eq('id', productId)
-          .single();
-        
-        return { productId, product, error: productError };
-      });
-      
-      const productResults = await Promise.all(productPromises);
-      
-      // Then process pricing for all products in parallel
-      const pricingPromises = productResults.map(async ({ productId, product, error }) => {
-        if (error || !product) {
-          ctx.logger.error('Product not found:', error);
-          return { productId, result: null };
-        }
-
-        try {
-          // Try to get direct pricing for this product first
-          let priceResult = await pricingService.getDirectProductPrice(productId, input.date || new Date().toISOString().split('T')[0]);
-          
-          // If no direct pricing found and this is a variant, try parent product pricing
-          if (!priceResult && product.is_variant && product.parent_products_id) {
-            priceResult = await pricingService.getDirectProductPrice(product.parent_products_id, input.date || new Date().toISOString().split('T')[0]);
-            
-            if (priceResult) {
-              // Mark that this price was inherited from parent
-              priceResult.inheritedFromParent = true;
-              priceResult.parentProductId = product.parent_products_id;
-            }
-          }
-
-          if (priceResult) {
-            // Get product tax information (use variant's tax info, fallback to parent's)
-            let taxRate = product.tax_rate || 0;
-            let taxCategory = product.tax_category || 'standard';
-
-            // If we inherited pricing and variant doesn't have tax info, get from parent
-            if (priceResult.inheritedFromParent && product.parent_products_id && (!taxRate || !taxCategory)) {
-              const { data: parentProduct } = await ctx.supabase
-                .from('products')
-                .select('tax_category, tax_rate')
-                .eq('id', product.parent_products_id)
-                .single();
-              
-              if (parentProduct) {
-                taxRate = taxRate || parentProduct.tax_rate || 0;
-                taxCategory = taxCategory || parentProduct.tax_category || 'standard';
-              }
-            }
-
-            return {
-              productId,
-              result: {
-                ...priceResult,
-                taxRate,
-                taxCategory,
-              }
-            };
-          } else {
-            return { productId, result: null };
-          }
-        } catch (error) {
-          ctx.logger.error(`Error fetching price for product ${productId}:`, error);
-          return { productId, result: null };
-        }
-      });
-      
-      // Wait for all pricing calculations to complete
-      const pricingResults = await Promise.all(pricingPromises);
-      
-      // Combine results into the final response format
-      pricingResults.forEach(({ productId, result }) => {
-        results[productId] = result;
-      });
-      
-      // Debug: Log pricing results
-      ctx.logger.info('getProductPrices results:', {
-        requestedProductIds: input.productIds.length,
-        returnedPrices: Object.keys(results).filter(key => results[key] !== null).length,
-        samplePrices: Object.entries(results).slice(0, 3).map(([id, price]) => ({
-          productId: id,
-          hasPrice: !!price,
-          finalPrice: price?.finalPrice,
-          inheritedFromParent: price?.inheritedFromParent,
-          unitPrice: price?.unitPrice,
-          priceListName: price?.priceListName
-        }))
-      });
-      
-      ctx.logger.info('Detailed pricing for each product:', results);
-      
-      return results;
+      const prices = await pricingService.getProductPrices(input.productIds, input.customerId, input.date);
+      return Object.fromEntries(prices);
     }),
 
   getProductPriceListItems: protectedProcedure
@@ -850,7 +769,7 @@ export const pricingRouter = router({
         path: '/pricing/product/{productId}/price-list-items',
         tags: ['pricing'],
         summary: 'Get product price list items',
-        description: 'Get all price list items for a specific product across all price lists, including inherited pricing from parent products.',
+        description: 'Get all price list items for a specific product across all price lists.',
         protect: true,
       }
     })
@@ -861,23 +780,7 @@ export const pricingRouter = router({
       
       ctx.logger.info('Fetching price list items for product:', input.productId);
       
-      // First, get the product details to check if it's a variant
-      const { data: product, error: productError } = await ctx.supabase
-        .from('products')
-        .select('id, sku, name, is_variant, parent_products_id')
-        .eq('id', input.productId)
-        .single();
-
-      if (productError || !product) {
-        ctx.logger.error('Product not found:', productError);
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Product not found'
-        });
-      }
-
-      // Get direct price list items for this product
-      const { data: directItems, error: directError } = await ctx.supabase
+      const { data, error } = await ctx.supabase
         .from('price_list_item')
         .select(`
           *,
@@ -904,64 +807,17 @@ export const pricingRouter = router({
         `)
         .eq('product_id', input.productId);
 
-      if (directError) {
-        ctx.logger.error('Error fetching direct product price list items:', directError);
+      if (error) {
+        ctx.logger.error('Error fetching product price list items:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to fetch product price list items'
         });
       }
 
-      let allItems = directItems || [];
-
-      // If this is a variant and has no direct pricing, get parent product pricing
-      if (product.is_variant && product.parent_products_id && (!directItems || directItems.length === 0)) {
-        ctx.logger.info(`No direct pricing found for variant ${product.sku}, fetching parent product pricing`);
-        
-        const { data: parentItems, error: parentError } = await ctx.supabase
-          .from('price_list_item')
-          .select(`
-            *,
-            price_list:price_list(
-              id,
-              name,
-              start_date,
-              end_date,
-              is_default,
-              currency_code,
-              pricing_method
-            ),
-            product:parent_products(
-              id,
-              name,
-              sku,
-              description,
-              capacity_kg,
-              tare_weight_kg,
-              gross_weight_kg,
-              tax_rate,
-              tax_category
-            )
-          `)
-          .eq('product_id', product.parent_products_id);
-
-        if (parentError) {
-          ctx.logger.error('Error fetching parent product price list items:', parentError);
-        } else if (parentItems && parentItems.length > 0) {
-          // Mark these items as inherited from parent
-          const inheritedItems = parentItems.map(item => ({
-            ...item,
-            inherited_from_parent: true,
-            parent_product_id: product.parent_products_id,
-            parent_product_sku: product.sku
-          }));
-          allItems = inheritedItems;
-        }
-      }
-
       // Add status information to each price list and calculate effective prices
       const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      const enrichedData = await Promise.all(allItems.map(async (item: any) => {
+      const enrichedData = await Promise.all((data || []).map(async (item: any) => {
         const statusInfo = pricingService.getPriceListStatus(
           item.price_list.start_date, 
           item.price_list.end_date
@@ -1082,9 +938,6 @@ export const pricingRouter = router({
           total_with_tax: totalWithTax,
           total_with_deposit: totalWithDeposit,
           deposit_amount: depositAmount,
-          inherited_from_parent: item.inherited_from_parent || false,
-          parent_product_id: item.parent_product_id || null,
-          parent_product_sku: item.parent_product_sku || null,
           price_list: {
             ...item.price_list,
             status: statusInfo.status,
@@ -1748,8 +1601,58 @@ export const pricingRouter = router({
         });
       }
 
-      // Note: deposit_amount is not stored in price_list_item table
-      // It's calculated dynamically from cylinder_deposit_rates table when needed
+      // If deposit_amount is not provided in the update, calculate it automatically
+      if (!updateData.deposit_amount) {
+        // Get product details to determine capacity for deposit calculation
+        const { data: product } = await ctx.supabase
+          .from('products')
+          .select(`
+            id,
+            capacity_kg,
+            parent_products_id
+          `)
+          .eq('id', item.product_id)
+          .single();
+
+        // Determine capacity for deposit calculation
+        let capacityForDeposit = 0;
+        if (product) {
+          // If product has direct capacity, use it
+          if (product.capacity_kg) {
+            capacityForDeposit = product.capacity_kg;
+          }
+          // If product is a variant, get capacity from parent product
+          else if (product.parent_products_id) {
+            const { data: parentProduct } = await ctx.supabase
+              .from('parent_products')
+              .select('capacity_kg')
+              .eq('id', product.parent_products_id)
+              .single();
+            
+            if (parentProduct) {
+              capacityForDeposit = parentProduct.capacity_kg || 0;
+            }
+          }
+        }
+
+        // Get deposit amount from cylinder_deposit_rates table if capacity is available
+        if (capacityForDeposit > 0) {
+          const { data: depositRate } = await ctx.supabase
+            .from('cylinder_deposit_rates')
+            .select('deposit_amount')
+            .eq('capacity_l', capacityForDeposit)
+            .eq('is_active', true)
+            .lte('effective_date', new Date().toISOString().split('T')[0])
+            .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
+            .order('effective_date', { ascending: false })
+            .limit(1)
+            .single();
+
+          if (depositRate) {
+            updateData.deposit_amount = depositRate.deposit_amount;
+          }
+        }
+      }
       
       const { data, error } = await ctx.supabase
         .from('price_list_item')
@@ -3348,71 +3251,5 @@ export const pricingRouter = router({
         ctx.logger.error('Example pricing calculation error:', error);
         throw error;
       }
-    }),
-
-  // POST /pricing/calculate-order-line - Calculate pricing for order line with partial fill support
-  calculateOrderLinePricing: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'POST',
-        path: '/pricing/calculate-order-line',
-        tags: ['pricing'],
-        summary: 'Calculate pricing for order line with partial fill support',
-        description: 'Calculate the final price for a product in an order line, supporting partial fill percentages for gas cylinders.',
-        protect: true,
-      }
-    })
-    .input(z.object({
-      product_id: z.string(),
-      quantity: z.number().min(1).default(1),
-      fill_percentage: z.number().min(1).max(100).default(100),
-      customer_id: z.string().optional(),
-      date: z.string().optional()
-    }))
-    .output(z.object({
-      unit_price: z.number(),
-      subtotal: z.number(),
-      gas_charge: z.number(),
-      deposit_amount: z.number(),
-      tax_amount: z.number(),
-      total_price: z.number(),
-      adjusted_weight: z.number(),
-      original_weight: z.number(),
-      pricing_method: z.string(),
-      inherited_from_parent: z.boolean().optional(),
-      parent_product_id: z.string().nullable().optional()
-    }).nullable())
-    .query(async ({ input, ctx }) => {
-      const user = requireAuth(ctx);
-      
-      ctx.logger.info('Calculating order line pricing:', input);
-      
-      const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      
-      const result = await pricingService.calculateOrderLinePricing(
-        input.product_id,
-        input.quantity,
-        input.fill_percentage,
-        input.customer_id,
-        input.date
-      );
-      
-      if (!result) {
-        return null;
-      }
-      
-      return {
-        unit_price: result.unitPrice,
-        subtotal: result.subtotal,
-        gas_charge: result.gasCharge,
-        deposit_amount: result.depositAmount,
-        tax_amount: result.taxAmount,
-        total_price: result.totalPrice,
-        adjusted_weight: result.adjustedWeight,
-        original_weight: result.originalWeight,
-        pricing_method: result.pricingMethod,
-        inherited_from_parent: result.inheritedFromParent,
-        parent_product_id: result.parentProductId
-      };
     }),
 });

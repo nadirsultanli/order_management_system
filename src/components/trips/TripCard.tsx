@@ -19,27 +19,29 @@ interface TripCardProps {
   showProgress?: boolean;
   compact?: boolean;
   onStatusChange?: (tripId: string, newStatus: string) => void;
+  isNew?: boolean;
 }
 
 export const TripCard: React.FC<TripCardProps> = ({
   trip,
   showProgress = true,
   compact = false,
-  onStatusChange
+  onStatusChange,
+  isNew = false
 }) => {
   const {
     id,
     truck,
     driver_name,
-    trip_date,
+    route_date,
     planned_start_time,
     planned_end_time,
-    status,
-    trip_orders,
+    route_status,
+    truck_allocations,
     capacity_info,
     loading_progress,
     total_distance_km,
-    notes
+    trip_notes
   } = trip;
 
   const formatTime = (timeString?: string | null) => {
@@ -75,12 +77,23 @@ export const TripCard: React.FC<TripCardProps> = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Not set';
+    
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   const getCapacityColor = () => {
@@ -96,14 +109,23 @@ export const TripCard: React.FC<TripCardProps> = ({
   if (compact) {
     return (
       <Link to={`/trips/${id}`}>
-        <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+        <div className={`bg-white rounded-lg border p-4 hover:shadow-md transition-all duration-300 ${
+          isNew 
+            ? 'border-green-300 bg-green-50 shadow-lg animate-new-trip-pulse' 
+            : 'border-gray-200'
+        }`}>
           <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <Truck className="h-4 w-4 text-gray-400" />
-              <span className="font-medium">{truck?.fleet_number}</span>
-            </div>
+                      <div className="flex items-center space-x-2">
+            <Truck className="h-4 w-4 text-gray-400" />
+            <span className="font-medium">{truck?.fleet_number}</span>
+            {isNew && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                NEW
+              </span>
+            )}
+          </div>
             <TripStatusBadge 
-              status={status} 
+              status={route_status} 
               size="sm"
               interactive={!!onStatusChange}
               onStatusChange={(newStatus) => onStatusChange?.(id, newStatus)}
@@ -112,8 +134,8 @@ export const TripCard: React.FC<TripCardProps> = ({
           
           <div className="text-sm text-gray-600 space-y-1">
             <div className="flex items-center justify-between">
-              <span>{formatDate(trip_date)}</span>
-              <span>{trip_orders?.length || 0} orders</span>
+              <span>{formatDate(route_date)}</span>
+              <span>{truck_allocations?.length || 0} orders</span>
             </div>
             
             {capacity_info && (
@@ -135,7 +157,11 @@ export const TripCard: React.FC<TripCardProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+    <div className={`bg-white rounded-lg border shadow-sm hover:shadow-md transition-all duration-300 ${
+      isNew 
+        ? 'border-green-300 bg-green-50 shadow-lg animate-new-trip-pulse' 
+        : 'border-gray-200'
+    }`}>
       <div className="p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
@@ -144,9 +170,16 @@ export const TripCard: React.FC<TripCardProps> = ({
               <Truck className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Trip #{id.slice(-8)}
-              </h3>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Trip #{id.slice(-8)}
+                </h3>
+                {isNew && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    NEW
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-600">
                 {truck?.fleet_number} • {truck?.license_plate}
               </p>
@@ -158,7 +191,7 @@ export const TripCard: React.FC<TripCardProps> = ({
               <AlertTriangle className="h-5 w-5 text-yellow-500" />
             )}
             <TripStatusBadge 
-              status={status}
+              status={route_status}
               interactive={!!onStatusChange}
               onStatusChange={(newStatus) => onStatusChange?.(id, newStatus)}
             />
@@ -171,7 +204,7 @@ export const TripCard: React.FC<TripCardProps> = ({
             <Calendar className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-xs text-gray-500">Date</p>
-              <p className="text-sm font-medium">{formatDate(trip_date)}</p>
+              <p className="text-sm font-medium">{formatDate(route_date)}</p>
             </div>
           </div>
 
@@ -197,7 +230,7 @@ export const TripCard: React.FC<TripCardProps> = ({
             <Package className="h-4 w-4 text-gray-400" />
             <div>
               <p className="text-xs text-gray-500">Orders</p>
-              <p className="text-sm font-medium">{trip_orders?.length || 0}</p>
+              <p className="text-sm font-medium">{truck_allocations?.length || 0}</p>
             </div>
           </div>
         </div>
@@ -297,7 +330,7 @@ export const TripCard: React.FC<TripCardProps> = ({
               </div>
             )}
             
-            {status === 'completed' && (
+            {route_status === 'completed' && (
               <div className="flex items-center space-x-1 text-green-500">
                 <CheckCircle className="h-3 w-3" />
                 <span>Completed</span>
@@ -313,9 +346,9 @@ export const TripCard: React.FC<TripCardProps> = ({
           </Link>
         </div>
 
-        {notes && (
+        {trip_notes && (
           <div className="mt-3 p-2 bg-gray-50 rounded text-sm text-gray-600">
-            <strong>Notes:</strong> {notes}
+            <strong>Notes:</strong> {trip_notes}
           </div>
         )}
       </div>
