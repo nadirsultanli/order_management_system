@@ -106,7 +106,7 @@ export const CreateOrderPageV2: React.FC = () => {
   const { data: productPrices, isLoading: isPricesLoading } = useProductPrices(
     productIds, 
     selectedCustomerId || undefined, 
-    productIds.length > 0 // Enable as soon as we have product IDs
+    productIds.length > 0 && selectedCustomerId !== '' // Enable as soon as we have product IDs and customer
   );
   
   // Prefetch deposit rates immediately - they don't depend on products
@@ -196,11 +196,16 @@ export const CreateOrderPageV2: React.FC = () => {
   // Prefetch pricing data when user selects customer (Step 2) to prepare for Step 3
   useEffect(() => {
     if (selectedCustomerId && products.length > 0 && currentStep >= 2) {
-      console.log('🚀 Prefetching pricing data for Step 3...');
+      console.log('🚀 Prefetching pricing data for Step 3...', {
+        selectedCustomerId,
+        productsCount: products.length,
+        currentStep,
+        productIds: productIds.slice(0, 5) // Log first 5 for debugging
+      });
       // This will trigger the pricing queries to start loading early
       // so they're ready when user reaches Step 3
     }
-  }, [selectedCustomerId, products.length, currentStep]);
+  }, [selectedCustomerId, products.length, currentStep, productIds]);
   
   // Prefetch pricing data when component mounts to reduce Step 3 loading time
   useEffect(() => {
@@ -369,7 +374,8 @@ export const CreateOrderPageV2: React.FC = () => {
     }
     
     // Get deposit rate for this product's capacity - with fallback for fast display
-    const depositAmount = getDepositAmountByCapacity(product);
+    // Only apply deposits for 'FULL-OUT' variants, not 'FULL-XCH' variants
+    const depositAmount = product.sku_variant === 'FULL-OUT' ? getDepositAmountByCapacity(product) : 0;
     
     // Calculate totals
     const totalGasPrice = gasPrice * quantity;
@@ -499,13 +505,16 @@ export const CreateOrderPageV2: React.FC = () => {
         const gasPrice = unitPrice; // This is the gas price after partial fill adjustment
         const taxAmountPerUnit = gasPrice * taxRate;
         
-        // Calculate deposit amount based on capacity
+        // Calculate deposit amount based on capacity and variant type
         let depositAmountPerUnit = 0;
-        if (product.capacity_l && product.capacity_l > 0) {
-          depositAmountPerUnit = getDepositAmountByCapacity(product);
-        } else {
-          // Fallback for products without capacity_l - use the full product
-          depositAmountPerUnit = getDepositAmountByCapacity(product);
+        // Only apply deposits for 'FULL-OUT' variants, not 'FULL-XCH' variants
+        if (product.sku_variant === 'FULL-OUT') {
+          if (product.capacity_l && product.capacity_l > 0) {
+            depositAmountPerUnit = getDepositAmountByCapacity(product);
+          } else {
+            // Fallback for products without capacity_l - use the full product
+            depositAmountPerUnit = getDepositAmountByCapacity(product);
+          }
         }
         
         console.log(`💰 Order line deposit calculation for ${product.name}:`, {
@@ -953,15 +962,24 @@ export const CreateOrderPageV2: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Product Selection */}
               <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Available Products</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Available Products</h3>
+                  {isPricesLoading && selectedCustomerId !== '' && (
+                    <div className="flex items-center space-x-2 text-sm text-blue-600">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                      <span>Loading prices...</span>
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {products
-                    .filter(p => p.status === 'active')
+                    .filter(p => p.status === 'active' && p.sku_variant !== 'DAMAGED') // Filter out damaged variants
                     .map(product => {
                       const currentQty = selectedProducts[product.id] || 0;
                       const pricingInfo = productPrices && productPrices[product.id];
                       const unitPrice = pricingInfo?.finalPrice || 0;
                       const hasPrice = unitPrice > 0;
+                      const isPriceLoading = isPricesLoading && selectedCustomerId !== '';
                       
                       return (
                         <div
@@ -976,7 +994,9 @@ export const CreateOrderPageV2: React.FC = () => {
                             <div className="flex-1">
                               <div className="font-medium text-gray-900">{product.name}</div>
                               <div className="text-sm text-gray-500">SKU: {product.sku}</div>
-                              {hasPrice ? (
+                              {isPriceLoading ? (
+                                <div className="text-sm text-blue-600 animate-pulse">Loading price...</div>
+                              ) : hasPrice ? (
                                 <div className="text-sm text-green-600 font-medium">
                                   {formatCurrencySync(unitPrice)}
                                 </div>
@@ -1002,7 +1022,7 @@ export const CreateOrderPageV2: React.FC = () => {
                               />
                               <button
                                 onClick={() => handleProductSelect(product.id, currentQty + 1)}
-                                disabled={!hasPrice}
+                                disabled={!hasPrice || isPriceLoading}
                                 className="w-8 h-8 rounded bg-gray-100 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                               >
                                 +
