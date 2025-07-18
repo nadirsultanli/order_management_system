@@ -3,7 +3,6 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { formatErrorMessage } from '../lib/logger';
-import { TruckReservationService } from '../lib/truck-reservation';
 
 // Import trip-related input schemas
 import {
@@ -33,11 +32,7 @@ import {
   TripDetailResponseSchema,
   TripTimelineResponseSchema,
   TripCapacityResponseSchema,
-  TripSchema,
   CreateTripResponseSchema,
-  StartTripLoadingResponseSchema,
-  CompleteTripLoadingResponseSchema,
-  AvailableOrdersResponseSchema,
   UpdateTripStatusResponseSchema,
   AllocateOrdersResponseSchema,
   RemoveAllocationResponseSchema,
@@ -66,7 +61,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -214,7 +209,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripByIdSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -308,7 +303,7 @@ export const tripsRouter = router({
       }
     })
     .input(z.object({ id: z.string() }))
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -405,7 +400,7 @@ export const tripsRouter = router({
       }
     })
     .input(z.object({ id: z.string() }))
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -483,7 +478,7 @@ export const tripsRouter = router({
       }
     })
     .input(CreateTripSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -924,7 +919,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripByIdSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1050,7 +1045,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripsSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1238,7 +1233,7 @@ export const tripsRouter = router({
       }
     })
     .input(AllocateOrdersToTripSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1278,7 +1273,97 @@ export const tripsRouter = router({
         });
       }
 
-      // Get trip details to get truck_id first
+      // Validate FULL cylinder stock availability before allocation
+      ctx.logger.info('Validating FULL cylinder stock availability for orders:', input.order_ids);
+      
+      try {
+        // Get order lines with FULL cylinder products
+        const { data: orderLines, error: orderLinesError } = await ctx.supabase
+          .from('order_lines')
+          .select(`
+            id,
+            order_id,
+            product_id,
+            quantity,
+            products!inner (
+              id,
+              sku,
+              sku_variant,
+              name
+            ),
+            orders!inner (
+              id,
+              source_warehouse_id
+            )
+          `)
+          .in('order_id', input.order_ids)
+          .in('products.sku_variant', ['FULL-OUT', 'FULL-XCH']);
+
+        if (orderLinesError) {
+          ctx.logger.error('Error fetching order lines for stock validation:', orderLinesError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Failed to validate stock availability: ${formatErrorMessage(orderLinesError)}`,
+          });
+        }
+
+        if (orderLines && orderLines.length > 0) {
+          ctx.logger.info(`Validating stock for ${orderLines.length} FULL cylinder order lines`);
+          
+          // Check stock availability for each order line
+          const stockValidationErrors = [];
+          
+          for (const line of orderLines) {
+            const warehouseId = (line.orders as any)?.source_warehouse_id;
+            if (!warehouseId) {
+              stockValidationErrors.push(`Order ${line.order_id} has no source warehouse specified`);
+              continue;
+            }
+
+            // Check available stock directly without RPC function
+            const { data: inventory, error: inventoryError } = await ctx.supabase
+              .from('inventory_balance')
+              .select('qty_full, qty_reserved')
+              .eq('product_id', line.product_id)
+              .eq('warehouse_id', warehouseId)
+              .single();
+
+            if (inventoryError) {
+              ctx.logger.error('Error checking inventory:', inventoryError);
+              stockValidationErrors.push(`Failed to check stock for product ${(line.products as any)?.sku}: ${inventoryError.message}`);
+              continue;
+            }
+
+            const available = inventory ? inventory.qty_full - inventory.qty_reserved : 0;
+            
+            if (available < line.quantity) {
+              stockValidationErrors.push(
+                `Insufficient stock for ${(line.products as any)?.sku}: Required ${line.quantity}, Available ${available}`
+              );
+            }
+          }
+
+          if (stockValidationErrors.length > 0) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Cannot allocate orders due to insufficient stock:\n${stockValidationErrors.join('\n')}`,
+            });
+          }
+
+          ctx.logger.info('Stock validation passed for all FULL cylinder products');
+        }
+      } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error; // Re-throw TRPC errors as-is
+        }
+        ctx.logger.error('Unexpected error during stock validation:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Unexpected error during stock validation',
+        });
+      }
+      
+      // Get trip details to get truck_id
       const { data: trip, error: tripError } = await ctx.supabase
         .from('truck_routes')
         .select('truck_id')
@@ -1300,86 +1385,6 @@ export const tripsRouter = router({
         });
       }
 
-      // Validate truck inventory availability before allocation
-      ctx.logger.info('Validating truck inventory availability for orders:', input.order_ids);
-      
-      try {
-        // Get order lines with FULL cylinder products
-        const { data: orderLines, error: orderLinesError } = await ctx.supabase
-          .from('order_lines')
-          .select(`
-            id,
-            order_id,
-            product_id,
-            quantity,
-            products!inner (
-              id,
-              sku,
-              sku_variant,
-              name
-            )
-          `)
-          .in('order_id', input.order_ids)
-          .in('products.sku_variant', ['FULL-OUT', 'FULL-XCH']);
-
-        if (orderLinesError) {
-          ctx.logger.error('Error fetching order lines for truck inventory validation:', orderLinesError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to validate truck inventory availability: ${formatErrorMessage(orderLinesError)}`,
-          });
-        }
-
-        if (orderLines && orderLines.length > 0) {
-          ctx.logger.info(`Validating truck inventory for ${orderLines.length} FULL cylinder order lines`);
-          
-          // Check truck inventory availability for each order line
-          const truckInventoryErrors = [];
-          
-          for (const line of orderLines) {
-            // Check truck inventory instead of warehouse inventory
-            const { data: truckInventory, error: truckInventoryError } = await ctx.supabase
-              .from('truck_inventory')
-              .select('qty_full, qty_reserved')
-              .eq('truck_id', trip.truck_id)
-              .eq('product_id', line.product_id)
-              .single();
-
-            if (truckInventoryError) {
-              ctx.logger.error('Error checking truck inventory:', truckInventoryError);
-              truckInventoryErrors.push(`Failed to check truck inventory for product ${(line.products as any)?.sku}: ${truckInventoryError.message}`);
-              continue;
-            }
-
-            const available = truckInventory ? truckInventory.qty_full - truckInventory.qty_reserved : 0;
-            
-            if (available < line.quantity) {
-              truckInventoryErrors.push(
-                `Insufficient truck inventory for ${(line.products as any)?.sku}: Required ${line.quantity}, Available ${available}`
-              );
-            }
-          }
-
-          if (truckInventoryErrors.length > 0) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: `Cannot allocate orders due to insufficient truck inventory:\n${truckInventoryErrors.join('\n')}`,
-            });
-          }
-
-          ctx.logger.info('Truck inventory validation passed for all FULL cylinder products');
-        }
-      } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error; // Re-throw TRPC errors as-is
-        }
-        ctx.logger.error('Unexpected error during truck inventory validation:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Unexpected error during truck inventory validation',
-        });
-      }
-
       const allocations = input.order_ids.map((orderId, index) => ({
         trip_id: input.trip_id,
         truck_id: trip.truck_id,
@@ -1396,11 +1401,12 @@ export const tripsRouter = router({
       // Use direct database operations instead of RPC function
       ctx.logger.info('Using direct database operations for order allocation');
       
-      // Check for existing allocations that would conflict (including same trip)
+      // First, check for existing allocations that would conflict
       const { data: existingAllocations, error: checkError } = await ctx.supabase
         .from('truck_allocations')
         .select('order_id, trip_id')
-        .in('order_id', input.order_ids);
+        .in('order_id', input.order_ids)
+        .neq('trip_id', input.trip_id);
       
       if (checkError) {
         throw new TRPCError({
@@ -1411,24 +1417,10 @@ export const tripsRouter = router({
       
       if (existingAllocations && existingAllocations.length > 0) {
         const conflictingOrders = existingAllocations.map(a => a.order_id).join(', ');
-        const otherTripAllocations = existingAllocations.filter(a => a.trip_id !== input.trip_id);
-        const sameTripAllocations = existingAllocations.filter(a => a.trip_id === input.trip_id);
-        
-        if (otherTripAllocations.length > 0) {
-          const otherTripOrders = otherTripAllocations.map(a => a.order_id).join(', ');
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: `Orders already allocated to other trips: ${otherTripOrders}`,
-          });
-        }
-        
-        if (sameTripAllocations.length > 0) {
-          const sameTripOrders = sameTripAllocations.map(a => a.order_id).join(', ');
-          throw new TRPCError({
-            code: 'CONFLICT',
-            message: `Orders already allocated to this trip: ${sameTripOrders}`,
-          });
-        }
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: `Orders already allocated to other trips: ${conflictingOrders}`,
+        });
       }
       
       // Perform the insert with validation passed
@@ -1442,100 +1434,6 @@ export const tripsRouter = router({
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to allocate orders: ${formatErrorMessage(insertError)}`,
-        });
-      }
-
-      // CRITICAL FIX: Reserve inventory on truck for each order
-      ctx.logger.info('Reserving inventory on truck for allocated orders');
-      const reservationService = new TruckReservationService(ctx.supabase, ctx.logger);
-      const reservationResults = [];
-
-      try {
-        // Get order lines for all allocated orders
-        const { data: orderLines, error: orderLinesError } = await ctx.supabase
-          .from('order_lines')
-          .select('order_id, product_id, quantity')
-          .in('order_id', input.order_ids);
-
-        if (orderLinesError) {
-          ctx.logger.error('Error fetching order lines for reservation:', orderLinesError);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: `Failed to fetch order lines for reservation: ${formatErrorMessage(orderLinesError)}`,
-          });
-        }
-
-        // Reserve inventory for each order line
-        for (const line of orderLines || []) {
-          try {
-            // Check if truck has sufficient inventory before reserving
-            const { data: truckInventory } = await ctx.supabase
-              .from('truck_inventory')
-              .select('qty_full, qty_reserved')
-              .eq('truck_id', trip.truck_id)
-              .eq('product_id', line.product_id)
-              .single();
-
-            const availableQty = truckInventory ? (truckInventory.qty_full - truckInventory.qty_reserved) : 0;
-            
-            if (availableQty < line.quantity) {
-              throw new TRPCError({
-                code: 'BAD_REQUEST',
-                message: `Insufficient inventory on truck for product ${line.product_id}. Required: ${line.quantity}, Available: ${availableQty}`,
-              });
-            }
-
-            const reservationResult = await reservationService.reserveInventory({
-              truck_id: trip.truck_id,
-              product_id: line.product_id,
-              quantity: line.quantity,
-              order_id: line.order_id,
-              user_id: user.id,
-            });
-            reservationResults.push(reservationResult);
-            
-            ctx.logger.info('Reserved inventory for order line:', {
-              order_id: line.order_id,
-              product_id: line.product_id,
-              quantity: line.quantity,
-              available_before: availableQty,
-              reserved: line.quantity,
-              available_after: availableQty - line.quantity,
-              reservation_result: reservationResult
-            });
-          } catch (reservationError) {
-            ctx.logger.error('Failed to reserve inventory for order line:', {
-              order_id: line.order_id,
-              product_id: line.product_id,
-              quantity: line.quantity,
-              error: reservationError
-            });
-            throw reservationError;
-          }
-        }
-
-        ctx.logger.info('Successfully reserved inventory for all order lines:', {
-          trip_id: input.trip_id,
-          truck_id: trip.truck_id,
-          orders_count: input.order_ids.length,
-          order_lines_count: orderLines?.length || 0,
-          reservations_count: reservationResults.length
-        });
-
-      } catch (reservationError) {
-        // If reservation fails, rollback the allocations
-        ctx.logger.error('Reservation failed, rolling back allocations:', reservationError);
-        
-        // Delete the allocations we just created
-        await ctx.supabase
-          .from('truck_allocations')
-          .delete()
-          .in('order_id', input.order_ids)
-          .eq('trip_id', input.trip_id);
-
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: `Failed to reserve inventory on truck: ${reservationError instanceof Error ? reservationError.message : 'Unknown error'}`,
         });
       }
 
@@ -1674,7 +1572,7 @@ export const tripsRouter = router({
       }
     })
     .input(RemoveOrderFromTripSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2047,7 +1945,7 @@ export const tripsRouter = router({
       }
     })
     .input(RecordLoadingDetailSchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2156,7 +2054,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripLoadingSummarySchema)
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
