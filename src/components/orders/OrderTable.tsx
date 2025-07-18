@@ -283,9 +283,9 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                 <button
                   onClick={() => handleSort('total_amount')}
                   className="flex items-center hover:text-gray-700 transition-colors ml-auto"
-                  title="This is the full amount charged to the customer, including product price, deposit, and tax."
+                  title="Total amount charged to customer including products, deposits, and tax"
                 >
-                  Total (incl. deposit & tax)
+                  Total Amount
                   {renderSortIcon('total_amount')}
                 </button>
               </th>
@@ -373,7 +373,13 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div 
+                      className="text-sm font-medium text-gray-900 cursor-help"
+                      title={order.total_amount && order.deposit_total !== undefined && order.tax_amount !== undefined
+                        ? `Subtotal: ${formatCurrencySync((order.total_amount - order.deposit_total - order.tax_amount))}\nDeposit: ${formatCurrencySync(order.deposit_total)}\nTax: ${formatCurrencySync(order.tax_amount)}\nTotal: ${formatCurrencySync(order.total_amount)}`
+                        : 'Total amount including products, deposits, and tax'
+                      }
+                    >
                       {order.total_amount ? formatCurrencySync(order.total_amount) : '-'}
                     </div>
                   </td>

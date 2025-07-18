@@ -581,6 +581,7 @@ export const CreateOrderPageV2: React.FC = () => {
           tax_amount: line.tax_amount,
           price_including_tax: line.price_including_tax,
           tax_rate: line.tax_rate,
+          deposit_amount: line.deposit_amount,
           fill_percentage: line.fill_percentage,
           is_partial_fill: line.is_partial_fill,
           partial_fill_notes: line.partial_fill_notes,
