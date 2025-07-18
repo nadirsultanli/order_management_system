@@ -283,8 +283,9 @@ export const OrderTable: React.FC<OrderTableProps> = ({
                 <button
                   onClick={() => handleSort('total_amount')}
                   className="flex items-center hover:text-gray-700 transition-colors ml-auto"
+                  title="This is the full amount charged to the customer, including product price, deposit, and tax."
                 >
-                  Total
+                  Total (incl. deposit & tax)
                   {renderSortIcon('total_amount')}
                 </button>
               </th>

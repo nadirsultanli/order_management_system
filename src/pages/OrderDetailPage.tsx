@@ -675,11 +675,17 @@ export const OrderDetailPage: React.FC = () => {
                     {formatCurrencySync(order.tax_amount != null ? order.tax_amount : 0)}
                   </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Deposit:</span>
+                  <span className="font-medium text-blue-700">
+                    {formatCurrencySync(order.deposit_total != null ? order.deposit_total : 0)}
+                  </span>
+                </div>
                 <div className="border-t border-gray-200 pt-4">
                   <div className="flex justify-between">
-                    <span className="text-lg font-semibold text-gray-900">Total:</span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {formatCurrencySync((order.order_lines?.reduce((sum, line) => sum + (line.subtotal || (line.quantity * line.unit_price)), 0) || 0) + (order.tax_amount != null ? order.tax_amount : 0))}
+                    <span className="text-lg font-semibold text-gray-900">Grand Total:</span>
+                    <span className="text-lg font-bold text-green-700">
+                      {formatCurrencySync(order.total_amount != null ? order.total_amount : 0)}
                     </span>
                   </div>
                 </div>
