@@ -67,7 +67,7 @@ export const TruckTripList: React.FC<TruckTripListProps> = ({ truckId }) => {
 
   // Calculate trip statistics - using route_status instead of status
   const activeTrips = trips.filter(trip => 
-    trip.route_status === 'loading' || trip.route_status === 'in_transit'
+    trip.route_status === 'unloaded' || trip.route_status === 'in_transit'
   ).length;
   
   const todaysTrips = trips.filter(trip => 

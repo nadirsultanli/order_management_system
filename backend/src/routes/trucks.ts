@@ -78,7 +78,7 @@ import {
 
 // Validation schemas
 const TruckStatusEnum = z.enum(['active', 'inactive', 'maintenance']);
-const RouteStatusEnum = z.enum(['planned', 'loading', 'loaded', 'in_transit', 'delivering', 'unloading', 'completed', 'cancelled']);
+const RouteStatusEnum = z.enum(['planned', 'unloaded', 'loaded', 'in_transit', 'completed', 'cancelled']);
 const AllocationStatusEnum = z.enum(['planned', 'loaded', 'delivered', 'cancelled']);
 const MaintenanceTypeEnum = z.enum(['routine', 'repair', 'inspection', 'emergency']);
 const MaintenanceStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']);

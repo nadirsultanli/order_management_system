@@ -13,6 +13,14 @@ const getStatusConfig = (status: string) => {
   if (!status) return { bg: 'bg-gray-100', text: 'text-gray-800', dot: 'bg-gray-500' };
   
   const configs: Record<string, { bg: string; text: string; dot: string }> = {
+    // Trip statuses
+    planned: { bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
+    loaded: { bg: 'bg-indigo-100', text: 'text-indigo-800', dot: 'bg-indigo-500' },
+    in_transit: { bg: 'bg-purple-100', text: 'text-purple-800', dot: 'bg-purple-500' },
+    offloaded: { bg: 'bg-amber-100', text: 'text-amber-800', dot: 'bg-amber-500' },
+    completed: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
+    cancelled: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
+    
     // Order statuses
     draft: { bg: 'bg-gray-100', text: 'text-gray-800', dot: 'bg-gray-500' },
     confirmed: { bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
@@ -20,7 +28,6 @@ const getStatusConfig = (status: string) => {
     en_route: { bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-500' },
     delivered: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
     invoiced: { bg: 'bg-indigo-100', text: 'text-indigo-800', dot: 'bg-indigo-500' },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },
     
     // Customer account statuses
     active: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
@@ -32,8 +39,6 @@ const getStatusConfig = (status: string) => {
     
     // Transfer statuses
     pending: { bg: 'bg-yellow-100', text: 'text-yellow-800', dot: 'bg-yellow-500' },
-    in_transit: { bg: 'bg-blue-100', text: 'text-blue-800', dot: 'bg-blue-500' },
-    completed: { bg: 'bg-green-100', text: 'text-green-800', dot: 'bg-green-500' },
     
     // Payment statuses
     failed: { bg: 'bg-red-100', text: 'text-red-800', dot: 'bg-red-500' },

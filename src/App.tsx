@@ -35,6 +35,7 @@ import { TripDetailPage } from './pages/TripDetailPage';
 import { TripLoadingPage } from './pages/TripLoadingPage';
 import { TripSchedulePage } from './pages/TripSchedulePage';
 import { CreateTripPage } from './pages/CreateTripPage';
+import EditTripPage from './pages/EditTripPage';
 import { UsersPage } from './pages/UsersPage';
 import { DepositDemoPage } from './pages/DepositDemoPage';
 import { OverdueOrdersPage } from './pages/OverdueOrdersPage';
@@ -90,6 +91,7 @@ function App() {
               <Route path="schedule" element={<TripSchedulePage />} />
               <Route path="new" element={<CreateTripPage />} />
               <Route path=":id" element={<TripDetailPage />} />
+              <Route path=":id/edit" element={<EditTripPage />} />
               <Route path=":id/loading" element={<TripLoadingPage />} />
             </Route>
           </Route>

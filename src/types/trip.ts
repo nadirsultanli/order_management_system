@@ -1,18 +1,19 @@
 export interface Trip {
   id: string;
   truck_id: string;
+  driver_id?: string;
   driver_name?: string;
-  trip_date: string;
+  route_date: string; // Changed from trip_date to match backend
   planned_start_time?: string;
   actual_start_time?: string;
   planned_end_time?: string;
   actual_end_time?: string;
-  status: 'draft' | 'planned' | 'loading' | 'in_transit' | 'completed' | 'cancelled';
+  route_status: 'planned' | 'loaded' | 'in_transit' | 'offloaded' | 'completed' | 'cancelled'; // Updated to match backend
   total_distance_km?: number;
   estimated_duration_hours?: number;
   actual_duration_hours?: number;
   fuel_used_liters?: number;
-  notes?: string;
+  trip_notes?: string; // Changed from notes to trip_notes
   created_at: string;
   updated_at: string;
   created_by_user_id?: string;
@@ -26,6 +27,9 @@ export interface Trip {
     capacity_kg: number;
     driver_name?: string;
   };
+  
+  // Backend returns truck_allocations instead of trip_orders
+  truck_allocations?: any[];
 }
 
 export interface TripOrder {
@@ -85,7 +89,7 @@ export interface TripOrderItem {
 }
 
 export interface TripWithDetails extends Trip {
-  trip_orders: TripOrder[];
+  truck_allocations: any[]; // Changed from trip_orders to truck_allocations
   capacity_info: TripCapacityInfo;
   loading_progress: TripLoadingProgress;
 }
@@ -203,7 +207,8 @@ export interface TripMetrics {
 export const TripStatus = {
   DRAFT: 'draft',
   PLANNED: 'planned',
-  LOADING: 'loading',
+  UNLOADED: 'unloaded',
+  LOADED: 'loaded',
   IN_TRANSIT: 'in_transit',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled'
@@ -238,7 +243,7 @@ export const TripEventType = {
 // Filter types
 export interface TripFilters {
   search?: string; // Search by trip ID, truck fleet number, driver name
-  status?: 'draft' | 'planned' | 'loading' | 'in_transit' | 'completed' | 'cancelled';
+  status?: 'planned' | 'loaded' | 'in_transit' | 'offloaded' | 'completed' | 'cancelled';
   truck_id?: string;
   date_from?: string;
   date_to?: string;
@@ -271,16 +276,16 @@ export interface CreateTripData {
 
 export interface UpdateTripData {
   driver_name?: string;
-  trip_date?: string;
+  route_date?: string; // Changed from trip_date
   planned_start_time?: string;
   actual_start_time?: string;
   planned_end_time?: string;
   actual_end_time?: string;
-  status?: 'draft' | 'planned' | 'loading' | 'in_transit' | 'completed' | 'cancelled';
+  route_status?: 'planned' | 'unloaded' | 'loaded' | 'in_transit' | 'completed' | 'cancelled'; // Updated to match backend
   total_distance_km?: number;
   actual_duration_hours?: number;
   fuel_used_liters?: number;
-  notes?: string;
+  trip_notes?: string; // Changed from notes
 }
 
 export interface TripAllocationRequest {

@@ -3,20 +3,23 @@ import { Link } from 'react-router-dom';
 import { Plus, Filter } from 'lucide-react';
 import { TripCard } from '../components/trips/TripCard';
 import { CustomerPagination } from '../components/customers/CustomerPagination';
-import { useTrips, useUpdateTrip } from '../hooks/useTrips';
+import { useTrips, useUpdateTripStatus } from '../hooks/useTrips';
 import { TripFilters as TripFiltersType, TripStatus } from '../types/trip';
+import { useLocation } from 'react-router-dom';
 
 export const TripManagementPage: React.FC = () => {
+  const location = useLocation();
   const [filters, setFilters] = useState<TripFiltersType>({ 
     page: 1,
     limit: 12,
-    sort_by: 'trip_date',
+    sort_by: 'created_at',
     sort_order: 'desc'
   });
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState<string>(filters.search || '');
+  const [newTripIds, setNewTripIds] = useState<Set<string>>(new Set());
 
   const { data, isLoading: loading, error } = useTrips(filters);
   
@@ -24,7 +27,27 @@ export const TripManagementPage: React.FC = () => {
   React.useEffect(() => {
     console.log('Trip Management Debug:', { data, loading, error, filters });
   }, [data, loading, error, filters]);
-  const updateTrip = useUpdateTrip();
+  
+  // Check for newly created trips from URL state
+  useEffect(() => {
+    if (location.state?.newTripId) {
+      setNewTripIds(prev => new Set([...prev, location.state.newTripId]));
+      
+      // Remove the highlight after 3 seconds
+      setTimeout(() => {
+        setNewTripIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(location.state.newTripId);
+          return newSet;
+        });
+      }, 3000);
+      
+      // Clear the URL state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+  
+  const updateTripStatus = useUpdateTripStatus();
 
   // Debounced search effect
   useEffect(() => {
@@ -39,7 +62,7 @@ export const TripManagementPage: React.FC = () => {
 
   const handleStatusChange = async (tripId: string, newStatus: string) => {
     // Validate that the status is a valid TripStatus
-    const validStatuses = Object.values(TripStatus) as string[];
+    const validStatuses = ['planned', 'unloaded', 'loaded', 'in_transit', 'unloading', 'completed', 'cancelled'];
     if (!validStatuses.includes(newStatus)) {
       setStatusUpdateError(`Invalid status: ${newStatus}`);
       return;
@@ -47,9 +70,9 @@ export const TripManagementPage: React.FC = () => {
 
     try {
       setStatusUpdateError(null);
-      await updateTrip.mutateAsync({
-        id: tripId,
-        status: newStatus as TripFiltersType['status']
+      await updateTripStatus.mutateAsync({
+        trip_id: tripId,
+        status: newStatus
       });
     } catch (err: any) {
       const errorMessage = err?.message || 'Failed to update trip status';
@@ -75,12 +98,12 @@ export const TripManagementPage: React.FC = () => {
   const stats = useMemo(() => {
     return {
       total: totalCount,
-      draft: trips.filter(t => t.status === TripStatus.DRAFT).length,
-      planned: trips.filter(t => t.status === TripStatus.PLANNED).length,
-      loading: trips.filter(t => t.status === TripStatus.LOADING).length,
-      in_transit: trips.filter(t => t.status === TripStatus.IN_TRANSIT).length,
-      completed: trips.filter(t => t.status === TripStatus.COMPLETED).length,
-      cancelled: trips.filter(t => t.status === TripStatus.CANCELLED).length,
+      planned: trips.filter(t => t.route_status === 'planned').length,
+      loaded: trips.filter(t => t.route_status === 'loaded').length,
+      in_transit: trips.filter(t => t.route_status === 'in_transit').length,
+      offloaded: trips.filter(t => t.route_status === 'offloaded').length,
+      completed: trips.filter(t => t.route_status === 'completed').length,
+      cancelled: trips.filter(t => t.route_status === 'cancelled').length,
     };
   }, [trips, totalCount]);
 
@@ -106,26 +129,26 @@ export const TripManagementPage: React.FC = () => {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
           <div className="text-sm text-gray-600">Total Trips</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-gray-500">{stats.draft}</div>
-          <div className="text-sm text-gray-600">Draft</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-2xl font-bold text-blue-600">{stats.planned}</div>
           <div className="text-sm text-gray-600">Planned</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-2xl font-bold text-yellow-600">{stats.loading}</div>
-          <div className="text-sm text-gray-600">Loading</div>
+          <div className="text-2xl font-bold text-indigo-600">{stats.loaded}</div>
+          <div className="text-sm text-gray-600">Loaded</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-2xl font-bold text-purple-600">{stats.in_transit}</div>
           <div className="text-sm text-gray-600">In Transit</div>
+        </div>
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="text-2xl font-bold text-amber-600">{stats.offloaded}</div>
+          <div className="text-sm text-gray-600">Offloaded</div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
@@ -162,12 +185,12 @@ export const TripManagementPage: React.FC = () => {
                 className="block px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               >
                 <option value="">All Statuses</option>
-                <option value={TripStatus.DRAFT}>Draft</option>
-                <option value={TripStatus.PLANNED}>Planned</option>
-                <option value={TripStatus.LOADING}>Loading</option>
-                <option value={TripStatus.IN_TRANSIT}>In Transit</option>
-                <option value={TripStatus.COMPLETED}>Completed</option>
-                <option value={TripStatus.CANCELLED}>Cancelled</option>
+                <option value="planned">Planned</option>
+                <option value="loaded">Loaded</option>
+                <option value="in_transit">In Transit</option>
+                <option value="offloaded">Offloaded</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
 
@@ -347,6 +370,7 @@ export const TripManagementPage: React.FC = () => {
                 trip={trip}
                 compact={viewMode === 'list'}
                 onStatusChange={handleStatusChange}
+                isNew={newTripIds.has(trip.id)}
               />
             ))}
           </div>

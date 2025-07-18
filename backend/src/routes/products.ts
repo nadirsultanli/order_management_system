@@ -404,9 +404,12 @@ export const productsRouter = router({
       
       ctx.logger.info('Fetching product statistics');
       
+      // Get only variants (child products that have parent_products_id)
       const { data, error } = await ctx.supabase
         .from('products')
-        .select('status, unit_of_measure');
+        .select('status, unit_of_measure, is_variant, parent_products_id')
+        .eq('is_variant', true)
+        .not('parent_products_id', 'is', null);
 
       if (error) {
         ctx.logger.error('Error fetching product stats:', error);
