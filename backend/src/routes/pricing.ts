@@ -757,9 +757,100 @@ export const pricingRouter = router({
     .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
-      const pricingService = new PricingService(ctx.supabase, ctx.logger);
-      const prices = await pricingService.getProductPrices(input.productIds, input.customerId, input.date);
-      return Object.fromEntries(prices);
+      
+      ctx.logger.info('Fetching prices for products:', input.productIds);
+      
+      const results: { [key: string]: any } = {};
+      
+      // Process each product individually to ensure inheritance works correctly
+      for (const productId of input.productIds) {
+        try {
+          // Get the product details to check if it's a variant
+          const { data: product, error: productError } = await ctx.supabase
+            .from('products')
+            .select('id, sku, name, is_variant, parent_products_id, tax_category, tax_rate')
+            .eq('id', productId)
+            .single();
+
+          if (productError || !product) {
+            ctx.logger.error('Product not found:', productError);
+            results[productId] = null;
+            continue;
+          }
+
+          // Try to get direct pricing for this product first
+          const pricingService = new PricingService(ctx.supabase, ctx.logger);
+          let priceResult = await pricingService.getDirectProductPrice(productId, input.date || new Date().toISOString().split('T')[0]);
+          
+          // If no direct pricing found and this is a variant, try parent product pricing
+          if (!priceResult && product.is_variant && product.parent_products_id) {
+            ctx.logger.info(`No direct pricing found for variant ${product.sku}, trying parent product ${product.parent_products_id}`);
+            priceResult = await pricingService.getDirectProductPrice(product.parent_products_id, input.date || new Date().toISOString().split('T')[0]);
+            
+            if (priceResult) {
+              // Mark that this price was inherited from parent
+              priceResult.inheritedFromParent = true;
+              priceResult.parentProductId = product.parent_products_id;
+              ctx.logger.info(`Using inherited pricing from parent product for variant ${product.sku}: ${priceResult.finalPrice}`);
+            } else {
+              ctx.logger.warn(`No pricing found for parent product ${product.parent_products_id} either`);
+            }
+          } else if (priceResult) {
+            ctx.logger.info(`Found direct pricing for ${product.sku}: ${priceResult.finalPrice}`);
+          } else {
+            ctx.logger.warn(`No pricing found for ${product.sku} (is_variant: ${product.is_variant}, parent_id: ${product.parent_products_id})`);
+          }
+
+          if (priceResult) {
+            // Get product tax information (use variant's tax info, fallback to parent's)
+            let taxRate = product.tax_rate || 0;
+            let taxCategory = product.tax_category || 'standard';
+
+            // If we inherited pricing and variant doesn't have tax info, get from parent
+            if (priceResult.inheritedFromParent && product.parent_products_id && (!taxRate || !taxCategory)) {
+              const { data: parentProduct } = await ctx.supabase
+                .from('products')
+                .select('tax_category, tax_rate')
+                .eq('id', product.parent_products_id)
+                .single();
+              
+              if (parentProduct) {
+                taxRate = taxRate || parentProduct.tax_rate || 0;
+                taxCategory = taxCategory || parentProduct.tax_category || 'standard';
+              }
+            }
+
+            results[productId] = {
+              ...priceResult,
+              taxRate,
+              taxCategory,
+            };
+          } else {
+            results[productId] = null;
+          }
+        } catch (error) {
+          ctx.logger.error(`Error fetching price for product ${productId}:`, error);
+          results[productId] = null;
+        }
+      }
+      
+      // Debug: Log pricing results
+      ctx.logger.info('getProductPrices results:', {
+        requestedProductIds: input.productIds.length,
+        returnedPrices: Object.keys(results).filter(key => results[key] !== null).length,
+        samplePrices: Object.entries(results).slice(0, 3).map(([id, price]) => ({
+          productId: id,
+          hasPrice: !!price,
+          finalPrice: price?.finalPrice,
+          inheritedFromParent: price?.inheritedFromParent,
+          unitPrice: price?.unitPrice,
+          priceListName: price?.priceListName
+        }))
+      });
+      
+      ctx.logger.info('Detailed pricing for each product:', results);
+      
+      return results;
     }),
 
   getProductPriceListItems: protectedProcedure

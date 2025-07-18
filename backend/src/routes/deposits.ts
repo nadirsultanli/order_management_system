@@ -767,7 +767,7 @@ export const depositsRouter = router({
         // Get product details
         const { data: product } = await ctx.supabase
           .from('products')
-          .select('id, name, capacity_l')
+          .select('id, name, capacity_kg, capacity_l')
           .eq('id', cylinder.product_id)
           .single();
 
@@ -784,7 +784,7 @@ export const depositsRouter = router({
           const { data: rate } = await ctx.supabase
             .from('cylinder_deposit_rates')
             .select('deposit_amount')
-            .eq('capacity_l', cylinder.capacity_l || product.capacity_l)
+            .eq('capacity_l', cylinder.capacity_l || (product.capacity_kg * 2.2))
             .eq('currency_code', 'KES')
             .eq('is_active', true)
             .lte('effective_date', new Date().toISOString().split('T')[0])
@@ -796,7 +796,7 @@ export const depositsRouter = router({
           if (!rate) {
             throw new TRPCError({
               code: 'NOT_FOUND',
-              message: `No deposit rate found for ${cylinder.capacity_l || product.capacity_l}L cylinders`
+              message: `No deposit rate found for ${cylinder.capacity_l || (product.capacity_kg * 2.2)}L cylinders`
             });
           }
 
@@ -810,7 +810,7 @@ export const depositsRouter = router({
           product_id: product.id,
           product_name: product.name,
           quantity: cylinder.quantity,
-          capacity_l: cylinder.capacity_l || product.capacity_l,
+          capacity_l: cylinder.capacity_l || (product.capacity_kg * 2.2),
           unit_deposit: unitDeposit,
           total_deposit: totalDeposit,
         });
@@ -952,7 +952,7 @@ export const depositsRouter = router({
         // Get product details
         const { data: product } = await ctx.supabase
           .from('products')
-          .select('id, name, capacity_l')
+          .select('id, name, capacity_kg, capacity_l')
           .eq('id', cylinder.product_id)
           .single();
 
@@ -968,13 +968,13 @@ export const depositsRouter = router({
           .from('deposit_cylinder_inventory')
           .select('unit_deposit')
           .eq('customer_id', input.customer_id)
-          .eq('capacity_l', cylinder.capacity_l || product.capacity_l)
+          .eq('capacity_l', cylinder.capacity_l || (product.capacity_kg * 2.2))
           .single();
 
         if (!depositInfo) {
           throw new TRPCError({
             code: 'NOT_FOUND',
-            message: `No deposit record found for ${cylinder.capacity_l || product.capacity_l}L cylinders`
+            message: `No deposit record found for ${cylinder.capacity_l || (product.capacity_kg * 2.2)}L cylinders`
           });
         }
 
@@ -997,7 +997,7 @@ export const depositsRouter = router({
           product_id: product.id,
           product_name: product.name,
           quantity: cylinder.quantity,
-          capacity_l: cylinder.capacity_l || product.capacity_l,
+          capacity_l: cylinder.capacity_l || (product.capacity_kg * 2.2),
           condition: cylinder.condition,
           unit_refund: unitRefund,
           total_refund: totalRefundAmount,
@@ -1410,7 +1410,7 @@ export const depositsRouter = router({
         // Get product details
         const { data: product } = await ctx.supabase
           .from('products')
-          .select('id, name, capacity_l')
+          .select('id, name, capacity_kg, capacity_l')
           .eq('id', cylinder.product_id)
           .single();
 

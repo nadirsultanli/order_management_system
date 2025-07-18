@@ -101,11 +101,7 @@ export const CreateOrderPage: React.FC = () => {
   
   // Get product prices from backend with inheritance support
   const productIds = products.map((p: Product) => p.id);
-  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(
-    productIds, 
-    selectedCustomerId || undefined,
-    productIds.length > 0 // Only enable when we have product IDs
-  );
+  const { data: productPrices, isLoading: isPricesLoading, error: pricesError } = useProductPrices(productIds, selectedCustomerId || undefined);
 
   // Get inventory data for the selected warehouse to show availability
   const { data: warehouseInventory, isLoading: isInventoryLoading, error: inventoryError } = useInventoryNew({
@@ -234,7 +230,9 @@ export const CreateOrderPage: React.FC = () => {
   const [orderCalculations, setOrderCalculations] = useState({
     subtotal: 0,
     taxAmount: 0,
-    grandTotal: 0
+    grandTotal: 0,
+    gasCharges: 0,
+    depositCharges: 0
   });
   const [calculatingTotals, setCalculatingTotals] = useState(false);
 
@@ -242,16 +240,26 @@ export const CreateOrderPage: React.FC = () => {
   useEffect(() => {
     const calculateTotals = () => {
       if (orderLines.length === 0) {
-        setOrderCalculations({ subtotal: 0, taxAmount: 0, grandTotal: 0 });
+        setOrderCalculations({ subtotal: 0, taxAmount: 0, grandTotal: 0, gasCharges: 0, depositCharges: 0 });
         return;
       }
 
-      // Calculate subtotal and tax from order lines with product pricing
+      // Calculate subtotal and tax from order lines with enhanced pricing breakdown
       let subtotal = 0;  // Sum of ex-tax amounts
       let taxAmount = 0; // Sum of tax amounts
       let grandTotal = 0; // Sum of including-tax amounts
+      let gasCharges = 0; // Sum of gas charges
+      let depositCharges = 0; // Sum of deposit charges
       
       orderLines.forEach(line => {
+        // Track gas and deposit charges separately
+        if (line.gas_charge !== undefined) {
+          gasCharges += line.gas_charge * line.quantity;
+        }
+        if (line.deposit_amount !== undefined) {
+          depositCharges += line.deposit_amount * line.quantity;
+        }
+        
         // Use price_excluding_tax for subtotal
         if (line.price_excluding_tax !== undefined) {
           subtotal += line.price_excluding_tax * line.quantity;
@@ -277,7 +285,9 @@ export const CreateOrderPage: React.FC = () => {
       setOrderCalculations({
         subtotal,
         taxAmount,
-        grandTotal
+        grandTotal,
+        gasCharges,
+        depositCharges
       });
     };
 
@@ -1287,7 +1297,7 @@ export const CreateOrderPage: React.FC = () => {
 
                             {/* Partial Fill Percentage Controls for Gas Products */}
                             {isGasProduct(product) && (
-                              <div className="mb-3" key={`fill-control-${product.id}-${fillPercentages[product.id] || 100}`}>
+                              <div className="mb-3" key={`fill-control-${product.id}`}>
                                 <div className="flex items-center justify-between mb-2">
                                   <label className="text-sm font-medium text-gray-700">Fill Percentage:</label>
                                   <span className="text-sm text-gray-500">
@@ -1357,7 +1367,6 @@ export const CreateOrderPage: React.FC = () => {
                                     min="1"
                                     max="100"
                                     value={fillPercentages[product.id] || 100}
-                                    key={`fill-input-${product.id}-${fillPercentages[product.id] || 100}`}
                                     onChange={(e) => {
                                       const value = Math.min(100, Math.max(1, parseInt(e.target.value) || 100));
                                       console.log(`🔄 Custom fill percentage set to ${value}% for product ${product.id}`);
@@ -1570,6 +1579,20 @@ export const CreateOrderPage: React.FC = () => {
                               <div className="font-medium text-gray-900">
                                 {formatCurrencySync(line.subtotal)}
                               </div>
+                              {/* Enhanced pricing breakdown */}
+                              {(line.gas_charge !== undefined || line.deposit_amount !== undefined) && (
+                                <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                  {line.gas_charge !== undefined && line.gas_charge > 0 && (
+                                    <div>Gas: {formatCurrencySync(line.gas_charge * line.quantity)}</div>
+                                  )}
+                                  {line.deposit_amount !== undefined && line.deposit_amount > 0 && (
+                                    <div>Deposit: {formatCurrencySync(line.deposit_amount * line.quantity)}</div>
+                                  )}
+                                  {line.tax_amount !== undefined && line.tax_amount > 0 && (
+                                    <div>Tax: {formatCurrencySync(line.tax_amount * line.quantity)}</div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

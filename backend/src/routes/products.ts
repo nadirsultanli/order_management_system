@@ -1073,6 +1073,9 @@ export const productsRouter = router({
           valve_type: parentProduct.valve_type,
           variant_type: 'cylinder', // Default for variants
           requires_tag: false, // Default for variants
+          // Inherit tax information from parent product
+          tax_rate: parentProduct.tax_rate,
+          tax_category: parentProduct.tax_category,
           
           // Audit fields
           created_at: new Date().toISOString(),

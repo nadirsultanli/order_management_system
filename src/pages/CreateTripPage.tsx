@@ -8,6 +8,9 @@ import { useWarehouseOptions } from '../hooks/useWarehouses';
 import { useDrivers } from '../hooks/useUsers';
 import { trpc } from '../lib/trpc-client';
 import toast from 'react-hot-toast';
+import { SearchableTruckSelector } from '../components/trucks/SearchableTruckSelector';
+import { SearchableWarehouseSelector } from '../components/warehouses/SearchableWarehouseSelector';
+import { SearchableDriverSelector } from '../components/trucks/SearchableDriverSelector';
 
 export const CreateTripPage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,41 +36,63 @@ export const CreateTripPage: React.FC = () => {
   const trucks = trucksData?.trucks || [];
   const drivers = driversData?.drivers || [];
 
-  // Query to check for existing trips with same truck and driver on same date
+  // Query to check for existing trips on the same date (for conflict validation)
   const { data: existingTrips, refetch: refetchExistingTrips } = trpc.trips.list.useQuery({
-    truck_id: formData.truck_id,
     date_from: formData.route_date,
     date_to: formData.route_date,
     limit: 100
   }, {
-    enabled: Boolean(formData.truck_id && formData.route_date),
+    enabled: Boolean(formData.route_date),
     refetchOnWindowFocus: false
   });
 
   // Check for duplicate trips when form data changes
   useEffect(() => {
-    if (formData.truck_id && formData.route_date && existingTrips?.trips) {
-      const duplicates = existingTrips.trips.filter(trip => {
-        // Check if truck matches
-        if (trip.truck_id !== formData.truck_id) return false;
-        
-        // Check if date matches
-        if (trip.route_date !== formData.route_date) return false;
-        
-        // Check if driver matches (including null cases)
-        if (formData.driver_id) {
-          return trip.driver_id === formData.driver_id;
-        } else {
-          return !trip.driver_id; // No driver assigned
-        }
-      });
-
-      if (duplicates.length > 0) {
-        const duplicate = duplicates[0];
-        const driverInfo = formData.driver_id ? 'the selected driver' : 'no driver assigned';
-        setDuplicateWarning(
-          `⚠️ A trip already exists for this truck with ${driverInfo} on ${formData.route_date}. Trip ID: ${duplicate.id.slice(-8)}, Status: ${duplicate.route_status}`
+    if (formData.route_date && existingTrips?.trips) {
+      const conflicts: string[] = [];
+      
+      // Check for truck conflicts (same truck on same date, regardless of driver)
+      if (formData.truck_id) {
+        const truckConflicts = existingTrips.trips.filter((trip: any) => 
+          trip.truck_id === formData.truck_id && 
+          trip.route_date === formData.route_date
         );
+        
+        if (truckConflicts.length > 0) {
+          const conflict = truckConflicts[0];
+          conflicts.push(`Truck is already assigned to another trip on ${formData.route_date} (Trip ID: ${conflict.id.slice(-8)})`);
+        }
+      }
+      
+      // Check for driver conflicts (same driver on same date, regardless of truck)
+      if (formData.driver_id) {
+        const driverConflicts = existingTrips.trips.filter((trip: any) => 
+          trip.driver_id === formData.driver_id && 
+          trip.route_date === formData.route_date
+        );
+        
+        if (driverConflicts.length > 0) {
+          const conflict = driverConflicts[0];
+          conflicts.push(`Driver is already assigned to another trip on ${formData.route_date} (Trip ID: ${conflict.id.slice(-8)})`);
+        }
+      }
+      
+      // Check for exact duplicate (same truck AND same driver on same date)
+      if (formData.truck_id && formData.driver_id) {
+        const exactDuplicates = existingTrips.trips.filter((trip: any) => 
+          trip.truck_id === formData.truck_id && 
+          trip.driver_id === formData.driver_id && 
+          trip.route_date === formData.route_date
+        );
+        
+        if (exactDuplicates.length > 0) {
+          const duplicate = exactDuplicates[0];
+          conflicts.push(`Exact duplicate: Same truck and driver already assigned on ${formData.route_date} (Trip ID: ${duplicate.id.slice(-8)})`);
+        }
+      }
+
+      if (conflicts.length > 0) {
+        setDuplicateWarning(`⚠️ ${conflicts.join('. ')}`);
       } else {
         setDuplicateWarning(null);
       }
@@ -111,7 +136,7 @@ export const CreateTripPage: React.FC = () => {
       const result = await createTrip.mutateAsync(data);
       
       // Optimistically update the trips list to show the new trip at the beginning
-      utils.trips.list.setData(undefined, (oldData) => {
+      utils.trips.list.setData(undefined, (oldData: any) => {
         if (!oldData) return oldData;
         
         // Create the new trip object with the response data
@@ -126,9 +151,9 @@ export const CreateTripPage: React.FC = () => {
           updated_at: result.updated_at,
           trip_number: result.trip_number,
           // Add truck and warehouse details for display
-          truck: trucks.find(t => t.id === result.truck_id),
-          warehouse: warehouses?.find(w => w.id === result.warehouse_id),
-          driver: drivers.find(d => d.id === result.driver_id),
+          truck: trucks.find((t: any) => t.id === result.truck_id),
+          warehouse: warehouses?.find((w: any) => w.id === result.warehouse_id),
+          driver: drivers.find((d: any) => d.id === result.driver_id),
           // Add empty arrays for related data
           truck_allocations: [],
           trip_orders: [],
@@ -240,20 +265,12 @@ export const CreateTripPage: React.FC = () => {
                   Truck
                 </div>
               </label>
-              <select
-                id="truck_id"
+              <SearchableTruckSelector
                 value={formData.truck_id}
-                onChange={(e) => setFormData({ ...formData, truck_id: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                onChange={(truckId) => setFormData({ ...formData, truck_id: truckId })}
+                placeholder="Select a truck..."
                 required
-              >
-                <option value="">Select a truck...</option>
-                {trucks.map((truck) => (
-                  <option key={truck.id} value={truck.id}>
-                    {truck.fleet_number} - {truck.license_plate} ({truck.capacity_cylinders} cylinders)
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
             {/* Route Date */}
@@ -282,51 +299,29 @@ export const CreateTripPage: React.FC = () => {
                   Warehouse
                 </div>
               </label>
-              <select
-                id="warehouse_id"
+              <SearchableWarehouseSelector
                 value={formData.warehouse_id}
-                onChange={(e) => setFormData({ ...formData, warehouse_id: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                onChange={(warehouseId) => setFormData({ ...formData, warehouse_id: warehouseId })}
+                placeholder="Select a warehouse..."
                 required
-              >
-                <option value="">Select a warehouse...</option>
-                {warehouses?.map((warehouse) => (
-                  <option key={warehouse.id} value={warehouse.id}>
-                    {warehouse.city && warehouse.state 
-                      ? `${warehouse.name} (${warehouse.city}, ${warehouse.state})`
-                      : warehouse.name
-                    }
-                  </option>
-                ))}
-              </select>
+              />
             </div>
 
-            {/* Driver Selection (Optional) - Uses admin_users.id for database foreign key */}
+            {/* Driver Selection - Uses admin_users.id for database foreign key */}
             <div>
               <label htmlFor="driver_id" className="block text-sm font-medium text-gray-700">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4" />
-                  Driver (Optional)
+                  Driver
                 </div>
               </label>
-              <select
-                id="driver_id"
+              <SearchableDriverSelector
+                drivers={drivers.filter((driver) => driver.role === 'driver')}
                 value={formData.driver_id}
-                onChange={(e) => setFormData({ ...formData, driver_id: e.target.value })}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              >
-                <option value="">Select a driver...</option>
-                {drivers
-                  .filter((driver) => driver.role === 'driver') // Only show users with driver role
-                  .map((driver) => (
-                    <option key={driver.id} value={driver.id}>
-                      {driver.name}
-                      {driver.employee_id && ` (${driver.employee_id})`}
-                      {driver.email && ` - ${driver.email}`}
-                      {driver.phone && ` - ${driver.phone}`}
-                    </option>
-                  ))}
-              </select>
+                onChange={(driverId) => setFormData({ ...formData, driver_id: driverId })}
+                placeholder="Select a driver..."
+                loading={driversLoading}
+              />
             </div>
 
             {/* Time Schedule */}

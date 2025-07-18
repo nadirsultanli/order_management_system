@@ -513,12 +513,13 @@ export class PricingService {
         if (line.include_deposit) {
           const { data: product } = await this.supabase
             .from('products')
-            .select('capacity_l')
+            .select('capacity_kg')
             .eq('id', line.product_id)
             .single();
 
-          if (product?.capacity_l) {
-            const deposit = await this.getCurrentDepositRate(product.capacity_l);
+          if (product?.capacity_kg) {
+            const capacityL = product.capacity_kg * 2.2; // Convert kg to liters
+            const deposit = await this.getCurrentDepositRate(capacityL);
             const lineDeposit = deposit * line.quantity;
             depositAmount += lineDeposit;
             subtotal += lineDeposit;
@@ -865,6 +866,145 @@ export class PricingService {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to get pricing statistics'
       });
+    }
+  }
+
+  /**
+   * Calculate pricing with partial fill support for order creation
+   * This method handles weight-based pricing with partial fill percentages and automatic deposit calculation
+   */
+  async calculateOrderLinePricing(
+    productId: string,
+    quantity: number = 1,
+    fillPercentage: number = 100,
+    customerId?: string,
+    date?: string
+  ): Promise<{
+    unitPrice: number;
+    subtotal: number;
+    gasCharge: number;
+    depositAmount: number;
+    taxAmount: number;
+    totalPrice: number;
+    adjustedWeight: number;
+    originalWeight: number;
+    pricingMethod: string;
+    inheritedFromParent?: boolean;
+    parentProductId?: string | null;
+  } | null> {
+    try {
+      // Get product details including weight information
+      const { data: product, error: productError } = await this.supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          sku,
+          sku_variant,
+          capacity_l,
+          capacity_kg,
+          gross_weight_kg,
+          net_gas_weight_kg,
+          tare_weight_kg,
+          tax_rate,
+          tax_category,
+          is_variant,
+          parent_products_id
+        `)
+        .eq('id', productId)
+        .single();
+
+      if (productError || !product) {
+        this.logger.error('Product not found:', productError);
+        return null;
+      }
+
+      // Get pricing information with inheritance support
+      const pricingResult = await this.getProductPrice(productId, customerId, date);
+      if (!pricingResult) {
+        this.logger.warn('No pricing found for product:', productId);
+        return null;
+      }
+
+      // Get tax rate from pricing result (which includes proper inheritance)
+      const taxRate = pricingResult.taxRate || 0.16; // Default 16% VAT
+
+      // Determine capacity for deposit lookup - use capacity_l, then capacity_kg as fallback
+      const capacityForDeposit = product.capacity_l || product.capacity_kg || 0;
+      
+      // Get deposit amount based on capacity (always check for deposits on cylinders)
+      let depositAmount = 0;
+      if (capacityForDeposit > 0) {
+        depositAmount = await this.getCurrentDepositRate(capacityForDeposit) || 0;
+        this.logger.info(`Deposit amount for ${capacityForDeposit}L: ${depositAmount}`);
+      }
+      
+      // Determine if this is a gas product that supports partial fills
+      const isGasProduct = ['FULL-OUT', 'FULL-XCH'].includes(product.sku_variant || '') || 
+                          (product.capacity_l && product.capacity_l > 0);
+      
+      // Check if product has weight information for partial fill calculations
+      const hasWeightInfo = product.net_gas_weight_kg || 
+                           (product.gross_weight_kg && product.tare_weight_kg) || 
+                           product.capacity_kg;
+      
+      // Initialize pricing variables
+      let gasCharge = pricingResult.finalPrice;
+      let originalWeight = 0;
+      let adjustedWeight = 0;
+      let pricingMethod = 'per_unit';
+
+      if (isGasProduct && hasWeightInfo && fillPercentage < 100) {
+        // Calculate net weight
+        if (product.net_gas_weight_kg) {
+          originalWeight = product.net_gas_weight_kg;
+        } else if (product.gross_weight_kg && product.tare_weight_kg) {
+          originalWeight = product.gross_weight_kg - product.tare_weight_kg;
+        } else if (product.capacity_kg) {
+          originalWeight = product.capacity_kg;
+        }
+
+        if (originalWeight > 0) {
+          adjustedWeight = originalWeight * (fillPercentage / 100);
+          
+          // For partial fills, only adjust the gas portion of the price
+          // Assume gas represents the variable portion affected by fill percentage
+          gasCharge = pricingResult.finalPrice * (fillPercentage / 100);
+          pricingMethod = 'per_kg_partial';
+          
+          this.logger.info(`Partial fill calculation: ${fillPercentage}% of ${originalWeight}kg = ${adjustedWeight}kg, gas charge: ${gasCharge}`);
+        }
+      } else if (fillPercentage < 100) {
+        // For non-gas products or products without weight info, still apply partial fill logic
+        gasCharge = pricingResult.finalPrice * (fillPercentage / 100);
+        pricingMethod = 'per_unit_partial';
+      }
+
+      // Calculate subtotal (gas charge + deposit)
+      const subtotal = gasCharge + depositAmount;
+      
+      // Calculate tax (applied to gas charge only, deposits are typically not taxed)
+      const taxAmount = gasCharge * taxRate;
+      
+      // Calculate total price
+      const totalPrice = gasCharge + depositAmount + taxAmount;
+      
+      return {
+        unitPrice: totalPrice,
+        subtotal: subtotal * quantity,
+        gasCharge: gasCharge * quantity,
+        depositAmount: depositAmount * quantity,
+        taxAmount: taxAmount * quantity,
+        totalPrice: totalPrice * quantity,
+        adjustedWeight,
+        originalWeight,
+        pricingMethod,
+        inheritedFromParent: pricingResult.inheritedFromParent,
+        parentProductId: pricingResult.parentProductId
+      };
+    } catch (error) {
+      this.logger.error('Error in calculateOrderLinePricing:', error);
+      throw error;
     }
   }
 }

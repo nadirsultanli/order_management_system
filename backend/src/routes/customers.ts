@@ -1072,7 +1072,7 @@ export const customersRouter = router({
           expected_return_date,
           return_deadline,
           damage_status,
-          product:products(name, sku, capacity_l)
+          product:products(name, sku, capacity_kg)
         `)
         .eq('customer_id', input.id)
         .in('status', ['pending', 'partial_returned', 'grace_period'])
