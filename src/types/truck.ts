@@ -169,7 +169,9 @@ export const TruckStatus = {
 
 export const RouteStatus = {
   PLANNED: 'planned',
-  IN_PROGRESS: 'in_progress',
+  LOADED: 'loaded',
+  IN_TRANSIT: 'in_transit',
+  OFFLOADED: 'offloaded',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled'
 } as const;

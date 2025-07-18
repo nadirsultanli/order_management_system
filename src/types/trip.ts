@@ -8,7 +8,7 @@ export interface Trip {
   actual_start_time?: string;
   planned_end_time?: string;
   actual_end_time?: string;
-  route_status: 'planned' | 'unloaded' | 'loaded' | 'in_transit' | 'completed' | 'cancelled'; // Updated to match backend
+  route_status: 'planned' | 'loaded' | 'in_transit' | 'offloaded' | 'completed' | 'cancelled'; // Updated to match backend
   total_distance_km?: number;
   estimated_duration_hours?: number;
   actual_duration_hours?: number;
@@ -208,6 +208,7 @@ export const TripStatus = {
   DRAFT: 'draft',
   PLANNED: 'planned',
   UNLOADED: 'unloaded',
+  LOADED: 'loaded',
   IN_TRANSIT: 'in_transit',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled'
@@ -242,7 +243,7 @@ export const TripEventType = {
 // Filter types
 export interface TripFilters {
   search?: string; // Search by trip ID, truck fleet number, driver name
-  status?: 'planned' | 'unloaded' | 'loaded' | 'in_transit' | 'completed' | 'cancelled';
+  status?: 'planned' | 'loaded' | 'in_transit' | 'offloaded' | 'completed' | 'cancelled';
   truck_id?: string;
   date_from?: string;
   date_to?: string;

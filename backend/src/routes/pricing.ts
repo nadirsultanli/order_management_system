@@ -780,12 +780,12 @@ export const pricingRouter = router({
 
           // Try to get direct pricing for this product first
           const pricingService = new PricingService(ctx.supabase, ctx.logger);
-          let priceResult = await pricingService.getDirectProductPrice(productId, input.date || new Date().toISOString().split('T')[0]);
+          let priceResult = await pricingService.getProductPrice(productId, undefined, input.date || new Date().toISOString().split('T')[0]);
           
           // If no direct pricing found and this is a variant, try parent product pricing
           if (!priceResult && product.is_variant && product.parent_products_id) {
             ctx.logger.info(`No direct pricing found for variant ${product.sku}, trying parent product ${product.parent_products_id}`);
-            priceResult = await pricingService.getDirectProductPrice(product.parent_products_id, input.date || new Date().toISOString().split('T')[0]);
+            priceResult = await pricingService.getProductPrice(product.parent_products_id, undefined, input.date || new Date().toISOString().split('T')[0]);
             
             if (priceResult) {
               // Mark that this price was inherited from parent

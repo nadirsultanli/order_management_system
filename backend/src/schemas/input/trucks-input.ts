@@ -7,8 +7,8 @@ import { z } from 'zod';
 // ============ Base Enums ============
 
 export const TruckStatusEnum = z.enum(['active', 'inactive', 'maintenance']);
-export const RouteStatusEnum = z.enum(['planned', 'unloaded', 'loaded', 'in_transit', 'completed', 'cancelled']);
-export const TripStatusEnum = z.enum(['planned', 'unloaded', 'loaded', 'in_transit', 'completed', 'cancelled']);
+export const RouteStatusEnum = z.enum(['planned', 'loaded', 'in_transit', 'offloaded', 'completed', 'cancelled']);
+export const TripStatusEnum = z.enum(['planned', 'loaded', 'in_transit', 'offloaded', 'completed', 'cancelled']);
 export const LoadingStatusEnum = z.enum(['planned', 'loading', 'loaded', 'short_loaded', 'over_loaded']);
 export const VarianceReasonEnum = z.enum(['lost', 'damaged', 'mis_scan', 'theft', 'delivery_error', 'counting_error', 'other']);
 export const VarianceStatusEnum = z.enum(['pending', 'investigating', 'resolved', 'written_off', 'adjusted']);

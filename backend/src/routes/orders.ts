@@ -824,7 +824,7 @@ export const ordersRouter = router({
           // Verify product exists and is active
           const { data: product, error: productError } = await ctx.supabase
             .from('products')
-            .select('id, sku, name, status, capacity_kg, tare_weight_kg')
+            .select('id, sku, name, status, capacity_kg, tare_weight_kg, is_variant, parent_products_id')
             .eq('id', line.product_id)
             .single();
             
@@ -842,12 +842,30 @@ export const ordersRouter = router({
           let finalUnitPrice = line.unit_price || 0;
           
           if (input.validate_pricing) {
-            // Get current pricing
-            const currentPricing = await pricingService.getProductPrice(
+            // Get current pricing with inherited pricing support for variants
+            let currentPricing = await pricingService.getProductPrice(
               line.product_id,
               input.customer_id
             );
-            
+
+            // If no direct pricing found and this is a variant, try parent product pricing
+            if (!currentPricing && product.is_variant && product.parent_products_id) {
+              ctx.logger.info(`No direct pricing found for variant ${product.sku}, trying parent product ${product.parent_products_id}`);
+              currentPricing = await pricingService.getProductPrice(
+                product.parent_products_id,
+                input.customer_id
+              );
+              
+              if (currentPricing) {
+                // Mark that this price was inherited from parent
+                currentPricing.inheritedFromParent = true;
+                currentPricing.parentProductId = product.parent_products_id;
+                ctx.logger.info(`Using inherited pricing from parent product for variant ${product.sku}: ${currentPricing.finalPrice}`);
+              } else {
+                ctx.logger.warn(`No pricing found for parent product ${product.parent_products_id} either`);
+              }
+            }
+
             if (!currentPricing) {
               validationErrors.push(`No pricing found for product ${product.sku}`);
               continue;
@@ -913,71 +931,91 @@ export const ordersRouter = router({
           const fillPercentage = line.fill_percentage || 100;
           const isPartialFill = fillPercentage < 100;
           
-          // Calculate deposit and gas charges based on pricing method
-          let gasCharge = 0;
-          let depositAmount = 0;
+          // Use frontend-provided values if available, otherwise calculate
+          let gasCharge = line.gas_charge || 0;
+          let depositAmount = line.deposit_amount || 0;
           let subtotal = 0;
+          let priceExcludingTax = line.price_excluding_tax;
+          let taxAmount = line.tax_amount || 0;
+          let priceIncludingTax = line.price_including_tax;
+          let taxRate = line.tax_rate || 0.16;
           
-          if (line.pricing_method === 'per_kg') {
-            // Use weight-based pricing with deposit calculation
-            const weightBasedPrice = await pricingService.getWeightBasedPrice(
-              line.product_id,
-              line.quantity,
-              input.customer_id
-            );
-            
-            if (weightBasedPrice) {
-              gasCharge = weightBasedPrice.gasCharge;
-              if (line.include_deposit) {
-                depositAmount = weightBasedPrice.depositAmount;
-              }
+          // If frontend didn't provide calculated values, calculate them
+          if (!line.gas_charge) {
+            if (line.pricing_method === 'per_kg') {
+              // Use weight-based pricing with deposit calculation
+              const weightBasedPrice = await pricingService.getWeightBasedPrice(
+                line.product_id,
+                line.quantity,
+                input.customer_id
+              );
               
-              // Apply pro-rated pricing for partial fills (gas only, not deposits)
-              if (isPartialFill) {
-                gasCharge = gasCharge * (fillPercentage / 100);
+              if (weightBasedPrice) {
+                gasCharge = weightBasedPrice.gasCharge;
+                if (line.include_deposit) {
+                  depositAmount = weightBasedPrice.depositAmount;
+                }
+                
+                // Apply pro-rated pricing for partial fills (gas only, not deposits)
+                if (isPartialFill) {
+                  gasCharge = gasCharge * (fillPercentage / 100);
+                }
+                
+                subtotal = gasCharge + depositAmount;
+              } else {
+                // Fallback to traditional pricing if weight-based fails
+                gasCharge = finalUnitPrice * line.quantity;
+                
+                // Apply pro-rated pricing for partial fills
+                if (isPartialFill) {
+                  gasCharge = gasCharge * (fillPercentage / 100);
+                }
+                
+                subtotal = gasCharge;
               }
-              
-              subtotal = gasCharge + depositAmount;
             } else {
-              // Fallback to traditional pricing if weight-based fails
+              // Traditional pricing method
               gasCharge = finalUnitPrice * line.quantity;
               
-              // Apply pro-rated pricing for partial fills
+              // Apply pro-rated pricing for partial fills (gas only)
               if (isPartialFill) {
                 gasCharge = gasCharge * (fillPercentage / 100);
               }
               
               subtotal = gasCharge;
-            }
-          } else {
-            // Traditional pricing method
-            gasCharge = finalUnitPrice * line.quantity;
-            
-            // Apply pro-rated pricing for partial fills (gas only)
-            if (isPartialFill) {
-              gasCharge = gasCharge * (fillPercentage / 100);
-            }
-            
-            subtotal = gasCharge;
-            
-            // Add deposit if requested (always full price)
-            if (line.include_deposit) {
-              const { data: productWithCapacity } = await ctx.supabase
-                .from('products')
-                .select('capacity_kg')
-                .eq('id', line.product_id)
-                .single();
-                
-              if (productWithCapacity?.capacity_kg) {
-                const capacityL = productWithCapacity.capacity_kg * 2.2; // Convert kg to liters
-                const depositRate = await pricingService.getCurrentDepositRate(capacityL);
-                depositAmount = depositRate * line.quantity;
-                subtotal += depositAmount;
+              
+              // Add deposit if requested (always full price)
+              if (line.include_deposit) {
+                const { data: productWithCapacity } = await ctx.supabase
+                  .from('products')
+                  .select('capacity_kg')
+                  .eq('id', line.product_id)
+                  .single();
+                  
+                if (productWithCapacity?.capacity_kg) {
+                  const capacityL = productWithCapacity.capacity_kg * 2.2; // Convert kg to liters
+                  const depositRate = await pricingService.getCurrentDepositRate(capacityL);
+                  depositAmount = depositRate * line.quantity;
+                  subtotal += depositAmount;
+                }
               }
             }
           }
           
-          totalAmount += subtotal;
+          // Calculate tax if not provided by frontend
+          if (!line.tax_amount) {
+            taxAmount = subtotal * taxRate;
+          }
+          
+          // Set price excluding tax and including tax if not provided
+          if (!priceExcludingTax) {
+            priceExcludingTax = subtotal;
+          }
+          if (!priceIncludingTax) {
+            priceIncludingTax = subtotal + taxAmount;
+          }
+          
+          totalAmount += priceIncludingTax || (subtotal + taxAmount); // Use tax-inclusive total
           
           validatedOrderLines.push({
             product_id: line.product_id,
@@ -990,6 +1028,11 @@ export const ordersRouter = router({
             pricing_method: line.pricing_method || 'per_unit',
             product_sku: product.sku,
             product_name: product.name,
+            // Tax information (fixed at order creation time)
+            price_excluding_tax: priceExcludingTax,
+            tax_amount: taxAmount,
+            price_including_tax: priceIncludingTax,
+            tax_rate: taxRate,
             // Partial fill fields
             fill_percentage: line.fill_percentage || 100,
             is_partial_fill: line.is_partial_fill || false,
@@ -1117,13 +1160,14 @@ export const ordersRouter = router({
             product_id: line.product_id,
             quantity: line.quantity,
             unit_price: line.unit_price,
-            subtotal: line.subtotal,
             gas_charge: line.gas_charge || 0,
             deposit_amount: line.deposit_amount || 0,
             include_deposit: line.include_deposit || false,
             pricing_method: line.pricing_method || 'per_unit',
             qty_tagged: 0, // Default to 0, will be updated during fulfillment
             qty_untagged: line.quantity, // Start with all quantity untagged
+            // Tax information (fixed at order creation time)
+            subtotal: line.subtotal,
             // Partial fill fields
             fill_percentage: line.fill_percentage || 100,
             is_partial_fill: line.is_partial_fill || false,

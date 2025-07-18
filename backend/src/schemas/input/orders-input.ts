@@ -74,10 +74,19 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
     price_list_id: z.string().uuid().optional(),
     include_deposit: z.boolean().default(false),
     pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).default('per_unit'),
+    // Tax information (fixed at order creation time)
+    price_excluding_tax: z.number().positive().optional(),
+    tax_amount: z.number().positive().optional(),
+    price_including_tax: z.number().positive().optional(),
+    tax_rate: z.number().min(0).max(1).optional(),
     // Partial fill fields
     fill_percentage: z.number().min(25).max(100).optional().default(100),
     is_partial_fill: z.boolean().optional().default(false),
     partial_fill_notes: z.string().optional(),
+    // Pricing breakdown fields
+    gas_charge: z.number().positive().optional(),
+    deposit_amount: z.number().positive().optional(),
+    original_weight: z.number().positive().optional(),
   });
 
   export const OrderLineConvertSchema = z.object({

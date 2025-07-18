@@ -20,6 +20,9 @@ export interface PriceCalculationResult {
   priceIncludingTax?: number;
   taxRate?: number;
   taxCategory?: string;
+  // Inherited pricing fields
+  inheritedFromParent?: boolean;
+  parentProductId?: string;
 }
 
 export interface OrderTotals {

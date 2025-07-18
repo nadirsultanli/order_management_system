@@ -37,7 +37,7 @@ export interface TruckRoute {
   actual_start_time?: string;
   planned_end_time?: string;
   actual_end_time?: string;
-  route_status: 'planned' | 'unloaded' | 'loaded' | 'in_transit' | 'delivering' | 'completed' | 'cancelled';
+  route_status: 'planned' | 'loaded' | 'in_transit' | 'offloaded' | 'completed' | 'cancelled';
   total_distance_km?: number;
   estimated_duration_hours?: number;
   actual_duration_hours?: number;
