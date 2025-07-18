@@ -266,10 +266,15 @@ export const CreateOrderPageV2: React.FC = () => {
       Object.entries(selectedProducts).forEach(([productId, quantity]) => {
         const product = products.find(p => p.id === productId);
         if (product) {
-          const depositRate = getDepositAmountByCapacity(product);
-          if (depositRate > 0) {
-            depositTotal += depositRate * quantity;
-            console.log(`💰 Adding deposit from selectedProducts: ${product.name} - ${quantity} × ${depositRate} = ${depositRate * quantity}`);
+          // Only apply deposits for 'FULL-OUT' variants, not 'FULL-XCH' variants
+          if (product.sku_variant === 'FULL-OUT') {
+            const depositRate = getDepositAmountByCapacity(product);
+            if (depositRate > 0) {
+              depositTotal += depositRate * quantity;
+              console.log(`💰 Adding deposit from selectedProducts: ${product.name} - ${quantity} × ${depositRate} = ${depositRate * quantity}`);
+            }
+          } else {
+            console.log(`💰 Skipping deposit for ${product.name} (${product.sku_variant}) - not FULL-OUT variant`);
           }
         }
       });
