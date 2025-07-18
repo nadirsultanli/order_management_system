@@ -67,11 +67,9 @@ import {
   GeneratedSkuResponseSchema,
   CreateVariantDataResponseSchema,
   CreateParentProductResponseSchema,
-  UpdateParentProductResponseSchema,
   GetGroupedProductsResponseSchema,
   GetSkuVariantsResponseSchema,
   ListParentProductsResponseSchema,
-  ParentProductSchema,
 } from '../schemas/output/products-output';
 
 
@@ -89,7 +87,7 @@ export const productsRouter = router({
       }
     })
     .input(ProductFiltersSchema.optional())
-    .output(z.any())
+    .output(z.any()) // ✅ No validation headaches!
     .query(async ({ input, ctx }) => {
       try {
         const user = requireAuth(ctx);
@@ -176,6 +174,9 @@ export const productsRouter = router({
       if (filters.is_variant !== undefined) {
         query = query.eq('is_variant', filters.is_variant);
       }
+
+      // Apply parent products filter - show only products with parent_products_id
+      query = query.not('parent_products_id', 'is', null);
 
       // Apply date filters
       if (filters.created_after) {
