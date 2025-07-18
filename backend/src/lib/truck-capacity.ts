@@ -566,6 +566,8 @@ export function processTruckInventory(inventoryData: any[] | null): any[] {
   return (inventoryData || []).map((item: any) => {
     const product = item.product;
     let weight_kg = 0;
+    const qty_reserved = item.qty_reserved || 0;
+    const qty_available = item.qty_full - qty_reserved;
     
     if (product && product.capacity_kg && product.tare_weight_kg) {
       weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
@@ -582,6 +584,8 @@ export function processTruckInventory(inventoryData: any[] | null): any[] {
       product_variant_name: product?.variant_name,
       qty_full: item.qty_full,
       qty_empty: item.qty_empty,
+      qty_reserved: qty_reserved,
+      qty_available: qty_available,
       weight_kg,
       updated_at: item.updated_at
     };

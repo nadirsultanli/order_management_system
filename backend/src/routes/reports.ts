@@ -4,6 +4,15 @@ import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { formatErrorMessage } from '../lib/logger';
 
+// Import output schemas
+import {
+  StockValuationResponseSchema,
+  DepositAnalysisResponseSchema,
+  MarginAnalysisResponseSchema,
+  OperationalKPIsResponseSchema,
+  ReportExportResponseSchema,
+} from '../schemas/output/reports-output';
+
 // ============ INPUT SCHEMAS ============
 
 const DateRangeSchema = z.object({
@@ -125,7 +134,7 @@ export const reportsRouter = router({
       }
     })
     .input(StockValuationReportSchema)
-    .output(z.any())
+    .output(z.unknown())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -311,7 +320,7 @@ export const reportsRouter = router({
       }
     })
     .input(DepositAnalysisReportSchema)
-    .output(z.any())
+    .output(z.unknown())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -479,7 +488,7 @@ export const reportsRouter = router({
       }
     })
     .input(MarginAnalysisReportSchema)
-    .output(z.any())
+    .output(z.unknown())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -676,7 +685,7 @@ export const reportsRouter = router({
       }
     })
     .input(OperationalKPIsReportSchema)
-    .output(z.any())
+    .output(z.unknown())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -940,7 +949,7 @@ export const reportsRouter = router({
     .input(z.object({
       period_days: z.number().min(1).max(365).default(30),
     }))
-    .output(z.any())
+    .output(z.unknown())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

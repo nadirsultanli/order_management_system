@@ -204,9 +204,67 @@ export const AddressValidationOutputSchema = z.object({
   geocode_result: GeocodeOutputSchema.nullable(),
 });
 
+// Delivery window validation response
+export const DeliveryWindowValidationOutputSchema = z.object({
+  valid: z.boolean(),
+  errors: z.array(z.string()),
+  warnings: z.array(z.string()),
+});
+
 // Success response (for delete operations)
 export const SuccessOutputSchema = z.object({
   success: z.boolean(),
+});
+
+// Deposit limit validation response
+export const DepositLimitValidationOutputSchema = z.object({
+  customer_id: z.string().uuid(),
+  within_limit: z.boolean(),
+  current_exposure: z.number().min(0),
+  deposit_limit: z.number().min(0).nullable(),
+  available_limit: z.number().min(0),
+  limit_exceeded_by: z.number().min(0).nullable(),
+  additional_deposit: z.number().min(0),
+  new_total_exposure: z.number().min(0),
+});
+
+// Deposit limit update response
+export const DepositLimitUpdateOutputSchema = z.object({
+  customer: z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    deposit_limit: z.number().min(0).nullable(),
+    current_deposit_exposure: z.number().min(0).nullable(),
+    deposit_limit_alerts_enabled: z.boolean().nullable(),
+  }),
+  updated_at: z.string().datetime(),
+  updated_by: z.string().uuid(),
+  notes: z.string().optional(),
+});
+
+// Deposit analysis response
+export const DepositAnalysisOutputSchema = z.object({
+  analysis: z.any(), // This will be the view data
+  recent_transactions: z.array(z.object({
+    id: z.string().uuid(),
+    transaction_type: z.string(),
+    amount: z.number(),
+    transaction_date: z.string().datetime(),
+    notes: z.string().nullable(),
+    order: z.any().nullable(), // Using any for the order field to match actual data
+  })),
+  active_credits: z.array(z.object({
+    id: z.string().uuid(),
+    quantity: z.number().min(0),
+    quantity_remaining: z.number().min(0),
+    total_credit_amount: z.number().min(0),
+    expected_return_date: z.string().datetime(),
+    return_deadline: z.string().datetime(),
+    damage_status: z.string().nullable(),
+    product: z.any(), // Using any for the product field to match actual data
+  })),
+  currency_code: z.string(),
+  analysis_date: z.string().datetime(),
 });
 
 // Export type helpers

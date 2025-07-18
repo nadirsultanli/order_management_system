@@ -38,7 +38,7 @@ export const warehousesRouter = router({
       }
     })
     .input(WarehouseFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -110,7 +110,7 @@ export const warehousesRouter = router({
       }
     })
     .input(GetWarehouseByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -161,7 +161,7 @@ export const warehousesRouter = router({
       }
     })
     .input(z.void())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -206,7 +206,7 @@ export const warehousesRouter = router({
       } 
     })
     .input(z.void())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ ctx }) => {
       const user = requireAuth(ctx);
       
@@ -251,7 +251,7 @@ export const warehousesRouter = router({
       }
     })
     .input(CreateWarehouseSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -351,7 +351,7 @@ export const warehousesRouter = router({
       }
     })
     .input(UpdateWarehouseSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -490,7 +490,7 @@ export const warehousesRouter = router({
       }
     })
     .input(DeleteWarehouseSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       // START DEBUG LOGGING
       console.log('🔥 DELETE FUNCTION STARTED');

@@ -55,7 +55,7 @@ export const inventoryRouter = router({
       }
     })
     .input(InventoryFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -192,7 +192,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetByWarehouseSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -239,7 +239,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetByProductSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -285,7 +285,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetStatsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -343,7 +343,7 @@ export const inventoryRouter = router({
       }
     })
     .input(StockAdjustmentSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -448,7 +448,7 @@ export const inventoryRouter = router({
       }
     })
     .input(StockTransferSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -728,7 +728,7 @@ export const inventoryRouter = router({
       }
     })
     .input(CreateInventoryBalanceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -847,7 +847,7 @@ export const inventoryRouter = router({
       }
     })
     .input(ReservationSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -970,7 +970,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetMovementsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -996,7 +996,7 @@ export const inventoryRouter = router({
       }
     })
     .input(ValidateAdjustmentSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1139,7 +1139,7 @@ export const inventoryRouter = router({
       }
     })
     .input(GetLowStockSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1230,7 +1230,7 @@ export const inventoryRouter = router({
       }
     })
     .input(CheckAvailabilitySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1310,7 +1310,7 @@ export const inventoryRouter = router({
       }
     })
     .input(CreateReceiptSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       ctx.logger.info('Creating inventory receipt:', input);

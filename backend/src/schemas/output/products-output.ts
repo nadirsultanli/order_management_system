@@ -85,15 +85,34 @@ export const CreateProductResponseSchema = ProductBaseSchema;
 
 export const UpdateProductResponseSchema = ProductBaseSchema;
 
-export const DeleteProductResponseSchema = z.object({
-  success: z.boolean(),
-  product: z.object({
-    id: z.string(),
-    sku: z.string(),
-    name: z.string(),
-    status: z.string(),
+export const DeleteProductResponseSchema = z.union([
+  z.object({
+    success: z.boolean(),
+    product: z.object({
+      id: z.string(),
+      sku: z.string(),
+      name: z.string(),
+      status: z.string(),
+    }),
   }),
-});
+  z.object({
+    success: z.boolean(),
+    parent_product: z.object({
+      id: z.string(),
+      sku: z.string(),
+      name: z.string(),
+      status: z.string(),
+    }),
+    deleted_children: z.array(z.object({
+      id: z.string(),
+      sku: z.string(),
+      name: z.string(),
+      status: z.string(),
+    })),
+    deleted_type: z.string(),
+    children_count: z.number(),
+  }),
+]);
 
 // ============ Product Listing ============
 
@@ -136,17 +155,42 @@ export const BulkStatusUpdateResponseSchema = z.object({
   success: z.boolean(),
   updated_count: z.number(),
   total_requested: z.number(),
-  products: z.array(ProductBaseSchema),
+  products: z.array(z.object({
+    id: z.string(),
+    sku: z.string(),
+    name: z.string(),
+    status: z.string(),
+    parent_products_id: z.string().optional(),
+  })),
   errors: z.array(BulkUpdateErrorSchema).optional(),
   partial_success: z.boolean().optional(),
 });
 
-export const ReactivateProductResponseSchema = z.object({
-  id: z.string(),
-  sku: z.string(),
-  name: z.string(),
-  status: z.string(),
-});
+export const ReactivateProductResponseSchema = z.union([
+  z.object({
+    id: z.string(),
+    sku: z.string(),
+    name: z.string(),
+    status: z.string(),
+  }),
+  z.object({
+    success: z.boolean(),
+    parent_product: z.object({
+      id: z.string(),
+      sku: z.string(),
+      name: z.string(),
+      status: z.string(),
+    }),
+    reactivated_children: z.array(z.object({
+      id: z.string(),
+      sku: z.string(),
+      name: z.string(),
+      status: z.string(),
+    })),
+    reactivated_type: z.string(),
+    children_count: z.number(),
+  }),
+]);
 
 // ============ Product Validation ============
 
@@ -280,6 +324,26 @@ export const GetGroupedProductsResponseSchema = z.object({
 });
 
 export const CreateParentProductResponseSchema = ParentProductSchema;
+
+export const UpdateParentProductResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  status: z.enum(['active', 'obsolete']),
+  sku: z.string(),
+  description: z.string().optional(),
+  capacity_kg: z.number().optional(),
+  tare_weight_kg: z.number().optional(),
+  valve_type: z.string().optional(),
+  gross_weight_kg: z.number().optional(),
+  children_updated: z.number(),
+  updated_children: z.array(z.object({
+    id: z.string(),
+    sku: z.string(),
+    name: z.string(),
+    sku_variant: z.string(),
+    status: z.string(),
+  })),
+});
 
 export const GetSkuVariantsResponseSchema = z.object({
   variants: z.array(z.object({

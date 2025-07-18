@@ -3,12 +3,34 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
+// Import output schemas
+import {
+  DashboardStatsResponseSchema,
+  RevenueAnalyticsResponseSchema,
+  OrderAnalyticsResponseSchema,
+  CustomerAnalyticsResponseSchema,
+  InventoryAnalyticsResponseSchema,
+  ComprehensiveOrderAnalyticsResponseSchema,
+  OrderStatsResponseSchema,
+} from '../schemas/output/analytics-output';
+
 export const analyticsRouter = router({
   // GET /dashboard/stats - Get dashboard statistics
     getDashboardStats: protectedProcedure
+      .meta({
+        openapi: {
+          method: 'GET',
+          path: '/dashboard/stats',
+          tags: ['analytics'],
+          summary: 'Get dashboard statistics',
+          description: 'Retrieve dashboard statistics for the specified period.',
+          protect: true,
+        }
+      })
       .input(z.object({
         period: z.enum(['today', 'week', 'month', 'quarter', 'year']).default('month'),
       }))
+      .output(z.any())
       .query(async ({ input, ctx }) => {
         const user = requireAuth(ctx);
         
@@ -140,10 +162,21 @@ export const analyticsRouter = router({
       }),
   // GET /analytics/revenue - Get revenue analytics
   getRevenueAnalytics: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/analytics/revenue',
+        tags: ['analytics'],
+        summary: 'Get revenue analytics',
+        description: 'Retrieve revenue analytics for the specified period.',
+        protect: true,
+      }
+    })
     .input(z.object({
       period: z.enum(['week', 'month', 'quarter', 'year']).default('month'),
       breakdown_by: z.enum(['day', 'week', 'month']).default('day'),
     }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -227,10 +260,21 @@ export const analyticsRouter = router({
 
   // GET /analytics/orders - Get order analytics
   getOrderAnalytics: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/analytics/orders',
+        tags: ['analytics'],
+        summary: 'Get order analytics',
+        description: 'Retrieve order analytics for the specified period.',
+        protect: true,
+      }
+    })
     .input(z.object({
       period: z.enum(['week', 'month', 'quarter', 'year']).default('month'),
       group_by: z.enum(['status', 'customer', 'product']).optional(),
     }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -338,10 +382,21 @@ export const analyticsRouter = router({
 
   // GET /analytics/customers - Get customer analytics
   getCustomerAnalytics: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/analytics/customers',
+        tags: ['analytics'],
+        summary: 'Get customer analytics',
+        description: 'Retrieve customer analytics for the specified period.',
+        protect: true,
+      }
+    })
     .input(z.object({
       period: z.enum(['week', 'month', 'quarter', 'year']).default('month'),
       breakdown_by: z.enum(['new', 'returning', 'top_spending']).default('new'),
     }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -496,10 +551,21 @@ export const analyticsRouter = router({
 
   // GET /analytics/inventory - Get inventory analytics
   getInventoryAnalytics: protectedProcedure
-  .input(z.object({
-    warehouse_id: z.string().uuid().optional(),
-  }))
-  .query(async ({ input, ctx }) => {
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/analytics/inventory',
+        tags: ['analytics'],
+        summary: 'Get inventory analytics',
+        description: 'Retrieve inventory analytics.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      warehouse_id: z.string().uuid().optional(),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
     const user = requireAuth(ctx);
     
     ctx.logger.info('Fetching inventory analytics:', input);
@@ -594,10 +660,21 @@ export const analyticsRouter = router({
 
   // GET /analytics/comprehensive-order-analytics - Complete order analytics for reports
   getComprehensiveOrderAnalytics: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/analytics/comprehensive-order-analytics',
+        tags: ['analytics'],
+        summary: 'Get comprehensive order analytics',
+        description: 'Retrieve comprehensive order analytics for reports.',
+        protect: true,
+      }
+    })
     .input(z.object({
       start_date: z.string(),
       end_date: z.string(),
     }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -805,9 +882,20 @@ export const analyticsRouter = router({
 
   // GET /analytics/order-stats - Order statistics for dashboard
   getOrderStats: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/analytics/order-stats',
+        tags: ['analytics'],
+        summary: 'Get order statistics',
+        description: 'Retrieve order statistics for dashboard.',
+        protect: true,
+      }
+    })
     .input(z.object({
       period: z.enum(['today', 'week', 'month', 'quarter', 'year']).default('month'),
     }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

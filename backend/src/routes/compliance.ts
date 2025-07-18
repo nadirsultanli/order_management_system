@@ -3,6 +3,17 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 
+// Import output schemas
+import {
+  ComplianceAlertsResponseSchema,
+  ComplianceDashboardResponseSchema,
+  CreateComplianceAlertResponseSchema,
+  UpdateComplianceAlertResponseSchema,
+  CylinderComplianceUpdateResponseSchema,
+  GenerateAlertsResponseSchema,
+  OverdueComplianceReportResponseSchema,
+} from '../schemas/output/compliance-output';
+
 // Input schemas
 const ComplianceFiltersSchema = z.object({
   cylinder_asset_id: z.string().uuid().optional(),
@@ -126,7 +137,26 @@ export const complianceRouter = router({
       }
 
       return {
-        alerts: data || [],
+        alerts: (data || []).map(alert => ({
+          id: alert.id,
+          cylinder_asset_id: alert.cylinder_asset_id,
+          alert_type: alert.alert_type,
+          alert_priority: alert.alert_priority,
+          alert_message: alert.alert_message,
+          status: alert.status,
+          due_date: alert.due_date,
+          escalation_date: alert.escalation_date,
+          created_at: alert.created_at,
+          resolved_at: alert.resolved_at,
+          cylinder_asset: alert.cylinder_asset && Array.isArray(alert.cylinder_asset) && alert.cylinder_asset.length > 0 ? {
+            id: alert.cylinder_asset[0].id,
+            serial_number: alert.cylinder_asset[0].serial_number,
+            current_condition: alert.cylinder_asset[0].current_condition,
+            regulatory_status: alert.cylinder_asset[0].regulatory_status,
+            product: alert.cylinder_asset[0].product && Array.isArray(alert.cylinder_asset[0].product) && alert.cylinder_asset[0].product.length > 0 ? alert.cylinder_asset[0].product[0] : null,
+            warehouse: alert.cylinder_asset[0].warehouse && Array.isArray(alert.cylinder_asset[0].warehouse) && alert.cylinder_asset[0].warehouse.length > 0 ? alert.cylinder_asset[0].warehouse[0] : null,
+          } : null,
+        })),
         totalCount: count || 0,
         totalPages: Math.ceil((count || 0) / input.limit),
         currentPage: input.page,

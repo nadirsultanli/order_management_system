@@ -2356,8 +2356,8 @@ export const ordersRouter = router({
       protect: true,
     }
   })
-  .input(ConvertVisitToDeliverySchema)
-  .output(z.any())
+      .input(ConvertVisitToDeliverySchema)
+    .output(z.any())
   .mutation(async ({ input, ctx }) => {
     const user = requireAuth(ctx);
     

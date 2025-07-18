@@ -59,7 +59,7 @@ export const paymentsRouter = router({
       }
     })
     .input(RecordPaymentSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -328,7 +328,7 @@ export const paymentsRouter = router({
             }
             })
             .input(InitiateMpesaPaymentSchema)
-            .output(z.any()) // ✅ No validation headaches!
+            .output(z.any())
             .mutation(async ({ input, ctx }) => {
             const user = requireAuth(ctx);
             
@@ -461,7 +461,7 @@ export const paymentsRouter = router({
       }
     })
     .input(PaymentSummaryFiltersSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -508,7 +508,7 @@ export const paymentsRouter = router({
       }
     })
     .input(OverdueOrdersFiltersSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -579,7 +579,7 @@ export const paymentsRouter = router({
       }
     })
     .input(PaymentFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -718,7 +718,7 @@ export const paymentsRouter = router({
       }
     })
     .input(GetPaymentByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -770,7 +770,7 @@ export const paymentsRouter = router({
       }
     })
     .input(GetPaymentsByOrderSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -860,7 +860,7 @@ export const paymentsRouter = router({
       }
     })
     .input(UpdatePaymentStatusSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -940,7 +940,7 @@ export const paymentsRouter = router({
       }
     })
     .input(ManualStatusCheckSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       ctx.logger.info('Manual M-Pesa status check for:', input.checkout_request_id);
