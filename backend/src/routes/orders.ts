@@ -771,6 +771,7 @@ export const ordersRouter = router({
             status: 'draft' as const,
             order_date: input.order_date || new Date().toISOString().split('T')[0],
             total_amount: 0, // Visit orders start with 0 amount
+            tax_percent: 16, // Default 16% VAT
             created_by_user_id: user.id,
             // Order type fields
             order_type: input.order_type,
@@ -1130,6 +1131,7 @@ export const ordersRouter = router({
           status: 'draft' as const,
           order_date: input.order_date || new Date().toISOString().split('T')[0],
           total_amount: totalAmount,
+          tax_percent: 16, // Default 16% VAT
           created_by_user_id: user.id,
           // Order type fields
           order_type: input.order_type,
@@ -2668,8 +2670,8 @@ async function calculateOrderTotal(ctx: any, orderId: string) {
       return sum + lineSubtotal;
     }, 0);
     
-    // Calculate deposit total
-    const depositTotal = lines.reduce((sum: number, line: any) => sum + (line.deposit_amount || 0), 0);
+    // Calculate deposit total (multiply per-unit deposit by quantity)
+    const depositTotal = lines.reduce((sum: number, line: any) => sum + ((line.deposit_amount || 0) * line.quantity), 0);
     // Calculate tax based on current subtotal and tax percentage
     const taxPercent = order?.tax_percent || 0;
     const taxAmount = subtotal * (taxPercent / 100);
@@ -2771,7 +2773,7 @@ async function updateOrderTax(ctx: any, orderId: string, taxPercent: number) {
     }, 0);
     
     const depositTotal = lines.reduce((sum: number, line: any) => {
-      return sum + (line.deposit_amount || 0);
+      return sum + ((line.deposit_amount || 0) * line.quantity);
     }, 0);
     
     const taxAmount = subtotal * (taxPercent / 100);
