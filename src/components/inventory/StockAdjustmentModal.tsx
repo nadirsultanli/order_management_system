@@ -38,35 +38,7 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
   const qtyFullChange = watch('qty_full_change') || 0;
   const qtyEmptyChange = watch('qty_empty_change') || 0;
 
-  const validateAdjustment = async (data: {
-    inventory_id: string;
-    qty_full_change: number;
-    qty_empty_change: number;
-    adjustment_type: string;
-  }) => {
-    try {
-      const result = await (trpc as any).inventory.validateAdjustment.query({
-        inventory_id: data.inventory_id,
-        qty_full_change: data.qty_full_change,
-        qty_empty_change: data.qty_empty_change,
-        adjustment_type: data.adjustment_type as 'received_full' | 'received_empty' | 'physical_count' | 'damage_loss' | 'other',
-      });
-      
-      if (!result.valid) {
-        return result.errors[0] || 'Stock adjustment validation failed';
-      }
-      
-      // Show warnings as info (but don't block validation)
-      if (result.warnings.length > 0) {
-        console.warn('Stock adjustment warnings:', result.warnings);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Stock adjustment validation error:', error);
-      return 'Failed to validate stock adjustment';
-    }
-  };
+
 
   useEffect(() => {
     if (inventory) {
@@ -82,21 +54,6 @@ export const StockAdjustmentModal: React.FC<StockAdjustmentModalProps> = ({
 
   const handleFormSubmit = async (data: StockAdjustmentData) => {
     try {
-      // Attempt backend validation; ignore if not available
-      try {
-        const adjustmentValidation = await validateAdjustment({
-          inventory_id: data.inventory_id,
-          qty_full_change: data.qty_full_change,
-          qty_empty_change: data.qty_empty_change,
-          adjustment_type: data.adjustment_type,
-        });
-        if (adjustmentValidation !== true) {
-          return;
-        }
-      } catch (e) {
-        console.warn('Validation service unavailable, proceeding without remote validation');
-      }
-
       onSubmit(data);
     } catch (error) {
       console.error('Form validation error:', error);
