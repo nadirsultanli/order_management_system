@@ -517,7 +517,7 @@ export const usersRouter = router({
         path: '/users/{user_id}',
         tags: ['users'],
         summary: 'Get user by ID',
-        description: 'Get a single user by their ID',
+        description: 'Get detailed information about a user',
         protect: true,
       }
     })
@@ -559,7 +559,7 @@ export const usersRouter = router({
         path: '/users/{id}',
         tags: ['users'],
         summary: 'Update user',
-        description: 'Update user information',
+        description: 'Update user details',
         protect: true,
       }
     })
@@ -632,7 +632,7 @@ export const usersRouter = router({
         path: '/users/{user_id}',
         tags: ['users'],
         summary: 'Delete user',
-        description: 'Delete or deactivate a user account',
+        description: 'Delete a user',
         protect: true,
       }
     })
@@ -693,7 +693,7 @@ export const usersRouter = router({
         path: '/users/{user_id}/change-password',
         tags: ['users'],
         summary: 'Change user password',
-        description: 'Change password for a user',
+        description: 'Change the password for a user',
         protect: true,
       }
     })

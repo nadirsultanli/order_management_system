@@ -199,6 +199,33 @@ export const TripCapacityResponseSchema = z.object({
 
 export const CreateTripResponseSchema = TripSchema;
 
+export const StartTripLoadingResponseSchema = z.object({
+  success: z.boolean(),
+  trip: TripSchema,
+  required_products: z.number(),
+  message: z.string(),
+});
+
+export const CompleteTripLoadingResponseSchema = z.object({
+  success: z.boolean(),
+  trip: TripSchema,
+  loading_summary: z.any(),
+  loading_details: z.array(TripLoadingDetailSchema),
+  validation_warnings: z.array(z.string()).nullable(),
+  forced_completion: z.boolean(),
+  message: z.string(),
+});
+
+export const AvailableOrdersResponseSchema = z.object({
+  orders: z.array(z.any()),
+  pagination: z.object({
+    total: z.number(),
+    limit: z.number(),
+    offset: z.number(),
+    hasMore: z.boolean(),
+  }),
+});
+
 export const UpdateTripStatusResponseSchema = z.object({
   success: z.boolean(),
   trip: TripSchema,

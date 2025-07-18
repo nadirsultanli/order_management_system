@@ -309,7 +309,16 @@ export const accessoriesRouter = router({
         }
 
         return {
-          accessories: data || [],
+          accessories: (data || []).map(item => ({
+            id: item.id,
+            name: item.name,
+            sku: item.sku,
+            price: item.price,
+            category: item.category && Array.isArray(item.category) && item.category.length > 0 ? {
+              id: item.category[0].id,
+              name: item.category[0].name,
+            } : null,
+          })),
         };
       } catch (error) {
         ctx.logger.error('Error in accessories options query:', error);

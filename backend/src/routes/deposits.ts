@@ -47,6 +47,7 @@ import {
   OutstandingDepositsReportResponseSchema,
   AdjustCustomerDepositResponseSchema,
   DepositAuditTrailResponseSchema,
+  DepositTransactionSchema,
 } from '../schemas/output/deposits-output';
 
 export const depositsRouter = router({
@@ -1736,7 +1737,7 @@ export const depositsRouter = router({
           currency_code: input.currency_code,
           transaction_date: new Date().toISOString(),
           notes: input.reason,
-          reference_number: input.reference_number,
+          reference_number: input.reference_number || null,
           created_by: user.id,
           approved_by: input.approved_by || user.id,
           is_voided: false,
@@ -1764,7 +1765,7 @@ export const depositsRouter = router({
         previous_balance: previousBalance,
         new_balance: newBalance,
         reason: input.reason,
-        reference_number: input.reference_number,
+        reference_number: input.reference_number || null,
         created_at: transaction.transaction_date,
         created_by: user.id,
       };
@@ -2607,6 +2608,7 @@ export const depositsRouter = router({
         currency_code: 'KES',
         new_balance: 0,
         cylinders_charged: [],
+        order_id: null,
         created_at: new Date().toISOString(),
       };
     }),
@@ -2625,6 +2627,7 @@ export const depositsRouter = router({
         new_balance: 0,
         cylinders_refunded: [],
         refund_method: input.refund_method,
+        order_id: null,
         created_at: new Date().toISOString(),
       };
     }),
@@ -2666,6 +2669,7 @@ export const depositsRouter = router({
         previous_balance: 0,
         new_balance: input.adjustment_amount,
         reason: input.reason,
+        reference_number: null,
         created_at: new Date().toISOString(),
         created_by: user.id,
       };

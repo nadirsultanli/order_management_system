@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server';
+import { TruckReservationService } from './truck-reservation';
 
 export interface OrderAllocationRequest {
   order_id: string;
@@ -276,6 +277,20 @@ export class OrderAllocationService {
         }
       }
 
+      // Get order lines for inventory reservation
+      const { data: orderLines, error: linesError } = await this.supabase
+        .from('order_lines')
+        .select('product_id, quantity')
+        .eq('order_id', request.order_id);
+
+      if (linesError) {
+        this.logger.error('Error fetching order lines:', linesError);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch order lines for inventory reservation',
+        });
+      }
+
       // Create truck allocation
       const allocationData = {
         truck_id,
@@ -289,7 +304,7 @@ export class OrderAllocationService {
         updated_at: new Date().toISOString(),
       };
 
-      const { data, error } = await this.supabase
+      const { data: allocation, error } = await this.supabase
         .from('truck_allocations')
         .insert([allocationData])
         .select()
@@ -303,23 +318,57 @@ export class OrderAllocationService {
         });
       }
 
-      // Update order with truck assignment
-      const { error: orderUpdateError } = await this.supabase
-        .from('orders')
-        .update({
-          assigned_truck_id: truck_id,
-          truck_assigned_date: request.allocation_date,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', request.order_id);
+      // Reserve inventory on truck for each order line
+      const reservationService = new TruckReservationService(this.supabase, this.logger);
+      const reservationResults = [];
 
-      if (orderUpdateError) {
-        this.logger.error('Error updating order with truck assignment:', orderUpdateError);
-        // Don't throw here as allocation was created successfully
+      try {
+        for (const line of orderLines || []) {
+          const reservationResult = await reservationService.reserveInventory({
+            truck_id,
+            product_id: line.product_id,
+            quantity: line.quantity,
+            order_id: request.order_id,
+            user_id,
+          });
+          reservationResults.push(reservationResult);
+        }
+
+        // Update order with truck assignment
+        const { error: orderUpdateError } = await this.supabase
+          .from('orders')
+          .update({
+            assigned_truck_id: truck_id,
+            truck_assigned_date: request.allocation_date,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', request.order_id);
+
+        if (orderUpdateError) {
+          this.logger.error('Error updating order with truck assignment:', orderUpdateError);
+          // Don't throw here as allocation was created successfully
+        }
+
+        this.logger.info(`Order ${request.order_id} allocated to truck ${truck_id} with ${reservationResults.length} inventory reservations`);
+        return {
+          ...allocation,
+          reservations: reservationResults,
+        };
+
+      } catch (reservationError) {
+        // If reservation fails, rollback the allocation
+        this.logger.error('Reservation failed, rolling back allocation:', reservationError);
+        
+        await this.supabase
+          .from('truck_allocations')
+          .delete()
+          .eq('id', allocation.id);
+
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Failed to reserve inventory on truck: ${reservationError instanceof Error ? reservationError.message : 'Unknown error'}`,
+        });
       }
-
-      this.logger.info(`Order ${request.order_id} allocated to truck ${truck_id} for ${request.allocation_date}`);
-      return data;
     } catch (error) {
       this.logger.error('Error allocating order:', error);
       throw error;
@@ -334,7 +383,7 @@ export class OrderAllocationService {
       // Get allocation details first
       const { data: allocation, error: getAllocError } = await this.supabase
         .from('truck_allocations')
-        .select('order_id')
+        .select('order_id, truck_id')
         .eq('id', allocation_id)
         .single();
 
@@ -343,6 +392,36 @@ export class OrderAllocationService {
           code: 'NOT_FOUND',
           message: 'Truck allocation not found',
         });
+      }
+
+      // Get order lines to release reservations
+      const { data: orderLines, error: linesError } = await this.supabase
+        .from('order_lines')
+        .select('product_id, quantity')
+        .eq('order_id', allocation.order_id);
+
+      if (linesError) {
+        this.logger.error('Error fetching order lines for reservation release:', linesError);
+        // Continue with allocation removal even if we can't release reservations
+      }
+
+      // Release inventory reservations
+      if (orderLines && orderLines.length > 0) {
+        const reservationService = new TruckReservationService(this.supabase, this.logger);
+        
+        for (const line of orderLines) {
+          try {
+            await reservationService.releaseReservation(
+              allocation.truck_id,
+              line.product_id,
+              line.quantity,
+              allocation.order_id
+            );
+          } catch (releaseError) {
+            this.logger.error('Error releasing reservation:', releaseError);
+            // Continue with other releases even if one fails
+          }
+        }
       }
 
       // Remove allocation
@@ -372,7 +451,7 @@ export class OrderAllocationService {
         this.logger.error('Error updating order after removing allocation:', orderUpdateError);
       }
 
-      this.logger.info(`Truck allocation ${allocation_id} removed`);
+      this.logger.info(`Truck allocation ${allocation_id} removed with reservation releases`);
     } catch (error) {
       this.logger.error('Error removing allocation:', error);
       throw error;

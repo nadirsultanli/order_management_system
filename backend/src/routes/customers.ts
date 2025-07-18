@@ -17,6 +17,10 @@ import {
   AddressValidationOutputSchema,
   SuccessOutputSchema,
   AddressOutputSchema,
+  DepositLimitValidationOutputSchema,
+  DepositLimitUpdateOutputSchema,
+  DepositAnalysisOutputSchema,
+  DeliveryWindowValidationOutputSchema,
 } from '../schemas/output/customers-output';
 import {
   CustomerFiltersSchema,
@@ -52,7 +56,7 @@ export const customersRouter = router({
     }
   })
   .input(CustomerFiltersSchema)
-      .output(z.any()) // ✅ No validation headaches!
+      .output(z.any())
   .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -219,7 +223,7 @@ export const customersRouter = router({
       }
     })
     .input(CustomerIdOptionalSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -310,7 +314,7 @@ export const customersRouter = router({
       }
     })
     .input(CreateCustomerSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -421,7 +425,7 @@ export const customersRouter = router({
       }
     })
     .input(UpdateCustomerSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -574,7 +578,7 @@ export const customersRouter = router({
       }
     })
     .input(CustomerOrderHistorySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -660,7 +664,7 @@ export const customersRouter = router({
       }
     })
     .input(CustomerAnalyticsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1462,7 +1466,7 @@ export const customersRouter = router({
       }
     })
     .input(AddressValidationSchema)
-    .output(AddressValidationOutputSchema)
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

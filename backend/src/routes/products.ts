@@ -67,9 +67,11 @@ import {
   GeneratedSkuResponseSchema,
   CreateVariantDataResponseSchema,
   CreateParentProductResponseSchema,
+  UpdateParentProductResponseSchema,
   GetGroupedProductsResponseSchema,
   GetSkuVariantsResponseSchema,
   ListParentProductsResponseSchema,
+  ParentProductSchema,
 } from '../schemas/output/products-output';
 
 
@@ -87,7 +89,7 @@ export const productsRouter = router({
       }
     })
     .input(ProductFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       try {
         const user = requireAuth(ctx);

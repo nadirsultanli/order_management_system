@@ -30,6 +30,8 @@ export const TruckInventoryItemSchema = z.object({
   product_variant_name: z.string().nullable(),
   qty_full: z.number(),
   qty_empty: z.number(),
+  qty_reserved: z.number(),
+  qty_available: z.number(),
 });
 
 export const TruckInventoryDetailSchema = z.object({
@@ -37,6 +39,8 @@ export const TruckInventoryDetailSchema = z.object({
   product_id: z.string(),
   qty_full: z.number(),
   qty_empty: z.number(),
+  qty_reserved: z.number(),
+  qty_available: z.number(),
   total_cylinders: z.number(),
   weight_kg: z.number(),
   updated_at: z.string(),
@@ -48,7 +52,7 @@ export const DriverSchema = z.object({
   name: z.string().nullable(),
   email: z.string().nullable(),
   phone: z.string().nullable(),
-}).optional();
+}).nullable();
 
 export const TruckSchema = z.object({
   id: z.string(),
@@ -57,7 +61,7 @@ export const TruckSchema = z.object({
   capacity_cylinders: z.number(),
   capacity_kg: z.number(),
   driver_id: z.string().uuid().nullable().optional(),
-  driver: DriverSchema,
+  driver: DriverSchema.nullable(),
   active: z.boolean(),
   status: z.string(),
   last_maintenance_date: z.string().nullable().optional(),
@@ -106,6 +110,8 @@ export const TruckDetailResponseSchema = TruckSchema.extend({
     product_variant_name: z.string().nullable(),
     qty_full: z.number(),
     qty_empty: z.number(),
+    qty_reserved: z.number(),
+    qty_available: z.number(),
     weight_kg: z.number(),
     updated_at: z.string(),
   })),
@@ -296,6 +302,8 @@ export const TruckInventoryResponseSchema = z.object({
     total_products: z.number(),
     total_full_cylinders: z.number(),
     total_empty_cylinders: z.number(),
+    total_reserved_cylinders: z.number(),
+    total_available_cylinders: z.number(),
     total_cylinders: z.number(),
     total_weight_kg: z.number(),
     capacity_utilization_percent: z.number(),
@@ -606,3 +614,60 @@ export const CompleteTripResponseSchema = z.object({
   })).optional(),
   message: z.string().optional(),
 }); 
+
+// ============ Truck Loading Capacity Validation ============
+
+export const ValidateLoadingCapacityResponseSchema = z.object({
+  is_valid: z.boolean(),
+  warnings: z.array(z.string()),
+  errors: z.array(z.string()),
+  capacity_check: z.object({
+    current_cylinders: z.number(),
+    cylinders_to_add: z.number(),
+    total_cylinders_after: z.number(),
+    cylinder_capacity: z.number(),
+    cylinder_overflow: z.number(),
+    current_weight_kg: z.number(),
+    weight_to_add_kg: z.number(),
+    total_weight_after_kg: z.number(),
+    weight_capacity_kg: z.number(),
+    weight_overflow_kg: z.number(),
+  }),
+  truck: z.object({
+    id: z.string(),
+    fleet_number: z.string(),
+    license_plate: z.string(),
+    capacity_cylinders: z.number(),
+    capacity_kg: z.number(),
+  }),
+});
+
+// ============ Truck Reservation Schemas ============
+
+export const ReserveInventoryResponseSchema = z.object({
+  success: z.boolean(),
+  truck_id: z.string(),
+  product_id: z.string(),
+  quantity_reserved: z.number(),
+  total_reserved: z.number(),
+  available_remaining: z.number(),
+  order_id: z.string(),
+  timestamp: z.string(),
+});
+
+export const ReleaseReservationResponseSchema = z.object({
+  success: z.boolean(),
+  truck_id: z.string(),
+  product_id: z.string(),
+  quantity_reserved: z.number(),
+  total_reserved: z.number(),
+  available_remaining: z.number(),
+  order_id: z.string(),
+  timestamp: z.string(),
+});
+
+export const CheckAvailabilityResponseSchema = z.object({
+  available: z.boolean(),
+  available_qty: z.number(),
+  reserved_qty: z.number(),
+});

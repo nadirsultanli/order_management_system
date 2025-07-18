@@ -3,6 +3,7 @@ import { router, protectedProcedure } from '../lib/trpc';
 import { requireAuth } from '../lib/auth';
 import { TRPCError } from '@trpc/server';
 import { formatErrorMessage } from '../lib/logger';
+import { TruckReservationService } from '../lib/truck-reservation';
 
 // Import input schemas
 import {
@@ -57,6 +58,10 @@ import {
   LoadInventoryResponseSchema,
   UnloadInventoryResponseSchema,
   TruckInventoryResponseSchema,
+  ValidateLoadingCapacityResponseSchema,
+  ReserveInventoryResponseSchema,
+  ReleaseReservationResponseSchema,
+  CheckAvailabilityResponseSchema,
 } from '../schemas/output/trucks-output';
 
 import {
@@ -97,7 +102,7 @@ export const trucksRouter = router({
       }
     })
     .input(TruckFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -172,6 +177,7 @@ export const trucksRouter = router({
           product_id,
           qty_full,
           qty_empty,
+          qty_reserved,
           product:product_id (
             name,
             sku,
@@ -185,6 +191,9 @@ export const trucksRouter = router({
         if (!acc[item.truck_id]) {
           acc[item.truck_id] = [];
         }
+        const qty_reserved = item.qty_reserved || 0;
+        const qty_available = item.qty_full - qty_reserved;
+        
         acc[item.truck_id].push({
           product_id: item.product_id,
           product_name: item.product?.name || 'Unknown Product',
@@ -192,6 +201,8 @@ export const trucksRouter = router({
           product_variant_name: item.product?.variant_name,
           qty_full: item.qty_full,
           qty_empty: item.qty_empty,
+          qty_reserved: qty_reserved,
+          qty_available: qty_available,
         });
         return acc;
       }, {});
@@ -225,7 +236,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetTruckByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -304,7 +315,7 @@ export const trucksRouter = router({
       }
     })
     .input(CreateTruckSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -361,7 +372,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateTruckSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -414,7 +425,7 @@ export const trucksRouter = router({
       }
     })
     .input(DeleteTruckSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -457,7 +468,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetAllocationsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -502,22 +513,42 @@ export const trucksRouter = router({
         path: '/trucks/allocations',
         tags: ['trucks'],
         summary: 'Allocate order to truck',
-        description: 'Assign an order to a specific truck with estimated weight and delivery sequence information.',
+        description: 'Assign an order to a specific truck with estimated weight and delivery sequence information. Automatically reserves inventory on the truck.',
         protect: true,
       }
     })
     .input(TruckAllocationSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
       ctx.logger.info('Creating truck allocation:', input);
       
-      const { data, error } = await ctx.supabase
+      // First, get order details to reserve inventory
+      const { data: order, error: orderError } = await ctx.supabase
+        .from('orders')
+        .select(`
+          id,
+          order_lines (
+            product_id,
+            quantity
+          )
+        `)
+        .eq('id', input.order_id)
+        .single();
+
+      if (orderError || !order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found',
+        });
+      }
+
+      // Create truck allocation
+      const { data: allocation, error } = await ctx.supabase
         .from('truck_allocations')
         .insert([{
           ...input,
-          
           status: 'planned',
           created_at: new Date().toISOString(),
         }])
@@ -539,7 +570,48 @@ export const trucksRouter = router({
         });
       }
 
-      return data;
+      // Reserve inventory on truck for each order line
+      const reservationService = new TruckReservationService(ctx.supabase, ctx.logger);
+      const reservationResults = [];
+
+      try {
+        for (const line of order.order_lines || []) {
+          const reservationResult = await reservationService.reserveInventory({
+            truck_id: input.truck_id,
+            product_id: line.product_id,
+            quantity: line.quantity,
+            order_id: input.order_id,
+            user_id: user.id,
+          });
+          reservationResults.push(reservationResult);
+        }
+
+        ctx.logger.info('Truck allocation and inventory reservations completed:', {
+          allocation_id: allocation.id,
+          order_id: input.order_id,
+          truck_id: input.truck_id,
+          reservations_count: reservationResults.length,
+        });
+
+        return {
+          ...allocation,
+          reservations: reservationResults,
+        };
+
+      } catch (reservationError) {
+        // If reservation fails, rollback the allocation
+        ctx.logger.error('Reservation failed, rolling back allocation:', reservationError);
+        
+        await ctx.supabase
+          .from('truck_allocations')
+          .delete()
+          .eq('id', allocation.id);
+
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Failed to reserve inventory on truck: ${reservationError instanceof Error ? reservationError.message : 'Unknown error'}`,
+        });
+      }
     }),
 
   // PUT /trucks/allocations/:id - Update allocation
@@ -555,7 +627,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateTruckAllocationSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -603,7 +675,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetRoutesSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -653,7 +725,7 @@ export const trucksRouter = router({
       }
     })
     .input(CreateTruckRouteSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -702,7 +774,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateTruckRouteSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -753,7 +825,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetMaintenanceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -800,7 +872,7 @@ export const trucksRouter = router({
       }
     })
     .input(CreateMaintenanceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -849,7 +921,7 @@ export const trucksRouter = router({
       }
     })
     .input(UpdateMaintenanceSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -900,7 +972,7 @@ export const trucksRouter = router({
       }
     })
     .input(CalculateOrderWeightSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -947,7 +1019,7 @@ export const trucksRouter = router({
       }
     })
     .input(CalculateCapacitySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1040,7 +1112,7 @@ export const trucksRouter = router({
       }
     })
     .input(FindBestAllocationSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1214,7 +1286,7 @@ export const trucksRouter = router({
     //   }
     // })
     .input(GenerateScheduleSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1306,7 +1378,7 @@ export const trucksRouter = router({
       }
     })
     .input(OptimizeAllocationsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1502,7 +1574,7 @@ export const trucksRouter = router({
       }
     })
     .input(LoadInventorySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
         const user = requireAuth(ctx);
       
@@ -1857,7 +1929,7 @@ export const trucksRouter = router({
       }
     })
     .input(UnloadInventorySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1986,7 +2058,7 @@ export const trucksRouter = router({
       }
     })
     .input(GetInventorySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2021,6 +2093,7 @@ export const trucksRouter = router({
             product_id,
             qty_full,
             qty_empty,
+            qty_reserved,
             created_at,
             updated_at,
             product:product_id (
@@ -2040,6 +2113,7 @@ export const trucksRouter = router({
             product_id,
             qty_full,
             qty_empty,
+            qty_reserved,
             created_at,
             updated_at
           `
@@ -2066,6 +2140,8 @@ export const trucksRouter = router({
         const product = item.product;
         let weight_kg = 0;
         let total_cylinders = item.qty_full + item.qty_empty;
+        const qty_reserved = item.qty_reserved || 0;
+        const qty_available = item.qty_full - qty_reserved;
         
         if (product && product.capacity_kg && product.tare_weight_kg) {
           weight_kg = (item.qty_full * (product.capacity_kg + product.tare_weight_kg)) +
@@ -2077,6 +2153,8 @@ export const trucksRouter = router({
           product_id: item.product_id,
           qty_full: item.qty_full,
           qty_empty: item.qty_empty,
+          qty_reserved: qty_reserved,
+          qty_available: qty_available,
           total_cylinders,
           weight_kg,
           updated_at: item.updated_at
@@ -2101,6 +2179,8 @@ export const trucksRouter = router({
       // Calculate summary statistics
       const totalFullCylinders = inventory.reduce((sum, item) => sum + item.qty_full, 0);
       const totalEmptyCylinders = inventory.reduce((sum, item) => sum + item.qty_empty, 0);
+      const totalReservedCylinders = inventory.reduce((sum, item) => sum + item.qty_reserved, 0);
+      const totalAvailableCylinders = inventory.reduce((sum, item) => sum + item.qty_available, 0);
       const totalCylinders = totalFullCylinders + totalEmptyCylinders;
       const totalWeightKg = inventory.reduce((sum, item) => sum + item.weight_kg, 0);
       const capacityUtilization = truck.capacity_cylinders > 0 
@@ -2121,6 +2201,8 @@ export const trucksRouter = router({
           total_products: inventory.length,
           total_full_cylinders: totalFullCylinders,
           total_empty_cylinders: totalEmptyCylinders,
+          total_reserved_cylinders: totalReservedCylinders,
+          total_available_cylinders: totalAvailableCylinders,
           total_cylinders: totalCylinders,
           total_weight_kg: Math.round(totalWeightKg * 100) / 100, // Round to 2 decimal places
           capacity_utilization_percent: Math.round(capacityUtilization * 100) / 100,
@@ -2138,6 +2220,126 @@ export const trucksRouter = router({
       });
 
       return result;
+    }),
+
+  // POST /trucks/{truck_id}/reserve - Reserve inventory on truck
+  reserveInventory: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/{truck_id}/reserve',
+        tags: ['trucks'],
+        summary: 'Reserve inventory on truck',
+        description: 'Reserve specific quantity of inventory on a truck for an order.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      product_id: z.string().uuid(),
+      quantity: z.number().positive(),
+      order_id: z.string().uuid(),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Reserving truck inventory:', input);
+      
+      const reservationService = new TruckReservationService(ctx.supabase, ctx.logger);
+      
+      try {
+        const result = await reservationService.reserveInventory({
+          ...input,
+          user_id: user.id,
+        });
+        
+        return result;
+      } catch (error) {
+        ctx.logger.error('Error reserving truck inventory:', error);
+        throw error;
+      }
+    }),
+
+  // POST /trucks/{truck_id}/release - Release reserved inventory on truck
+  releaseReservation: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trucks/{truck_id}/release',
+        tags: ['trucks'],
+        summary: 'Release reserved inventory on truck',
+        description: 'Release previously reserved inventory on a truck.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      product_id: z.string().uuid(),
+      quantity: z.number().positive(),
+      order_id: z.string().uuid(),
+    }))
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Releasing truck inventory reservation:', input);
+      
+      const reservationService = new TruckReservationService(ctx.supabase, ctx.logger);
+      
+      try {
+        const result = await reservationService.releaseReservation(
+          input.truck_id,
+          input.product_id,
+          input.quantity,
+          input.order_id,
+          user.id
+        );
+        
+        return result;
+      } catch (error) {
+        ctx.logger.error('Error releasing truck inventory reservation:', error);
+        throw error;
+      }
+    }),
+
+  // GET /trucks/{truck_id}/availability - Check truck inventory availability
+  checkAvailability: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/trucks/{truck_id}/availability',
+        tags: ['trucks'],
+        summary: 'Check truck inventory availability',
+        description: 'Check if a truck has sufficient available inventory for a specific product.',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      truck_id: z.string().uuid(),
+      product_id: z.string().uuid(),
+      quantity: z.number().positive(),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Checking truck inventory availability:', input);
+      
+      const reservationService = new TruckReservationService(ctx.supabase, ctx.logger);
+      
+      try {
+        const result = await reservationService.checkAvailability(
+          input.truck_id,
+          input.product_id,
+          input.quantity
+        );
+        
+        return result;
+      } catch (error) {
+        ctx.logger.error('Error checking truck inventory availability:', error);
+        throw error;
+      }
     }),
 
 });

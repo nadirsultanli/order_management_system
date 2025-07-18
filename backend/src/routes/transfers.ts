@@ -188,7 +188,7 @@ export const transfersRouter = router({
       }
     })
     .input(TransferFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -290,7 +290,7 @@ export const transfersRouter = router({
       }
     })
     .input(GetTransferByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -345,7 +345,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateTransferSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -564,7 +564,7 @@ export const transfersRouter = router({
       }
     })
     .input(CreateTransferSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -754,7 +754,7 @@ export const transfersRouter = router({
       }
     })
     .input(UpdateTransferStatusSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1002,7 +1002,7 @@ export const transfersRouter = router({
       }
     })
     .input(GetWarehouseStockSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1092,7 +1092,7 @@ export const transfersRouter = router({
       }
     })
     .input(GetCostAnalysisSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1187,7 +1187,7 @@ export const transfersRouter = router({
       }
     })
     .input(SearchProductsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1254,7 +1254,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateMultiSkuTransferSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1336,7 +1336,7 @@ export const transfersRouter = router({
       }
     })
     .input(CalculateTransferDetailsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1399,7 +1399,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateTransferCapacitySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1447,7 +1447,7 @@ export const transfersRouter = router({
       }
     })
     .input(ValidateInventoryAvailabilitySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1480,7 +1480,7 @@ export const transfersRouter = router({
       }
     })
     .input(CheckTransferConflictsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1551,7 +1551,7 @@ export const transfersRouter = router({
       }
     })
     .input(EstimateTransferDurationSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1583,7 +1583,7 @@ export const transfersRouter = router({
       }
     })
     .input(FormatValidationErrorsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
