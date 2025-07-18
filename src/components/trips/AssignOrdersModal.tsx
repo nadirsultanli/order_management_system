@@ -122,7 +122,7 @@ export const AssignOrdersModal: React.FC<AssignOrdersModalProps> = ({
       onClose();
     } catch (error: any) {
       console.error('Error assigning orders:', error);
-      toast.error(error.message || 'Failed to assign orders to trip');
+      // toast.error(error.message || 'Failed to assign orders to trip'); // Removed to prevent duplicate error toasts
     }
   };
 
