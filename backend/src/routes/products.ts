@@ -104,15 +104,78 @@ export const productsRouter = router({
         
         ctx.logger.info('Fetching products with advanced filters:', filters);
       
+      // Check if user is a driver and get their truck inventory
+      let isDriver = false;
+      let driverTruckId = null;
+      
+      if (user.role === 'driver') {
+        isDriver = true;
+        ctx.logger.info('Driver accessing products, checking truck assignment');
+        
+        // Get driver's active trip for today from truck_routes table
+        const today = new Date().toISOString().split('T')[0];
+        
+        // First, get the admin user ID for this auth user
+        const { data: adminUser, error: adminUserError } = await ctx.supabase
+          .from('admin_users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+          
+        if (adminUserError || !adminUser) {
+          ctx.logger.warn('Driver not found in admin_users table, showing no products');
+          return {
+            products: [],
+            totalCount: 0,
+            totalPages: 0,
+            currentPage: page,
+            summary: { total_products: 0, active_products: 0, low_stock_products: 0 }
+          };
+        }
+        
+        const { data: activeTrip, error: tripError } = await ctx.supabase
+          .from('truck_routes')
+          .select('id, truck_id, route_status')
+          .eq('driver_id', adminUser.id)
+          .eq('route_date', today)
+          .eq('route_status', 'in_transit')
+          .single();
+          
+        if (tripError || !activeTrip) {
+          ctx.logger.warn('Driver has no active trip for today, showing no products');
+          return {
+            products: [],
+            totalCount: 0,
+            totalPages: 0,
+            currentPage: page,
+            summary: { total_products: 0, active_products: 0, low_stock_products: 0 }
+          };
+        }
+        
+        driverTruckId = activeTrip.truck_id;
+        
+        ctx.logger.info('Driver trip identified:', { 
+          driver_id: user.id, 
+          truck_id: driverTruckId,
+          trip_id: activeTrip.id,
+          route_status: activeTrip.route_status
+        });
+      }
+      
       // Start with basic product fields
       let selectClause = '*';
       
       // Only include inventory data if explicitly requested
       // Note: When using nested selects in PostgREST, we can't use '*' in combination with nested fields
       if (include_inventory_data) {
-        selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_products_id, sku_variant, is_variant, variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
+        if (isDriver) {
+          // For drivers, include truck inventory instead of warehouse inventory
+          selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_products_id, sku_variant, is_variant, variant, truck_inventory(qty_full, qty_reserved)';
+        } else {
+          selectClause = 'id, sku, name, description, unit_of_measure, capacity_kg, tare_weight_kg, valve_type, status, barcode_uid, created_at, requires_tag, variant_type, parent_products_id, sku_variant, is_variant, variant, inventory_balance:inventory_balance(warehouse_id, qty_full, qty_empty, qty_reserved, updated_at, warehouse:warehouses(name))';
+        }
       }
-      
+
       let query = ctx.supabase
         .from('products')
         .select(selectClause, { count: 'exact' })
@@ -176,7 +239,36 @@ export const productsRouter = router({
       }
 
       // Apply parent products filter - show only products with parent_products_id
-      query = query.not('parent_products_id', 'is', null);
+      // BUT for drivers, show all products (including those without parent_products_id)
+      if (!isDriver) {
+        query = query.not('parent_products_id', 'is', null);
+      }
+
+      // For drivers, only show products available in their truck inventory
+      if (isDriver && driverTruckId) {
+        // Get product IDs that exist in truck inventory for this truck
+        const { data: truckInventory, error: inventoryError } = await ctx.supabase
+          .from('truck_inventory')
+          .select('product_id, qty_full')
+          .eq('truck_id', driverTruckId)
+          .gt('qty_full', 0);
+          
+        if (inventoryError) {
+          ctx.logger.error('Error fetching truck inventory:', inventoryError);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch truck inventory'
+          });
+        }
+        
+        if (truckInventory && truckInventory.length > 0) {
+          const productIds = truckInventory.map(inv => inv.product_id);
+          query = query.in('id', productIds);
+        } else {
+          // No inventory found, return empty result
+          query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // Impossible ID
+        }
+      }
 
       // Apply date filters
       if (filters.created_after) {
@@ -214,32 +306,50 @@ export const productsRouter = router({
       }
 
       let products = (data || []).map((product: any) => {
-        const inventoryData = (product as any).inventory_balance || [];
-        // Ensure every inventory_balance entry has a warehouse object with id
-        const safeInventoryData = inventoryData.map((inv: any) => ({
-          ...inv,
-          warehouse: inv.warehouse && inv.warehouse.id ? inv.warehouse : { id: '', name: '' },
-        }));
-        const totalStock = safeInventoryData.reduce((sum: number, inv: any) => sum + inv.qty_full, 0);
-        const totalAvailable = safeInventoryData.reduce((sum: number, inv: any) => sum + (inv.qty_full - inv.qty_reserved), 0);
+        let inventoryData = [];
+        let totalStock = 0;
+        let totalAvailable = 0;
         
-        return {
-          ...(product as any),
-          inventory_balance: safeInventoryData,
-          inventory_summary: include_inventory_data ? {
-            total_stock: totalStock,
-            total_available: totalAvailable,
-            warehouse_count: safeInventoryData.length,
-            stock_level: calculateProductStockLevel(totalAvailable),
-            is_available: totalAvailable > 0,
-            last_restocked: getLastRestockedDate(safeInventoryData),
-          } : undefined,
+        if (isDriver) {
+          // For drivers, use actual truck inventory data
+          const truckInventoryData = (product as any).truck_inventory || [];
+          inventoryData = truckInventoryData.map((inv: any) => ({
+            ...inv,
+            warehouse: { id: driverTruckId, name: 'Truck Inventory' }, // Map truck as warehouse
+            qty_empty: 0, // Truck inventory doesn't track empty
+          }));
+          totalStock = inventoryData.reduce((sum: number, inv: any) => sum + inv.qty_full, 0);
+          totalAvailable = inventoryData.reduce((sum: number, inv: any) => sum + (inv.qty_full - inv.qty_reserved), 0);
+        } else {
+          // For regular users, use warehouse inventory data
+          const warehouseInventoryData = (product as any).inventory_balance || [];
+          inventoryData = warehouseInventoryData.map((inv: any) => ({
+            ...inv,
+            warehouse: inv.warehouse && inv.warehouse.id ? inv.warehouse : { id: '', name: '' },
+          }));
+          totalStock = inventoryData.reduce((sum: number, inv: any) => sum + inv.qty_full, 0);
+          totalAvailable = inventoryData.reduce((sum: number, inv: any) => sum + (inv.qty_full - inv.qty_reserved), 0);
+        }
+        
+                  return {
+            ...(product as any),
+            inventory_balance: inventoryData,
+            inventory_summary: include_inventory_data ? {
+              total_stock: totalStock,
+              total_available: totalAvailable,
+              warehouse_count: inventoryData.length,
+              stock_level: calculateProductStockLevel(totalAvailable),
+              is_available: totalAvailable > 0,
+              last_restocked: getLastRestockedDate(inventoryData),
+            } : undefined,
           // Business logic fields
           popularity_score: calculatePopularity(product),
           compliance_score: calculateComplianceScore(product),
           profitability_score: calculateProfitabilityScore(product),
         };
       });
+
+
 
       // Apply business logic filters that require calculated data
       if (filters.has_inventory !== undefined) {

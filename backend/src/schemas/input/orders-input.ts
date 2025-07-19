@@ -76,7 +76,7 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
     pricing_method: z.enum(['per_unit', 'per_kg', 'flat_rate', 'tiered']).default('per_unit'),
     // Tax information (fixed at order creation time)
     price_excluding_tax: z.number().positive().optional(),
-    tax_amount: z.number().positive().optional(),
+    tax_amount: z.number().min(0).optional(),
     price_including_tax: z.number().positive().optional(),
     tax_rate: z.number().min(0).max(1).optional(),
     // Partial fill fields
@@ -84,9 +84,9 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
     is_partial_fill: z.boolean().optional().default(false),
     partial_fill_notes: z.string().optional(),
     // Pricing breakdown fields
-    gas_charge: z.number().positive().optional(),
-    deposit_amount: z.number().positive().optional(),
-    original_weight: z.number().positive().optional(),
+    gas_charge: z.number().min(0).optional(),
+    deposit_amount: z.number().min(0).optional(),
+    original_weight: z.number().min(0).optional(),
   });
 
   export const OrderLineConvertSchema = z.object({
@@ -101,7 +101,7 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
   export const CreateOrderSchema = z.object({
     customer_id: z.string().uuid(),
     delivery_address_id: z.string().uuid().optional(),
-    source_warehouse_id: z.string().uuid(),
+    source_warehouse_id: z.string().uuid().optional(),
     order_date: z.string().optional(),
     scheduled_date: z.string().datetime().nullable().optional(),
     delivery_date: z.string().optional(),

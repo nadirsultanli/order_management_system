@@ -52,6 +52,7 @@ export const UpdateTruckSchema = z.object({
   capacity_kg: z.number().positive().optional(),
   active: z.boolean().optional(),
   status: TruckStatusEnum.optional(),
+  driver_id: z.string().uuid().nullable().optional(),
   last_maintenance_date: z.string().nullable().optional(),
   next_maintenance_due: z.string().nullable().optional(),
   maintenance_interval_days: z.number().positive().optional(),

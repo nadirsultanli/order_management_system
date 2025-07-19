@@ -299,7 +299,7 @@ export const authRouter = router({
         protect: true,
       }
     })
-    .input(z.void())
+    .input(z.object({}).optional())
     .output(z.object({
       success: z.boolean(),
     }))
