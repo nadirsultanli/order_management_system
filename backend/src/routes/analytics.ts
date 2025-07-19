@@ -372,7 +372,7 @@ export const analyticsRouter = router({
 
       return {
         period: input.period,
-        group_by: input.group_by,
+        group_by: input.group_by || null,
         totalOrders,
         totalRevenue,
         statusBreakdown,
@@ -652,8 +652,36 @@ export const analyticsRouter = router({
       totalStockValue,
       lowStockCount: lowStockItems.length,
       outOfStockCount: outOfStockItems.length,
-      lowStockItems: lowStockItems.slice(0, 10), // Top 10 low stock items
-      outOfStockItems: outOfStockItems.slice(0, 10), // Top 10 out of stock items
+      lowStockItems: lowStockItems.slice(0, 10).map(item => ({
+        qty_full: item.qty_full || 0,
+        qty_empty: item.qty_empty || 0,
+        qty_reserved: item.qty_reserved || 0,
+        warehouse_id: item.warehouse_id,
+        product: {
+          id: (item.product as any)?.id || '',
+          name: (item.product as any)?.name || '',
+          sku: (item.product as any)?.sku || '',
+        },
+        warehouse: {
+          id: (item.warehouse as any)?.id || '',
+          name: (item.warehouse as any)?.name || '',
+        },
+      })),
+      outOfStockItems: outOfStockItems.slice(0, 10).map(item => ({
+        qty_full: item.qty_full || 0,
+        qty_empty: item.qty_empty || 0,
+        qty_reserved: item.qty_reserved || 0,
+        warehouse_id: item.warehouse_id,
+        product: {
+          id: (item.product as any)?.id || '',
+          name: (item.product as any)?.name || '',
+          sku: (item.product as any)?.sku || '',
+        },
+        warehouse: {
+          id: (item.warehouse as any)?.id || '',
+          name: (item.warehouse as any)?.name || '',
+        },
+      })),
       warehouseBreakdown: Object.values(warehouseBreakdown),
     };
   }),

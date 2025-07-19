@@ -58,6 +58,7 @@ import {
   ValidateSkuResponseSchema,
   ValidateWeightResponseSchema,
   ValidateStatusChangeResponseSchema,
+  ValidationResponseSchema,
   AvailabilityMatrixResponseSchema,
   InventoryMovementsResponseSchema,
   ValidateOrderTypeResponseSchema,
@@ -87,7 +88,7 @@ export const productsRouter = router({
       }
     })
     .input(ProductFiltersSchema.optional())
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       try {
         const user = requireAuth(ctx);
@@ -1778,7 +1779,7 @@ export const productsRouter = router({
   //     }
   //   })
   //   .input(ValidateStatusChangeSchema)
-  //   .output(z.any()) // ✅ No validation headaches!
+  //   .output(z.any())) // ✅ No validation headaches!
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -1859,7 +1860,7 @@ export const productsRouter = router({
   //     }
   //   })
   //   .input(GetAvailabilityMatrixSchema)
-  //   .output(z.any()) // ✅ No validation headaches!
+  //   .output(z.any())) // ✅ No validation headaches!
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2023,7 +2024,7 @@ export const productsRouter = router({
   //     }
   //   })
   //   .input(ValidateOrderTypeSchema)
-  //   .output(z.any()) // ✅ No validation headaches!
+  //   .output(z.any())) // ✅ No validation headaches!
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2103,7 +2104,7 @@ export const productsRouter = router({
   //     }
   //   })
   //   .input(ShouldRequirePickupSchema)
-  //   .output(z.any()) // ✅ No validation headaches!
+  //   .output(z.any())) // ✅ No validation headaches!
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2140,16 +2141,7 @@ export const productsRouter = router({
 
   // POST /products/create-variant-data - Create variant product data
   createVariantData: protectedProcedure
-    // .meta({
-    //   openapi: {
-    //     method: 'POST',
-    //     path: '/products/create-variant-data',
-    //     tags: ['products'],
-    //     summary: 'Create variant product data',
-    //     description: 'Generate complete variant product data structure based on parent product and variant details.',
-    //     protect: true,
-    //   }
-    // })
+    // .meta({ ... })
     .input(CreateVariantDataSchema)
     .output(z.any())
     .mutation(async ({ input, ctx }) => {

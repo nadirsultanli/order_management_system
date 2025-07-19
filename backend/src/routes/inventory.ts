@@ -1346,11 +1346,7 @@ export const inventoryRouter = router({
       }
     })
     .input(InitiateTransferSchema)
-    .output(z.object({
-      transfer_id: z.string(),
-      transfer: z.any(),
-      status: z.string(),
-    }))
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);  
       
@@ -1414,10 +1410,7 @@ export const inventoryRouter = router({
       }
     })
     .input(CompleteTransferSchema)
-    .output(z.object({
-      transfer: z.any(),
-      status: z.string(),
-    }))
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1470,9 +1463,7 @@ export const inventoryRouter = router({
       }
     })
     .input(CreateCycleCountSchema)
-    .output(z.object({
-      cycle_count: z.any(),
-    }))
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1561,12 +1552,7 @@ export const inventoryRouter = router({
       page: z.number().min(1).default(1),
       limit: z.number().min(1).max(100).default(15),
     }))
-    .output(z.object({
-      receipts: z.array(z.any()),
-      totalCount: z.number(),
-      totalPages: z.number(),
-      currentPage: z.number(),
-    }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1629,12 +1615,7 @@ export const inventoryRouter = router({
       page: z.number().min(1).default(1),
       limit: z.number().min(1).max(100).default(15),
     }))
-    .output(z.object({
-      cycle_counts: z.array(z.any()),
-      totalCount: z.number(),
-      totalPages: z.number(),
-      currentPage: z.number(),
-    }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

@@ -1,12 +1,7 @@
 import { z } from 'zod';
 
-// ==============================================================
-// ACCESSORIES OUTPUT SCHEMAS
-// ==============================================================
-
-// ============ Base Types ============
-
-export const AccessoryCategoryOutputSchema = z.object({
+// Base schemas
+export const AccessoryCategorySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   slug: z.string(),
@@ -15,31 +10,30 @@ export const AccessoryCategoryOutputSchema = z.object({
   updated_at: z.string(),
 });
 
-export const AccessoryOutputSchema = z.object({
+export const AccessorySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   sku: z.string(),
   category_id: z.string().uuid().nullable(),
-  category: AccessoryCategoryOutputSchema.nullable(),
   price: z.number(),
-  vat_code: z.enum(['standard', 'reduced', 'zero', 'exempt']),
-  deposit_amount: z.number(),
+  vat_code: z.string().nullable(),
+  deposit_amount: z.number().nullable(),
   is_serialized: z.boolean(),
   saleable: z.boolean(),
   active: z.boolean(),
   description: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
+  category: AccessoryCategorySchema.nullable(),
 });
 
-// ============ Response Types ============
-
+// Response schemas
 export const GetAccessoryResponseSchema = z.object({
-  accessory: AccessoryOutputSchema,
+  accessory: AccessorySchema,
 });
 
 export const GetAccessoriesResponseSchema = z.object({
-  accessories: z.array(AccessoryOutputSchema),
+  accessories: z.array(AccessorySchema),
   totalCount: z.number(),
   page: z.number(),
   limit: z.number(),
@@ -47,7 +41,7 @@ export const GetAccessoriesResponseSchema = z.object({
 });
 
 export const GetAccessoryCategoriesResponseSchema = z.object({
-  categories: z.array(AccessoryCategoryOutputSchema),
+  categories: z.array(AccessoryCategorySchema),
   totalCount: z.number(),
 });
 
@@ -73,36 +67,6 @@ export const GetAccessoryOptionsResponseSchema = z.object({
   })),
 });
 
-// ============ Unified Item Types ============
-
-export const UnifiedItemOutputSchema = z.object({
-  id: z.string().uuid(),
-  item_type: z.enum(['product', 'accessory']),
-  name: z.string(),
-  sku: z.string(),
-  status: z.string(),
-  created_at: z.string(),
-  // Product-specific fields
-  unit_of_measure: z.string().nullable(),
-  capacity_kg: z.number().nullable(),
-  // Accessory-specific fields
-  price: z.number().nullable(),
-  category: z.object({
-    id: z.string().uuid(),
-    name: z.string(),
-  }).nullable(),
-});
-
-export const GetUnifiedItemsResponseSchema = z.object({
-  items: z.array(UnifiedItemOutputSchema),
-  totalCount: z.number(),
-  page: z.number(),
-  limit: z.number(),
-  totalPages: z.number(),
-});
-
-// ============ Validation Response Types ============
-
 export const ValidateAccessoryResponseSchema = z.object({
   valid: z.boolean(),
   errors: z.array(z.string()),
@@ -115,23 +79,19 @@ export const ValidateAccessorySkuResponseSchema = z.object({
   warnings: z.array(z.string()),
 });
 
-// ============ Bulk Operation Response Types ============
-
 export const BulkAccessoryStatusUpdateResponseSchema = z.object({
   success: z.boolean(),
   updated_count: z.number(),
   errors: z.array(z.string()),
 });
 
-// ============ Success Response Types ============
-
 export const CreateAccessoryResponseSchema = z.object({
-  accessory: AccessoryOutputSchema,
+  accessory: AccessorySchema,
   message: z.string(),
 });
 
 export const UpdateAccessoryResponseSchema = z.object({
-  accessory: AccessoryOutputSchema,
+  accessory: AccessorySchema,
   message: z.string(),
 });
 
@@ -141,16 +101,32 @@ export const DeleteAccessoryResponseSchema = z.object({
 });
 
 export const CreateAccessoryCategoryResponseSchema = z.object({
-  category: AccessoryCategoryOutputSchema,
+  category: AccessoryCategorySchema,
   message: z.string(),
 });
 
 export const UpdateAccessoryCategoryResponseSchema = z.object({
-  category: AccessoryCategoryOutputSchema,
+  category: AccessoryCategorySchema,
   message: z.string(),
 });
 
 export const DeleteAccessoryCategoryResponseSchema = z.object({
   success: z.boolean(),
   message: z.string(),
+});
+
+// Unified items schema for compatibility
+export const GetUnifiedItemsResponseSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    sku: z.string(),
+    type: z.literal('accessory'),
+    price: z.number(),
+    category: z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+    }).nullable(),
+  })),
+  totalCount: z.number(),
 }); 

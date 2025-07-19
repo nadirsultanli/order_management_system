@@ -136,31 +136,39 @@ export const complianceRouter = router({
         });
       }
 
-      return {
-        alerts: (data || []).map(alert => ({
-          id: alert.id,
-          cylinder_asset_id: alert.cylinder_asset_id,
-          alert_type: alert.alert_type,
-          alert_priority: alert.alert_priority,
-          alert_message: alert.alert_message,
-          status: alert.status,
-          due_date: alert.due_date,
-          escalation_date: alert.escalation_date,
-          created_at: alert.created_at,
-          resolved_at: alert.resolved_at,
-          cylinder_asset: alert.cylinder_asset && Array.isArray(alert.cylinder_asset) && alert.cylinder_asset.length > 0 ? {
-            id: alert.cylinder_asset[0].id,
-            serial_number: alert.cylinder_asset[0].serial_number,
-            current_condition: alert.cylinder_asset[0].current_condition,
-            regulatory_status: alert.cylinder_asset[0].regulatory_status,
-            product: alert.cylinder_asset[0].product && Array.isArray(alert.cylinder_asset[0].product) && alert.cylinder_asset[0].product.length > 0 ? alert.cylinder_asset[0].product[0] : null,
-            warehouse: alert.cylinder_asset[0].warehouse && Array.isArray(alert.cylinder_asset[0].warehouse) && alert.cylinder_asset[0].warehouse.length > 0 ? alert.cylinder_asset[0].warehouse[0] : null,
-          } : null,
-        })),
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / input.limit),
-        currentPage: input.page,
-      };
+              return {
+          alerts: (data || []).map(alert => ({
+            id: alert.id,
+            cylinder_asset_id: alert.cylinder_asset_id,
+            alert_type: alert.alert_type,
+            alert_priority: alert.alert_priority,
+            alert_message: alert.alert_message,
+            status: alert.status,
+            due_date: alert.due_date,
+            escalation_date: alert.escalation_date,
+            created_at: alert.created_at,
+            resolved_at: alert.resolved_at,
+            cylinder_asset: alert.cylinder_asset && Array.isArray(alert.cylinder_asset) && alert.cylinder_asset.length > 0 ? {
+              id: alert.cylinder_asset[0].id,
+              serial_number: alert.cylinder_asset[0].serial_number,
+              current_condition: alert.cylinder_asset[0].current_condition,
+              regulatory_status: alert.cylinder_asset[0].regulatory_status,
+              product: alert.cylinder_asset[0].product && Array.isArray(alert.cylinder_asset[0].product) && alert.cylinder_asset[0].product.length > 0 ? {
+                id: (alert.cylinder_asset[0].product[0] as any).id || '',
+                name: alert.cylinder_asset[0].product[0].name || '',
+                sku: alert.cylinder_asset[0].product[0].sku || '',
+                capacity_l: alert.cylinder_asset[0].product[0].capacity_l || null,
+              } : null,
+              warehouse: alert.cylinder_asset[0].warehouse && Array.isArray(alert.cylinder_asset[0].warehouse) && alert.cylinder_asset[0].warehouse.length > 0 ? {
+                id: (alert.cylinder_asset[0].warehouse[0] as any).id || '',
+                name: alert.cylinder_asset[0].warehouse[0].name || '',
+              } : null,
+            } : null,
+          })),
+          totalCount: count || 0,
+          totalPages: Math.ceil((count || 0) / input.limit),
+          currentPage: input.page,
+        };
     }),
 
   // GET /compliance/dashboard - Get compliance dashboard data

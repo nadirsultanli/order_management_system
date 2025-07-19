@@ -40,9 +40,6 @@ import {
   UpdateLoadingDetailResponseSchema,
   DeleteLoadingDetailResponseSchema,
   LoadingSummaryResponseSchema,
-  AddVarianceRecordResponseSchema,
-  UpdateVarianceRecordResponseSchema,
-  DeleteVarianceRecordResponseSchema,
 } from '../schemas/output/trips-output';
 
 export const tripsRouter = router({
@@ -61,7 +58,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -209,7 +206,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -303,7 +300,7 @@ export const tripsRouter = router({
       }
     })
     .input(z.object({ id: z.string() }))
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -400,7 +397,7 @@ export const tripsRouter = router({
       }
     })
     .input(z.object({ id: z.string() }))
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -478,7 +475,7 @@ export const tripsRouter = router({
       }
     })
     .input(CreateTripSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -919,7 +916,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripByIdSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1045,7 +1042,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripsSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1233,7 +1230,7 @@ export const tripsRouter = router({
       }
     })
     .input(AllocateOrdersToTripSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1572,7 +1569,7 @@ export const tripsRouter = router({
       }
     })
     .input(RemoveOrderFromTripSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1676,7 +1673,7 @@ export const tripsRouter = router({
       limit: z.number().min(1).max(100).default(50),
       offset: z.number().min(0).default(0),
     }))
-    .output(z.any())
+    .output(z.any()) // Returns orders, not trips
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1778,7 +1775,7 @@ export const tripsRouter = router({
       }
     })
     .input(StartTripLoadingSchema)
-    .output(z.any())
+    .output(z.any()) // Complex endpoint returning validation result
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -1945,7 +1942,7 @@ export const tripsRouter = router({
       }
     })
     .input(RecordLoadingDetailSchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2054,7 +2051,7 @@ export const tripsRouter = router({
       }
     })
     .input(GetTripLoadingSummarySchema)
-    .output(z.any()) // ✅ No validation headaches!
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2144,7 +2141,7 @@ export const tripsRouter = router({
       }
     })
     .input(CompleteTripSchema)
-    .output(z.any())
+    .output(z.any()) // Complex endpoint returning validation result with loading details
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2276,7 +2273,7 @@ export const tripsRouter = router({
       }
     })
     .input(CheckShortLoadingSchema)
-    .output(z.any()) // Keep as z.any() for now since this is complex
+    .output(z.any()) // Complex endpoint returning warning analysis
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2380,7 +2377,7 @@ export const tripsRouter = router({
       }
     })
     .input(ValidateTripLoadingCapacitySchema)
-    .output(z.any()) // Keep as z.any() for now since this is complex
+    .output(z.any()) // Complex endpoint returning capacity validation
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2594,7 +2591,7 @@ export const tripsRouter = router({
       }
     })
     .input(CheckTripProductAvailabilitySchema)
-    .output(z.any()) // Keep as z.any() for now since this is complex
+    .output(z.any()) // Complex endpoint returning availability analysis
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -2730,6 +2727,115 @@ export const tripsRouter = router({
         overall_availability: insufficientCount === 0,
         safety_stock_considered: input.include_safety_stock,
         timestamp: new Date().toISOString(),
+      };
+    }),
+
+  // POST /trips/{id}/add-loading-detail - Add loading detail
+  addLoadingDetail: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'POST',
+        path: '/trips/{trip_id}/add-loading-detail',
+        tags: ['trips', 'loading'],
+        summary: 'Add loading detail',
+        description: 'Add a new loading detail for a trip',
+        protect: true,
+      }
+    })
+    .input(RecordLoadingDetailSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Adding loading detail:', input);
+      
+      // Verify trip is in loading status
+      const { data: trip, error: tripError } = await ctx.supabase
+        .from('truck_routes')
+        .select('id, route_status, truck_id, warehouse_id')
+        .eq('id', input.trip_id)
+        .single();
+
+      if (tripError || !trip) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Trip not found',
+        });
+      }
+
+      if (trip.route_status !== 'unloaded') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Trip must be in unloaded status. Current status: ${trip.route_status}`,
+        });
+      }
+
+      // Validate quantities
+      if (input.qty_full === 0 && input.qty_empty === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'At least one quantity must be greater than zero',
+        });
+      }
+
+      // Use the database function to handle stock transfer and loading detail recording
+      const { data: loadResult, error: loadError } = await ctx.supabase.rpc('load_trip_stock', {
+        p_trip_id: input.trip_id,
+        p_product_id: input.product_id,
+        p_qty_full: input.qty_full,
+        p_qty_empty: input.qty_empty,
+        p_loading_sequence: input.loading_sequence,
+        p_notes: input.notes
+      });
+
+      if (loadError) {
+        // Enhanced error handling with detailed context
+        const errorContext = {
+          operation: 'load_trip_stock',
+          trip_id: input.trip_id,
+          product_id: input.product_id,
+          qty_full: input.qty_full,
+          qty_empty: input.qty_empty,
+          loading_sequence: input.loading_sequence,
+          error_details: loadError
+        };
+        
+        ctx.logger.error('Critical error in trip stock loading operation:', errorContext);
+        
+        // Create detailed error message for debugging
+        const detailedErrorMessage = `Failed to load stock for trip ${input.trip_id}: ${loadError.message || 'Unknown database error'}. ` +
+          `Details: ${loadError.details || 'No additional details'}, Code: ${loadError.code || 'Unknown'}, ` +
+          `Hint: ${loadError.hint || 'No hint available'}`;
+        
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: detailedErrorMessage,
+        });
+      }
+
+      if (!loadResult.success) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: loadResult.error || 'Loading operation failed',
+        });
+      }
+
+      // Get updated loading details
+      const { data: loadingDetails } = await ctx.supabase
+        .from('trip_loading_details')
+        .select(`
+          *,
+          product:product_id (name, sku)
+        `)
+        .eq('trip_id', input.trip_id)
+        .eq('product_id', input.product_id)
+        .single();
+
+      return {
+        success: true,
+        loading_detail: loadingDetails,
+        transfer_result: loadResult,
+        message: 'Loading details recorded successfully',
       };
     }),
 });

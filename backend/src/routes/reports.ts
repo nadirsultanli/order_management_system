@@ -134,7 +134,7 @@ export const reportsRouter = router({
       }
     })
     .input(StockValuationReportSchema)
-    .output(z.unknown())
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -291,8 +291,8 @@ export const reportsRouter = router({
           totalPages: Math.ceil((count || 0) / input.limit),
           currentPage: input.page,
           filters_applied: {
-            warehouse_id: input.warehouse_id,
-            product_id: input.product_id,
+            warehouse_id: input.warehouse_id || null,
+            product_id: input.product_id || null,
             group_by: input.group_by,
           }
         };
@@ -320,7 +320,7 @@ export const reportsRouter = router({
       }
     })
     .input(DepositAnalysisReportSchema)
-    .output(z.unknown())
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -443,25 +443,26 @@ export const reportsRouter = router({
           }, {} as Record<string, any>);
         }
 
+        // Transform to match expected schema
+        const agingSummary = {
+          current: depositAnalysisData.filter(d => d.aging_bucket === 'current').length,
+          days_30: depositAnalysisData.filter(d => d.aging_bucket === '30-60 days').length,
+          days_60: depositAnalysisData.filter(d => d.aging_bucket === '60-90 days').length,
+          days_90: depositAnalysisData.filter(d => d.aging_bucket === '90+ days').length,
+          over_90: depositAnalysisData.filter(d => d.aging_bucket === 'over_90').length,
+        };
+
         return {
-          data: paginatedData,
+          report_date: asOfDate,
+          total_outstanding: totalOutstanding,
+          total_customers: customersWithDeposits,
+          total_cylinders: totalCylinders,
+          aging_summary: agingSummary,
+          customers: paginatedData,
           summary: {
-            total_outstanding_amount: totalOutstanding,
-            customers_with_deposits: customersWithDeposits,
-            total_cylinders_on_deposit: totalCylinders,
             average_outstanding_per_customer: customersWithDeposits > 0 ? totalOutstanding / customersWithDeposits : 0,
             customers_exceeding_threshold: depositAnalysisData.filter(d => d.exceeds_threshold).length,
-          },
-          aging_breakdown: agingBreakdown ? Object.values(agingBreakdown) : null,
-          as_of_date: asOfDate,
-          totalCount,
-          totalPages: Math.ceil(totalCount / input.limit),
-          currentPage: input.page,
-          filters_applied: {
-            customer_id: input.customer_id,
-            threshold_amount: input.threshold_amount,
-            min_days_outstanding: input.min_days_outstanding,
-            date_range: { start_date: input.start_date, end_date: input.end_date },
+            total_risk_amount: depositAnalysisData.filter(d => d.exceeds_threshold).reduce((sum, d) => sum + d.outstanding_amount, 0),
           }
         };
 
@@ -488,7 +489,7 @@ export const reportsRouter = router({
       }
     })
     .input(MarginAnalysisReportSchema)
-    .output(z.unknown())
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -645,20 +646,50 @@ export const reportsRouter = router({
           };
         }
 
+        // Transform to match expected schema
+        const highMarginOrders = marginAnalysisData.filter(d => d.margin_percentage > 20).length;
+        const lowMarginOrders = marginAnalysisData.filter(d => d.margin_percentage <= 20 && d.margin_percentage > 0).length;
+        const negativeMarginOrders = marginAnalysisData.filter(d => d.margin_percentage <= 0).length;
+
+        // Calculate top margin products
+        const productMargins = marginAnalysisData.reduce((acc, item) => {
+          if (!acc[item.product_id]) {
+            acc[item.product_id] = {
+              product_id: item.product_id,
+              product_name: item.product_name,
+              total_revenue: 0,
+              total_margin: 0,
+              order_count: 0,
+            };
+          }
+          acc[item.product_id].total_revenue += item.revenue;
+          acc[item.product_id].total_margin += item.gross_margin;
+          acc[item.product_id].order_count += 1;
+          return acc;
+        }, {} as Record<string, any>);
+
+        const topMarginProducts = Object.values(productMargins)
+          .map((p: any) => ({
+            product_id: p.product_id,
+            product_name: p.product_name,
+            total_revenue: p.total_revenue,
+            average_margin: p.order_count > 0 ? p.total_margin / p.order_count : 0,
+          }))
+          .sort((a, b) => b.average_margin - a.average_margin)
+          .slice(0, 5);
+
         return {
-          data: marginAnalysisData,
-          summary,
-          grouped_data: groupedData,
-          costs_breakdown: costsBreakdown,
-          totalCount: count || 0,
-          totalPages: Math.ceil((count || 0) / input.limit),
-          currentPage: input.page,
-          filters_applied: {
-            order_type: input.order_type,
-            product_id: input.product_id,
-            customer_id: input.customer_id,
-            warehouse_id: input.warehouse_id,
-            date_range: { start_date: input.start_date, end_date: input.end_date },
+          report_date: new Date().toISOString().split('T')[0],
+          total_revenue: summary.total_revenue,
+          total_cogs: summary.total_cogs,
+          total_gross_margin: summary.total_gross_margin,
+          average_margin_percentage: summary.average_margin_percentage,
+          orders: marginAnalysisData,
+          summary: {
+            high_margin_orders: highMarginOrders,
+            low_margin_orders: lowMarginOrders,
+            negative_margin_orders: negativeMarginOrders,
+            top_margin_products: topMarginProducts,
           }
         };
 
@@ -685,7 +716,7 @@ export const reportsRouter = router({
       }
     })
     .input(OperationalKPIsReportSchema)
-    .output(z.unknown())
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -906,21 +937,14 @@ export const reportsRouter = router({
         }
 
         return {
-          data: kpis,
-          trends,
+          report_date: new Date().toISOString().split('T')[0],
+          period: `${input.start_date} to ${input.end_date}`,
+          kpis: kpis,
           summary: {
             total_metrics: kpis.length,
-            metrics_with_benchmarks: kpis.filter(k => k.benchmark !== null).length,
-            metrics_meeting_benchmarks: kpis.filter(k => k.benchmark !== null && k.variance! >= 0).length,
-          },
-          period: {
-            start_date: input.start_date,
-            end_date: input.end_date,
-          },
-          filters_applied: {
-            customer_id: input.customer_id,
-            product_capacity: input.product_capacity,
-            kpi_types: input.kpi_types,
+            improving_metrics: kpis.filter(k => k.trend_direction === 'up').length,
+            declining_metrics: kpis.filter(k => k.trend_direction === 'down').length,
+            stable_metrics: kpis.filter(k => k.trend_direction === 'stable').length,
           }
         };
 
@@ -949,7 +973,7 @@ export const reportsRouter = router({
     .input(z.object({
       period_days: z.number().min(1).max(365).default(30),
     }))
-    .output(z.unknown())
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

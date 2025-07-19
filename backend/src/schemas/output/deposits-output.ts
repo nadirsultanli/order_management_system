@@ -322,3 +322,58 @@ export const DepositAuditTrailResponseSchema = z.object({
     created_at: z.string(),
   })).optional(),
 });
+
+// ============ FRONTEND COMPATIBILITY OUTPUT SCHEMAS ============
+
+export const DepositSummaryResponseSchema = z.object({
+  total_outstanding: z.number(),
+  total_customers_with_deposits: z.number(),
+  total_cylinders_on_deposit: z.number(),
+  currency_code: z.string(),
+  period_charges: z.number(),
+  period_refunds: z.number(),
+  period_adjustments: z.number(),
+  net_change: z.number(),
+});
+
+export const DepositTransactionDetailResponseSchema = z.object({
+  id: z.string().uuid(),
+  customer_id: z.string().uuid(),
+  transaction_type: z.enum(['charge', 'refund', 'adjustment']),
+  amount: z.number(),
+  currency_code: z.string(),
+  transaction_date: z.string(),
+  order_id: z.string().uuid().nullable(),
+  notes: z.string().nullable(),
+  created_by: z.string().nullable(),
+  is_voided: z.boolean(),
+  voided_at: z.string().nullable(),
+  voided_by: z.string().nullable(),
+  void_reason: z.string().nullable(),
+  cylinder_details: z.array(z.object({
+    product_id: z.string().uuid(),
+    product_name: z.string(),
+    capacity_l: z.number(),
+    quantity: z.number(),
+    unit_deposit: z.number(),
+    condition: z.string().nullable(),
+  })),
+});
+
+export const VoidDepositTransactionResponseSchema = DepositTransactionDetailResponseSchema;
+
+export const DepositAnalyticsResponseSchema = z.object({
+  period: z.object({
+    from_date: z.string(),
+    to_date: z.string()
+  }),
+  summary: z.object({
+    total_charges: z.number(),
+    total_refunds: z.number(),
+    total_adjustments: z.number(),
+    net_change: z.number(),
+    ending_balance: z.number(),
+  }),
+  breakdown: z.array(z.any()),
+  currency_code: z.string(),
+});

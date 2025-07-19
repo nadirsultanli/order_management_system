@@ -1,5 +1,5 @@
 // schemas/input/customers-input.ts
-import { z } from 'zod';
+import { optional, z } from 'zod';
 
 // Base schemas for reusability
 export const AddressInputSchema = z.object({
@@ -36,6 +36,27 @@ export const CreateCustomerSchema = z.object({
   address: AddressInputSchema,
 });
 
+// Partial address update schema for customer updates
+export const PartialAddressUpdateSchema = z.object({
+  line1: z.string().optional().refine(val => !val || val.trim().length > 0, {
+    message: 'Address line 1 cannot be empty if provided'
+  }),
+  line2: z.string().optional(),
+  city: z.string().optional().refine(val => !val || val.trim().length > 0, {
+    message: 'City cannot be empty if provided'
+  }),
+  state: z.string().optional(),
+  postal_code: z.string().optional(),
+  country: z.string().optional().refine(val => !val || val.trim().length >= 2, {
+    message: 'Country must be at least 2 characters if provided'
+  }),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  delivery_window_start: z.string().optional(),
+  delivery_window_end: z.string().optional(),
+  instructions: z.string().optional(),
+});
+
 // Customer update with optional address
 export const UpdateCustomerSchema = z.object({
   id: z.string().uuid(),
@@ -46,7 +67,7 @@ export const UpdateCustomerSchema = z.object({
   email: z.string().email().optional(),
   account_status: z.enum(['active', 'credit_hold', 'closed']).optional(),
   credit_terms_days: z.number().int().min(0).optional(),
-  address: AddressInputSchema.optional(),
+  address: PartialAddressUpdateSchema.optional(),
 });
 
 // Customer ID parameter
@@ -184,6 +205,7 @@ export type UpdateCustomer = z.infer<typeof UpdateCustomerSchema>;
 export type CustomerValidation = z.infer<typeof CustomerValidationSchema>;
 export type CreditTermsValidation = z.infer<typeof CreditTermsValidationSchema>;
 export type AddressInput = z.infer<typeof AddressInputSchema>;
+export type PartialAddressUpdate = z.infer<typeof PartialAddressUpdateSchema>;
 export type AddressCreate = z.infer<typeof AddressSchema>;
 export type AddressUpdate = z.infer<typeof UpdateAddressSchema>;
 export type GeocodeAddress = z.infer<typeof GeocodeAddressSchema>;

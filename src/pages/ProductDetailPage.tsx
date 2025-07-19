@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit, Package, Cylinder, Weight, Barcode, Calendar, AlertTriangle } from 'lucide-react';
-import { useProduct, useUpdateProduct, useUpdateParentProduct, useUpdateVariant } from '../hooks/useProducts';
+import { useProduct, useUpdateProduct, useUpdateParentProduct, useUpdateVariant, useProductVariants } from '../hooks/useProducts';
 import { ProductForm } from '../components/products/ProductForm';
 import { EditVariantForm } from '../components/products/EditVariantForm';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -24,8 +24,9 @@ export const ProductDetailPage: React.FC = () => {
   const updateVariant = useUpdateVariant();
 
   // Fetch child variants if this is a parent product
-  // TODO: Fix trpc.products.getVariants call
-  const childVariants: any[] = [];
+  const { data: childVariants = [], isLoading: variantsLoading } = useProductVariants(
+    product?.id || ''
+  );
 
   const handleEditSubmit = async (data: CreateProductData) => {
     if (product) {
@@ -374,45 +375,83 @@ export const ProductDetailPage: React.FC = () => {
                 )}
 
                 {/* Child Variants Section - Only show for parent products */}
-                {!product.parent_products_id && childVariants.length > 0 && (
+                {!product.parent_products_id && (
                   <div className="mt-8">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4"> Variants</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {childVariants.map((variant: Product) => (
-                        <div key={variant.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <h4 className="font-medium text-gray-900">{variant.name}</h4>
-                              <p className="text-sm text-gray-500 font-mono">{variant.sku}</p>
-                              <div className="flex items-center space-x-2 mt-1">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  variant.sku_variant === 'EMPTY' 
-                                    ? 'bg-gray-100 text-gray-800'
-                                    : variant.sku_variant === 'FULL-XCH'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : variant.sku_variant === 'FULL-OUT'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {variant.sku_variant}
-                                </span>
-                                <StatusBadge status={variant.status} />
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Product Variants</h3>
+                      {variantsLoading && (
+                        <div className="text-sm text-gray-500">Loading variants...</div>
+                      )}
+                    </div>
+                    
+                    {variantsLoading ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="border border-gray-200 rounded-lg p-4 bg-gray-50 animate-pulse">
+                            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-200 rounded w-1/2 mb-3"></div>
+                            <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : childVariants.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {childVariants.map((variant: Product) => (
+                          <div key={variant.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <h4 className="font-medium text-gray-900">{variant.name}</h4>
+                                <p className="text-sm text-gray-500 font-mono">{variant.sku}</p>
+                                <div className="flex items-center space-x-2 mt-2">
+                                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                    variant.sku_variant === 'EMPTY' 
+                                      ? 'bg-gray-100 text-gray-800'
+                                      : variant.sku_variant === 'FULL-XCH'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : variant.sku_variant === 'FULL-OUT'
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {variant.sku_variant}
+                                  </span>
+                                  <StatusBadge status={variant.status} />
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleEditVariant(variant)}
+                                className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Edit variant"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                            </div>
+                            {variant.description && (
+                              <p className="text-sm text-gray-600 mt-2">{variant.description}</p>
+                            )}
+                            <div className="mt-3 pt-2 border-t border-gray-200">
+                              <div className="text-xs text-gray-500">
+                                <span className="font-medium">Capacity:</span> {variant.capacity_kg || product.capacity_kg} kg
                               </div>
                             </div>
-                            <button
-                              onClick={() => handleEditVariant(variant)}
-                              className="ml-2 p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                              title="Edit variant"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
                           </div>
-                          {variant.description && (
-                            <p className="text-sm text-gray-600 mt-2">{variant.description}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                        <Package className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                        <h4 className="text-lg font-medium text-gray-900 mb-2">No Variants Created</h4>
+                        <p className="text-gray-500 mb-4">
+                          This product doesn't have any variants yet. Variants are automatically created when you set up different states (EMPTY, FULL-XCH, FULL-OUT, DAMAGED).
+                        </p>
+                        <button
+                          onClick={() => setIsEditFormOpen(true)}
+                          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Create Variants
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -451,9 +490,19 @@ export const ProductDetailPage: React.FC = () => {
                         <p className="text-xs text-gray-500 mt-1">
                           Updates to this product will automatically update all  variants
                         </p>
-                        {childVariants.length > 0 && (
+                        {!variantsLoading && childVariants.length > 0 && (
                           <p className="text-xs text-blue-600 mt-1">
                             {childVariants.length} child variant{childVariants.length !== 1 ? 's' : ''} available
+                          </p>
+                        )}
+                        {!variantsLoading && childVariants.length === 0 && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            No variants created yet
+                          </p>
+                        )}
+                        {variantsLoading && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Loading variants...
                           </p>
                         )}
                       </div>

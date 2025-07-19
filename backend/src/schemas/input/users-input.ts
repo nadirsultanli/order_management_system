@@ -29,7 +29,13 @@ export const CreateUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   role: z.enum(['admin', 'driver', 'user']).default('user'),
   phone: z.string().optional(),
-  license_number: z.string().optional(),
+  license_number: z.string().optional().transform((val) => {
+    // Convert empty strings to null to avoid unique constraint violations
+    if (val === '' || val === undefined) {
+      return null;
+    }
+    return val;
+  }),
   hire_date: optionalDate(),
   emergency_contact: z.string().optional(),
   emergency_phone: z.string().optional(),
@@ -54,7 +60,13 @@ export const UpdateUserSchema = z.object({
   name: z.string().min(1).optional(),
   role: z.enum(['admin', 'driver', 'user']).optional(),
   phone: z.string().optional(),
-  license_number: z.string().optional(),
+  license_number: z.string().optional().transform((val) => {
+    // Convert empty strings to null to avoid unique constraint violations
+    if (val === '' || val === undefined) {
+      return null;
+    }
+    return val;
+  }),
   hire_date: optionalDate(),
   emergency_contact: z.string().optional(),
   emergency_phone: z.string().optional(),
@@ -92,6 +104,7 @@ export const ChangePasswordSchema = z.object({
 export const UserValidationSchema = z.object({
   email: z.string().email(),
   employee_id: z.string().optional(),
+  license_number: z.string().optional(),
   exclude_id: z.string().uuid().optional(),
 });
 

@@ -18,19 +18,19 @@ import {
 import { UserSchema, UserListResponseSchema, UserDetailResponseSchema, CreateUserResponseSchema, UpdateUserResponseSchema, DeleteUserResponseSchema, DriverListResponseSchema, ChangePasswordResponseSchema, UserValidationResponseSchema, ValidateEmailResponseSchema, ResetPasswordResponseSchema } from '../schemas/output/users-output';
 
 export const usersRouter = router({
-  // GET /users - List users with filtering and pagination
+    // GET /users - List users with filtering and pagination
   list: protectedProcedure
-    .meta({
-      openapi: {
-        method: 'GET',
-        path: '/users',
-        tags: ['users'],
-        summary: 'List users',
-        description: 'Get a list of users with filtering options',
-        protect: true,
-      }
-    })
-    .input(UserFiltersSchema)
+  .meta({
+    openapi: {
+      method: 'GET',
+      path: '/users',
+      tags: ['users'],
+      summary: 'List users',
+      description: 'Get a list of users with filtering options',
+      protect: true,
+    }
+  })
+  .input(UserFiltersSchema)
     .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
@@ -263,6 +263,24 @@ export const usersRouter = router({
         
         if (existingByEmployeeId) {
           errors.push(`A user with employee ID "${input.employee_id}" already exists: ${existingByEmployeeId.name}`);
+        }
+      }
+      
+      // Check for duplicate license_number
+      if (input.license_number && input.license_number.trim() !== '') {
+        let licenseQuery = ctx.supabase
+          .from('admin_users')
+          .select('id, name')
+          .eq('license_number', input.license_number);
+        
+        if (input.exclude_id) {
+          licenseQuery = licenseQuery.neq('id', input.exclude_id);
+        }
+        
+        const { data: existingByLicense } = await licenseQuery.single();
+        
+        if (existingByLicense) {
+          errors.push(`A user with license number "${input.license_number}" already exists: ${existingByLicense.name}`);
         }
       }
       
@@ -576,7 +594,16 @@ export const usersRouter = router({
       const allowedFields = ['email', 'name', 'role', 'active', 'phone', 'license_number', 'hire_date', 'emergency_contact', 'emergency_phone', 'notes', 'employee_id', 'department'];
       const userUpdateFields = Object.fromEntries(
         Object.entries(updateData)
-          .filter(([key, value]) => value !== undefined && allowedFields.includes(key))
+          .filter(([key, value]) => {
+            if (value === undefined || !allowedFields.includes(key)) {
+              return false;
+            }
+            // For license_number, allow null/empty values but filter out undefined
+            if (key === 'license_number') {
+              return true; // Allow null, empty string, or valid values
+            }
+            return true;
+          })
       );
       
       if (Object.keys(userUpdateFields).length === 0) {
@@ -584,6 +611,83 @@ export const usersRouter = router({
           code: 'BAD_REQUEST',
           message: 'No fields to update'
         });
+      }
+
+      // Get current user data to check role changes and validate constraints
+      const { data: currentUser, error: fetchError } = await ctx.supabase
+        .from('admin_users')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !currentUser) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found'
+        });
+      }
+
+      // Prevent role change from driver to admin
+      if (currentUser.role === 'driver' && userUpdateFields.role === 'admin') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Cannot change driver role to admin. This operation is not allowed.'
+        });
+      }
+
+      // Check for duplicate license number if it's being updated
+      if (userUpdateFields.license_number !== undefined && userUpdateFields.license_number !== currentUser.license_number) {
+        // Only check for duplicates if the new license number is not null/empty
+        if (userUpdateFields.license_number && userUpdateFields.license_number.trim() !== '') {
+          const { data: existingLicense } = await ctx.supabase
+            .from('admin_users')
+            .select('id, name')
+            .eq('license_number', userUpdateFields.license_number)
+            .neq('id', id)
+            .single();
+
+          if (existingLicense) {
+            throw new TRPCError({
+              code: 'CONFLICT',
+              message: `License number "${userUpdateFields.license_number}" is already assigned to user: ${existingLicense.name}`
+            });
+          }
+        }
+        // If setting to null/empty, no need to check for duplicates
+      }
+
+      // Check for duplicate email if it's being updated
+      if (userUpdateFields.email && userUpdateFields.email !== currentUser.email) {
+        const { data: existingEmail } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name')
+          .eq('email', userUpdateFields.email)
+          .neq('id', id)
+          .single();
+
+        if (existingEmail) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `Email "${userUpdateFields.email}" is already assigned to user: ${existingEmail.name}`
+          });
+        }
+      }
+
+      // Check for duplicate employee_id if it's being updated
+      if (userUpdateFields.employee_id && userUpdateFields.employee_id !== currentUser.employee_id) {
+        const { data: existingEmployeeId } = await ctx.supabase
+          .from('admin_users')
+          .select('id, name')
+          .eq('employee_id', userUpdateFields.employee_id)
+          .neq('id', id)
+          .single();
+
+        if (existingEmployeeId) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `Employee ID "${userUpdateFields.employee_id}" is already assigned to user: ${existingEmployeeId.name}`
+          });
+        }
       }
 
       // Update user in admin_users table

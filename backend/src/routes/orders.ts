@@ -333,7 +333,19 @@ export const ordersRouter = router({
     .query(async ({ ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Fetching order workflow');
-      return getOrderWorkflow();
+      const workflow = getOrderWorkflow();
+      return {
+        steps: workflow.map(step => ({
+          status: step.status,
+          title: step.label,
+          description: step.description,
+          is_completed: false, // This would need to be calculated based on current order status
+          can_transition_to: step.allowedTransitions,
+          business_rules: [], // This would need to be populated based on business logic
+        })),
+        current_status: 'draft', // This would need to be passed as parameter
+        next_possible_statuses: workflow[0].allowedTransitions,
+      };
     }),
 
   // GET /orders/{id} - Get single order
@@ -425,7 +437,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetOverdueOrdersSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -494,7 +506,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetDeliveryCalendarSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2081,7 +2093,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(ValidateOrderPricingSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2273,7 +2285,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(ValidateTruckCapacitySchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2370,7 +2382,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetAllocationSuggestionsSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2402,7 +2414,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(CalculateOrderWeightSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2432,7 +2444,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(RemoveAllocationSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2459,7 +2471,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetDailyScheduleSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2497,7 +2509,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(ProcessRefillOrderSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2778,7 +2790,7 @@ export const ordersRouter = router({
 //       }
 //     })
 //     .input(CompleteVisitWithNoSaleSchema)
-//     .output(z.any())
+//     .output(z.any()))
 //     .mutation(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       

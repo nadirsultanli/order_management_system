@@ -15,7 +15,9 @@ export interface PriceListItem {
   id: string;
   price_list_id: string;
   product_id: string;
-  unit_price: number;
+  pricing_method?: 'per_unit' | 'per_kg' | 'flat_rate' | 'tiered';
+  unit_price?: number;
+  price_per_kg?: number;
   min_qty: number;
   surcharge_pct?: number;
   deposit_amount?: number;
@@ -27,9 +29,9 @@ export interface PriceListItem {
     id: string;
     sku: string;
     name: string;
-    unit_of_measure: string;
     tax_category?: string;
     tax_rate?: number;
+    capacity_kg?: number;
   };
 }
 
@@ -143,3 +145,43 @@ export const TAX_CATEGORIES: TaxCategory[] = [
   { id: 'luxury', name: 'Luxury (25% luxury tax)', rate: 0.25, description: '25% luxury tax' },
   { id: 'reduced', name: 'Reduced Rate (8% reduced)', rate: 0.08, description: '8% reduced' },
 ];
+
+// Product pricing defaults interface
+export interface ProductPricingDefaults {
+  product: {
+    id: string;
+    name: string;
+    sku: string;
+    sku_variant?: string;
+    capacity_kg: number;
+    has_capacity: boolean;
+  };
+  pricing_defaults: {
+    method: 'per_unit' | 'per_kg';
+    unit_price: number;
+    price_per_kg: number;
+    min_qty: number;
+    surcharge_pct: number;
+  };
+  existing_pricing: PriceListItem | null;
+  similar_products: Array<{
+    unit_price: number;
+    price_per_kg: number;
+    min_qty: number;
+    surcharge_pct: number;
+    pricing_method: string;
+    product: {
+      name: string;
+      sku: string;
+      capacity_kg: number;
+    };
+  }>;
+  suggested_pricing: {
+    unit_price: number;
+    price_per_kg: number;
+  };
+  pricing_methods: {
+    recommended: 'per_unit' | 'per_kg';
+    available: ('per_unit' | 'per_kg')[];
+  };
+}

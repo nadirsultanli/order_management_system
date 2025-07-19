@@ -527,61 +527,55 @@ export const pricingRouter = router({
         });
       }
 
-      // Get product details to determine capacity for deposit calculation
+      // Get product details to determine capacity and pricing method
       const { data: product } = await ctx.supabase
         .from('products')
         .select(`
           id,
+          name,
+          sku,
+          sku_variant,
           capacity_kg,
-          parent_products_id
+          parent_products_id,
+          parent_products (
+            id,
+            name,
+            sku,
+            capacity_kg
+          )
         `)
         .eq('id', input.product_id)
         .single();
 
-      // Determine capacity for deposit calculation
+      // Determine capacity and pricing method
       let capacityForDeposit = 0;
+      let suggestedPricingMethod = input.pricing_method || 'per_unit';
+      
       if (product) {
-        // If product has direct capacity, use it
-        if (product.capacity_kg) {
-          capacityForDeposit = product.capacity_kg;
-        }
-        // If product is a variant, get capacity from parent product
-        else if (product.parent_products_id) {
-          const { data: parentProduct } = await ctx.supabase
-            .from('parent_products')
-            .select('capacity_kg')
-            .eq('id', product.parent_products_id)
-            .single();
-          
-          if (parentProduct) {
-            capacityForDeposit = parentProduct.capacity_kg || 0;
+        // Get capacity from product or parent
+        const parentCapacity = product.parent_products && Array.isArray(product.parent_products) && product.parent_products.length > 0 
+          ? product.parent_products[0].capacity_kg 
+          : 0;
+        capacityForDeposit = product.capacity_kg || parentCapacity;
+        
+        // Auto-determine pricing method if not provided
+        if (!input.pricing_method && capacityForDeposit > 0) {
+          const kgBasedVariants = ['FULL-OUT', 'FULL-XCH', 'EMPTY'];
+          if (product.sku_variant && kgBasedVariants.includes(product.sku_variant)) {
+            suggestedPricingMethod = 'per_kg';
+          } else if (capacityForDeposit >= 5) {
+            suggestedPricingMethod = 'per_kg';
           }
         }
       }
 
-      // Get deposit amount from cylinder_deposit_rates table if capacity is available
-      let depositAmount = input.deposit_amount || 0;
-      if (capacityForDeposit > 0 && !input.deposit_amount) {
-        const { data: depositRate } = await ctx.supabase
-          .from('cylinder_deposit_rates')
-          .select('deposit_amount')
-          .eq('capacity_l', capacityForDeposit)
-          .eq('is_active', true)
-          .lte('effective_date', new Date().toISOString().split('T')[0])
-          .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
-          .order('effective_date', { ascending: false })
-          .limit(1)
-          .single();
 
-        if (depositRate) {
-          depositAmount = depositRate.deposit_amount;
-        }
-      }
 
-      // Prepare the data to insert with deposit amount
+      // Prepare the data to insert with auto-determined pricing method
       const insertData = {
         ...input,
-        deposit_amount: depositAmount
+        pricing_method: suggestedPricingMethod,
+        min_qty: input.min_qty || (suggestedPricingMethod === 'per_unit' ? 1 : undefined)
       };
       
       const { data, error } = await ctx.supabase
@@ -1660,58 +1654,7 @@ export const pricingRouter = router({
         });
       }
 
-      // If deposit_amount is not provided in the update, calculate it automatically
-      if (!updateData.deposit_amount) {
-        // Get product details to determine capacity for deposit calculation
-        const { data: product } = await ctx.supabase
-          .from('products')
-          .select(`
-            id,
-            capacity_kg,
-            parent_products_id
-          `)
-          .eq('id', item.product_id)
-          .single();
 
-        // Determine capacity for deposit calculation
-        let capacityForDeposit = 0;
-        if (product) {
-          // If product has direct capacity, use it
-          if (product.capacity_kg) {
-            capacityForDeposit = product.capacity_kg;
-          }
-          // If product is a variant, get capacity from parent product
-          else if (product.parent_products_id) {
-            const { data: parentProduct } = await ctx.supabase
-              .from('parent_products')
-              .select('capacity_kg')
-              .eq('id', product.parent_products_id)
-              .single();
-            
-            if (parentProduct) {
-              capacityForDeposit = parentProduct.capacity_kg || 0;
-            }
-          }
-        }
-
-        // Get deposit amount from cylinder_deposit_rates table if capacity is available
-        if (capacityForDeposit > 0) {
-          const { data: depositRate } = await ctx.supabase
-            .from('cylinder_deposit_rates')
-            .select('deposit_amount')
-            .eq('capacity_l', capacityForDeposit)
-            .eq('is_active', true)
-            .lte('effective_date', new Date().toISOString().split('T')[0])
-            .or(`end_date.is.null,end_date.gte.${new Date().toISOString().split('T')[0]}`)
-            .order('effective_date', { ascending: false })
-            .limit(1)
-            .single();
-
-          if (depositRate) {
-            updateData.deposit_amount = depositRate.deposit_amount;
-          }
-        }
-      }
       
       const { data, error } = await ctx.supabase
         .from('price_list_item')
@@ -1719,7 +1662,7 @@ export const pricingRouter = router({
         .eq('id', id)
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
+          product:parent_products(id, sku, name, tax_category, tax_rate, capacity_kg)
         `)
         .single();
 
@@ -1890,7 +1833,7 @@ export const pricingRouter = router({
         .insert(items)
         .select(`
           *,
-          product:products(id, sku, name, unit_of_measure, tax_category, tax_rate)
+          product:parent_products(id, sku, name, tax_category, tax_rate, capacity_kg)
         `);
 
       if (error) {
@@ -2234,7 +2177,7 @@ export const pricingRouter = router({
             .eq('id', existingItem.id)
             .select(`
               *,
-              product:products(id, sku, name, tax_category, tax_rate)
+              product:parent_products(id, sku, name, tax_category, tax_rate, capacity_kg)
             `)
             .single();
 
@@ -3188,33 +3131,7 @@ export const pricingRouter = router({
       fill_percentage: z.number().min(0).max(100).default(100),
       date: z.string().optional(),
     }))
-    .output(z.object({
-      product_id: z.string(),
-      product_name: z.string(),
-      product_sku: z.string(),
-      sku_variant: z.string(),
-      is_refill: z.boolean(),
-      is_outright: z.boolean(),
-      capacity_kg: z.number(),
-      capacity_l: z.number(),
-      quantity: z.number(),
-      fill_percentage: z.number(),
-      // Pricing breakdown
-      gas_price_per_kg: z.number(),
-      gas_charge: z.number(),
-      deposit_amount: z.number(),
-      deposit_currency: z.string().nullable().optional(),
-      subtotal: z.number(),
-      tax_rate: z.number(),
-      tax_amount: z.number(),
-      total_price: z.number(),
-      // Detailed breakdown
-      pricing_method: z.string(),
-      price_excluding_tax: z.number(),
-      price_including_tax: z.number(),
-      adjusted_weight: z.number(),
-      original_weight: z.number(),
-    }))
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -3583,5 +3500,164 @@ export const pricingRouter = router({
         ctx.logger.error('Example pricing calculation error:', error);
         throw error;
       }
+    }),
+
+  // GET /pricing/product-pricing-defaults/{productId} - Get product pricing defaults
+  getProductPricingDefaults: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'GET',
+        path: '/pricing/product-pricing-defaults/{productId}',
+        tags: ['pricing'],
+        summary: 'Get product pricing defaults',
+        description: 'Get default pricing method and pre-filled values for a product based on its type (KG vs unit)',
+        protect: true,
+      }
+    })
+    .input(z.object({
+      productId: z.string().uuid(),
+      priceListId: z.string().uuid().optional(),
+    }))
+    .output(z.any())
+    .query(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      ctx.logger.info('Getting product pricing defaults:', input.productId);
+      
+      // Get product details
+      const { data: product, error: productError } = await ctx.supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          sku,
+          sku_variant,
+          capacity_kg,
+          parent_products_id,
+          parent_products (
+            id,
+            name,
+            sku,
+            capacity_kg
+          )
+        `)
+        .eq('id', input.productId)
+        .single();
+
+      if (productError || !product) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Product not found'
+        });
+      }
+
+      // Determine if this is a KG-based product
+      const parentCapacity = product.parent_products && Array.isArray(product.parent_products) && product.parent_products.length > 0 
+        ? product.parent_products[0].capacity_kg 
+        : 0;
+      const hasCapacity = product.capacity_kg || parentCapacity;
+      const capacityKg = product.capacity_kg || parentCapacity;
+      
+      // Determine pricing method based on product type
+      let defaultPricingMethod = 'per_unit';
+      if (hasCapacity && capacityKg > 0) {
+        // Check if SKU variant indicates KG-based pricing
+        const kgBasedVariants = ['FULL-OUT', 'FULL-XCH', 'EMPTY'];
+        if (product.sku_variant && kgBasedVariants.includes(product.sku_variant)) {
+          defaultPricingMethod = 'per_kg';
+        } else if (capacityKg >= 5) { // Assume larger cylinders are priced per KG
+          defaultPricingMethod = 'per_kg';
+        }
+      }
+
+      // Get existing pricing data if priceListId is provided
+      let existingPricing = null;
+      if (input.priceListId) {
+        const { data: existingItem } = await ctx.supabase
+          .from('price_list_item')
+          .select(`
+            id,
+            unit_price,
+            price_per_kg,
+            min_qty,
+            surcharge_pct,
+            pricing_method
+          `)
+          .eq('price_list_id', input.priceListId)
+          .eq('product_id', input.productId)
+          .single();
+
+        if (existingItem) {
+          existingPricing = existingItem;
+        }
+      }
+
+      // Get similar product pricing for reference
+      const { data: similarProducts } = await ctx.supabase
+        .from('price_list_item')
+        .select(`
+          unit_price,
+          price_per_kg,
+          min_qty,
+          surcharge_pct,
+          pricing_method,
+          product:parent_products (
+            name,
+            sku,
+            capacity_kg
+          )
+        `)
+        .eq('product.capacity_kg', capacityKg)
+        .not('product_id', 'eq', input.productId)
+        .limit(3);
+
+      // Calculate suggested pricing based on capacity
+      let suggestedUnitPrice = 0;
+      let suggestedPricePerKg = 0;
+      
+      if (capacityKg > 0) {
+        // Base pricing logic - adjust these values based on your business rules
+        if (capacityKg <= 3) {
+          suggestedUnitPrice = 1500; // Small cylinders
+          suggestedPricePerKg = 500;
+        } else if (capacityKg <= 6) {
+          suggestedUnitPrice = 2500; // Medium cylinders
+          suggestedPricePerKg = 400;
+        } else if (capacityKg <= 12) {
+          suggestedUnitPrice = 4500; // Large cylinders
+          suggestedPricePerKg = 375;
+        } else {
+          suggestedUnitPrice = capacityKg * 350; // Extra large cylinders
+          suggestedPricePerKg = 350;
+        }
+      }
+
+      return {
+        product: {
+          id: product.id,
+          name: product.name,
+          sku: product.sku,
+          sku_variant: product.sku_variant,
+          capacity_kg: capacityKg,
+          has_capacity: hasCapacity,
+        },
+        pricing_defaults: {
+          method: existingPricing?.pricing_method || defaultPricingMethod,
+          unit_price: existingPricing?.unit_price || suggestedUnitPrice,
+          price_per_kg: existingPricing?.price_per_kg || suggestedPricePerKg,
+          min_qty: existingPricing?.min_qty || 1,
+          surcharge_pct: existingPricing?.surcharge_pct || 2,
+        },
+        existing_pricing: existingPricing,
+        similar_products: similarProducts || [],
+        suggested_pricing: {
+          unit_price: suggestedUnitPrice,
+          price_per_kg: suggestedPricePerKg,
+        },
+        pricing_methods: {
+          recommended: defaultPricingMethod,
+          available: hasCapacity ? ['per_unit', 'per_kg'] : ['per_unit'],
+        }
+      };
     }),
 });

@@ -73,8 +73,6 @@ export const CreatePriceListItemSchema = z.object({
   price_excluding_tax: z.number().positive().optional(),
   tax_amount: z.number().min(0).optional(),
   price_including_tax: z.number().positive().optional(),
-  // Deposit amount (optional, calculated if not provided)
-  deposit_amount: z.number().min(0).optional(),
 }).refine((data) => {
   // Ensure either unit_price or price_per_kg is provided based on pricing_method
   if (data.pricing_method === 'per_unit') {
@@ -104,8 +102,6 @@ export const UpdatePriceListItemSchema = z.object({
   price_excluding_tax: z.number().positive().optional(),
   tax_amount: z.number().min(0).optional(),
   price_including_tax: z.number().positive().optional(),
-  // Deposit amount (optional, calculated if not provided)
-  deposit_amount: z.number().min(0).optional(),
 });
 
 export const DeletePriceListItemSchema = z.object({

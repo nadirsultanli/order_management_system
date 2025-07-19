@@ -38,7 +38,7 @@
 //       }
 //     })
 //     .input(StockMovementFiltersSchema.optional())
-//     .output(z.any())
+//     .output(z.any()))
 //     .query(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       
@@ -149,7 +149,7 @@
 //       }
 //     })
 //     .input(GetStockMovementByIdSchema)
-//     .output(z.any())
+//     .output(z.any()))
 //     .query(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       
@@ -212,7 +212,7 @@
 //       }
 //     })
 //     .input(CreateStockMovementSchema)
-//     .output(z.any())
+//     .output(z.any()))
 //     .mutation(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       
@@ -266,7 +266,7 @@
 //       }
 //     })
 //     .input(BulkMovementSchema)
-//     .output(z.any())
+//     .output(z.any()))
 //     .mutation(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       
@@ -312,7 +312,7 @@
 //       }
 //     })
 //     .input(RefillOrderProcessSchema)
-//     .output(z.any())
+//     .output(z.any()))
 //     .mutation(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       
@@ -347,7 +347,7 @@
 //       }
 //     })
 //     .input(StockMovementSummarySchema)
-//     .output(z.any())
+//     .output(z.any()))
 //     .query(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       
