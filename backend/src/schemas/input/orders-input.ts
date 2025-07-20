@@ -9,7 +9,7 @@ const optionalDatetime = () => z.string().optional().transform((val) => val === 
 
   // ============ Base Schemas ============
 
-  export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'dispatched', 'en_route', 'delivered', 'invoiced', 'cancelled', 'paid', 'completed_no_sale']);
+  export const OrderStatusEnum = z.enum(['draft', 'confirmed', 'scheduled', 'dispatched', 'en_route', 'delivered', 'invoiced', 'cancelled', 'paid', 'completed_no_sale']);
 
   export const OrderTypeEnum = z.enum(['delivery', 'visit']);
 

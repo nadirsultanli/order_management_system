@@ -18,7 +18,8 @@ export const getOrderWorkflow = async (): Promise<OrderWorkflowStep[]> => {
       console.warn('tRPC orders.getWorkflow not available, using fallback workflow');
       const fallbackWorkflow: OrderWorkflowStep[] = [
         { status: 'draft' as OrderStatus, label: 'Draft', description: 'Order is being created', color: 'gray', allowedTransitions: ['confirmed', 'cancelled'] },
-        { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order confirmed, stock reserved', color: 'blue', allowedTransitions: ['dispatched', 'cancelled'] },
+        { status: 'confirmed' as OrderStatus, label: 'Confirmed', description: 'Order confirmed, stock reserved', color: 'blue', allowedTransitions: ['scheduled', 'dispatched', 'cancelled'] },
+        { status: 'scheduled' as OrderStatus, label: 'Scheduled', description: 'Order scheduled for delivery', color: 'indigo', allowedTransitions: ['dispatched', 'cancelled'] },
         { status: 'dispatched' as OrderStatus, label: 'Dispatched', description: 'Order dispatched for delivery', color: 'purple', allowedTransitions: ['en_route', 'cancelled', 'completed_no_sale'] },
         { status: 'en_route' as OrderStatus, label: 'En Route', description: 'Out for delivery', color: 'orange', allowedTransitions: ['delivered'] },
         { status: 'delivered' as OrderStatus, label: 'Delivered', description: 'Successfully delivered', color: 'green', allowedTransitions: ['invoiced'] },
