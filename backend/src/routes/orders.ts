@@ -333,7 +333,19 @@ export const ordersRouter = router({
     .query(async ({ ctx }) => {
       requireAuth(ctx);
       ctx.logger.info('Fetching order workflow');
-      return getOrderWorkflow();
+      const workflow = getOrderWorkflow();
+      return {
+        steps: workflow.map(step => ({
+          status: step.status,
+          title: step.label,
+          description: step.description,
+          is_completed: false, // This would need to be calculated based on current order status
+          can_transition_to: step.allowedTransitions,
+          business_rules: [], // This would need to be populated based on business logic
+        })),
+        current_status: 'draft', // This would need to be passed as parameter
+        next_possible_statuses: workflow[0].allowedTransitions,
+      };
     }),
 
   // GET /orders/{id} - Get single order
@@ -425,7 +437,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetOverdueOrdersSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -494,7 +506,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetDeliveryCalendarSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -610,6 +622,56 @@ export const ordersRouter = router({
       
       ctx.logger.info('Creating order for customer:', input.customer_id);
       
+      // Check if user is a driver and handle driver-specific logic
+      const isDriver = user.role === 'driver';
+      let driverTruckId: string | null = null;
+      let adminUser: any = null;
+      
+      if (isDriver) {
+        ctx.logger.info('Driver creating order - checking truck assignment');
+        
+        // Get driver's active trip for today
+        const today = new Date().toISOString().split('T')[0];
+        
+        // First, get the admin user ID for this auth user
+        const { data: adminUserData, error: adminUserError } = await ctx.supabase
+          .from('admin_users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+          
+        if (adminUserError || !adminUserData) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Driver not found in admin_users table'
+          });
+        }
+        
+        adminUser = adminUserData;
+        
+        const { data: activeTrip, error: tripError } = await ctx.supabase
+          .from('truck_routes')
+          .select('id, truck_id, route_status')
+          .eq('driver_id', adminUser.id)
+          .eq('route_date', today)
+          .eq('route_status', 'in_transit')
+          .single();
+          
+        if (tripError || !activeTrip) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Driver must be assigned to an active truck route to create orders'
+          });
+        }
+        
+        driverTruckId = activeTrip.truck_id;
+        ctx.logger.info('Driver trip found:', {
+          trip_id: activeTrip.id,
+          truck_id: activeTrip.truck_id,
+          route_status: activeTrip.route_status
+        });
+      }
+      
       // Generate hash for idempotency if key provided
       let idempotencyKeyId: string | null = null;
       if (input.idempotency_key) {
@@ -650,6 +712,62 @@ export const ordersRouter = router({
       }
       
       try {
+        // DRIVER-SPECIFIC LOGIC: Check if user is a driver and validate driver status
+        let isDriver = false;
+        let driverTruckId = null;
+        let activeTripId = null;
+        
+        if (user.role === 'driver') {
+          isDriver = true;
+          ctx.logger.info('Driver creating order, validating driver status and truck assignment');
+          
+          // Get driver's active trip for today
+          const today = new Date().toISOString().split('T')[0];
+          
+          // First, get the admin user ID for this auth user
+          const { data: adminUser, error: adminUserError } = await ctx.supabase
+            .from('admin_users')
+            .select('id')
+            .eq('auth_user_id', user.id)
+            .single();
+            
+          if (adminUserError || !adminUser) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Driver not found in admin_users table'
+            });
+          }
+          
+          const { data: activeTrip, error: tripError } = await ctx.supabase
+            .from('truck_routes')
+            .select(`
+              id,
+              truck_id,
+              route_status
+            `)
+            .eq('driver_id', adminUser.id)
+            .eq('route_date', today)
+            .eq('route_status', 'in_transit')
+            .single();
+            
+          if (tripError || !activeTrip) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Driver must be in transit to create orders. No active trip found for today.'
+            });
+          }
+          
+          driverTruckId = activeTrip.truck_id;
+          activeTripId = activeTrip.id;
+          
+          ctx.logger.info('Driver validation successful:', {
+            driver_id: user.id,
+            truck_id: driverTruckId,
+            trip_id: activeTripId,
+            route_status: activeTrip.route_status
+          });
+        }
+
         // Verify customer belongs to user's tenant and get account status
         const { data: customer, error: customerError } = await ctx.supabase
           .from('customers')
@@ -679,34 +797,51 @@ export const ordersRouter = router({
           });
         }
 
-        // Verify source warehouse exists
-        ctx.logger.info('Validating source warehouse:', { 
-          source_warehouse_id: input.source_warehouse_id,
-          customer_id: input.customer_id 
-        });
-        
-        const { data: warehouse, error: warehouseError } = await ctx.supabase
-          .from('warehouses')
-          .select('id, name, is_mobile')
-          .eq('id', input.source_warehouse_id)
-          .single();
-
-        if (warehouseError || !warehouse) {
-          ctx.logger.error('Warehouse validation failed:', {
-            source_warehouse_id: input.source_warehouse_id,
-            error: warehouseError,
-            warehouse: warehouse
+        // For drivers, automatically set warehouse to truck
+        let warehouse;
+        if (isDriver && driverTruckId) {
+          // For drivers, create a truck warehouse object using the truck ID from truck_routes
+          warehouse = {
+            id: driverTruckId,
+            name: `Truck Inventory (${driverTruckId.slice(0, 8)}...)`,
+            is_mobile: true
+          };
+          
+          ctx.logger.info('Driver warehouse set to truck:', { 
+            warehouse_id: warehouse.id,
+            warehouse_name: warehouse.name 
           });
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Source warehouse not found'
+        } else {
+          // For non-drivers, validate the provided warehouse
+          ctx.logger.info('Validating source warehouse:', { 
+            source_warehouse_id: input.source_warehouse_id,
+            customer_id: input.customer_id 
+          });
+          
+          const { data: warehouseData, error: warehouseError } = await ctx.supabase
+            .from('warehouses')
+            .select('id, name, is_mobile')
+            .eq('id', input.source_warehouse_id)
+            .single();
+
+          if (warehouseError || !warehouseData) {
+            ctx.logger.error('Warehouse validation failed:', {
+              source_warehouse_id: input.source_warehouse_id,
+              error: warehouseError,
+              warehouse: warehouseData
+            });
+            throw new TRPCError({
+              code: 'NOT_FOUND',
+              message: 'Source warehouse not found'
+            });
+          }
+          
+          warehouse = warehouseData;
+          ctx.logger.info('Warehouse validation successful:', { 
+            warehouse_id: warehouse.id,
+            warehouse_name: warehouse.name 
           });
         }
-        
-        ctx.logger.info('Warehouse validation successful:', { 
-          warehouse_id: warehouse.id,
-          warehouse_name: warehouse.name 
-        });
 
         // Validate delivery address if provided
         if (input.delivery_address_id) {
@@ -761,7 +896,7 @@ export const ordersRouter = router({
           const orderData = {
             customer_id: input.customer_id,
             delivery_address_id: input.delivery_address_id,
-            source_warehouse_id: input.source_warehouse_id,
+            source_warehouse_id: isDriver ? null : warehouse.id,
             scheduled_date: input.scheduled_date,
             delivery_date: input.delivery_date,
             delivery_time_window_start: input.delivery_time_window_start,
@@ -772,7 +907,7 @@ export const ordersRouter = router({
             order_date: input.order_date || new Date().toISOString().split('T')[0],
             total_amount: 0, // Visit orders start with 0 amount
             tax_percent: 16, // Default 16% VAT
-            created_by_user_id: user.id,
+            created_by_user_id: isDriver ? null : user.id,
             // Order type fields
             order_type: input.order_type,
             order_flow_type: input.order_flow_type || undefined,
@@ -822,15 +957,16 @@ export const ordersRouter = router({
           for (let i = 0; i < input.order_lines.length; i++) {
           const line = input.order_lines[i];
           
-          // Verify product exists and is active
+          // Verify product exists, is active, and is a variant (has parent_products_id)
           const { data: product, error: productError } = await ctx.supabase
             .from('products')
-            .select('id, sku, name, status, capacity_kg, tare_weight_kg, is_variant, parent_products_id')
+            .select('id, sku, name, status, capacity_kg, tare_weight_kg, is_variant, parent_products_id, tax_rate')
             .eq('id', line.product_id)
+            .not('parent_products_id', 'is', null) // Only show products with parent_products_id
             .single();
             
           if (productError || !product) {
-            validationErrors.push(`Product not found for line ${i + 1}`);
+            validationErrors.push(`Product not found or is not a variant (must have parent product) for line ${i + 1}`);
             continue;
           }
           
@@ -902,28 +1038,65 @@ export const ordersRouter = router({
           
           // Check inventory availability if not skipped
           if (!input.skip_inventory_check) {
-            const { data: inventory, error: inventoryError } = await ctx.supabase
-              .from('inventory_balance')
-              .select('qty_full, qty_reserved')
-              .eq('product_id', line.product_id)
-              .eq('warehouse_id', input.source_warehouse_id)
-              .single();
-              
-            if (inventoryError || !inventory) {
-              validationWarnings.push(`No inventory found for product ${product.sku} in selected warehouse`);
-            } else {
-              const availableStock = inventory.qty_full - inventory.qty_reserved;
-              if (line.quantity > availableStock) {
-                validationErrors.push(
-                  `Insufficient stock for ${product.sku} in selected warehouse. Requested: ${line.quantity}, Available: ${availableStock}`
-                );
+            if (isDriver) {
+              // DRIVER: Check truck inventory instead of warehouse inventory
+              const { data: truckInventory, error: truckInventoryError } = await ctx.supabase
+                .from('truck_inventory')
+                .select('qty_full, qty_reserved')
+                .eq('product_id', line.product_id)
+                .eq('truck_id', driverTruckId)
+                .single();
+                
+              if (truckInventoryError || !truckInventory) {
+                validationErrors.push(`No inventory found for product ${product.sku} in assigned truck`);
                 continue;
+              } else {
+                const availableStock = truckInventory.qty_full - truckInventory.qty_reserved;
+                if (line.quantity > availableStock) {
+                  validationErrors.push(
+                    `Insufficient stock for ${product.sku} in truck. Requested: ${line.quantity}, Available: ${availableStock}`
+                  );
+                  continue;
+                }
+                
+                if (line.quantity > availableStock * 0.8) {
+                  validationWarnings.push(
+                    `Large quantity requested for ${product.sku} (${line.quantity}/${availableStock} available in truck)`
+                  );
+                }
+                
+                ctx.logger.info('Driver inventory check successful:', {
+                  product_sku: product.sku,
+                  requested_qty: line.quantity,
+                  available_qty: availableStock,
+                  truck_id: driverTruckId
+                });
               }
-              
-              if (line.quantity > availableStock * 0.8) {
-                validationWarnings.push(
-                  `Large quantity requested for ${product.sku} (${line.quantity}/${availableStock} available in selected warehouse)`
-                );
+            } else {
+              // REGULAR USER: Check warehouse inventory (existing logic)
+              const { data: inventory, error: inventoryError } = await ctx.supabase
+                .from('inventory_balance')
+                .select('qty_full, qty_reserved')
+                .eq('product_id', line.product_id)
+                .eq('warehouse_id', warehouse.id)
+                .single();
+                
+              if (inventoryError || !inventory) {
+                validationWarnings.push(`No inventory found for product ${product.sku} in selected warehouse`);
+              } else {
+                const availableStock = inventory.qty_full - inventory.qty_reserved;
+                if (line.quantity > availableStock) {
+                  validationErrors.push(
+                    `Insufficient stock for ${product.sku} in selected warehouse. Requested: ${line.quantity}, Available: ${availableStock}`
+                  );
+                  continue;
+                }
+                
+                if (line.quantity > availableStock * 0.8) {
+                  validationWarnings.push(
+                    `Large quantity requested for ${product.sku} (${line.quantity}/${availableStock} available in selected warehouse)`
+                  );
+                }
               }
             }
           }
@@ -939,7 +1112,7 @@ export const ordersRouter = router({
           let priceExcludingTax = line.price_excluding_tax;
           let taxAmount = line.tax_amount || 0;
           let priceIncludingTax = line.price_including_tax;
-          let taxRate = line.tax_rate || 0.16;
+          let taxRate = line.tax_rate || product.tax_rate || 0.16;
           
           // If frontend didn't provide calculated values, calculate them
           if (!line.gas_charge) {
@@ -1033,7 +1206,7 @@ export const ordersRouter = router({
             price_excluding_tax: priceExcludingTax,
             tax_amount: taxAmount,
             price_including_tax: priceIncludingTax,
-            tax_rate: taxRate,
+            tax_rate: product.tax_rate || taxRate,
             // Partial fill fields
             fill_percentage: line.fill_percentage || 100,
             is_partial_fill: line.is_partial_fill || false,
@@ -1121,7 +1294,7 @@ export const ordersRouter = router({
         const orderData = {
           customer_id: input.customer_id,
           delivery_address_id: input.delivery_address_id,
-          source_warehouse_id: input.source_warehouse_id,
+          source_warehouse_id: isDriver ? null : warehouse.id,
           scheduled_date: input.scheduled_date,
           delivery_date: input.delivery_date,
           delivery_time_window_start: input.delivery_time_window_start,
@@ -1131,14 +1304,15 @@ export const ordersRouter = router({
           status: 'draft' as const,
           order_date: input.order_date || new Date().toISOString().split('T')[0],
           total_amount: totalAmount,
-          tax_percent: 16, // Default 16% VAT
-          created_by_user_id: user.id,
+          tax_percent: 16, // Will be calculated per product based on product.tax_rate
+          created_by_user_id: isDriver ? null : user.id,
           // Order type fields
           order_type: input.order_type,
           order_flow_type: input.order_flow_type || (input.order_type === 'delivery' ? 'outright' : undefined),
           service_type: input.service_type,
           exchange_empty_qty: input.exchange_empty_qty,
           requires_pickup: input.requires_pickup,
+          // Note: Driver-specific fields are tracked in truck_routes table
         };
 
         const { data: order, error: orderError } = await ctx.supabase
@@ -1228,12 +1402,23 @@ export const ordersRouter = router({
           order_id: order.id,
           customer_id: input.customer_id,
           total_amount: totalAmount,
-          line_count: validatedOrderLines.length
+          line_count: validatedOrderLines.length,
+          ...(isDriver && {
+            driver_created: true,
+            driver_id: user.id,
+            truck_id: driverTruckId,
+            trip_id: activeTripId
+          })
         });
 
         return {
           ...completeOrder,
-          validation_warnings: validationWarnings
+          validation_warnings: validationWarnings,
+          ...(isDriver && {
+            driver_created: true,
+            driver_truck_id: driverTruckId,
+            driver_trip_id: activeTripId
+          })
         };
         
       } catch (error) {
@@ -1443,53 +1628,69 @@ export const ordersRouter = router({
 
       // STRICT LOGIC: When order status changes to 'en_route', automatically update trip status to 'in_transit'
       if (input.new_status === 'en_route') {
-        ctx.logger.info('Order status changed to en_route, checking for trip allocation to update trip status');
+        ctx.logger.info('Order status changed to en_route, checking for truck allocation to update trip status');
         
-        // Find the trip allocation for this order
+        // Find the truck allocation for this order
         const { data: allocation, error: allocationError } = await ctx.supabase
           .from('truck_allocations')
-          .select('trip_id')
+          .select('truck_id, allocation_date')
           .eq('order_id', input.order_id)
           .single();
 
         if (allocationError) {
-          ctx.logger.warn('No trip allocation found for order:', input.order_id);
-        } else if (allocation && allocation.trip_id) {
-          // Check if all orders in this trip are now 'en_route' before updating trip status
-          const { data: tripOrders, error: tripOrdersError } = await ctx.supabase
-            .from('truck_allocations')
-            .select(`
-              order_id,
-              orders!inner(status)
-            `)
-            .eq('trip_id', allocation.trip_id);
+          ctx.logger.warn('No truck allocation found for order:', input.order_id);
+        } else if (allocation && allocation.truck_id) {
+          // Find the truck route for this truck and date
+          const { data: truckRoute, error: routeError } = await ctx.supabase
+            .from('truck_routes')
+            .select('id, route_status')
+            .eq('truck_id', allocation.truck_id)
+            .eq('route_date', allocation.allocation_date)
+            .single();
 
-          if (tripOrdersError) {
-            ctx.logger.error('Error checking trip orders status:', tripOrdersError);
-          } else if (tripOrders && tripOrders.length > 0) {
-            // Check if all orders in the trip are 'en_route'
-            const allEnRoute = tripOrders.every((allocation: any) => 
-              (allocation.orders as any)?.status === 'en_route'
-            );
+          if (routeError) {
+            ctx.logger.warn('No truck route found for truck and date:', {
+              truck_id: allocation.truck_id,
+              allocation_date: allocation.allocation_date
+            });
+          } else if (truckRoute) {
+            // Check if all orders allocated to this truck on this date are now 'en_route'
+            const { data: truckOrders, error: truckOrdersError } = await ctx.supabase
+              .from('truck_allocations')
+              .select(`
+                order_id,
+                orders!inner(status)
+              `)
+              .eq('truck_id', allocation.truck_id)
+              .eq('allocation_date', allocation.allocation_date);
 
-            if (allEnRoute) {
-              // Update trip status to 'in_transit' only when all orders are en_route
-              const { error: tripStatusError } = await ctx.supabase
-                .from('truck_routes')
-                .update({ 
-                  route_status: 'in_transit',
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', allocation.trip_id);
+            if (truckOrdersError) {
+              ctx.logger.error('Error checking truck orders status:', truckOrdersError);
+            } else if (truckOrders && truckOrders.length > 0) {
+              // Check if all orders for this truck on this date are 'en_route'
+              const allEnRoute = truckOrders.every((allocation: any) => 
+                (allocation.orders as any)?.status === 'en_route'
+              );
 
-              if (tripStatusError) {
-                ctx.logger.error('Error updating trip status to in_transit:', tripStatusError);
-                ctx.logger.warn('Order status was updated but trip status update failed. Manual intervention may be required.');
+              if (allEnRoute) {
+                // Update truck route status to 'in_transit' only when all orders are en_route
+                const { error: routeStatusError } = await ctx.supabase
+                  .from('truck_routes')
+                  .update({ 
+                    route_status: 'in_transit',
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', truckRoute.id);
+
+                if (routeStatusError) {
+                  ctx.logger.error('Error updating truck route status to in_transit:', routeStatusError);
+                  ctx.logger.warn('Order status was updated but truck route status update failed. Manual intervention may be required.');
+                } else {
+                  ctx.logger.info(`Truck route ${truckRoute.id} status automatically updated to 'in_transit' when all orders went en_route`);
+                }
               } else {
-                ctx.logger.info(`Trip ${allocation.trip_id} status automatically updated to 'in_transit' when all orders went en_route`);
+                ctx.logger.info(`Order ${input.order_id} went en_route, but not all orders for truck ${allocation.truck_id} on ${allocation.allocation_date} are en_route yet. Truck route status remains unchanged.`);
               }
-            } else {
-              ctx.logger.info(`Order ${input.order_id} went en_route, but not all orders in trip ${allocation.trip_id} are en_route yet. Trip status remains unchanged.`);
             }
           }
         }
@@ -1497,53 +1698,69 @@ export const ordersRouter = router({
 
       // STRICT LOGIC: When order status changes to 'delivered', check if all orders in trip are delivered
       if (input.new_status === 'delivered') {
-        ctx.logger.info('Order status changed to delivered, checking for trip completion');
+        ctx.logger.info('Order status changed to delivered, checking for truck route completion');
         
-        // Find the trip allocation for this order
+        // Find the truck allocation for this order
         const { data: allocation, error: allocationError } = await ctx.supabase
           .from('truck_allocations')
-          .select('trip_id')
+          .select('truck_id, allocation_date')
           .eq('order_id', input.order_id)
           .single();
 
         if (allocationError) {
-          ctx.logger.warn('No trip allocation found for order:', input.order_id);
-        } else if (allocation && allocation.trip_id) {
-          // Check if all orders in this trip are now 'delivered'
-          const { data: tripOrders, error: tripOrdersError } = await ctx.supabase
-            .from('truck_allocations')
-            .select(`
-              order_id,
-              orders!inner(status)
-            `)
-            .eq('trip_id', allocation.trip_id);
+          ctx.logger.warn('No truck allocation found for order:', input.order_id);
+        } else if (allocation && allocation.truck_id) {
+          // Find the truck route for this truck and date
+          const { data: truckRoute, error: routeError } = await ctx.supabase
+            .from('truck_routes')
+            .select('id, route_status')
+            .eq('truck_id', allocation.truck_id)
+            .eq('route_date', allocation.allocation_date)
+            .single();
 
-          if (tripOrdersError) {
-            ctx.logger.error('Error checking trip orders status:', tripOrdersError);
-          } else if (tripOrders && tripOrders.length > 0) {
-            // Check if all orders in the trip are 'delivered'
-            const allDelivered = tripOrders.every((allocation: any) => 
-              (allocation.orders as any)?.status === 'delivered'
-            );
+          if (routeError) {
+            ctx.logger.warn('No truck route found for truck and date:', {
+              truck_id: allocation.truck_id,
+              allocation_date: allocation.allocation_date
+            });
+          } else if (truckRoute) {
+            // Check if all orders allocated to this truck on this date are now 'delivered'
+            const { data: truckOrders, error: truckOrdersError } = await ctx.supabase
+              .from('truck_allocations')
+              .select(`
+                order_id,
+                orders!inner(status)
+              `)
+              .eq('truck_id', allocation.truck_id)
+              .eq('allocation_date', allocation.allocation_date);
 
-            if (allDelivered) {
-              // Update trip status to 'completed' when all orders are delivered
-              const { error: tripStatusError } = await ctx.supabase
-                .from('truck_routes')
-                .update({ 
-                  route_status: 'completed',
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', allocation.trip_id);
+            if (truckOrdersError) {
+              ctx.logger.error('Error checking truck orders status:', truckOrdersError);
+            } else if (truckOrders && truckOrders.length > 0) {
+              // Check if all orders for this truck on this date are 'delivered'
+              const allDelivered = truckOrders.every((allocation: any) => 
+                (allocation.orders as any)?.status === 'delivered'
+              );
 
-              if (tripStatusError) {
-                ctx.logger.error('Error updating trip status to completed:', tripStatusError);
-                ctx.logger.warn('Order status was updated but trip status update failed. Manual intervention may be required.');
+              if (allDelivered) {
+                // Update truck route status to 'completed' when all orders are delivered
+                const { error: routeStatusError } = await ctx.supabase
+                  .from('truck_routes')
+                  .update({ 
+                    route_status: 'completed',
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', truckRoute.id);
+
+                if (routeStatusError) {
+                  ctx.logger.error('Error updating truck route status to completed:', routeStatusError);
+                  ctx.logger.warn('Order status was updated but truck route status update failed. Manual intervention may be required.');
+                } else {
+                  ctx.logger.info(`Truck route ${truckRoute.id} status automatically updated to 'completed' when all orders were delivered`);
+                }
               } else {
-                ctx.logger.info(`Trip ${allocation.trip_id} status automatically updated to 'completed' when all orders were delivered`);
+                ctx.logger.info(`Order ${input.order_id} was delivered, but not all orders for truck ${allocation.truck_id} on ${allocation.allocation_date} are delivered yet. Truck route status remains unchanged.`);
               }
-            } else {
-              ctx.logger.info(`Order ${input.order_id} was delivered, but not all orders in trip ${allocation.trip_id} are delivered yet. Trip status remains unchanged.`);
             }
           }
         }
@@ -1876,7 +2093,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(ValidateOrderPricingSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2068,7 +2285,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(ValidateTruckCapacitySchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2165,7 +2382,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetAllocationSuggestionsSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2197,7 +2414,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(CalculateOrderWeightSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2227,7 +2444,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(RemoveAllocationSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2254,7 +2471,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(GetDailyScheduleSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .query(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2292,7 +2509,7 @@ export const ordersRouter = router({
   //     }
   //   })
   //   .input(ProcessRefillOrderSchema)
-  //   .output(z.any())
+  //   .output(z.any()))
   //   .mutation(async ({ input, ctx }) => {
   //     const user = requireAuth(ctx);
       
@@ -2573,7 +2790,7 @@ export const ordersRouter = router({
 //       }
 //     })
 //     .input(CompleteVisitWithNoSaleSchema)
-//     .output(z.any())
+//     .output(z.any()))
 //     .mutation(async ({ input, ctx }) => {
 //       const user = requireAuth(ctx);
       

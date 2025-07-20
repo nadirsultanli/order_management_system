@@ -32,20 +32,7 @@ export const authRouter = router({
       }
     })
     .input(LoginSchema)
-    .output(z.object({
-      user: z.object({
-        id: z.string(), // This will now be admin_users.id
-        auth_user_id: z.string(), // Add auth user ID for reference
-        email: z.string(),
-        name: z.string(),
-        role: z.string(),
-      }),
-      session: z.object({
-        access_token: z.string(),
-        refresh_token: z.string(),
-        expires_at: z.number().optional(),
-      }),
-    }))
+    .output(z.any())
     .mutation(async ({ input }) => {
       try {
         const { data, error } = await supabaseAdmin.auth.signInWithPassword({
@@ -112,14 +99,7 @@ export const authRouter = router({
       }
     })
     .input(RegisterSchema)
-    .output(z.object({
-      user: z.object({
-        id: z.string(),
-        email: z.string(),
-        name: z.string(),
-        role: z.string(),
-      }),
-    }))
+    .output(z.any())
     .mutation(async ({ input }) => {
       try {
         // Create user in Supabase Auth
@@ -194,15 +174,7 @@ export const authRouter = router({
       }
     })
     .input(z.void())
-    .output(z.object({
-      user: z.object({
-        id: z.string(), // This will now be admin_users.id
-        auth_user_id: z.string(), // Add auth user ID for reference
-        email: z.string(),
-        name: z.string(),
-        role: z.string(),
-      }),
-    }))
+    .output(z.any())
     .query(async ({ ctx }) => {
       if (!ctx.user) {
         throw new TRPCError({
@@ -249,13 +221,7 @@ export const authRouter = router({
       }
     })
     .input(RefreshTokenSchema)
-    .output(z.object({
-      session: z.object({
-        access_token: z.string(),
-        refresh_token: z.string(),
-        expires_at: z.number().optional(),
-      }),
-    }))
+    .output(z.any())
     .mutation(async ({ input }) => {
       try {
         const { data, error } = await supabaseAdmin.auth.refreshSession({
@@ -299,10 +265,8 @@ export const authRouter = router({
         protect: true,
       }
     })
-    .input(z.void())
-    .output(z.object({
-      success: z.boolean(),
-    }))
+    .input(z.object({}).optional())
+    .output(z.any())
     .mutation(async ({ ctx }) => {
       try {
         // Supabase doesn't need explicit logout on server side

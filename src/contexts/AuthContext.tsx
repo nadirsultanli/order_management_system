@@ -92,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tokenInfo?.token || ''}`,
         },
+        body: JSON.stringify({}), // Send empty object for optional input
       });
       
       if (!response.ok) {

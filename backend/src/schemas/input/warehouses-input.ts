@@ -40,7 +40,7 @@ export const UpdateWarehouseSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).optional(),
   capacity_cylinders: z.number().positive().optional(),
-  address: AddressSchema.optional(),
+  address: AddressSchema.optional().nullable(), // Allow null to delete address
 });
 
 export const DeleteWarehouseSchema = z.object({

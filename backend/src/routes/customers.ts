@@ -44,7 +44,7 @@ import {
 } from '../schemas/input/customers-input';
 
 export const customersRouter = router({
-  // GET /customers - List customers with filtering and pagination (OpenAPI disabled - needs output schema)
+  // GET /customers - List customers with filtering and pagination
   list: protectedProcedure
   .meta({
     openapi: {
@@ -52,11 +52,12 @@ export const customersRouter = router({
       path: '/customers',
       tags: ['customers'],
       summary: 'List customers',
+      description: 'Get a paginated list of customers with filtering options',
       protect: true,
     }
   })
   .input(CustomerFiltersSchema)
-      .output(z.any())
+  .output(z.any())
   .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -310,6 +311,7 @@ export const customersRouter = router({
         path: '/customers',
         tags: ['customers'],
         summary: 'Create customer',
+        description: 'Create a new customer with primary address',
         protect: true,
       }
     })
@@ -421,6 +423,7 @@ export const customersRouter = router({
         path: '/customers/{id}',
         tags: ['customers'],
         summary: 'Update customer',
+        description: 'Update customer information and optionally their address',
         protect: true,
       }
     })
@@ -499,10 +502,13 @@ export const customersRouter = router({
           });
         }
 
-        // Filter out undefined/null values from address object
+        // Filter out undefined/null/empty string values from address object
         const addressUpdateFields = Object.fromEntries(
           Object.entries(address).filter(([_, value]) => 
-            value !== undefined && value !== null && value !== ''
+            value !== undefined && 
+            value !== null && 
+            value !== '' && 
+            (typeof value !== 'string' || value.trim().length > 0)
           )
         );
 
@@ -539,6 +545,7 @@ export const customersRouter = router({
         path: '/customers/{customer_id}',
         tags: ['customers'],
         summary: 'Delete customer',
+        description: 'Delete a customer and all associated data',
         protect: true,
       }
     })
@@ -574,6 +581,7 @@ export const customersRouter = router({
         path: '/customers/{customer_id}/orders',
         tags: ['customers', 'orders'],
         summary: 'Get customer order history',
+        description: 'Get paginated order history for a customer',
         protect: true,
       }
     })
@@ -660,6 +668,7 @@ export const customersRouter = router({
         path: '/customers/{customer_id}/analytics',
         tags: ['customers', 'analytics'],
         summary: 'Get customer analytics',
+        description: 'Get customer analytics and statistics for a specific period',
         protect: true,
       }
     })
@@ -768,6 +777,7 @@ export const customersRouter = router({
         path: '/customers/validate',
         tags: ['customers', 'validation'],
         summary: 'Validate customer data',
+        description: 'Validate customer data for duplicates and business rules',
         protect: true,
       }
     })
@@ -1101,6 +1111,7 @@ export const customersRouter = router({
         path: '/customers/{customer_id}/addresses',
         tags: ['customers', 'addresses'],
         summary: 'Get customer addresses',
+        description: 'Get all addresses for a customer',
         protect: true,
       }
     })

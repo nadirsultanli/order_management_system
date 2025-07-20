@@ -352,6 +352,22 @@ export const useSetDefaultPriceListNew = () => {
   });
 };
 
+// Hook for getting product pricing defaults
+export const useProductPricingDefaults = (productId: string, priceListId?: string) => {
+  return trpc.pricing.getProductPricingDefaults.useQuery({
+    productId,
+    priceListId,
+  }, {
+    enabled: !!productId && productId !== 'null' && productId !== 'undefined',
+    staleTime: 30000,
+    retry: 1,
+    onError: (error) => {
+      console.error('Product pricing defaults fetch error:', error);
+      toast.error('Failed to load product pricing defaults');
+    }
+  });
+};
+
 // Utility hook to get pricing context
 export const usePricingContext = () => {
   return trpc.useContext().pricing;

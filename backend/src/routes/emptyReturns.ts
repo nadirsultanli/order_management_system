@@ -564,10 +564,7 @@ export const emptyReturnsRouter = router({
       }
     })
     .input(z.object({}))
-    .output(z.object({
-      expired_count: z.number().min(0),
-      processed_at: z.string().datetime(),
-    }))
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -609,25 +606,7 @@ export const emptyReturnsRouter = router({
       brand_code: z.string().optional(),
       capacity_l: z.number().optional(),
     }))
-    .output(z.object({
-      period: z.object({
-        from_date: z.string(),
-        to_date: z.string(),
-      }),
-      brand_balances: z.array(z.object({
-        brand_code: z.string(),
-        brand_name: z.string(),
-        cylinders_given: z.number().min(0),
-        cylinders_received: z.number().min(0),
-        net_balance: z.number(),
-        capacity_l: z.number().min(0),
-        pending_reconciliation: z.number().min(0),
-        last_updated: z.string().datetime(),
-      })),
-      total_exchange_fees: z.number().min(0),
-      pending_reconciliations: z.number().min(0),
-      currency_code: z.string(),
-    }))
+    .output(z.any())
     .query(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       
@@ -775,11 +754,7 @@ export const emptyReturnsRouter = router({
       new_status: z.enum(['pending', 'matched', 'generic_accepted']),
       notes: z.string().optional(),
     }))
-    .output(z.object({
-      updated_count: z.number().min(0),
-      new_status: z.enum(['pending', 'matched', 'generic_accepted']),
-      updated_at: z.string().datetime(),
-    }))
+    .output(z.any())
     .mutation(async ({ input, ctx }) => {
       const user = requireAuth(ctx);
       

@@ -18,6 +18,7 @@ export const useProducts = (filters: ProductFilters = {}) => {
     sort_by: filters.sort_by || 'created_at',
     sort_order: filters.sort_order || 'desc',
     show_obsolete: filters.show_obsolete || false,
+    include_inventory_data: true, // Always include inventory data for proper stock display
   }, {
     retry: 1,
     staleTime: 30000,

@@ -141,10 +141,16 @@ const UserForm: React.FC<{
                 }}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 required
+                disabled={user?.role === 'driver'}
               >
                 <option value="driver">Driver</option>
-                <option value="admin">Admin</option>
+                <option value="admin" disabled={user?.role === 'driver'}>Admin</option>
               </select>
+              {user?.role === 'driver' && (
+                <p className="mt-1 text-sm text-amber-600">
+                  Driver role cannot be changed to admin for security reasons.
+                </p>
+              )}
             </div>
 
             <div>
@@ -303,6 +309,11 @@ export const UsersPage: React.FC = () => {
 
   const handleFormSubmit = async (data: UserFormData) => {
     try {
+      // Prevent role change from driver to admin
+      if (editingUser && editingUser.role === 'driver' && data.role === 'admin') {
+        throw new Error('Cannot change driver role to admin. This operation is not allowed for security reasons.');
+      }
+
       // For drivers, remove password field if it exists
       const submitData = { ...data };
       if (submitData.role === 'driver' && !editingUser) {

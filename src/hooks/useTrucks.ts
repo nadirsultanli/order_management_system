@@ -242,3 +242,18 @@ export const useTruckMaintenance = (truckId?: string) => {
     updateMaintenance
   };
 };
+
+// Hook for getting truck inventory
+export const useTruckInventory = (truckId?: string) => {
+  return trpc.trucks.getInventory.useQuery({
+    truck_id: truckId!,
+  }, {
+    enabled: Boolean(truckId),
+    staleTime: 30000,
+    retry: 1,
+    onError: (error: any) => {
+      console.error('Truck inventory fetch error:', error);
+      toast.error('Failed to load truck inventory');
+    }
+  });
+};

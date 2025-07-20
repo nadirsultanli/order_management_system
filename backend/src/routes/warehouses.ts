@@ -338,7 +338,7 @@ export const warehousesRouter = router({
       return data;
     }),
 
-  // PUT /warehouses/{id} - Update warehouse
+  // PUT /warehouses/{id} - Update warehouse (full or partial)
   update: protectedProcedure
     .meta({
       openapi: {
@@ -346,7 +346,7 @@ export const warehousesRouter = router({
         path: '/warehouses/{id}',
         tags: ['warehouses'],
         summary: 'Update warehouse',
-        description: 'Update warehouse information including name, capacity, and address details.',
+        description: 'Update warehouse information including name, capacity, and address details. Supports partial updates. Use PATCH for more granular updates.',
         protect: true,
       }
     })
@@ -359,13 +359,60 @@ export const warehousesRouter = router({
       
       ctx.logger.info('Updating warehouse:', id, updateData);
       
+      // Validate that at least one field is being updated
+      const hasUpdates = Object.keys(updateData).some(key => updateData[key as keyof typeof updateData] !== undefined);
+      if (!hasUpdates) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No fields provided for update',
+        });
+      }
+      
+      // Get current warehouse to check if it exists and get current data
+      const { data: currentWarehouse, error: fetchError } = await ctx.supabase
+        .from('warehouses')
+        .select(`
+          id,
+          name,
+          capacity_cylinders,
+          address_id,
+          address:addresses(
+            id,
+            line1,
+            line2,
+            city,
+            state,
+            postal_code,
+            country,
+            instructions,
+            latitude,
+            longitude
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        ctx.logger.error('Error fetching current warehouse:', fetchError);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Warehouse not found',
+        });
+      }
+
+      if (!currentWarehouse) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Warehouse not found',
+        });
+      }
+
       // Check name uniqueness if name is being updated
-      if (updateData.name) {
+      if (updateData.name && updateData.name !== currentWarehouse.name) {
         const { data: existingName } = await ctx.supabase
           .from('warehouses')
           .select('id')
           .eq('name', updateData.name)
-          
           .neq('id', id)
           .single();
 
@@ -377,104 +424,156 @@ export const warehousesRouter = router({
         }
       }
 
-      // Get current warehouse to check if it has an address
-      const { data: currentWarehouse } = await ctx.supabase
-        .from('warehouses')
-        .select('address_id')
-        .eq('id', id)
-        
-        .single();
-
-      if (!currentWarehouse) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Warehouse not found',
-        });
-      }
-
       let addressId = currentWarehouse.address_id;
+      let addressUpdateData = null;
 
-      // Handle address update/creation
-      if (updateData.address) {
-        if (addressId) {
-          // Update existing address
-          const { error: addressError } = await ctx.supabase
-            .from('addresses')
-            .update(updateData.address)
-            .eq('id', addressId);
+      // Handle address updates dynamically
+      if (updateData.address !== undefined) {
+        if (updateData.address === null) {
+          // Delete address if explicitly set to null
+          if (addressId) {
+            const { error: deleteError } = await ctx.supabase
+              .from('addresses')
+              .delete()
+              .eq('id', addressId);
 
-          if (addressError) {
-            ctx.logger.error('Address update error:', addressError);
-            throw new TRPCError({
-              code: 'INTERNAL_SERVER_ERROR',
-              message: `Failed to update address: ${addressError.message}`,
-            });
+            if (deleteError) {
+              ctx.logger.error('Address deletion error:', deleteError);
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to delete address: ${deleteError.message}`,
+              });
+            }
+            addressId = null;
           }
-        } else {
-          // Create new address
-          const { data: addressData, error: addressError } = await ctx.supabase
-            .from('addresses')
-            .insert([{
-              ...updateData.address,
-              
-              customer_id: null,
-              is_primary: false,
-              created_at: new Date().toISOString(),
-            }])
-            .select()
-            .single();
+        } else if (updateData.address) {
+          // Update or create address
+          const addressData = {
+            ...updateData.address,
+            customer_id: null,
+            is_primary: false,
+            updated_at: new Date().toISOString(),
+          };
 
-          if (addressError) {
-            ctx.logger.error('Address creation error:', addressError);
-            throw new TRPCError({
-              code: 'INTERNAL_SERVER_ERROR',
-              message: `Failed to create address: ${addressError.message}`,
-            });
+          if (addressId) {
+            // Update existing address
+            const { error: addressError } = await ctx.supabase
+              .from('addresses')
+              .update(addressData)
+              .eq('id', addressId);
+
+            if (addressError) {
+              ctx.logger.error('Address update error:', addressError);
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to update address: ${addressError.message}`,
+              });
+            }
+          } else {
+            // Create new address
+            const { data: newAddressData, error: addressError } = await ctx.supabase
+              .from('addresses')
+              .insert([{
+                ...addressData,
+                created_at: new Date().toISOString(),
+              }])
+              .select()
+              .single();
+
+            if (addressError) {
+              ctx.logger.error('Address creation error:', addressError);
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to create address: ${addressError.message}`,
+              });
+            }
+
+            addressId = newAddressData.id;
           }
-
-          addressId = addressData.id;
         }
       }
 
-      // Update warehouse
-      const warehouseUpdate: any = {
-        name: updateData.name,
-        capacity_cylinders: updateData.capacity_cylinders,
-      };
-
-      if (addressId) {
+      // Build dynamic warehouse update object - only include fields that are provided
+      const warehouseUpdate: any = {};
+      
+      if (updateData.name !== undefined) {
+        warehouseUpdate.name = updateData.name;
+      }
+      
+      if (updateData.capacity_cylinders !== undefined) {
+        warehouseUpdate.capacity_cylinders = updateData.capacity_cylinders;
+      }
+      
+      if (addressId !== currentWarehouse.address_id) {
         warehouseUpdate.address_id = addressId;
       }
 
-      const { data, error } = await ctx.supabase
-        .from('warehouses')
-        .update(warehouseUpdate)
-        .eq('id', id)
+      // Only update if there are warehouse fields to update
+      if (Object.keys(warehouseUpdate).length > 0) {
+        warehouseUpdate.updated_at = new Date().toISOString();
         
-        .select(`
-          *,
-          address:addresses(
-            id,
-            line1,
-            line2,
-            city,
-            state,
-            postal_code,
-            country,
-            instructions
-          )
-        `)
-        .single();
+        const { data, error } = await ctx.supabase
+          .from('warehouses')
+          .update(warehouseUpdate)
+          .eq('id', id)
+          .select(`
+            *,
+            address:addresses(
+              id,
+              line1,
+              line2,
+              city,
+              state,
+              postal_code,
+              country,
+              instructions,
+              latitude,
+              longitude
+            )
+          `)
+          .single();
 
-      if (error) {
-        ctx.logger.error('Update warehouse error:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to update warehouse',
-        });
+        if (error) {
+          ctx.logger.error('Update warehouse error:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to update warehouse',
+          });
+        }
+
+        return data;
+      } else {
+        // If only address was updated, fetch the updated warehouse data
+        const { data, error } = await ctx.supabase
+          .from('warehouses')
+          .select(`
+            *,
+            address:addresses(
+              id,
+              line1,
+              line2,
+              city,
+              state,
+              postal_code,
+              country,
+              instructions,
+              latitude,
+              longitude
+            )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          ctx.logger.error('Error fetching updated warehouse:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch updated warehouse data',
+          });
+        }
+
+        return data;
       }
-
-      return data;
     }),
 
   // DELETE /warehouses/{id} - Delete warehouse
@@ -693,6 +792,243 @@ export const warehousesRouter = router({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'An unexpected error occurred while deleting the warehouse',
         });
+      }
+    }),
+
+  // PATCH /warehouses/{id} - Partial update warehouse
+  patch: protectedProcedure
+    .meta({
+      openapi: {
+        method: 'PATCH',
+        path: '/warehouses/{id}',
+        tags: ['warehouses'],
+        summary: 'Partial update warehouse',
+        description: 'Perform partial updates to warehouse fields. Only provided fields will be updated.',
+        protect: true,
+      }
+    })
+    .input(UpdateWarehouseSchema)
+    .output(z.any())
+    .mutation(async ({ input, ctx }) => {
+      const user = requireAuth(ctx);
+      
+      const { id, ...updateData } = input;
+      
+      ctx.logger.info('Partial updating warehouse:', id, updateData);
+      
+      // Validate that at least one field is being updated
+      const hasUpdates = Object.keys(updateData).some(key => updateData[key as keyof typeof updateData] !== undefined);
+      if (!hasUpdates) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No fields provided for update',
+        });
+      }
+      
+      // Get current warehouse to check if it exists and get current data
+      const { data: currentWarehouse, error: fetchError } = await ctx.supabase
+        .from('warehouses')
+        .select(`
+          id,
+          name,
+          capacity_cylinders,
+          address_id,
+          address:addresses(
+            id,
+            line1,
+            line2,
+            city,
+            state,
+            postal_code,
+            country,
+            instructions,
+            latitude,
+            longitude
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (fetchError) {
+        ctx.logger.error('Error fetching current warehouse:', fetchError);
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Warehouse not found',
+        });
+      }
+
+      if (!currentWarehouse) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Warehouse not found',
+        });
+      }
+
+      // Check name uniqueness if name is being updated
+      if (updateData.name && updateData.name !== currentWarehouse.name) {
+        const { data: existingName } = await ctx.supabase
+          .from('warehouses')
+          .select('id')
+          .eq('name', updateData.name)
+          .neq('id', id)
+          .single();
+
+        if (existingName) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'Warehouse name already exists. Please use a unique name.',
+          });
+        }
+      }
+
+      let addressId = currentWarehouse.address_id;
+
+      // Handle address updates dynamically
+      if (updateData.address !== undefined) {
+        if (updateData.address === null) {
+          // Delete address if explicitly set to null
+          if (addressId) {
+            const { error: deleteError } = await ctx.supabase
+              .from('addresses')
+              .delete()
+              .eq('id', addressId);
+
+            if (deleteError) {
+              ctx.logger.error('Address deletion error:', deleteError);
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to delete address: ${deleteError.message}`,
+              });
+            }
+            addressId = null;
+          }
+        } else if (updateData.address) {
+          // Update or create address
+          const addressData = {
+            ...updateData.address,
+            customer_id: null,
+            is_primary: false,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (addressId) {
+            // Update existing address
+            const { error: addressError } = await ctx.supabase
+              .from('addresses')
+              .update(addressData)
+              .eq('id', addressId);
+
+            if (addressError) {
+              ctx.logger.error('Address update error:', addressError);
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to update address: ${addressError.message}`,
+              });
+            }
+          } else {
+            // Create new address
+            const { data: newAddressData, error: addressError } = await ctx.supabase
+              .from('addresses')
+              .insert([{
+                ...addressData,
+                created_at: new Date().toISOString(),
+              }])
+              .select()
+              .single();
+
+            if (addressError) {
+              ctx.logger.error('Address creation error:', addressError);
+              throw new TRPCError({
+                code: 'INTERNAL_SERVER_ERROR',
+                message: `Failed to create address: ${addressError.message}`,
+              });
+            }
+
+            addressId = newAddressData.id;
+          }
+        }
+      }
+
+      // Build dynamic warehouse update object - only include fields that are provided
+      const warehouseUpdate: any = {};
+      
+      if (updateData.name !== undefined) {
+        warehouseUpdate.name = updateData.name;
+      }
+      
+      if (updateData.capacity_cylinders !== undefined) {
+        warehouseUpdate.capacity_cylinders = updateData.capacity_cylinders;
+      }
+      
+      if (addressId !== currentWarehouse.address_id) {
+        warehouseUpdate.address_id = addressId;
+      }
+
+      // Only update if there are warehouse fields to update
+      if (Object.keys(warehouseUpdate).length > 0) {
+        warehouseUpdate.updated_at = new Date().toISOString();
+        
+        const { data, error } = await ctx.supabase
+          .from('warehouses')
+          .update(warehouseUpdate)
+          .eq('id', id)
+          .select(`
+            *,
+            address:addresses(
+              id,
+              line1,
+              line2,
+              city,
+              state,
+              postal_code,
+              country,
+              instructions,
+              latitude,
+              longitude
+            )
+          `)
+          .single();
+
+        if (error) {
+          ctx.logger.error('Update warehouse error:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to update warehouse',
+          });
+        }
+
+        return data;
+      } else {
+        // If only address was updated, fetch the updated warehouse data
+        const { data, error } = await ctx.supabase
+          .from('warehouses')
+          .select(`
+            *,
+            address:addresses(
+              id,
+              line1,
+              line2,
+              city,
+              state,
+              postal_code,
+              country,
+              instructions,
+              latitude,
+              longitude
+            )
+          `)
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          ctx.logger.error('Error fetching updated warehouse:', error);
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to fetch updated warehouse data',
+          });
+        }
+
+        return data;
       }
     }),
 });

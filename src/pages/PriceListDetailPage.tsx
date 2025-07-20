@@ -143,6 +143,9 @@ export const PriceListDetailPage: React.FC = () => {
   }
 
   const statusInfo = getPriceListStatusSync(priceList.start_date, priceList.end_date);
+  
+  // Check if any items use per_unit pricing to determine if we should show Min Qty column
+  const hasPerUnitItems = priceListItems.some(item => item.pricing_method === 'per_unit');
 
   return (
     <div className="space-y-6">
@@ -285,9 +288,9 @@ export const PriceListDetailPage: React.FC = () => {
                     Product
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {priceList.pricing_method === 'per_unit' ? 'Unit Price' : priceList.pricing_method === 'per_kg' ? 'Price per KG (Estimated)' : 'Price'}
+                    Price
                   </th>
-                  {priceList.pricing_method === 'per_unit' && (
+                  {hasPerUnitItems && (
                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Min Qty
                     </th>
@@ -317,18 +320,23 @@ export const PriceListDetailPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
-                      <span className="text-sm font-medium text-gray-900">
-                        {priceList.pricing_method === 'per_unit'
-                          ? formatCurrencySync(item.unit_price, priceList.currency_code)
-                          : priceList.pricing_method === 'per_kg'
-                            ? <>{formatCurrencySync(item.price_per_kg, priceList.currency_code)} <span className="text-xs text-gray-500">(Estimated)</span></>
-                            : '-'}
-                      </span>
+                      <div>
+                        <span className="text-sm font-medium text-gray-900">
+                          {item.pricing_method === 'per_unit'
+                            ? formatCurrencySync(item.unit_price || 0, priceList.currency_code)
+                            : item.pricing_method === 'per_kg'
+                              ? formatCurrencySync(item.price_per_kg || 0, priceList.currency_code)
+                              : '-'}
+                        </span>
+                        <div className="text-xs text-gray-500">
+                          {item.pricing_method === 'per_unit' ? 'per unit' : item.pricing_method === 'per_kg' ? 'per kg' : ''}
+                        </div>
+                      </div>
                     </td>
-                    {priceList.pricing_method === 'per_unit' && (
+                    {hasPerUnitItems && (
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="text-sm text-gray-900">
-                          {item.min_qty}
+                          {item.pricing_method === 'per_unit' ? item.min_qty : '-'}
                         </span>
                       </td>
                     )}
@@ -339,9 +347,9 @@ export const PriceListDetailPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <span className="text-sm font-medium text-gray-900">
-                        {priceList.pricing_method === 'per_unit'
-                          ? formatCurrencySync(calculateFinalPriceSync(item.unit_price, item.surcharge_pct), priceList.currency_code)
-                          : priceList.pricing_method === 'per_kg' && item.product?.capacity_kg && item.price_per_kg
+                        {item.pricing_method === 'per_unit'
+                          ? formatCurrencySync(calculateFinalPriceSync(item.unit_price || 0, item.surcharge_pct), priceList.currency_code)
+                          : item.pricing_method === 'per_kg' && item.product?.capacity_kg && item.price_per_kg
                             ? `${formatCurrencySync(item.product.capacity_kg * item.price_per_kg, priceList.currency_code)} (for ${item.product.capacity_kg}kg)`
                             : '-'}
                       </span>

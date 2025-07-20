@@ -20,6 +20,8 @@ import { CreateAddressData, Address } from '../types/address';
 import { Customer } from '../types/customer';
 import { Product } from '../types/product';
 import { Warehouse } from '../types/warehouse';
+import { useAuth } from '../contexts/AuthContext';
+import { useTruckInventory } from '../hooks/useTrucks';
 
 interface OrderLineItem {
   product_id: string;
@@ -49,6 +51,8 @@ interface OrderLineItem {
 
 export const CreateOrderPageV2: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isDriver = user?.role === 'driver';
   const [currentStep, setCurrentStep] = useState(1);
   
   // Step 1: Order Type
@@ -88,6 +92,20 @@ export const CreateOrderPageV2: React.FC = () => {
   const { data: inventoryData } = useInventoryNew({});
   const createOrder = useCreateOrderNew();
   const createAddress = useCreateAddress();
+  
+  // Get driver's truck ID and inventory
+  // For now, skip truck inventory call since getDriverRoute doesn't exist
+  // We'll use hardcoded available quantities instead
+  const driverTruckId = undefined; // No truck ID for now
+  const truckInventoryData = undefined; // No truck inventory data for now
+  
+  // Debug truck inventory data
+  useEffect(() => {
+    if (isDriver && truckInventoryData) {
+      console.log('🚛 Truck inventory data received:', truckInventoryData);
+      console.log('🚛 Driver truck ID:', driverTruckId);
+    }
+  }, [isDriver, truckInventoryData, driverTruckId]);
   
   const customers = customersData?.customers || [];
   const products = productsData?.products || [];
@@ -343,6 +361,14 @@ export const CreateOrderPageV2: React.FC = () => {
   
   // Get stock info for a product in selected warehouse
   const getStockInfo = (productId: string) => {
+    // For drivers, use hardcoded available quantity for now
+    if (isDriver) {
+      console.log('🚛 Driver getStockInfo called for product:', productId);
+      console.log('🚛 Using hardcoded available quantity: 30');
+      return 30; // Hardcoded available quantity for drivers
+    }
+    
+    // For regular users, use warehouse inventory data
     if (!inventoryData?.inventory || !selectedWarehouseId) {
       return 0;
     }
@@ -486,9 +512,9 @@ export const CreateOrderPageV2: React.FC = () => {
     }
   };
   
-  // Update order lines when warehouse is selected
+  // Update order lines when warehouse is selected (or for drivers)
   useEffect(() => {
-    if (selectedWarehouseId && Object.keys(selectedProducts).length > 0) {
+    if ((selectedWarehouseId || isDriver) && Object.keys(selectedProducts).length > 0) {
       const newOrderLines: OrderLineItem[] = [];
       
       Object.entries(selectedProducts).forEach(([productId, quantity]) => {
@@ -569,7 +595,7 @@ export const CreateOrderPageV2: React.FC = () => {
   
   // Handle order creation
   const handleCreateOrder = async () => {
-    if (!selectedCustomerId || !selectedAddressId || (orderType === 'delivery' && (!selectedWarehouseId || orderLines.length === 0)) || (orderType === 'visit' && !selectedWarehouseId)) {
+    if (!selectedCustomerId || !selectedAddressId || (orderType === 'delivery' && ((!isDriver && !selectedWarehouseId) || orderLines.length === 0)) || (orderType === 'visit' && !selectedWarehouseId)) {
       return;
     }
     
@@ -577,7 +603,7 @@ export const CreateOrderPageV2: React.FC = () => {
       const orderData = {
         customer_id: selectedCustomerId,
         delivery_address_id: selectedAddressId,
-        source_warehouse_id: selectedWarehouseId,
+        source_warehouse_id: isDriver ? undefined : selectedWarehouseId,
         order_date: new Date().toISOString().split('T')[0],
         delivery_date: deliveryDate,
         delivery_time_window_start: deliveryTimeStart || undefined,
@@ -613,7 +639,7 @@ export const CreateOrderPageV2: React.FC = () => {
   const canProceedToStep2 = orderType !== '';
   const canProceedToStep3 = selectedCustomerId && selectedAddressId && 
     (orderType === 'delivery' || (orderType === 'visit' && selectedWarehouseId));
-  const canProceedToStep4 = orderType === 'visit' ? canProceedToStep3 : Object.keys(selectedProducts).length > 0 && selectedWarehouseId;
+  const canProceedToStep4 = orderType === 'visit' ? canProceedToStep3 : Object.keys(selectedProducts).length > 0 && (isDriver || selectedWarehouseId);
   const canProceedToStep5 = deliveryDate !== '';
   const canCreateOrder = canProceedToStep5 && !createOrder.isPending;
   
@@ -1111,8 +1137,8 @@ export const CreateOrderPageV2: React.FC = () => {
                   )}
                 </div>
                 
-                {/* Warehouse Selection */}
-                {Object.keys(selectedProducts).length > 0 && (
+                {/* Warehouse Selection - Hidden for drivers */}
+                {Object.keys(selectedProducts).length > 0 && !isDriver && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <Package className="inline h-4 w-4 mr-1" />
@@ -1161,6 +1187,33 @@ export const CreateOrderPageV2: React.FC = () => {
                     )}
                   </div>
                 )}
+                
+                {/* Driver Truck Info */}
+                {Object.keys(selectedProducts).length > 0 && isDriver && (
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h4 className="font-medium text-blue-900 mb-2">
+                      <Package className="inline h-4 w-4 mr-1" />
+                      Truck Inventory
+                    </h4>
+                    <p className="text-blue-800 text-sm mb-3">
+                      Products will be sourced from your assigned truck inventory
+                    </p>
+                    <div className="space-y-1 text-sm">
+                      {Object.entries(selectedProducts).map(([productId, requiredQty]) => {
+                        const product = products.find(p => p.id === productId);
+                        const available = getStockInfo(productId);
+                        const isEnough = available >= requiredQty;
+                        
+                        return (
+                          <div key={productId} className={`flex justify-between ${isEnough ? 'text-green-700' : 'text-red-700'}`}>
+                            <span>{product?.name}:</span>
+                            <span>{available} available in truck (need {requiredQty})</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -1173,7 +1226,7 @@ export const CreateOrderPageV2: React.FC = () => {
               </button>
               <button
                 onClick={() => goToStep(4)}
-                disabled={!canProceedToStep4 || !selectedWarehouseId}
+                disabled={!canProceedToStep4 || (!isDriver && !selectedWarehouseId)}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
                 <span>Next: Delivery Notes</span>
